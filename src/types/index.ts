@@ -1,0 +1,172 @@
+// ─── Programs ─────────────────────────────────────────────────────────────────
+export type ProgramId = 'program_a' | 'program_b' | 'program_c'
+
+export interface Program {
+  id: ProgramId
+  name: string
+  description: string
+  stages: Stage[]
+}
+
+export interface Stage {
+  id: string
+  name: string
+  order: number
+  description: string
+}
+
+// ─── Readiness ────────────────────────────────────────────────────────────────
+export type ReadinessStatus = 'Ready' | 'Conditionally Ready' | 'Not Ready'
+
+// ─── Analyzer ─────────────────────────────────────────────────────────────────
+export interface AnalyzerInput {
+  business_name: string
+  business_age: string
+  entity_type: string
+  industry: string
+  monthly_revenue_range: string
+  monthly_deposit_range: string
+  nsf_last_90_days: boolean
+  credit_score_range: string
+  utilization_range: string
+  inquiry_count_last_90_days: string
+  business_credit_reporting_status: string
+  primary_goal: 'business_cards' | 'build_ein_credit' | 'stay_ready'
+}
+
+export interface AnalyzerResult {
+  readiness_status: ReadinessStatus
+  assigned_program: ProgramId
+  risk_flags: string[]
+  summary: string
+  recommendation: string
+}
+
+// ─── User Profile ─────────────────────────────────────────────────────────────
+export interface UserProfile {
+  id: string
+  full_name: string
+  email: string
+  business_name: string | null
+  business_age: string | null
+  entity_type: string | null
+  industry: string | null
+  monthly_revenue_range: string | null
+  monthly_deposit_range: string | null
+  nsf_flag: boolean
+  credit_score_range: string | null
+  utilization_range: string | null
+  inquiry_range: string | null
+  business_credit_reporting_status: string | null
+  assigned_program: ProgramId | null
+  readiness_status: ReadinessStatus | null
+  current_stage: string | null
+  next_task_id: string | null
+  progress_percentage: number
+  subscription_status: SubscriptionStatus
+  created_at: string
+  updated_at: string
+}
+
+// ─── Subscription ─────────────────────────────────────────────────────────────
+export type SubscriptionStatus = 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing'
+
+export interface Subscription {
+  id: string
+  user_id: string
+  stripe_subscription_id: string | null
+  stripe_customer_id: string | null
+  status: SubscriptionStatus
+  program: ProgramId | null
+  current_period_start: string | null
+  current_period_end: string | null
+  created_at: string
+  updated_at: string
+}
+
+// ─── Tasks ────────────────────────────────────────────────────────────────────
+export type TaskStatus = 'pending' | 'completed' | 'locked' | 'overdue'
+
+export interface Task {
+  task_id: string
+  user_id: string
+  program: ProgramId
+  stage: string
+  title: string
+  description: string
+  status: TaskStatus
+  due_date: string | null
+  requires_document: boolean
+  completed_at: string | null
+  sort_order: number
+  created_at: string
+}
+
+// ─── Documents ────────────────────────────────────────────────────────────────
+export type DocumentType =
+  | 'personal_credit_report'
+  | 'business_formation'
+  | 'ein_letter'
+  | 'bank_statement'
+  | 'vendor_confirmation'
+  | 'other'
+
+export type ReviewStatus = 'pending' | 'reviewed' | 'approved' | 'rejected'
+
+export interface Document {
+  document_id: string
+  user_id: string
+  document_type: DocumentType
+  file_url: string
+  file_name: string
+  file_size: number
+  uploaded_at: string
+  review_status: ReviewStatus
+  notes: string | null
+}
+
+// ─── Reports ──────────────────────────────────────────────────────────────────
+export type ReportType =
+  | 'credit_readiness_summary'
+  | 'funding_readiness_analysis'
+  | 'tradeline_progress_report'
+  | 'monthly_monitoring_report'
+  | 'next_step_summary'
+
+export interface Report {
+  report_id: string
+  user_id: string
+  report_type: ReportType
+  generated_at: string
+  content: string
+  title: string
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+export type NotificationType = 'reminder' | 'task_due' | 'report_ready' | 'ai_update' | 'system'
+
+export interface Notification {
+  id: string
+  user_id: string
+  type: NotificationType
+  title: string
+  message: string
+  read: boolean
+  created_at: string
+}
+
+// ─── AI Agent ─────────────────────────────────────────────────────────────────
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+}
+
+export interface AgentContext {
+  profile: UserProfile
+  tasks: Task[]
+  documents: Document[]
+  reports: Report[]
+  notifications: Notification[]
+}

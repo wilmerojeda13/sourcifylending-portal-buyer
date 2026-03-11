@@ -1,0 +1,237 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { stripe, PRICE_IDS, thirtyDaysFromNow } from '@/lib/stripe'
+import { createServiceClient } from '@/lib/supabase/server'
+import { generateTasksForUser } from '@/lib/task-templates'
+import type { ProgramId } from '@/types'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import Stripe from 'stripe'
+
+// ─── Program Metadata ─────────────────────────────────────────────────────────
+const PROGRAM_STAGES: Record<ProgramId, string> = {
+  program_a: 'Credit Readiness',
+  program_b: 'Foundation',
+  program_c: 'Monthly Review',
+}
+
+const PROGRAM_NAMES: Record<ProgramId, string> = {
+  program_a: '0% Intro APR Advisory',
+  program_b: 'Business Credit Builder',
+  program_c: 'Capital Monitoring Membership',
+}
+
+// ─── Helper: activate a user after successful payment ─────────────────────────
+async function activateUser(
+  supabase: SupabaseClient,
+  userId: string,
+  program: ProgramId,
+  subscriptionId: string,
+  customerId: string,
+  periodEnd?: string,
+) {
+  // 1. Upsert subscription record
+  await supabase.from('subscriptions').upsert({
+    user_id: userId,
+    stripe_subscription_id: subscriptionId,
+    stripe_customer_id: customerId,
+    status: 'active',
+    program,
+    current_period_end: periodEnd ?? null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' })
+
+  // 2. Update profile
+  await supabase.from('profiles').update({
+    subscription_status: 'active',
+    assigned_program: program,
+    current_stage: PROGRAM_STAGES[program],
+    progress_percentage: 0,
+    updated_at: new Date().toISOString(),
+  }).eq('id', userId)
+
+  // 3. Generate tasks if none exist yet
+  const { data: existing } = await supabase
+    .from('tasks').select('task_id').eq('user_id', userId).limit(1)
+  if (!existing || existing.length === 0) {
+    const tasks = generateTasksForUser(userId, program)
+    for (const task of tasks) {
+      await supabase.from('tasks').insert({ ...task, created_at: new Date().toISOString() })
+    }
+  }
+
+  // 4. Welcome notification
+  await supabase.from('notifications').insert({
+    user_id: userId,
+    type: 'system',
+    title: '🎉 Welcome to SourcifyLending!',
+    message: `Your ${PROGRAM_NAMES[program]} program is now active. Head to your dashboard to see your first task.`,
+    read: false,
+    created_at: new Date().toISOString(),
+  })
+}
+
+// ─── Main Webhook Handler ─────────────────────────────────────────────────────
+export async function POST(req: NextRequest) {
+  const body = await req.text()
+  const sig  = req.headers.get('stripe-signature')!
+
+  let event: Stripe.Event
+  try {
+    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!)
+  } catch (err) {
+    console.error('Webhook signature error:', err)
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+  }
+
+  const supabase = await createServiceClient()
+
+  switch (event.type) {
+
+    // ── Checkout completed ──────────────────────────────────────────────────
+    case 'checkout.session.completed': {
+      const session    = event.data.object as Stripe.CheckoutSession
+      const userId     = session.metadata?.user_id
+      const program    = session.metadata?.program as ProgramId
+      const sessionType = session.metadata?.session_type   // 'setup_fee' | 'subscription'
+      const customerId = session.customer as string
+
+      if (!userId || !program) break
+
+      if (sessionType === 'setup_fee') {
+        // ── Programs A & B: setup fee paid ─────────────────────────────────
+        // Retrieve payment intent to get the saved payment method
+        const paymentIntent = await stripe.paymentIntents.retrieve(
+          session.payment_intent as string
+        )
+        const paymentMethodId = paymentIntent.payment_method as string
+
+        // Create monthly subscription starting 30 days from now
+        const prices = PRICE_IDS[program] as { setup: string; monthly: string }
+        const subscription = await stripe.subscriptions.create({
+          customer: customerId,
+          items: [{ price: prices.monthly }],
+          trial_end: thirtyDaysFromNow(),
+          default_payment_method: paymentMethodId,
+          metadata: { user_id: userId, program },
+        })
+
+        const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+        await activateUser(supabase, userId, program, subscription.id, customerId, periodEnd)
+
+        // Extra notification about the delayed billing
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          type: 'system',
+          title: '📅 Subscription Starts in 30 Days',
+          message: `Your setup fee has been processed. Your monthly subscription will begin on ${new Date(thirtyDaysFromNow() * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`,
+          read: false,
+          created_at: new Date().toISOString(),
+        })
+
+      } else {
+        // ── Program C: standard monthly subscription ───────────────────────
+        const subscriptionId = session.subscription as string
+        const sub = await stripe.subscriptions.retrieve(subscriptionId)
+        const periodEnd = new Date(sub.current_period_end * 1000).toISOString()
+        await activateUser(supabase, userId, program, subscriptionId, customerId, periodEnd)
+      }
+
+      break
+    }
+
+    // ── Subscription updated (e.g. trial ended, payment method changed) ────
+    case 'customer.subscription.updated': {
+      const sub    = event.data.object as Stripe.Subscription
+      const userId = sub.metadata?.user_id
+      if (!userId) break
+
+      const status = (sub.status === 'active' || sub.status === 'trialing')
+        ? sub.status
+        : 'inactive'
+
+      await supabase.from('subscriptions').update({
+        status,
+        current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+        current_period_end:   new Date(sub.current_period_end   * 1000).toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('user_id', userId)
+
+      await supabase.from('profiles').update({
+        subscription_status: status,
+        updated_at: new Date().toISOString(),
+      }).eq('id', userId)
+
+      break
+    }
+
+    // ── Subscription canceled ───────────────────────────────────────────────
+    case 'customer.subscription.deleted': {
+      const sub    = event.data.object as Stripe.Subscription
+      const userId = sub.metadata?.user_id
+      if (!userId) break
+
+      await supabase.from('subscriptions').update({
+        status: 'canceled',
+        updated_at: new Date().toISOString(),
+      }).eq('user_id', userId)
+
+      await supabase.from('profiles').update({
+        subscription_status: 'canceled',
+        updated_at: new Date().toISOString(),
+      }).eq('id', userId)
+
+      // Lock all in-progress tasks
+      await supabase.from('tasks')
+        .update({ status: 'locked' })
+        .eq('user_id', userId)
+        .eq('status', 'pending')
+
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        type: 'system',
+        title: 'Membership Canceled',
+        message: 'Your membership has been canceled. Your progress is saved — reactivate anytime to pick up where you left off.',
+        read: false,
+        created_at: new Date().toISOString(),
+      })
+
+      break
+    }
+
+    // ── Payment failed ──────────────────────────────────────────────────────
+    case 'invoice.payment_failed': {
+      const invoice    = event.data.object as Stripe.Invoice
+      const customerId = invoice.customer as string
+
+      const { data: sub } = await supabase
+        .from('subscriptions')
+        .select('user_id')
+        .eq('stripe_customer_id', customerId)
+        .single()
+
+      if (sub?.user_id) {
+        await supabase.from('subscriptions').update({
+          status: 'past_due',
+          updated_at: new Date().toISOString(),
+        }).eq('stripe_customer_id', customerId)
+
+        await supabase.from('profiles').update({
+          subscription_status: 'past_due',
+          updated_at: new Date().toISOString(),
+        }).eq('id', sub.user_id)
+
+        await supabase.from('notifications').insert({
+          user_id: sub.user_id,
+          type: 'system',
+          title: '⚠️ Payment Failed',
+          message: 'Your recent payment failed. Please update your billing info to avoid a service interruption.',
+          read: false,
+          created_at: new Date().toISOString(),
+        })
+      }
+
+      break
+    }
+  }
+
+  return NextResponse.json({ received: true })
+}
