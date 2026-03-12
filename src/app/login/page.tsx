@@ -1,12 +1,12 @@
 'use client'
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { loginAction } from './actions'
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo') || '/dashboard'
 
@@ -19,20 +19,13 @@ function LoginForm() {
     e.preventDefault()
     setLoading(true)
 
-    const res = await fetch('/api/auth/signin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
+    const result = await loginAction(email, password)
 
+    // If loginAction called redirect(), we never reach here.
+    // If we reach here, there was an error.
     setLoading(false)
-
-    if (!res.ok) {
-      const data = await res.json()
-      toast.error(data.error || 'Sign in failed')
-    } else {
-      toast.success('Welcome back!')
-      window.location.href = redirectTo
+    if (result?.error) {
+      toast.error(result.error)
     }
   }
 
