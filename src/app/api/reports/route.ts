@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { logActivity } from '@/lib/activity'
 import OpenAI from 'openai'
 import type { ReportType } from '@/types'
 import { v4 as uuidv4 } from 'uuid'
@@ -185,6 +186,8 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabase.from('reports').insert(report)
     if (error) throw error
+
+    await logActivity(user.id, 'report_generated', { report_type, report_id: report.report_id }, req)
 
     return NextResponse.json(report)
   } catch (error) {

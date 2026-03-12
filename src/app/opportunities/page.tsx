@@ -1,0 +1,78 @@
+export const dynamic = 'force-dynamic'
+
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import PortalLayout from '@/components/layout/PortalLayout'
+import { getProgramShortLabel } from '@/lib/utils'
+import OpportunitiesClient from './OpportunitiesClient'
+import type { AccountOpportunity } from '@/types'
+
+export default async function OpportunitiesPage() {
+  const supabase = await createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+
+  if (!session) redirect('/login')
+
+  const user = session.user
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  const [{ data: notifications }, { data: opportunities }] = await Promise.all([
+    supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
+    supabase
+      .from('account_opportunities')
+      .select('*')
+      .in('program', [profile?.assigned_program ?? 'program_a', 'all'])
+      .eq('is_active', true)
+      .order('priority_score', { ascending: false }),
+  ])
+
+  const isActive =
+    profile?.subscription_status === 'active' ||
+    profile?.subscription_status === 'trialing'
+
+  return (
+    <PortalLayout
+      userName={profile?.full_name || user.email || 'Client'}
+      programLabel={getProgramShortLabel(profile?.assigned_program)}
+      notificationCount={notifications?.length || 0}
+      assignedProgram={profile?.assigned_program}
+    >
+      <div className="mb-6">
+        <h1 className="page-title">Funding Opportunities</h1>
+        <p className="text-gray-500 text-sm mt-1">
+          Curated accounts and credit opportunities for your program.
+        </p>
+      </div>
+
+      {!isActive && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 text-sm text-amber-800">
+          <strong>Membership inactive.</strong> Reactivate to unlock full opportunity details and application guidance.
+        </div>
+      )}
+
+      <OpportunitiesClient
+        opportunities={(opportunities ?? []) as AccountOpportunity[]}
+        currentStage={profile?.current_stage ?? null}
+        assignedProgram={profile?.assigned_program ?? null}
+        isActive={isActive}
+      />
+
+      {/* Legal disclaimer */}
+      <div className="mt-8 border-t border-gray-200 pt-5 text-xs text-gray-400 leading-relaxed">
+        <p>
+          <strong className="text-gray-500">Disclaimer:</strong> The funding accounts and credit opportunities listed
+          above are provided for informational and educational purposes only. SourcifyLending does not guarantee
+          approval, specific credit limits, or outcomes from any lender or creditor. Approval decisions are made
+          solely by the respective issuer based on your creditworthiness and their criteria. These listings represent
+          common opportunities used in credit-building programs and are subject to change without notice. Nothing
+          on this page constitutes financial advice, credit repair services, or a promise of results.
+        </p>
+      </div>
+    </PortalLayout>
+  )
+}

@@ -4,9 +4,8 @@
     {
       "name": "SourcifyLending Portal (Next.js)",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "start-dev.cmd"],
+      "runtimeArgs": ["/c", "npm run dev"],
       "port": 3000
     }
   ]
 }
-

@@ -64,7 +64,11 @@
       "Bash(powershell.exe -Command \"& ''C:\\\\Program Files\\\\nodejs\\\\npm.cmd'' root -g\")",
       "Bash(powershell.exe -Command \"& ''C:\\\\Program Files\\\\nodejs\\\\node.exe'' ''C:\\\\Users\\\\abelf\\\\AppData\\\\Local\\\\Temp\\\\gen_sop.js''\")",
       "Bash(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\src\\\\app\\\\api\\\\auth\\\\signin\")",
-      "Bash(Out-Null)"
+      "Bash(Out-Null)",
+      "Bash(node -e \"const pkg = require\\(''./node_modules/@supabase/ssr/package.json''\\); console.log\\(''@supabase/ssr:'', pkg.version\\)\")",
+      "Bash(node -e \"const pkg = require\\(''./node_modules/@supabase/supabase-js/package.json''\\); console.log\\(''@supabase/supabase-js:'', pkg.version\\)\")",
+      "Bash(node -e \"const ssr = require\\(''@supabase/ssr''\\); console.log\\(''Exports:'', Object.keys\\(ssr\\)\\)\")",
+      "Bash(ls \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\supabase\\\\migrations\"\" 2>/dev/null || ls \"C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/supabase/migrations/ \")"
     ]
   }
 }

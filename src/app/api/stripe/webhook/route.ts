@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { stripe, PRICE_IDS, thirtyDaysFromNow } from '@/lib/stripe'
 import { createServiceClient } from '@/lib/supabase/server'
 import { generateTasksForUser } from '@/lib/task-templates'
+import { logActivity } from '@/lib/activity'
 import type { ProgramId } from '@/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
@@ -116,6 +117,7 @@ export async function POST(req: NextRequest) {
 
         const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
         await activateUser(supabase, userId, program, subscription.id, customerId, periodEnd)
+        await logActivity(userId, 'checkout_completed', { program, session_type: 'setup_fee', subscription_id: subscription.id })
 
         // Extra notification about the delayed billing
         await supabase.from('notifications').insert({
@@ -133,6 +135,7 @@ export async function POST(req: NextRequest) {
         const sub = await stripe.subscriptions.retrieve(subscriptionId)
         const periodEnd = new Date(sub.current_period_end * 1000).toISOString()
         await activateUser(supabase, userId, program, subscriptionId, customerId, periodEnd)
+        await logActivity(userId, 'checkout_completed', { program, session_type: 'subscription', subscription_id: subscriptionId })
       }
 
       break
@@ -148,6 +151,8 @@ export async function POST(req: NextRequest) {
         ? sub.status
         : 'inactive'
 
+      const prevStatus = (event.data.previous_attributes as Stripe.Subscription | undefined)?.status
+
       await supabase.from('subscriptions').update({
         status,
         current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
@@ -159,6 +164,11 @@ export async function POST(req: NextRequest) {
         subscription_status: status,
         updated_at: new Date().toISOString(),
       }).eq('id', userId)
+
+      if ((status === 'active' || status === 'trialing') &&
+          prevStatus && prevStatus !== 'active' && prevStatus !== 'trialing') {
+        await logActivity(userId, 'subscription_reactivated', { status, previous_status: prevStatus })
+      }
 
       break
     }
@@ -194,6 +204,8 @@ export async function POST(req: NextRequest) {
         created_at: new Date().toISOString(),
       })
 
+      await logActivity(userId, 'subscription_canceled', { subscription_id: sub.id })
+
       break
     }
 
@@ -227,6 +239,8 @@ export async function POST(req: NextRequest) {
           read: false,
           created_at: new Date().toISOString(),
         })
+
+        await logActivity(sub.user_id, 'payment_failed', { customer_id: customerId })
       }
 
       break

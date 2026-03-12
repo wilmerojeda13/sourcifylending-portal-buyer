@@ -1,16 +1,74 @@
 -- ============================================================
 -- SourcifyLending Portal — Seed Data
 -- ============================================================
--- NOTE: Auth users must exist in auth.users first.
--- In local Supabase dev, create them via `supabase auth create-user`
--- or through the dashboard. Replace the UUIDs below with real ones.
---
--- Placeholder UUIDs (replace with real auth user IDs):
---   Program A client  : aaaaaaaa-0000-0000-0000-000000000001
---   Program B client  : bbbbbbbb-0000-0000-0000-000000000002
---   Program C client  : cccccccc-0000-0000-0000-000000000003
---   Canceled client   : dddddddd-0000-0000-0000-000000000004
+-- Creates demo auth users + full profile/task/report data.
+-- Safe to re-run (ON CONFLICT DO NOTHING everywhere).
 -- ============================================================
+
+-- ─── Create demo auth users first (required for FK on profiles) ─────────────
+INSERT INTO auth.users (
+  id, instance_id, aud, role, email,
+  encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data,
+  created_at, updated_at,
+  confirmation_token, recovery_token, email_change_token_new,
+  email_change
+) VALUES
+  (
+    'aaaaaaaa-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated', 'authenticated', 'jordan@example.com',
+    crypt('demo_password_123', gen_salt('bf')),
+    NOW(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"Jordan Mitchell"}'::jsonb,
+    NOW() - INTERVAL '45 days', NOW(),
+    '', '', '', ''
+  ),
+  (
+    'bbbbbbbb-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated', 'authenticated', 'samantha@example.com',
+    crypt('demo_password_123', gen_salt('bf')),
+    NOW(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"Samantha Rivera"}'::jsonb,
+    NOW() - INTERVAL '30 days', NOW(),
+    '', '', '', ''
+  ),
+  (
+    'cccccccc-0000-0000-0000-000000000003',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated', 'authenticated', 'marcus@example.com',
+    crypt('demo_password_123', gen_salt('bf')),
+    NOW(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"Marcus Johnson"}'::jsonb,
+    NOW() - INTERVAL '60 days', NOW(),
+    '', '', '', ''
+  ),
+  (
+    'dddddddd-0000-0000-0000-000000000004',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated', 'authenticated', 'taylor@example.com',
+    crypt('demo_password_123', gen_salt('bf')),
+    NOW(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"Taylor Brooks"}'::jsonb,
+    NOW() - INTERVAL '90 days', NOW(),
+    '', '', '', ''
+  )
+ON CONFLICT (id) DO NOTHING;
+
+-- Also create identities for each demo user (required by Supabase auth)
+INSERT INTO auth.identities (
+  id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at
+) VALUES
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'email', '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","email":"jordan@example.com"}'::jsonb, NOW(), NOW() - INTERVAL '45 days', NOW()),
+  ('bbbbbbbb-0000-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000002', 'email', '{"sub":"bbbbbbbb-0000-0000-0000-000000000002","email":"samantha@example.com"}'::jsonb, NOW(), NOW() - INTERVAL '30 days', NOW()),
+  ('cccccccc-0000-0000-0000-000000000003', 'cccccccc-0000-0000-0000-000000000003', 'cccccccc-0000-0000-0000-000000000003', 'email', '{"sub":"cccccccc-0000-0000-0000-000000000003","email":"marcus@example.com"}'::jsonb, NOW(), NOW() - INTERVAL '60 days', NOW()),
+  ('dddddddd-0000-0000-0000-000000000004', 'dddddddd-0000-0000-0000-000000000004', 'dddddddd-0000-0000-0000-000000000004', 'email', '{"sub":"dddddddd-0000-0000-0000-000000000004","email":"taylor@example.com"}'::jsonb, NOW(), NOW() - INTERVAL '90 days', NOW())
+ON CONFLICT (id) DO NOTHING;
 
 -- ─── Profiles ─────────────────────────────────────────────────────────────────
 

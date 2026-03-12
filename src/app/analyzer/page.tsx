@@ -6,7 +6,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/Badge'
 import type { AnalyzerInput, AnalyzerResult } from '@/types'
 
-const TOTAL_STEPS = 12
+const TOTAL_STEPS = 11
 
 const QUESTIONS = [
   {
@@ -28,10 +28,6 @@ const QUESTIONS = [
   {
     id: 'monthly_revenue_range', label: 'What is your average monthly business revenue?', type: 'select',
     options: ['$0 - $2,500', '$2,500 - $10,000', '$10,000 - $25,000', '$25,000 - $50,000', '$50,000 - $100,000', '$100,000+'],
-  },
-  {
-    id: 'monthly_deposit_range', label: 'What is your average monthly bank deposit amount?', type: 'select',
-    options: ['$0 - $2,500', '$2,500 - $10,000', '$10,000 - $25,000', '$25,000 - $50,000', '$50,000+'],
   },
   {
     id: 'nsf_last_90_days', label: 'Have you had any NSF or overdraft activity in the last 90 days?', type: 'boolean',

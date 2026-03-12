@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { stripe, PRICE_IDS, PROGRAM_INFO } from '@/lib/stripe'
+import { logActivity } from '@/lib/activity'
 import type { ProgramId } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -81,6 +82,8 @@ export async function POST(req: NextRequest) {
         },
       })
     }
+
+    await logActivity(user.id, 'checkout_started', { program, session_id: session.id }, req)
 
     return NextResponse.json({ url: session.url })
   } catch (error) {

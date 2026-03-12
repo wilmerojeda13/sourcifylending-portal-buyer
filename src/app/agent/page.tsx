@@ -115,6 +115,10 @@ export default function AgentPage() {
     <PortalLayout
       userName={profile?.full_name || ''}
       programLabel={getProgramShortLabel(profile?.assigned_program)}
+      assignedProgram={profile?.assigned_program}
+      portalBlocked={profile?.portal_blocked}
+      isDemo={profile?.is_demo}
+      isAdmin={profile?.is_admin}
     >
       <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)]">
         {/* Header */}

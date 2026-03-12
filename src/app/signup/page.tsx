@@ -63,6 +63,15 @@ export default function SignupPage() {
       })
     }
 
+    // Log signup event
+    if (data.user) {
+      await fetch('/api/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_type: 'signup', event_data: { email: form.email } }),
+      }).catch(() => {})
+    }
+
     setLoading(false)
     setDone(true)
   }

@@ -21,9 +21,25 @@ export default function LoginForm() {
 
     if (error) {
       setLoading(false)
-      toast.error(error.message)
+      const msg = error.message?.toLowerCase() ?? ''
+      if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('wrong password')) {
+        toast.error('Invalid email or password.')
+      } else if (msg.includes('email not confirmed')) {
+        toast.error('Please confirm your email before signing in.')
+      } else if (msg.includes('too many requests') || msg.includes('rate limit')) {
+        toast.error('Too many attempts. Please wait a moment and try again.')
+      } else {
+        toast.error('Sign in failed. Please check your credentials and try again.')
+      }
       return
     }
+
+    // Fire-and-forget login event
+    fetch('/api/activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_type: 'login' }),
+    }).catch(() => {})
 
     window.location.href = '/dashboard'
   }

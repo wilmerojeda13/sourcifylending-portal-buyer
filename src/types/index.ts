@@ -64,6 +64,10 @@ export interface UserProfile {
   next_task_id: string | null
   progress_percentage: number
   subscription_status: SubscriptionStatus
+  portal_blocked: boolean
+  is_demo: boolean
+  is_admin: boolean
+  admin_notes: string | null
   created_at: string
   updated_at: string
 }
@@ -153,6 +157,71 @@ export interface Notification {
   message: string
   read: boolean
   created_at: string
+}
+
+// ─── Agreements ───────────────────────────────────────────────────────────────
+export interface Agreement {
+  id: string
+  user_id: string
+  program: ProgramId
+  agreement_version: string
+  accepted_at: string
+  ip_address: string | null
+  user_agent: string | null
+  created_at: string
+}
+
+// ─── Activity Logs ────────────────────────────────────────────────────────────
+export type ActivityEventType =
+  | 'signup'
+  | 'login'
+  | 'analyzer_completed'
+  | 'agreement_accepted'
+  | 'checkout_started'
+  | 'checkout_completed'
+  | 'subscription_reactivated'
+  | 'subscription_canceled'
+  | 'payment_failed'
+  | 'task_completed'
+  | 'document_uploaded'
+  | 'report_generated'
+  | 'portal_accessed'
+  | 'portal_blocked'
+  | 'portal_unblocked'
+  | 'notification_sent'
+  | 'admin_profile_updated'
+
+export interface ActivityLog {
+  id: string
+  user_id: string
+  event_type: ActivityEventType
+  event_data: Record<string, unknown> | null
+  ip_address: string | null
+  user_agent: string | null
+  created_at: string
+}
+
+// ─── Account Opportunities ────────────────────────────────────────────────────
+export type OpportunityCategory = 'funding' | 'vendor' | 'store' | 'fleet' | 'cash' | 'monitoring'
+export type OpportunityPG = 'yes' | 'no' | 'varies'
+
+export interface AccountOpportunity {
+  id: string
+  name: string
+  program: string
+  stage: string
+  category: OpportunityCategory
+  reports_to: string | null
+  terms: string | null
+  pg_required: OpportunityPG
+  description: string | null
+  learn_more_url: string | null
+  apply_url: string | null
+  priority_score: number
+  is_active: boolean
+  notes: string | null
+  created_at: string
+  updated_at: string
 }
 
 // ─── AI Agent ─────────────────────────────────────────────────────────────────

@@ -79,6 +79,10 @@ export default function ReportsPage() {
     <PortalLayout
       userName={profile?.full_name || ''}
       programLabel={getProgramShortLabel(profile?.assigned_program)}
+      assignedProgram={profile?.assigned_program}
+      portalBlocked={profile?.portal_blocked}
+      isDemo={profile?.is_demo}
+      isAdmin={profile?.is_admin}
     >
       <div className="mb-6">
         <h1 className="page-title flex items-center gap-2">

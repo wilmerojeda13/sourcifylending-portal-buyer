@@ -4,13 +4,13 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Bot, FileText, CheckSquare, BarChart2,
-  CreditCard, Bell, LogOut, Menu, X, ChevronRight
+  CreditCard, Bell, LogOut, Menu, X, ChevronRight, Star, TrendingUp, ShieldCheck
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/agent', label: 'AI Agent', icon: Bot },
   { href: '/documents', label: 'Documents', icon: FileText },
@@ -19,11 +19,18 @@ const NAV_ITEMS = [
   { href: '/billing', label: 'Billing', icon: CreditCard },
 ]
 
+// Bottom mobile nav always shows these 6
+const MOBILE_NAV_ITEMS = BASE_NAV_ITEMS
+
 interface PortalLayoutProps {
   children: React.ReactNode
   userName?: string
   programLabel?: string
   notificationCount?: number
+  assignedProgram?: string | null
+  portalBlocked?: boolean
+  isDemo?: boolean
+  isAdmin?: boolean
 }
 
 export default function PortalLayout({
@@ -31,15 +38,60 @@ export default function PortalLayout({
   userName = 'Client',
   programLabel,
   notificationCount = 0,
+  assignedProgram,
+  portalBlocked = false,
+  isDemo = false,
+  isAdmin = false,
 }: PortalLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
   const supabase = createClient()
 
+  // Build sidebar nav: inject program-specific items after Progress
+  const sidebarNavItems = [
+    ...BASE_NAV_ITEMS.slice(0, 4), // Dashboard, AI Agent, Documents, Progress
+    ...(assignedProgram === 'program_a'
+      ? [{ href: '/credit-optimization', label: 'Credit Optimization', icon: Star }]
+      : []),
+    { href: '/opportunities', label: 'Opportunities', icon: TrendingUp },
+    ...BASE_NAV_ITEMS.slice(4), // Reports, Billing
+  ]
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  // Hard suspension screen — overrides all portal content
+  if (portalBlocked) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-5">
+            <span className="text-3xl">🚫</span>
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">Account Suspended</h1>
+          <p className="text-gray-500 text-sm leading-relaxed mb-6">
+            Your portal access has been temporarily suspended. Please contact our support team to resolve this.
+          </p>
+          <a
+            href="mailto:support@sourcifylending.com"
+            className="inline-flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-6 py-3 rounded-xl hover:bg-green-700 transition-colors"
+          >
+            Contact Support
+          </a>
+          <div className="mt-6">
+            <button
+              onClick={handleSignOut}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const NavLink = ({ href, label, icon: Icon }: typeof NAV_ITEMS[number]) => {
@@ -79,13 +131,23 @@ export default function PortalLayout({
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map((item) => (
+        {sidebarNavItems.map((item) => (
           <NavLink key={item.href} {...item} />
         ))}
       </nav>
 
       {/* Bottom actions */}
       <div className="px-3 py-4 border-t border-gray-100 space-y-1">
+        {isAdmin && (
+          <Link
+            href="/admin"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
+          >
+            <ShieldCheck size={18} className="text-green-600" />
+            <span>Admin Panel</span>
+          </Link>
+        )}
         <Link
           href="/notifications"
           onClick={() => setMobileOpen(false)}
@@ -112,8 +174,13 @@ export default function PortalLayout({
 
       {/* User info */}
       <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
-        <p className="text-xs font-semibold text-gray-700 truncate">{userName}</p>
-        <p className="text-xs text-gray-400 mt-0.5">Client Account</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-gray-700 truncate">{userName}</p>
+          {isDemo && (
+            <span className="text-[9px] font-bold px-1 py-0.5 bg-amber-100 text-amber-700 rounded-full uppercase shrink-0">Demo</span>
+          )}
+        </div>
+        <p className="text-xs text-gray-400 mt-0.5">{isDemo ? 'Demo Account' : 'Client Account'}</p>
       </div>
     </div>
   )
@@ -174,13 +241,22 @@ export default function PortalLayout({
 
         {/* Page Content */}
         <main className="flex-1 p-4 md:p-6 pb-24 lg:pb-6 max-w-5xl w-full mx-auto">
+          {isDemo && (
+            <div className="mb-5 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+              <span className="text-lg">🧪</span>
+              <div>
+                <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Demo Account</p>
+                <p className="text-xs text-amber-600 leading-snug">This is a seeded demo for testing and sales purposes. Data is not real.</p>
+              </div>
+            </div>
+          )}
           {children}
         </main>
 
         {/* Mobile Bottom Navigation */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-10 px-1 py-1.5 safe-area-pb">
           <div className="grid grid-cols-6 gap-0.5">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+            {MOBILE_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
               const active = pathname === href || pathname.startsWith(href + '/')
               return (
                 <Link

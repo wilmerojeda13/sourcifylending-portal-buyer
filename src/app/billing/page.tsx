@@ -47,45 +47,34 @@ const PLAN_PRICES: Record<string, string> = {
 export default function BillingPage() {
   const supabase = createClient()
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      const [{ data: p }, { data: sub }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        supabase.from('subscriptions').select('stripe_customer_id').eq('user_id', user.id).single(),
+      ])
       setProfile(p)
+      setStripeCustomerId(sub?.stripe_customer_id ?? null)
       setLoading(false)
     }
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+  const canManageBilling = isActive && !!stripeCustomerId
 
-  const handleSubscribe = async () => {
+  const handleSubscribe = () => {
     if (!profile?.assigned_program) {
       toast.error('Please run the analyzer first to get a program assigned')
       return
     }
-    setCheckoutLoading(true)
-    try {
-      const res = await fetch('/api/stripe/create-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ program: profile.assigned_program }),
-      })
-      const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        toast.error(data.error || 'Failed to start checkout')
-      }
-    } catch {
-      toast.error('Something went wrong. Please try again.')
-    }
-    setCheckoutLoading(false)
+    window.location.href = '/enroll'
   }
 
   const handlePortal = async () => {
@@ -123,6 +112,10 @@ export default function BillingPage() {
     <PortalLayout
       userName={profile?.full_name || ''}
       programLabel={getProgramShortLabel(profile?.assigned_program)}
+      assignedProgram={profile?.assigned_program}
+      portalBlocked={profile?.portal_blocked}
+      isDemo={profile?.is_demo}
+      isAdmin={profile?.is_admin}
     >
       <div className="mb-6">
         <h1 className="page-title flex items-center gap-2">
@@ -143,7 +136,7 @@ export default function BillingPage() {
             </div>
             {price && <p className="text-2xl font-bold text-green-600">{price}</p>}
           </div>
-          {isActive ? (
+          {canManageBilling ? (
             <button
               onClick={handlePortal}
               disabled={portalLoading}
@@ -202,11 +195,11 @@ export default function BillingPage() {
               )}
               <button
                 onClick={handleSubscribe}
-                disabled={checkoutLoading || !program}
+                disabled={!program}
                 className="bg-white text-green-700 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors inline-flex items-center gap-2 disabled:opacity-60"
               >
-                {checkoutLoading ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
-                {checkoutLoading ? 'Starting checkout…' : 'Subscribe Now'}
+                <CreditCard size={16} />
+                Subscribe Now
               </button>
               {!program && (
                 <p className="text-green-300 text-xs mt-3">

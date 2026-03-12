@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { routeAnalyzer } from '@/lib/program-router'
 import { createServiceClient } from '@/lib/supabase/server'
+import { logActivity } from '@/lib/activity'
 import type { AnalyzerInput } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -55,6 +56,11 @@ export async function POST(req: NextRequest) {
           readiness_status: result.readiness_status,
           updated_at: new Date().toISOString(),
         }).eq('id', user.id)
+
+        await logActivity(user.id, 'analyzer_completed', {
+          assigned_program: result.assigned_program,
+          readiness_status: result.readiness_status,
+        }, req)
       }
     } catch {
       // Non-fatal — continue even if save fails

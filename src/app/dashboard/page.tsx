@@ -49,6 +49,10 @@ export default async function DashboardPage() {
       userName={profile?.full_name || user.email || 'Client'}
       programLabel={getProgramShortLabel(profile?.assigned_program)}
       notificationCount={notifications?.length || 0}
+      assignedProgram={profile?.assigned_program}
+      portalBlocked={profile?.portal_blocked}
+      isDemo={profile?.is_demo}
+      isAdmin={profile?.is_admin}
     >
       {/* Subscription Locked Banner */}
       {!isActive && (
