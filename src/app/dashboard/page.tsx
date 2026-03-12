@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
+
 import PortalLayout from '@/components/layout/PortalLayout'
 import { getProgramShortLabel, getReadinessColor, formatDate } from '@/lib/utils'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -18,17 +18,7 @@ export default async function DashboardPage() {
   const { data: { session } } = await supabase.auth.getSession()
 
   if (!session) {
-    const cookieStore = await cookies()
-    const allCookies = cookieStore.getAll()
-    const authCookies = allCookies.filter(c => c.name.startsWith('sb-'))
-    return (
-      <div style={{ padding: 40, fontFamily: 'monospace' }}>
-        <h2>DEBUG: No session found</h2>
-        <p>Total cookies: {allCookies.length}</p>
-        <p>Auth cookies (sb-*): {authCookies.length}</p>
-        <p>Auth cookie names: {authCookies.map(c => c.name).join(', ') || 'none'}</p>
-      </div>
-    )
+    redirect('/login')
   }
 
   const user = session.user

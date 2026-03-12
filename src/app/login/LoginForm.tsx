@@ -25,9 +25,7 @@ export default function LoginForm() {
       return
     }
 
-    const authCookies = document.cookie.split(';').filter(c => c.trim().startsWith('sb-'))
-    toast.success(`Signed in! Auth cookies: ${authCookies.length > 0 ? authCookies.map(c => c.trim().split('=')[0]).join(', ') : 'NONE'}`)
-    setTimeout(() => { window.location.href = '/dashboard' }, 3000)
+    window.location.href = '/dashboard'
   }
 
   return (
