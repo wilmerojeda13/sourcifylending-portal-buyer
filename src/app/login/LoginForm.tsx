@@ -28,8 +28,10 @@ export default function LoginForm() {
       return
     }
 
-    // Full page navigation after client-side sign-in so cookies are sent
-    window.location.href = redirectTo
+    toast.success('Signed in! Redirecting...')
+    setTimeout(() => {
+      window.location.href = '/dashboard'
+    }, 1500)
   }
 
   return (

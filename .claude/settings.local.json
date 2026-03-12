@@ -42,7 +42,29 @@
       "Bash(powershell -Command \"Test-Path ''C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\.gitignore''\")",
       "Bash(\"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" init)",
       "Bash(\"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" add .)",
-      "Bash(\"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" commit -m \"Initial commit: SourcifyLending Portal\")"
+      "Bash(\"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" commit -m \"Initial commit: SourcifyLending Portal\")",
+      "Bash(\"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" config user.email \"abel@sourcifylending.com\")",
+      "Bash(\"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" config user.name \"Abel Fernandez\")",
+      "Bash(\"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" remote add origin https://github.com/sourcifylending/sourcifylending-portal.git)",
+      "Bash(\"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" branch -M main)",
+      "Bash(\"C:\\\\Program Files\\\\Git\\\\bin\\\\git.exe\" push -u origin main)",
+      "Bash(npm run:*)",
+      "Bash(node -e \"require\\(''''docx''''\\)\")",
+      "Bash(npm install:*)",
+      "Read(//usr/local/**)",
+      "Read(//usr/**)",
+      "Read(//c/Program Files/nodejs//**)",
+      "Read(//c/Users/abelf/AppData/Roaming/**)",
+      "Bash(cmd //c \"where node\")",
+      "Bash(NODE=\"/c/Program Files/nodejs/node.exe\" \"$NODE\" -e \"require\\(''''docx''''\\)\")",
+      "Bash(cmd //c \"node -e \"\"require\\(''''docx''''\\)\"\"\")",
+      "Bash(powershell.exe -Command \"node -e \"\"require\\(''''docx''''\\)\"\"\")",
+      "Bash(powershell.exe -Command \"& ''C:\\\\Program Files\\\\nodejs\\\\node.exe'' -e \"\"console.log\\(''ok''\\)\"\"\")",
+      "Bash(powershell.exe -Command \"& ''C:\\\\Program Files\\\\nodejs\\\\node.exe'' -e \"\"require\\(''docx''\\); console.log\\(''ok''\\)\"\"\")",
+      "Bash(powershell.exe -Command \"& ''C:\\\\Program Files\\\\nodejs\\\\npm.cmd'' root -g\")",
+      "Bash(powershell.exe -Command \"& ''C:\\\\Program Files\\\\nodejs\\\\node.exe'' ''C:\\\\Users\\\\abelf\\\\AppData\\\\Local\\\\Temp\\\\gen_sop.js''\")",
+      "Bash(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\src\\\\app\\\\api\\\\auth\\\\signin\")",
+      "Bash(Out-Null)"
     ]
   }
 }
