@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginForm() {
   const searchParams = useSearchParams()
@@ -18,21 +19,16 @@ export default function LoginForm() {
     e.preventDefault()
     setLoading(true)
 
-    const res = await fetch('/api/auth/signin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
-    const data = await res.json()
-
-    if (!res.ok) {
+    if (error) {
       setLoading(false)
-      toast.error(data.error || 'Sign in failed')
+      toast.error(error.message)
       return
     }
 
-    // Full page navigation so the browser sends the new session cookies
+    // Full page navigation after client-side sign-in so cookies are sent
     window.location.href = redirectTo
   }
 
