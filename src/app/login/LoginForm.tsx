@@ -4,7 +4,6 @@ import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { loginAction } from './actions'
 
 export default function LoginForm() {
   const searchParams = useSearchParams()
@@ -19,14 +18,22 @@ export default function LoginForm() {
     e.preventDefault()
     setLoading(true)
 
-    const result = await loginAction(email, password)
+    const res = await fetch('/api/auth/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
 
-    // If loginAction called redirect(), we never reach here.
-    // If we reach here, there was an error.
-    setLoading(false)
-    if (result?.error) {
-      toast.error(result.error)
+    const data = await res.json()
+
+    if (!res.ok) {
+      setLoading(false)
+      toast.error(data.error || 'Sign in failed')
+      return
     }
+
+    // Full page navigation so the browser sends the new session cookies
+    window.location.href = redirectTo
   }
 
   return (
