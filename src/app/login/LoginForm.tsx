@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { loginAction } from './actions'
 
 export default function LoginForm() {
 
@@ -15,20 +16,13 @@ export default function LoginForm() {
     e.preventDefault()
     setLoading(true)
 
-    const res = await fetch('/api/auth/signin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
+    const result = await loginAction(email, password)
 
-    if (!res.ok) {
-      const data = await res.json()
+    if (result?.error) {
       setLoading(false)
-      toast.error(data.error || 'Sign in failed')
-      return
+      toast.error(result.error)
     }
-
-    window.location.href = '/dashboard'
+    // On success, server action calls redirect('/dashboard') automatically
   }
 
   return (
