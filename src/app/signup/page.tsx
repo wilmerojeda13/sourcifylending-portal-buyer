@@ -40,7 +40,7 @@ export default function SignupPage() {
           full_name: form.full_name,
           business_name: form.business_name,
         },
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
       },
     })
 
