@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { loginAction } from './actions'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginForm() {
 
@@ -16,13 +16,18 @@ export default function LoginForm() {
     e.preventDefault()
     setLoading(true)
 
-    const result = await loginAction(email, password)
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (result?.error) {
+    if (error) {
       setLoading(false)
-      toast.error(result.error)
+      toast.error(error.message)
+      return
     }
-    // On success, server action calls redirect('/dashboard') automatically
+
+    const authCookies = document.cookie.split(';').filter(c => c.trim().startsWith('sb-'))
+    toast.success(`Signed in! Auth cookies: ${authCookies.length > 0 ? authCookies.map(c => c.trim().split('=')[0]).join(', ') : 'NONE'}`)
+    setTimeout(() => { window.location.href = '/dashboard' }, 3000)
   }
 
   return (
