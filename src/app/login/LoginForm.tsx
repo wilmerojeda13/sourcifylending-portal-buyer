@@ -25,10 +25,12 @@ export default function LoginForm() {
       return
     }
 
-    toast.success('Signed in! Redirecting...')
+    const cookies = document.cookie
+    const hasSbCookie = cookies.includes('sb-')
+    toast.success(`Signed in! Cookies set: ${hasSbCookie ? 'YES' : 'NO (MISSING!)'}`)
     setTimeout(() => {
       window.location.href = '/dashboard'
-    }, 1000)
+    }, 3000)
   }
 
   return (
