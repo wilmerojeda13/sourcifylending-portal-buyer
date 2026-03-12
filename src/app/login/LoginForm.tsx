@@ -1,14 +1,11 @@
 'use client'
 import { useState } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginForm() {
-  const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirectTo') || '/dashboard'
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,7 +28,7 @@ export default function LoginForm() {
     toast.success('Signed in! Redirecting...')
     setTimeout(() => {
       window.location.href = '/dashboard'
-    }, 1500)
+    }, 1000)
   }
 
   return (

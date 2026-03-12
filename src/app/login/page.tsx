@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import LoginForm from './LoginForm'
@@ -15,9 +14,7 @@ export default function LoginPage() {
           <p className="text-gray-500 text-sm mt-1">Access your SourcifyLending portal</p>
         </div>
 
-        <Suspense fallback={<div className="card shadow-sm p-8 text-center text-gray-400">Loading…</div>}>
-          <LoginForm />
-        </Suspense>
+        <LoginForm />
 
         <Link href="/" className="mt-6 flex items-center justify-center gap-1.5 text-sm text-gray-400 hover:text-gray-600">
           <ArrowLeft size={14} /> Back to home
