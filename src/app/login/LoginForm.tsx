@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { createClient } from '@/lib/supabase/client'
 
 export default function LoginForm() {
 
@@ -16,21 +15,20 @@ export default function LoginForm() {
     e.preventDefault()
     setLoading(true)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const res = await fetch('/api/auth/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
 
-    if (error) {
+    if (!res.ok) {
+      const data = await res.json()
       setLoading(false)
-      toast.error(error.message)
+      toast.error(data.error || 'Sign in failed')
       return
     }
 
-    const cookies = document.cookie
-    const hasSbCookie = cookies.includes('sb-')
-    toast.success(`Signed in! Cookies set: ${hasSbCookie ? 'YES' : 'NO (MISSING!)'}`)
-    setTimeout(() => {
-      window.location.href = '/dashboard'
-    }, 3000)
+    window.location.href = '/dashboard'
   }
 
   return (
