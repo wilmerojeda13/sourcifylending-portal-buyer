@@ -40,12 +40,13 @@ async function activateUser(
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' })
 
-  // 2. Update profile
+  // 2. Update profile — also promote prospect → active_member on upgrade
   await supabase.from('profiles').update({
     subscription_status: 'active',
     assigned_program: program,
     current_stage: PROGRAM_STAGES[program],
     progress_percentage: 0,
+    account_state: 'active_member',
     updated_at: new Date().toISOString(),
   }).eq('id', userId)
 

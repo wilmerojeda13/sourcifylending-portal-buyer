@@ -22,13 +22,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not a demo account' }, { status: 400 })
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
     const { data, error } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
       email,
       options: {
-        redirectTo: `${siteUrl}/auth/callback?next=/dashboard`,
+        redirectTo: `${siteUrl}/auth/confirm?next=/dashboard`,
       },
     })
 

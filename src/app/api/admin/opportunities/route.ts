@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 async function requireAdmin() {
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()

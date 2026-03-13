@@ -3,6 +3,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import type { ProgramId, SubscriptionStatus, ReadinessStatus } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 // ─── GET /api/admin/member?id=userId ──────────────────────────────────────────
 export async function GET(req: NextRequest) {
   try {

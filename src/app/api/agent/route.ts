@@ -1,13 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
+import {
+  checkAIUsage,
+  recordAIUsage,
+  getEstimatedCostUsd,
+  type AIActionType,
+} from '@/lib/ai-usage'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: process.env.OPENAI_BASE_URL,
-})
+const PLATFORM_MAINTENANCE_MESSAGE =
+  "The AI assistant is temporarily unavailable due to maintenance, upgrades, or a temporary service issue. We're actively working to restore access as quickly as possible. Please try again shortly."
+
+/** Check system_settings for ai_maintenance flag. Returns { enabled, note }. */
+async function getAIMaintenanceStatus(): Promise<{ enabled: boolean; note: string }> {
+  try {
+    const supabase = await createServiceClient()
+    const { data } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'ai_maintenance')
+      .single()
+    if (!data) return { enabled: false, note: '' }
+    const val = data.value as { enabled?: boolean; note?: string }
+    return { enabled: val.enabled ?? false, note: val.note ?? '' }
+  } catch {
+    // If the table doesn't exist yet, treat as not in maintenance
+    return { enabled: false, note: '' }
+  }
+}
 
 export async function POST(req: NextRequest) {
+  // ─── Platform-level maintenance / availability check ─────────────────────────
+  // This runs BEFORE any user-level checks or OpenAI calls
+  try {
+    const maintenance = await getAIMaintenanceStatus()
+    if (maintenance.enabled) {
+      console.warn(
+        `[AI-MAINTENANCE] Request blocked — maintenance mode ON. Note: "${maintenance.note}"`
+      )
+      return NextResponse.json(
+        { message: PLATFORM_MAINTENANCE_MESSAGE, platform_maintenance: true },
+        { status: 200 }
+      )
+    }
+  } catch (maintErr) {
+    // If settings check itself fails, treat as maintenance
+    console.error('[AI-MAINTENANCE] Failed to check maintenance status:', maintErr)
+    return NextResponse.json(
+      { message: PLATFORM_MAINTENANCE_MESSAGE, platform_maintenance: true },
+      { status: 200 }
+    )
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('Agent error: OPENAI_API_KEY is not configured')
+    // Treat missing API key as a platform-level issue (not a user credit issue)
+    return NextResponse.json(
+      { message: PLATFORM_MAINTENANCE_MESSAGE, platform_maintenance: true },
+      { status: 200 }
+    )
+  }
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_BASE_URL,
+  })
+
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -16,7 +74,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { messages } = await req.json()
+    const body = await req.json()
+    const { messages, action_type } = body
+
+    // ─── Determine action type ─────────────────────────────────────────────────
+    // Callers can pass action_type in the request body; default to simple_chat
+    const actionType: AIActionType = (action_type as AIActionType) ?? 'simple_chat'
+
+    // ─── Server-side usage check (runs BEFORE calling OpenAI) ─────────────────
+    const usageCheck = await checkAIUsage(user.id, actionType)
+
+    if (!usageCheck.allowed) {
+      // Log the blocked attempt
+      await recordAIUsage(
+        user.id,
+        '', // program unknown at this point since check failed
+        actionType,
+        0,
+        false,
+        '',
+        'blocked',
+        'none',
+        0,
+        { reason: usageCheck.reason, message: usageCheck.message }
+      )
+      return NextResponse.json(
+        { message: usageCheck.message, blocked: true, reason: usageCheck.reason },
+        { status: 200 }
+      )
+    }
+
+    const { creditCost, isHeavy, balanceId, program } = usageCheck
 
     // Fetch user context
     const [
@@ -133,23 +221,82 @@ When asked about opportunities, cards, vendors, or lenders: Reference ONLY items
 
 Keep responses focused, structured with bullets when listing items, and always end with a clear next action.`
 
-    const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages,
-      ],
-      max_tokens: 600,
-      temperature: 0.7,
-    })
+    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+    let aiMessage = 'I encountered an error. Please try again.'
+    let callStatus: 'success' | 'failed' = 'failed'
 
-    const message = response.choices[0]?.message?.content || 'I encountered an error. Please try again.'
+    try {
+      const response = await openai.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages,
+        ],
+        max_tokens: 600,
+        temperature: 0.7,
+      })
 
-    return NextResponse.json({ message })
+      aiMessage = response.choices[0]?.message?.content || aiMessage
+      callStatus = 'success'
+    } catch (aiErr) {
+      const errMsg = aiErr instanceof Error ? aiErr.message : String(aiErr)
+      // Determine if this is a platform-level provider failure
+      const isPlatformError =
+        errMsg.includes('quota') ||
+        errMsg.includes('rate_limit') ||
+        errMsg.includes('overloaded') ||
+        errMsg.includes('503') ||
+        errMsg.includes('502') ||
+        errMsg.includes('529') ||
+        errMsg.includes('insufficient_quota') ||
+        errMsg.includes('ECONNREFUSED') ||
+        errMsg.includes('ETIMEDOUT') ||
+        errMsg.includes('network')
+      console.error(`[AI-PLATFORM-ERROR] OpenAI call failed (isPlatformError=${isPlatformError}):`, errMsg)
+      if (isPlatformError) {
+        // Record the failed attempt then return the maintenance message
+        await recordAIUsage(
+          user.id,
+          program,
+          actionType,
+          0,
+          isHeavy,
+          balanceId,
+          'failed',
+          model,
+          0,
+          { reason: 'provider_error', internal_message: errMsg }
+        )
+        return NextResponse.json(
+          { message: PLATFORM_MAINTENANCE_MESSAGE, platform_maintenance: true },
+          { status: 200 }
+        )
+      }
+      aiMessage = `I encountered an error processing your request. Please try again.`
+      callStatus = 'failed'
+    }
+
+    // ─── Record usage (deducts credits only on success) ────────────────────────
+    await recordAIUsage(
+      user.id,
+      program,
+      actionType,
+      creditCost,
+      isHeavy,
+      balanceId,
+      callStatus,
+      model,
+      getEstimatedCostUsd(actionType),
+      { action_type: actionType }
+    )
+
+    return NextResponse.json({ message: aiMessage })
   } catch (error) {
-    console.error('Agent error:', error)
+    const errMsg = error instanceof Error ? error.message : String(error)
+    console.error('[AI-ORCHESTRATION-ERROR] Unexpected agent failure:', errMsg)
+    // Surface all unexpected orchestration failures as the platform maintenance message
     return NextResponse.json(
-      { message: 'I\'m having trouble connecting right now. Please try again in a moment.' },
+      { message: PLATFORM_MAINTENANCE_MESSAGE, platform_maintenance: true },
       { status: 200 }
     )
   }

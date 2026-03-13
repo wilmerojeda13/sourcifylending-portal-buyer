@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { AccountOpportunity, OpportunityCategory, OpportunityPG } from '@/types'
-import { Plus, Edit2, EyeOff, Eye, Trash2, X, Save } from 'lucide-react'
+import { Plus, Edit2, EyeOff, Eye, Trash2, X, Save, Download, RefreshCw, Loader2 } from 'lucide-react'
 
 interface Props {
   initialOpportunities: AccountOpportunity[]
@@ -65,6 +65,8 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
   const [saving, setSaving] = useState(false)
   const [filterProgram, setFilterProgram] = useState('')
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all')
+  const [seeding, setSeeding] = useState<'import' | 'sync' | null>(null)
+  const [seedResult, setSeedResult] = useState<string | null>(null)
 
   const filtered = rows.filter((r) => {
     if (filterProgram && r.program !== filterProgram) return false
@@ -175,6 +177,33 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
     }
   }
 
+  async function seedOpportunities(mode: 'import' | 'sync') {
+    const verb = mode === 'import' ? 'import missing' : 'sync/overwrite all'
+    if (!confirm(`This will ${verb} default opportunities. Continue?`)) return
+    setSeeding(mode)
+    setSeedResult(null)
+    try {
+      const res = await fetch('/api/admin/seed-opportunities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setSeedResult(`Error: ${data.error}`)
+      } else {
+        setSeedResult(data.message)
+        // Refresh the table by re-fetching opportunities
+        const refresh = await fetch('/api/admin/opportunities')
+        const refreshed = await refresh.json()
+        if (refreshed.opportunities) setRows(refreshed.opportunities)
+      }
+    } catch {
+      setSeedResult('Failed to seed opportunities')
+    }
+    setSeeding(null)
+  }
+
   return (
     <div className="space-y-5">
       {/* Controls */}
@@ -197,7 +226,25 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
           <option value="inactive">Inactive Only</option>
         </select>
         <span className="text-sm text-gray-400">{filtered.length} records</span>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => seedOpportunities('import')}
+            disabled={seeding !== null}
+            title="Import only missing defaults — safe, skips existing"
+            className="flex items-center gap-1.5 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-3 py-2 rounded-xl transition-colors disabled:opacity-50"
+          >
+            {seeding === 'import' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            Import Defaults
+          </button>
+          <button
+            onClick={() => seedOpportunities('sync')}
+            disabled={seeding !== null}
+            title="Upsert all defaults — updates existing records too"
+            className="flex items-center gap-1.5 border border-amber-300 hover:bg-amber-50 text-amber-700 text-sm font-medium px-3 py-2 rounded-xl transition-colors disabled:opacity-50"
+          >
+            {seeding === 'sync' ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Sync All
+          </button>
           <button
             onClick={openCreate}
             className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
@@ -207,6 +254,18 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Seed result banner */}
+      {seedResult && (
+        <div className={`rounded-xl px-4 py-3 text-sm flex items-center justify-between ${
+          seedResult.startsWith('Error') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+        }`}>
+          <span>{seedResult}</span>
+          <button onClick={() => setSeedResult(null)} className="ml-4 opacity-60 hover:opacity-100">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">

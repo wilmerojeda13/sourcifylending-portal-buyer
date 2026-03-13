@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PortalLayout from '@/components/layout/PortalLayout'
-import { Send, Bot, User, RefreshCw, Loader2 } from 'lucide-react'
+import { Send, Bot, User, RefreshCw, Loader2, WifiOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel } from '@/lib/utils'
 import type { ChatMessage, UserProfile } from '@/types'
@@ -27,6 +27,7 @@ export default function AgentPage() {
   const [loading, setLoading] = useState(false)
   const [initializing, setInitializing] = useState(true)
   const [isActive, setIsActive] = useState(false)
+  const [platformMaintenance, setPlatformMaintenance] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -81,6 +82,14 @@ export default function AgentPage() {
       })
 
       const data = await res.json()
+
+      // ── Platform-level maintenance / outage ───────────────────────────────
+      if (data.platform_maintenance) {
+        setPlatformMaintenance(true)
+        setLoading(false)
+        return
+      }
+
       const assistantMsg: ChatMessage = {
         id: uuidv4(),
         role: 'assistant',
@@ -135,6 +144,26 @@ export default function AgentPage() {
             <RefreshCw size={14} /> Clear
           </button>
         </div>
+
+        {/* Platform Maintenance Banner */}
+        {platformMaintenance && (
+          <div className="shrink-0 mb-3 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-4">
+            <WifiOff size={20} className="text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800">AI Temporarily Unavailable</p>
+              <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                The AI assistant is temporarily unavailable due to maintenance, upgrades, or a temporary service issue.
+                We&apos;re actively working to restore access as quickly as possible. Please try again shortly.
+              </p>
+              <button
+                onClick={() => setPlatformMaintenance(false)}
+                className="mt-2 text-xs text-amber-700 underline underline-offset-2 hover:text-amber-900"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Chat Area */}
         <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-2">
@@ -191,16 +220,22 @@ export default function AgentPage() {
             ref={inputRef}
             rows={1}
             className="flex-1 text-sm text-gray-900 placeholder:text-gray-400 resize-none outline-none px-3 py-2.5 max-h-32 overflow-y-auto bg-transparent"
-            placeholder={isActive ? "Ask your AI agent anything…" : "Subscribe to unlock full AI access"}
+            placeholder={
+              platformMaintenance
+                ? "AI is temporarily unavailable — please try again shortly"
+                : isActive
+                ? "Ask your AI agent anything…"
+                : "Subscribe to unlock full AI access"
+            }
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={loading}
+            disabled={loading || platformMaintenance}
             style={{ minHeight: '44px' }}
           />
           <button
             onClick={() => sendMessage(input)}
-            disabled={!input.trim() || loading}
+            disabled={!input.trim() || loading || platformMaintenance}
             className="w-10 h-10 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center transition-colors shrink-0"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

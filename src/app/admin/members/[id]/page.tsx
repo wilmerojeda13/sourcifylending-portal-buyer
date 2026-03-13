@@ -20,12 +20,16 @@ export default async function AdminMemberDetailPage({ params }: { params: Promis
     { data: tasks },
     { data: documents },
     { data: activityLogs },
+    { data: contactNotes },
+    { data: tickets },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', id).single(),
     supabase.from('subscriptions').select('*').eq('user_id', id).single(),
     supabase.from('tasks').select('*').eq('user_id', id).order('sort_order'),
     supabase.from('documents').select('*').eq('user_id', id).order('uploaded_at', { ascending: false }),
     supabase.from('activity_logs').select('*').eq('user_id', id).order('created_at', { ascending: false }).limit(25),
+    supabase.from('contact_notes').select('*').eq('user_id', id).order('pinned', { ascending: false }).order('created_at', { ascending: false }),
+    supabase.from('tickets').select('*').eq('user_id', id).order('created_at', { ascending: false }),
   ])
 
   if (!profile) {
@@ -46,6 +50,8 @@ export default async function AdminMemberDetailPage({ params }: { params: Promis
       tasks={tasks ?? []}
       documents={documents ?? []}
       activityLogs={activityLogs ?? []}
+      contactNotes={contactNotes ?? []}
+      tickets={tickets ?? []}
     />
   )
 }

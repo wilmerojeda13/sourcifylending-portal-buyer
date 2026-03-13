@@ -4,10 +4,12 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
 import PortalLayout from '@/components/layout/PortalLayout'
+import ProspectDashboard from '@/app/dashboard/ProspectDashboard'
 import { getProgramShortLabel, getReadinessColor, formatDate } from '@/lib/utils'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/Badge'
 import Link from 'next/link'
+import type { UserProfile } from '@/types'
 import {
   ArrowRight, CheckCircle, Clock, AlertCircle, Bot,
   TrendingUp, FileText, Bell, Lock
@@ -23,14 +25,38 @@ export default async function DashboardPage() {
 
   const user = session.user
 
+  // Always fetch profile first — we need account_state to decide the render path
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  // ── Prospect path ─────────────────────────────────────────────────────────
+  if (profile?.account_state === 'prospect') {
+    return (
+      <PortalLayout
+        userName={profile.full_name || user.email || 'Client'}
+        programLabel="Free Prospect Account"
+        notificationCount={0}
+        assignedProgram={profile.assigned_program}
+        portalBlocked={profile.portal_blocked}
+        isDemo={profile.is_demo}
+        isAdmin={profile.is_admin}
+        accountState="prospect"
+      >
+        <ProspectDashboard profile={profile as UserProfile} />
+      </PortalLayout>
+    )
+  }
+
+  // ── Member path — fetch member-specific data ───────────────────────────────
   const [
-    { data: profile },
     { data: tasks },
     { data: docs },
     { data: reports },
     { data: notifications },
   ] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
     supabase.from('documents').select('*').eq('user_id', user.id),
     supabase.from('reports').select('*').eq('user_id', user.id).order('generated_at', { ascending: false }).limit(3),
@@ -53,6 +79,7 @@ export default async function DashboardPage() {
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
+      accountState="active_member"
     >
       {/* Subscription Locked Banner */}
       {!isActive && (

@@ -1,5 +1,6 @@
 // ─── Programs ─────────────────────────────────────────────────────────────────
 export type ProgramId = 'program_a' | 'program_b' | 'program_c'
+export type AccountState = 'prospect' | 'active_member'
 
 export interface Program {
   id: ProgramId
@@ -68,6 +69,18 @@ export interface UserProfile {
   is_demo: boolean
   is_admin: boolean
   admin_notes: string | null
+  notion_page_id: string | null
+  // AI usage overrides
+  ai_suspended: boolean
+  ai_custom_monthly_credits: number | null
+  ai_custom_daily_cap: number | null
+  ai_custom_heavy_limit: number | null
+  ai_access_notes: string | null
+  // Prospect / free account
+  account_state: AccountState
+  lead_id: string | null
+  latest_analyzer_result: AnalyzerResult | null
+  analyzed_at: string | null
   created_at: string
   updated_at: string
 }
@@ -224,6 +237,35 @@ export interface AccountOpportunity {
   updated_at: string
 }
 
+// ─── CRM: Contact Notes ────────────────────────────────────────────────────────
+export interface ContactNote {
+  id: string
+  user_id: string
+  admin_email: string | null
+  note: string
+  pinned: boolean
+  created_at: string
+  updated_at: string
+}
+
+// ─── CRM: Tickets ─────────────────────────────────────────────────────────────
+export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent'
+
+export interface Ticket {
+  id: string
+  user_id: string
+  created_by_email: string | null
+  title: string
+  description: string | null
+  status: TicketStatus
+  priority: TicketPriority
+  category: string
+  resolution: string | null
+  created_at: string
+  updated_at: string
+}
+
 // ─── AI Agent ─────────────────────────────────────────────────────────────────
 export interface ChatMessage {
   id: string
@@ -238,4 +280,78 @@ export interface AgentContext {
   documents: Document[]
   reports: Report[]
   notifications: Notification[]
+}
+
+// ─── AI Usage System ───────────────────────────────────────────────────────────
+export type AIActionType =
+  | 'simple_chat'
+  | 'guided_recommendation'
+  | 'analyzer_interpretation'
+  | 'dispute_letter_generation'
+  | 'funding_strategy_response'
+  | 'document_review'
+  | 'file_analysis'
+  | 'heavy_agent_workflow'
+  | 'underwriting_or_multi_step_deep_analysis'
+
+export interface AIProgramLimits {
+  id: string
+  program: ProgramId
+  monthly_credits: number
+  daily_credit_cap: number
+  max_requests_per_hour: number
+  max_heavy_actions_per_day: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AIActionCost {
+  id: string
+  action_type: AIActionType
+  credit_cost: number
+  is_heavy: boolean
+  description: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface UserAIBalance {
+  id: string
+  user_id: string
+  program: ProgramId | null
+  billing_period_start: string
+  billing_period_end: string
+  credits_allocated: number
+  credits_used: number
+  credits_remaining: number
+  daily_credits_used: number
+  heavy_actions_used_today: number
+  last_daily_reset: string
+  created_at: string
+  updated_at: string
+}
+
+export interface UserAIUsageEvent {
+  id: string
+  user_id: string
+  program: ProgramId | null
+  action_type: AIActionType
+  credits_charged: number
+  estimated_cost_usd: number
+  model_used: string | null
+  request_status: 'success' | 'failed' | 'blocked'
+  metadata_json: Record<string, unknown> | null
+  created_at: string
+}
+
+export interface AICreditAdjustment {
+  id: string
+  user_id: string
+  adjustment_type: 'bonus' | 'deduction' | 'reset' | 'admin_override'
+  credits_delta: number
+  reason: string | null
+  created_by: string | null
+  created_at: string
 }

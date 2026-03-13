@@ -2,9 +2,9 @@
 import { useState, useEffect } from 'react'
 import PortalLayout from '@/components/layout/PortalLayout'
 import { createClient } from '@/lib/supabase/client'
-import { getProgramShortLabel, formatDate } from '@/lib/utils'
+import { getProgramShortLabel } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/Badge'
-import { CreditCard, CheckCircle, Shield, Loader2 } from 'lucide-react'
+import { CreditCard, CheckCircle, Shield, Loader2, ArrowRightLeft } from 'lucide-react'
 import type { UserProfile } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -39,9 +39,15 @@ const PLAN_FEATURES: Record<string, string[]> = {
 }
 
 const PLAN_PRICES: Record<string, string> = {
-  program_a: '$297/month',
-  program_b: '$197/month',
+  program_a: '$399/month',
+  program_b: '$199/month',
   program_c: '$97/month',
+}
+
+const PLAN_NAMES: Record<string, string> = {
+  program_a: 'Program A — 0% APR Card Strategy',
+  program_b: 'Program B — Business Credit Builder',
+  program_c: 'Program C — Capital Monitoring',
 }
 
 export default function BillingPage() {
@@ -50,6 +56,8 @@ export default function BillingPage() {
   const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [changingPlan, setChangingPlan] = useState<string | null>(null)
+  const [showChangePlan, setShowChangePlan] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -68,6 +76,7 @@ export default function BillingPage() {
 
   const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
   const canManageBilling = isActive && !!stripeCustomerId
+  const canChangePlan = isActive
 
   const handleSubscribe = () => {
     if (!profile?.assigned_program) {
@@ -93,6 +102,29 @@ export default function BillingPage() {
     setPortalLoading(false)
   }
 
+  const handleChangePlan = async (newProgram: string) => {
+    if (!confirm(`Switch to ${PLAN_NAMES[newProgram]}? Your billing will be prorated immediately.`)) return
+    setChangingPlan(newProgram)
+    try {
+      const res = await fetch('/api/stripe/change-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_program: newProgram }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success(`Plan changed to ${PLAN_NAMES[newProgram]}`)
+        setProfile((p) => p ? { ...p, assigned_program: newProgram } : p)
+        setShowChangePlan(false)
+      } else {
+        toast.error(data.error || 'Failed to change plan')
+      }
+    } catch {
+      toast.error('Something went wrong.')
+    }
+    setChangingPlan(null)
+  }
+
   if (loading) {
     return (
       <PortalLayout>
@@ -107,6 +139,8 @@ export default function BillingPage() {
   const program = profile?.assigned_program || null
   const features = program ? PLAN_FEATURES[program] : []
   const price = program ? PLAN_PRICES[program] : ''
+
+  const otherPrograms = Object.keys(PLAN_NAMES).filter((p) => p !== program)
 
   return (
     <PortalLayout
@@ -136,16 +170,27 @@ export default function BillingPage() {
             </div>
             {price && <p className="text-2xl font-bold text-green-600">{price}</p>}
           </div>
-          {canManageBilling ? (
-            <button
-              onClick={handlePortal}
-              disabled={portalLoading}
-              className="btn-secondary text-sm"
-            >
-              {portalLoading ? <Loader2 size={14} className="animate-spin" /> : null}
-              Manage Subscription
-            </button>
-          ) : null}
+          <div className="flex items-center gap-2 flex-wrap">
+            {canChangePlan && (
+              <button
+                onClick={() => setShowChangePlan((v) => !v)}
+                className="btn-secondary text-sm flex items-center gap-1.5"
+              >
+                <ArrowRightLeft size={14} />
+                Change Plan
+              </button>
+            )}
+            {canManageBilling ? (
+              <button
+                onClick={handlePortal}
+                disabled={portalLoading}
+                className="btn-secondary text-sm"
+              >
+                {portalLoading ? <Loader2 size={14} className="animate-spin" /> : null}
+                Manage Subscription
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {!isActive && (
@@ -157,6 +202,43 @@ export default function BillingPage() {
           </div>
         )}
       </div>
+
+      {/* Change Plan Panel */}
+      {showChangePlan && canChangePlan && (
+        <div className="card mb-6 border-2 border-blue-200 bg-blue-50/40">
+          <h2 className="section-title mb-1 flex items-center gap-2">
+            <ArrowRightLeft size={16} className="text-blue-500" />
+            Switch Plan
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">Your billing will be prorated — you only pay the difference. No new setup fee.</p>
+          <div className="space-y-3">
+            {otherPrograms.map((p) => (
+              <div key={p} className="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-4 py-3">
+                <div>
+                  <p className="font-semibold text-gray-900 text-sm">{PLAN_NAMES[p]}</p>
+                  <p className="text-green-600 font-bold text-sm">{PLAN_PRICES[p]}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {(PLAN_FEATURES[p] || []).slice(0, 2).join(' · ')}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleChangePlan(p)}
+                  disabled={changingPlan !== null}
+                  className="btn-primary text-xs px-4 py-2 shrink-0 ml-3"
+                >
+                  {changingPlan === p ? <Loader2 size={13} className="animate-spin" /> : 'Switch'}
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowChangePlan(false)}
+            className="mt-3 text-xs text-gray-400 hover:text-gray-600 underline"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Plan Details */}
       {program && (

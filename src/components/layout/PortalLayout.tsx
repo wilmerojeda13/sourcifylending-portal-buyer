@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Bot, FileText, CheckSquare, BarChart2,
-  CreditCard, Bell, LogOut, Menu, X, ChevronRight, Star, TrendingUp, ShieldCheck
+  CreditCard, Bell, LogOut, Menu, X, ChevronRight, Star, TrendingUp, ShieldCheck, Zap, ArrowUpCircle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -19,7 +19,13 @@ const BASE_NAV_ITEMS = [
   { href: '/billing', label: 'Billing', icon: CreditCard },
 ]
 
-// Bottom mobile nav always shows these 6
+// Prospect accounts only see Dashboard + Upgrade
+const PROSPECT_NAV_ITEMS = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/billing', label: 'Upgrade', icon: ArrowUpCircle },
+]
+
+// Bottom mobile nav always shows these 6 for members
 const MOBILE_NAV_ITEMS = BASE_NAV_ITEMS
 
 interface PortalLayoutProps {
@@ -31,6 +37,7 @@ interface PortalLayoutProps {
   portalBlocked?: boolean
   isDemo?: boolean
   isAdmin?: boolean
+  accountState?: 'prospect' | 'active_member'
 }
 
 export default function PortalLayout({
@@ -42,21 +49,26 @@ export default function PortalLayout({
   portalBlocked = false,
   isDemo = false,
   isAdmin = false,
+  accountState = 'active_member',
 }: PortalLayoutProps) {
+  const isProspect = accountState === 'prospect'
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
   const supabase = createClient()
 
-  // Build sidebar nav: inject program-specific items after Progress
-  const sidebarNavItems = [
-    ...BASE_NAV_ITEMS.slice(0, 4), // Dashboard, AI Agent, Documents, Progress
-    ...(assignedProgram === 'program_a'
-      ? [{ href: '/credit-optimization', label: 'Credit Optimization', icon: Star }]
-      : []),
-    { href: '/opportunities', label: 'Opportunities', icon: TrendingUp },
-    ...BASE_NAV_ITEMS.slice(4), // Reports, Billing
-  ]
+  // Build sidebar nav: prospects get a minimal nav; members get the full nav
+  const sidebarNavItems = isProspect
+    ? PROSPECT_NAV_ITEMS
+    : [
+        ...BASE_NAV_ITEMS.slice(0, 4), // Dashboard, AI Agent, Documents, Progress
+        ...(assignedProgram === 'program_a'
+          ? [{ href: '/credit-optimization', label: 'Credit Optimization', icon: Star }]
+          : []),
+        { href: '/opportunities', label: 'Opportunities', icon: TrendingUp },
+        { href: '/ai-usage', label: 'AI Credits', icon: Zap },
+        ...BASE_NAV_ITEMS.slice(4), // Reports, Billing
+      ]
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -94,7 +106,7 @@ export default function PortalLayout({
     )
   }
 
-  const NavLink = ({ href, label, icon: Icon }: typeof NAV_ITEMS[number]) => {
+  const NavLink = ({ href, label, icon: Icon }: typeof BASE_NAV_ITEMS[number]) => {
     const active = pathname === href || pathname.startsWith(href + '/')
     return (
       <Link
@@ -179,8 +191,13 @@ export default function PortalLayout({
           {isDemo && (
             <span className="text-[9px] font-bold px-1 py-0.5 bg-amber-100 text-amber-700 rounded-full uppercase shrink-0">Demo</span>
           )}
+          {isProspect && (
+            <span className="text-[9px] font-bold px-1 py-0.5 bg-green-100 text-green-700 rounded-full uppercase shrink-0">Free</span>
+          )}
         </div>
-        <p className="text-xs text-gray-400 mt-0.5">{isDemo ? 'Demo Account' : 'Client Account'}</p>
+        <p className="text-xs text-gray-400 mt-0.5">
+          {isDemo ? 'Demo Account' : isProspect ? 'Free Prospect Account' : 'Client Account'}
+        </p>
       </div>
     </div>
   )
@@ -255,8 +272,8 @@ export default function PortalLayout({
 
         {/* Mobile Bottom Navigation */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-10 px-1 py-1.5 safe-area-pb">
-          <div className="grid grid-cols-6 gap-0.5">
-            {MOBILE_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+          <div className={`grid gap-0.5 ${isProspect ? 'grid-cols-2' : 'grid-cols-6'}`}>
+            {(isProspect ? PROSPECT_NAV_ITEMS : MOBILE_NAV_ITEMS).map(({ href, label, icon: Icon }) => {
               const active = pathname === href || pathname.startsWith(href + '/')
               return (
                 <Link
