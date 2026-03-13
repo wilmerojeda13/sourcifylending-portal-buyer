@@ -1,9 +1,9 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 
-export default function AuthConfirmPage() {
+function AuthConfirmInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const processed = useRef(false)
@@ -68,5 +68,22 @@ export default function AuthConfirmPage() {
         <p className="text-gray-600 font-medium">Signing you in…</p>
       </div>
     </div>
+  )
+}
+
+export default function AuthConfirmPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-600 font-medium">Signing you in…</p>
+          </div>
+        </div>
+      }
+    >
+      <AuthConfirmInner />
+    </Suspense>
   )
 }
