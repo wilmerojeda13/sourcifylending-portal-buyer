@@ -27,6 +27,7 @@ export default async function SettingsPage() {
       portalBlocked={profile?.portal_blocked ?? false}
       isDemo={profile?.is_demo ?? false}
       isAdmin={profile?.is_admin ?? false}
+      isDelegate={(profile as Record<string, unknown>)?.is_delegate as boolean ?? false}
       accountState={profile?.account_state ?? 'active_member'}
     >
       <SettingsClient
@@ -38,6 +39,7 @@ export default async function SettingsPage() {
           industry: profile?.industry ?? '',
           phone: (profile as Record<string, unknown>)?.phone as string ?? '',
         }}
+        isDelegate={(profile as Record<string, unknown>)?.is_delegate as boolean ?? false}
       />
     </PortalLayout>
   )

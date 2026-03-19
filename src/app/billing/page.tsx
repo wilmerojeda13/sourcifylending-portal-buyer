@@ -6,7 +6,7 @@ import { getProgramShortLabel } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/Badge'
 import {
   CreditCard, CheckCircle, Shield, Loader2, Zap, Building2,
-  BarChart3, Calendar, Plus, ExternalLink,
+  BarChart3, Calendar, Plus, ExternalLink, Lock,
 } from 'lucide-react'
 import type { UserProfile } from '@/types'
 import toast from 'react-hot-toast'
@@ -199,6 +199,31 @@ export default function BillingPage() {
         <div className="animate-pulse space-y-4">
           <div className="h-8 w-48 bg-gray-200 rounded" />
           <div className="h-48 bg-gray-200 rounded-2xl" />
+        </div>
+      </PortalLayout>
+    )
+  }
+
+  // Delegates cannot access billing
+  if ((profile as Record<string, unknown>)?.is_delegate) {
+    return (
+      <PortalLayout
+        userName={profile?.full_name || ''}
+        programLabel={getProgramShortLabel(profile?.assigned_program ?? null)}
+        assignedProgram={profile?.assigned_program}
+        portalBlocked={profile?.portal_blocked}
+        isDemo={profile?.is_demo}
+        isAdmin={profile?.is_admin}
+        isDelegate={true}
+      >
+        <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+          <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+            <Lock size={22} className="text-gray-400" />
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">Billing Not Available</h1>
+          <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
+            Billing and subscription management are only accessible to the primary account owner. Please contact the account owner for any billing questions.
+          </p>
         </div>
       </PortalLayout>
     )

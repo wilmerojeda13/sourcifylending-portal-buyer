@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { User, Building2, Mail, Phone, CheckCircle2, XCircle, Loader2, Settings } from 'lucide-react'
+import DelegateAccessPanel from '@/components/DelegateAccessPanel'
 
 interface ProfileData {
   full_name: string
@@ -14,6 +15,7 @@ interface ProfileData {
 
 interface Props {
   initialProfile: ProfileData
+  isDelegate?: boolean
 }
 
 const ENTITY_TYPES = ['LLC', 'S-Corp', 'C-Corp', 'Sole Proprietorship', 'Partnership', 'Non-Profit', 'Other']
@@ -23,7 +25,7 @@ const INDUSTRIES = [
   'Professional Services', 'Manufacturing', 'Wholesale / Distribution', 'Other',
 ]
 
-export default function SettingsClient({ initialProfile }: Props) {
+export default function SettingsClient({ initialProfile, isDelegate = false }: Props) {
   const [form, setForm] = useState<ProfileData>(initialProfile)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
@@ -74,6 +76,12 @@ export default function SettingsClient({ initialProfile }: Props) {
 
   return (
     <div className="space-y-6 max-w-2xl">
+      {isDelegate && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 flex items-start gap-3">
+          <span className="text-blue-600 mt-0.5">ℹ️</span>
+          <p className="text-sm text-blue-700">You are logged in as a <strong>delegate</strong>. You can update your personal profile, but billing and subscription management are only available to the account owner.</p>
+        </div>
+      )}
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-1">
@@ -233,6 +241,9 @@ export default function SettingsClient({ initialProfile }: Props) {
           </button>
         </div>
       </form>
+
+      {/* Assistant Access — shown to all (owners manage it, delegates see read-only) */}
+      <DelegateAccessPanel />
     </div>
   )
 }

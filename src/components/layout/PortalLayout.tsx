@@ -40,6 +40,7 @@ interface PortalLayoutProps {
   portalBlocked?: boolean
   isDemo?: boolean
   isAdmin?: boolean
+  isDelegate?: boolean
   accountState?: 'prospect' | 'active_member'
 }
 
@@ -52,6 +53,7 @@ export default function PortalLayout({
   portalBlocked = false,
   isDemo = false,
   isAdmin = false,
+  isDelegate = false,
   accountState = 'active_member',
 }: PortalLayoutProps) {
   const isProspect = accountState === 'prospect'
@@ -67,6 +69,7 @@ export default function PortalLayout({
   //   Program B  → Biz Credit Setup, Credit Monitoring, Biz Resources, Funding Results (NOT Credit Disputes)
   //   Program C  → no program-specific extras beyond shared base items
   //   No program / unknown → only shared base items shown
+  //   Delegate   → same as active member but Billing is hidden
   const sidebarNavItems = isProspect
     ? PROSPECT_NAV_ITEMS
     : [
@@ -100,7 +103,9 @@ export default function PortalLayout({
           ? [{ href: '/funding-results', label: 'Funding Results', icon: DollarSign }]
           : []),
 
-        ...BASE_NAV_ITEMS.slice(4), // Reports, Billing
+        { href: '/reports', label: 'Reports', icon: BarChart2 },
+        // Delegates cannot access Billing
+        ...(!isDelegate ? [{ href: '/billing', label: 'Billing', icon: CreditCard }] : []),
         { href: '/support',   label: 'Support Inbox', icon: MessageSquare },
         { href: '/settings',  label: 'Settings',      icon: Settings },
       ]
@@ -229,9 +234,12 @@ export default function PortalLayout({
           {isProspect && (
             <span className="text-[9px] font-bold px-1 py-0.5 bg-green-100 text-green-700 rounded-full uppercase shrink-0">Free</span>
           )}
+          {isDelegate && (
+            <span className="text-[9px] font-bold px-1 py-0.5 bg-blue-100 text-blue-700 rounded-full uppercase shrink-0">Delegate</span>
+          )}
         </div>
         <p className="text-xs text-gray-400 mt-0.5">
-          {isDemo ? 'Demo Account' : isProspect ? 'Free Prospect Account' : 'Client Account'}
+          {isDemo ? 'Demo Account' : isDelegate ? 'Delegate Access' : isProspect ? 'Free Prospect Account' : 'Client Account'}
         </p>
       </div>
     </div>
