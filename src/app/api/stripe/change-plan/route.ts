@@ -18,6 +18,21 @@ export async function POST(req: NextRequest) {
 
     const supabase = await createServiceClient()
 
+    // Admin bypass — no Stripe subscription required, just update the profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.is_admin) {
+      await supabase
+        .from('profiles')
+        .update({ assigned_program: new_program, updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+      return NextResponse.json({ success: true, new_program })
+    }
+
     // Get user's current subscription from our DB
     const { data: sub } = await supabase
       .from('subscriptions')
