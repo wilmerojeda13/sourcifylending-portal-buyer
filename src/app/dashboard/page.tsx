@@ -266,7 +266,7 @@ export default async function DashboardPage() {
             </p>
             {!isActive && (
               <Link href="/billing" className="mt-3 btn-primary text-xs w-full py-2.5">
-                Reactivate
+                {profile?.subscription_status === 'canceled' ? 'Reactivate' : 'Subscribe Now'}
               </Link>
             )}
           </div>
