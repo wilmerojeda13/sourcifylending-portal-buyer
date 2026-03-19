@@ -855,6 +855,83 @@ export async function POST() {
 
   const errors: string[] = []
 
+  // ── Biz credit profile seed data ─────────────────────────────────────────────
+  const DEMO_A_BIZ_CREDIT_PROFILE = {
+    user_id: DEMO_A_ID,
+    duns_number: null, duns_status: 'not_started', duns_date: null,
+    experian_status: 'not_started', experian_date: null, experian_score: null,
+    equifax_status: 'not_started', equifax_date: null, equifax_score: null,
+    nav_status: 'not_started', nav_date: null,
+    paydex_score: null, paydex_date: null,
+    intelliscore: null, intelliscore_date: null, notes: 'Business credit not yet established — focus on personal credit optimization first.',
+  }
+
+  const DEMO_B_BIZ_CREDIT_PROFILE = {
+    user_id: DEMO_B_ID,
+    duns_number: '08-734-5219', duns_status: 'verified', duns_date: daysAgo(90).split('T')[0],
+    experian_status: 'registered', experian_date: daysAgo(75).split('T')[0], experian_score: null,
+    equifax_status: 'registered', equifax_date: daysAgo(60).split('T')[0], equifax_score: null,
+    nav_status: 'registered', nav_date: daysAgo(60).split('T')[0],
+    paydex_score: 82, paydex_date: daysAgo(14).split('T')[0],
+    intelliscore: 58, intelliscore_date: daysAgo(14).split('T')[0],
+    notes: 'PAYDEX 82 — on track for 90+. 4 vendor accounts reporting. Staples pending.',
+  }
+
+  const DEMO_C_BIZ_CREDIT_PROFILE = {
+    user_id: DEMO_C_ID,
+    duns_number: '06-221-9847', duns_status: 'verified', duns_date: daysAgo(180).split('T')[0],
+    experian_status: 'verified', experian_date: daysAgo(150).split('T')[0], experian_score: 72,
+    equifax_status: 'verified', equifax_date: daysAgo(120).split('T')[0], equifax_score: 68,
+    nav_status: 'registered', nav_date: daysAgo(120).split('T')[0],
+    paydex_score: 91, paydex_date: daysAgo(7).split('T')[0],
+    intelliscore: 74, intelliscore_date: daysAgo(7).split('T')[0],
+    notes: 'Strong PAYDEX 91. All bureaus verified. Monitoring for lender qualification.',
+  }
+
+  // ── Credibility checklist seed data ──────────────────────────────────────────
+  const makeChecklist = (userId: string, completedKeys: string[]) =>
+    ['ein_obtained','business_bank_account','business_address','business_phone_411',
+     'professional_email','business_website','duns_registered','experian_business_profile',
+     'equifax_business_profile','google_business_listed','business_license','naics_code_assigned',
+    ].map(key => ({
+      user_id: userId,
+      item_key: key,
+      is_complete: completedKeys.includes(key),
+    }))
+
+  const DEMO_A_CREDIBILITY = makeChecklist(DEMO_A_ID, [
+    'ein_obtained', 'business_bank_account', 'business_address', 'professional_email',
+  ])
+
+  const DEMO_B_CREDIBILITY = makeChecklist(DEMO_B_ID, [
+    'ein_obtained','business_bank_account','business_address','business_phone_411',
+    'professional_email','business_website','duns_registered','experian_business_profile',
+    'google_business_listed','naics_code_assigned',
+  ])
+
+  const DEMO_C_CREDIBILITY = makeChecklist(DEMO_C_ID, [
+    'ein_obtained','business_bank_account','business_address','business_phone_411',
+    'professional_email','business_website','duns_registered','experian_business_profile',
+    'equifax_business_profile','google_business_listed','business_license','naics_code_assigned',
+  ])
+
+  // ── Business tradelines seed data ─────────────────────────────────────────────
+  const DEMO_B_TRADELINES = [
+    { user_id: DEMO_B_ID, vendor_name: 'Uline', account_type: 'Net 30', credit_limit: 2500, balance: 0, status: 'reporting', opened_date: daysAgo(85).split('T')[0], last_reported: daysAgo(14).split('T')[0], bureaus_reporting: ['D&B','Experian Business'], notes: 'First net-30 account. Paid early 3 consecutive cycles.' },
+    { user_id: DEMO_B_ID, vendor_name: 'Quill', account_type: 'Net 30', credit_limit: 1500, balance: 0, status: 'reporting', opened_date: daysAgo(70).split('T')[0], last_reported: daysAgo(14).split('T')[0], bureaus_reporting: ['D&B'], notes: 'Office supplies. Paid on time.' },
+    { user_id: DEMO_B_ID, vendor_name: 'Grainger', account_type: 'Net 30', credit_limit: 3000, balance: 480, status: 'reporting', opened_date: daysAgo(55).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['D&B','Experian Business'], notes: 'Industrial supplies. Active account.' },
+    { user_id: DEMO_B_ID, vendor_name: 'Office Depot Business', account_type: 'Net 30', credit_limit: 1000, balance: 0, status: 'reporting', opened_date: daysAgo(40).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['Experian Business'], notes: 'Recently started reporting.' },
+  ]
+
+  const DEMO_C_TRADELINES = [
+    { user_id: DEMO_C_ID, vendor_name: 'Uline', account_type: 'Net 30', credit_limit: 5000, balance: 0, status: 'reporting', opened_date: daysAgo(170).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['D&B','Experian Business'], notes: 'Established account. Consistent early payment.' },
+    { user_id: DEMO_C_ID, vendor_name: 'Quill', account_type: 'Net 30', credit_limit: 2500, balance: 0, status: 'reporting', opened_date: daysAgo(160).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['D&B'], notes: 'Office supply account — 5 reporting cycles.' },
+    { user_id: DEMO_C_ID, vendor_name: 'Grainger', account_type: 'Net 30', credit_limit: 7500, balance: 1200, status: 'reporting', opened_date: daysAgo(140).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['D&B','Experian Business','Equifax Business'], notes: 'All 3 bureaus reporting.' },
+    { user_id: DEMO_C_ID, vendor_name: 'Home Depot Commercial', account_type: 'Revolving', credit_limit: 10000, balance: 2200, status: 'reporting', opened_date: daysAgo(120).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['Experian Business'], notes: 'Revolving commercial account.' },
+    { user_id: DEMO_C_ID, vendor_name: 'Staples Business Advantage', account_type: 'Net 30', credit_limit: 3000, balance: 0, status: 'reporting', opened_date: daysAgo(90).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['D&B','Experian Business'], notes: '5th reporting account — unlocked card eligibility.' },
+    { user_id: DEMO_C_ID, vendor_name: 'Amazon Business', account_type: 'Net 30', credit_limit: 5000, balance: 850, status: 'reporting', opened_date: daysAgo(60).split('T')[0], last_reported: daysAgo(3).split('T')[0], bureaus_reporting: ['Experian Business'], notes: 'Most recent addition. Active purchasing.' },
+  ]
+
   const demoUsers = [
     {
       id: DEMO_A_ID,
@@ -866,6 +943,9 @@ export async function POST() {
       documents: DEMO_A_DOCUMENTS,
       notifications: DEMO_A_NOTIFICATIONS,
       approvals: DEMO_A_APPROVALS,
+      bizCreditProfile: DEMO_A_BIZ_CREDIT_PROFILE,
+      credibilityItems: DEMO_A_CREDIBILITY,
+      tradelines: [],
     },
     {
       id: DEMO_B_ID,
@@ -877,6 +957,9 @@ export async function POST() {
       documents: DEMO_B_DOCUMENTS,
       notifications: DEMO_B_NOTIFICATIONS,
       approvals: DEMO_B_APPROVALS,
+      bizCreditProfile: DEMO_B_BIZ_CREDIT_PROFILE,
+      credibilityItems: DEMO_B_CREDIBILITY,
+      tradelines: DEMO_B_TRADELINES,
     },
     {
       id: DEMO_C_ID,
@@ -888,6 +971,9 @@ export async function POST() {
       documents: DEMO_C_DOCUMENTS,
       notifications: DEMO_C_NOTIFICATIONS,
       approvals: [],
+      bizCreditProfile: DEMO_C_BIZ_CREDIT_PROFILE,
+      credibilityItems: DEMO_C_CREDIBILITY,
+      tradelines: DEMO_C_TRADELINES,
     },
   ]
 
@@ -942,6 +1028,28 @@ export async function POST() {
       if (demo.approvals.length > 0) {
         const { error: approvalsError } = await supabase.from('funding_approvals').insert(demo.approvals)
         if (approvalsError) errors.push(`Approvals ${demo.email}: ${approvalsError.message}`)
+      }
+
+      // 8. Upsert business credit profile
+      if (demo.bizCreditProfile) {
+        const { error: bcpError } = await supabase
+          .from('business_credit_profile')
+          .upsert(demo.bizCreditProfile, { onConflict: 'user_id' })
+        if (bcpError) errors.push(`BizCreditProfile ${demo.email}: ${bcpError.message}`)
+      }
+
+      // 9. Delete + reinsert business credibility checklist
+      if (demo.credibilityItems && demo.credibilityItems.length > 0) {
+        await supabase.from('business_credibility_checklist').delete().eq('user_id', demo.id)
+        const { error: credError } = await supabase.from('business_credibility_checklist').insert(demo.credibilityItems)
+        if (credError) errors.push(`CredibilityChecklist ${demo.email}: ${credError.message}`)
+      }
+
+      // 10. Delete + reinsert business tradelines
+      if (demo.tradelines && demo.tradelines.length > 0) {
+        await supabase.from('business_tradelines').delete().eq('user_id', demo.id)
+        const { error: tlError } = await supabase.from('business_tradelines').insert(demo.tradelines)
+        if (tlError) errors.push(`Tradelines ${demo.email}: ${tlError.message}`)
       }
 
     } catch (err) {

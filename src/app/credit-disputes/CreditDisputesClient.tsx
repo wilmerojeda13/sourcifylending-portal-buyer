@@ -24,10 +24,34 @@ interface Dispute {
   updated_at: string
 }
 
-type Step = 1 | 2 | 3 | 4
+type Step = 1 | 2 | 2.5 | 3 | 4
 
-const BUREAUS = ['Experian', 'Equifax', 'TransUnion'] as const
-const DISPUTE_TYPES = ['Personal Information', 'Account Information', 'Collection Account', 'Hard Inquiry'] as const
+const BUREAUS = ['Experian', 'Equifax', 'TransUnion', 'Furnisher / Creditor', 'Debt Collector'] as const
+const DISPUTE_TYPES = ['Personal Information', 'Account Information', 'Collection Account', 'Hard Inquiry', 'Obsolete Reporting'] as const
+const COLLECTION_RECIPIENTS = ['Credit Bureau', 'Furnisher / Creditor', 'Debt Collector'] as const
+
+const DISPUTE_TYPE_INFO: Record<string, { laws: string; tip: string }> = {
+  'Personal Information': {
+    laws: 'FCRA § 611 (15 U.S.C. § 1681i) · FCRA § 607(b) (15 U.S.C. § 1681e)',
+    tip: 'Use for wrong name, address, DOB, phone, or employer on your report.',
+  },
+  'Account Information': {
+    laws: 'FCRA § 611 · FCRA § 607(b) · FCRA § 623 (15 U.S.C. § 1681s-2)',
+    tip: 'Use for wrong balance, payment history, duplicate accounts, or accounts not yours.',
+  },
+  'Collection Account': {
+    laws: 'FCRA §§ 611, 607, 623 · FDCPA § 809 (15 U.S.C. § 1692g) when directed to a debt collector',
+    tip: 'Select where this letter is going — bureau, furnisher, or debt collector — to apply the correct law.',
+  },
+  'Hard Inquiry': {
+    laws: 'FCRA § 604 (15 U.S.C. § 1681b) · FCRA § 611 (15 U.S.C. § 1681i)',
+    tip: 'Use for unauthorized or unrecognized hard inquiries with no permissible purpose.',
+  },
+  'Obsolete Reporting': {
+    laws: 'FCRA § 605 (15 U.S.C. § 1681c) · FCRA § 611 (15 U.S.C. § 1681i)',
+    tip: 'Use for negative items beyond the 7-year (or 10-year bankruptcy) reporting window.',
+  },
+}
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   'Draft':              { label: 'Draft',              color: 'bg-gray-100 text-gray-600',   icon: FileText },
@@ -49,12 +73,14 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
   const [step, setStep] = useState<Step>(1)
   const [bureau, setBureau] = useState('')
   const [disputeType, setDisputeType] = useState('')
+  const [recipientType, setRecipientType] = useState('')
   const [itemDisputed, setItemDisputed] = useState('')
   const [incorrectInfo, setIncorrectInfo] = useState('')
   const [correctInfo, setCorrectInfo] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [generatedLetter, setGeneratedLetter] = useState<string | null>(null)
+  const [legalBasis, setLegalBasis] = useState<{ statute: string; cite: string; purpose: string }[]>([])
   const [newDisputeId, setNewDisputeId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -65,9 +91,9 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
   const deadlineSoon = activeDisputes.filter(d => d.investigation_deadline && daysUntil(d.investigation_deadline) <= 7)
 
   const resetForm = () => {
-    setStep(1); setBureau(''); setDisputeType(''); setItemDisputed('')
+    setStep(1); setBureau(''); setDisputeType(''); setRecipientType(''); setItemDisputed('')
     setIncorrectInfo(''); setCorrectInfo(''); setFormError(null)
-    setGeneratedLetter(null); setNewDisputeId(null)
+    setGeneratedLetter(null); setLegalBasis([]); setNewDisputeId(null)
   }
 
   const handleGenerate = async () => {
@@ -81,7 +107,7 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bureau, dispute_type: disputeType,
+          bureau, dispute_type: disputeType, recipient_type: recipientType || undefined,
           item_disputed: itemDisputed, incorrect_information: incorrectInfo,
           correct_information: correctInfo,
         }),
@@ -90,6 +116,7 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
       if (!res.ok) { setFormError(data.error || 'Failed to generate letter.'); return }
       setDisputes(prev => [data.dispute, ...prev])
       setGeneratedLetter(data.dispute.generated_letter)
+      setLegalBasis(data.legal_basis || [])
       setNewDisputeId(data.dispute.id)
       setStep(4)
     } catch {
@@ -182,7 +209,7 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">
-              {step < 4 ? `New Dispute — Step ${step} of 3` : 'Dispute Letter Generated'}
+              {step === 4 ? 'Dispute Letter Generated' : step === 2.5 ? 'New Dispute — Step 2b of 3' : `New Dispute — Step ${step} of 3`}
             </h2>
             <button onClick={() => { setShowForm(false); resetForm() }} className="text-gray-400 hover:text-gray-600">
               <XCircle size={18} />
@@ -192,8 +219,8 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
           <div className="p-6 space-y-4">
             {step === 1 && (
               <>
-                <p className="text-sm font-semibold text-gray-700">Step 1: Select Bureau</p>
-                <div className="grid grid-cols-3 gap-3">
+                <p className="text-sm font-semibold text-gray-700">Step 1: Where is this letter going?</p>
+                <div className="grid grid-cols-2 gap-3">
                   {BUREAUS.map(b => (
                     <button key={b} onClick={() => setBureau(b)}
                       className={`p-3 rounded-xl border-2 text-sm font-semibold transition-all ${bureau === b ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:border-green-300'}`}>
@@ -219,9 +246,40 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
                     </button>
                   ))}
                 </div>
+                {disputeType && DISPUTE_TYPE_INFO[disputeType] && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 space-y-1">
+                    <p className="text-xs font-bold text-blue-700 uppercase tracking-wide">Legal Basis</p>
+                    <p className="text-xs text-blue-800 font-mono">{DISPUTE_TYPE_INFO[disputeType].laws}</p>
+                    <p className="text-xs text-blue-600">{DISPUTE_TYPE_INFO[disputeType].tip}</p>
+                  </div>
+                )}
                 <div className="flex gap-3 mt-2">
                   <button onClick={() => setStep(1)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors">← Back</button>
-                  <button disabled={!disputeType} onClick={() => setStep(3)} className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Continue →</button>
+                  <button disabled={!disputeType} onClick={() => disputeType === 'Collection Account' ? setStep(2.5) : setStep(3)} className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Continue →</button>
+                </div>
+              </>
+            )}
+
+            {step === 2.5 && (
+              <>
+                <p className="text-sm font-semibold text-gray-700">Step 2b: Who is this letter directed to?</p>
+                <p className="text-xs text-gray-500">Collection disputes use different laws depending on who receives the letter.</p>
+                <div className="grid grid-cols-1 gap-3">
+                  {COLLECTION_RECIPIENTS.map(r => (
+                    <button key={r} onClick={() => setRecipientType(r)}
+                      className={`p-3 rounded-xl border-2 text-sm font-semibold text-left transition-all ${recipientType === r ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:border-green-300'}`}>
+                      <span>{r}</span>
+                      <span className="block text-xs font-normal text-gray-400 mt-0.5">
+                        {r === 'Credit Bureau' && 'FCRA §§ 611, 607, 623 — reinvestigation request'}
+                        {r === 'Furnisher / Creditor' && 'FCRA § 623 — furnisher accuracy obligations'}
+                        {r === 'Debt Collector' && 'FDCPA §§ 807, 808, 809 + FCRA — validation & accuracy'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-3 mt-2">
+                  <button onClick={() => setStep(2)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors">← Back</button>
+                  <button disabled={!recipientType} onClick={() => setStep(3)} className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Continue →</button>
                 </div>
               </>
             )}
@@ -265,6 +323,21 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
                   <CheckCircle2 size={16} className="text-green-600" />
                   <p className="text-sm text-green-700 font-medium">Dispute letter generated and saved to your account.</p>
                 </div>
+
+                {legalBasis.length > 0 && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                    <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-2">Legal Basis Used</p>
+                    <div className="space-y-1.5">
+                      {legalBasis.map((s, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <span className="text-xs font-bold text-blue-800 shrink-0 font-mono">{s.statute}</span>
+                          <span className="text-xs text-blue-600">— {s.purpose}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Your Dispute Letter</p>
@@ -272,9 +345,14 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
                       <Copy size={13} /> {copied ? 'Copied!' : 'Copy Letter'}
                     </button>
                   </div>
-                  <textarea readOnly value={generatedLetter} rows={12}
+                  <textarea readOnly value={generatedLetter} rows={14}
                     className="w-full px-4 py-3 text-xs font-mono border border-gray-200 rounded-xl bg-gray-50 resize-none" />
                 </div>
+
+                <p className="text-[11px] text-gray-400 leading-relaxed border-t border-gray-100 pt-3">
+                  This draft is generated for informational purposes to help consumers exercise rights under applicable consumer protection laws. SourcifyLending does not provide legal advice or credit repair services. Individual results vary.
+                </p>
+
                 {newDisputeId && (
                   <button onClick={() => { markSent(newDisputeId); setShowForm(false); resetForm() }}
                     className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2">

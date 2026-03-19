@@ -64,12 +64,11 @@ export default function PortalLayout({
   const supabase = createClient()
 
   // ── Program-aware sidebar nav ──────────────────────────────────────────────
-  // Prospects get a minimal nav. Active members get only items relevant to
-  // their assigned program. Cross-program leakage is explicitly prevented:
-  //   Program A  → Credit Optimization, Credit Disputes (NOT Biz Credit, NOT Funding Results)
-  //   Program B  → Biz Credit Setup, Credit Monitoring, Biz Resources, Funding Results (NOT Credit Disputes)
-  //   Program C  → no program-specific extras beyond shared base items
-  //   No program / unknown → only shared base items shown
+  // Prospects get a minimal nav. Active members get program-specific items:
+  //   Program A  → Credit Optimization, Credit Disputes
+  //   Program B  → Biz Credit Setup, Biz Credit Monitoring, Biz Resources
+  //   Program C  → base items only (no program-specific extras)
+  //   All active → Opportunities, Funding Results, Credit Disputes, AI Credits, Reports, Billing, Support
   //   Delegate   → same as active member but Billing is hidden
   const sidebarNavItems = isProspect
     ? PROSPECT_NAV_ITEMS
@@ -84,21 +83,17 @@ export default function PortalLayout({
         // ── Program B only ───────────────────────────────────────────────────
         ...(assignedProgram === 'program_b'
           ? [
-              { href: '/business-credit-setup',      label: 'Biz Credit Setup',  icon: Building2 },
+              { href: '/business-credit-setup',      label: 'Biz Credit Setup',      icon: Building2 },
               { href: '/business-credit-monitoring',  label: 'Biz Credit Monitoring', icon: TrendingUp },
-              { href: '/business-resources',          label: 'Biz Resources',     icon: BookOpen },
+              { href: '/business-resources',          label: 'Biz Resources',         icon: BookOpen },
             ]
           : []),
 
         // ── Shared for all active members ────────────────────────────────────
-        { href: '/opportunities',    label: 'Opportunities',   icon: TrendingUp },
-        { href: '/funding-results',  label: 'Funding Results', icon: DollarSign },
-        { href: '/ai-usage',         label: 'AI Credits',      icon: Zap },
-
-        // ── Program A only: credit repair / dispute tooling ──────────────────
-        ...(assignedProgram === 'program_a'
-          ? [{ href: '/credit-disputes', label: 'Credit Disputes', icon: ShieldAlert }]
-          : []),
+        { href: '/opportunities',   label: 'Opportunities',   icon: TrendingUp },
+        { href: '/funding-results', label: 'Funding Results', icon: DollarSign },
+        { href: '/credit-disputes', label: 'Credit Disputes', icon: ShieldAlert },
+        { href: '/ai-usage',        label: 'AI Credits',      icon: Zap },
 
         { href: '/reports', label: 'Reports', icon: BarChart2 },
         // Delegates cannot access Billing

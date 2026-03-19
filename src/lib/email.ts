@@ -7,7 +7,8 @@ import type { AnalyzerResult } from '@/types'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const FROM_ADDRESS = process.env.RESEND_FROM_EMAIL ?? 'SourcifyLending <no-reply@ai.sourcifylending.com>'
+// Always use the verified subdomain — sourcifylending.com is NOT verified in Resend
+const FROM_ADDRESS = 'SourcifyLending <no-reply@ai.sourcifylending.com>'
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://sourcifylending.com'
 
 const PROGRAM_LABELS: Record<string, string> = {
