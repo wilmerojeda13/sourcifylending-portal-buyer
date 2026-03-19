@@ -81,7 +81,7 @@ export default function PortalLayout({
         ...(assignedProgram === 'program_b'
           ? [
               { href: '/business-credit-setup',      label: 'Biz Credit Setup',  icon: Building2 },
-              { href: '/business-credit-monitoring',  label: 'Credit Monitoring', icon: TrendingUp },
+              { href: '/business-credit-monitoring',  label: 'Biz Cred Monitoring', icon: TrendingUp },
               { href: '/business-resources',          label: 'Biz Resources',     icon: BookOpen },
             ]
           : []),
