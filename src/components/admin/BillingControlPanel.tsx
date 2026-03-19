@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   DollarSign, CheckCircle, XCircle, AlertTriangle, Clock, Zap,
   CreditCard, Link, Plus, Save, Loader2, Trash2, RefreshCw,
-  ChevronDown, ChevronUp, ExternalLink, FileText, Calendar,
+  ChevronDown, ChevronUp, ExternalLink, FileText, Calendar, Layers,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { PROGRAM_INFO } from '@/lib/stripe'
@@ -86,6 +86,18 @@ const BILLING_BADGE: Record<string, string> = {
   unpaid: 'bg-gray-100 text-gray-500',
 }
 
+const PROGRAM_LABELS: Record<string, string> = {
+  program_a: 'Program A — 0% APR',
+  program_b: 'Program B — Biz Credit',
+  program_c: 'Program C — Monitoring',
+}
+
+const PROGRAM_COLORS: Record<string, string> = {
+  program_a: 'bg-blue-100 text-blue-800 border-blue-200',
+  program_b: 'bg-purple-100 text-purple-800 border-purple-200',
+  program_c: 'bg-green-100 text-green-800 border-green-200',
+}
+
 const ACTIVATION_LABEL: Record<string, string> = {
   stripe_activated: 'Stripe Activated',
   admin_activated: 'Admin Activated',
@@ -103,6 +115,12 @@ export default function BillingControlPanel({ userId }: Props) {
   const [savingArrangement, setSavingArrangement] = useState(false)
   const [savingPayment, setSavingPayment] = useState(false)
   const [stripeLoading, setStripeLoading] = useState(false)
+
+  // Membership management
+  const [memberships, setMemberships] = useState<Array<{ id: string; program_code: string; status: string; activated_at: string | null }>>([])
+  const [membershipLoading, setMembershipLoading] = useState(false)
+  const [addingProgram, setAddingProgram] = useState<string | null>(null)
+  const [removingProgram, setRemovingProgram] = useState<string | null>(null)
 
   // Arrangement form
   const [arrForm, setArrForm] = useState({
@@ -168,7 +186,57 @@ export default function BillingControlPanel({ userId }: Props) {
     }
   }, [userId])
 
-  useEffect(() => { load() }, [load])
+  const loadMemberships = useCallback(async () => {
+    setMembershipLoading(true)
+    try {
+      const res = await fetch(`/api/admin/memberships?user_id=${userId}`)
+      const json = await res.json()
+      setMemberships(json.memberships ?? [])
+    } catch {
+      // silently fail — memberships are a bonus
+    } finally {
+      setMembershipLoading(false)
+    }
+  }, [userId])
+
+  useEffect(() => { load(); loadMemberships() }, [load, loadMemberships])
+
+  const handleAddMembership = async (programCode: string) => {
+    setAddingProgram(programCode)
+    try {
+      const res = await fetch('/api/admin/memberships', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, program_code: programCode }),
+      })
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error) }
+      toast.success(`${PROGRAM_LABELS[programCode]} added`)
+      await Promise.all([loadMemberships(), load()])
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add membership')
+    } finally {
+      setAddingProgram(null)
+    }
+  }
+
+  const handleRemoveMembership = async (programCode: string) => {
+    if (!confirm(`Remove ${PROGRAM_LABELS[programCode]} from this account?`)) return
+    setRemovingProgram(programCode)
+    try {
+      const res = await fetch('/api/admin/memberships', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, program_code: programCode }),
+      })
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error) }
+      toast.success(`${PROGRAM_LABELS[programCode]} removed`)
+      await Promise.all([loadMemberships(), load()])
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove membership')
+    } finally {
+      setRemovingProgram(null)
+    }
+  }
 
   const handleActivate = async (deactivate = false) => {
     setActivating(true)
@@ -434,6 +502,64 @@ export default function BillingControlPanel({ userId }: Props) {
             <p className="text-xs text-yellow-900 whitespace-pre-wrap">{subscription.admin_billing_notes}</p>
           </div>
         )}
+      </div>
+
+      {/* ── Membership Management ── */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-gray-500" />
+            <span className="font-semibold text-sm text-gray-800">Membership Management</span>
+          </div>
+          <button onClick={loadMemberships} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <RefreshCw className={`w-4 h-4 ${membershipLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-xs text-gray-500">Add or remove program enrollments. A client can be enrolled in multiple programs simultaneously (e.g. A + B, or any program + C).</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {(['program_a', 'program_b', 'program_c'] as const).map((code) => {
+              const active = memberships.find(m => m.program_code === code && m.status === 'active')
+              const isAdding = addingProgram === code
+              const isRemoving = removingProgram === code
+              return (
+                <div key={code} className={`rounded-xl border p-4 flex flex-col gap-3 transition-all ${active ? 'border-green-200 bg-green-50' : 'border-gray-100 bg-gray-50'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full border ${PROGRAM_COLORS[code]}`}>
+                        {code === 'program_a' ? 'Program A' : code === 'program_b' ? 'Program B' : 'Program C'}
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {code === 'program_a' ? '0% Intro APR Strategy' : code === 'program_b' ? 'Business Credit Builder' : 'Capital Monitoring'}
+                      </p>
+                    </div>
+                    {active
+                      ? <span className="flex items-center gap-1 text-[11px] font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full shrink-0"><CheckCircle className="w-3 h-3" /> Active</span>
+                      : <span className="text-[11px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">Inactive</span>
+                    }
+                  </div>
+                  {active ? (
+                    <button onClick={() => handleRemoveMembership(code)} disabled={isRemoving}
+                      className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-red-600 border border-red-200 bg-white hover:bg-red-50 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                      {isRemoving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />} Remove
+                    </button>
+                  ) : (
+                    <button onClick={() => handleAddMembership(code)} disabled={isAdding}
+                      className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-green-700 border border-green-200 bg-white hover:bg-green-50 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                      {isAdding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Enroll
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {memberships.filter(m => m.status === 'active').length > 0 && (
+            <div className="bg-gray-50 rounded-lg px-4 py-3 text-xs text-gray-600">
+              <span className="font-semibold">Active enrollments:</span>{' '}
+              {memberships.filter(m => m.status === 'active').map(m => PROGRAM_LABELS[m.program_code] ?? m.program_code).join(' + ')}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Access Control ── */}
