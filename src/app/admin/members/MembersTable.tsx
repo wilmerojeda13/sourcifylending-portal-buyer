@@ -147,7 +147,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
             <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wide">
               <th className="px-4 py-3 text-left">Member</th>
               <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Program / Stage</th>
+              <th className="px-4 py-3 text-left">Primary Program / Stage</th>
               <th className="px-4 py-3 text-left">Stripe IDs</th>
               <th className="px-4 py-3 text-left">Actions</th>
             </tr>
@@ -199,20 +199,28 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
                   </div>
                 </td>
 
-                {/* Program / Stage */}
+                {/* Primary Program / Stage */}
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-1.5">
-                    {m.assigned_program ? (
-                      <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${
-                        m.assigned_program === 'program_a' ? 'bg-blue-100 text-blue-700' :
-                        m.assigned_program === 'program_b' ? 'bg-purple-100 text-purple-700' :
-                        'bg-green-100 text-green-700'
-                      }`}>
-                        {getProgramShortLabel(m.assigned_program)}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-gray-400">No program</span>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {m.assigned_program ? (
+                        <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${
+                          m.assigned_program === 'program_a' ? 'bg-blue-100 text-blue-700' :
+                          m.assigned_program === 'program_b' ? 'bg-purple-100 text-purple-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {getProgramShortLabel(m.assigned_program)}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-gray-400">No program</span>
+                      )}
+                      {/* Multi-program indicator — shown when member has more than 1 program */}
+                      {m.assigned_program && (
+                        <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full" title="May have additional programs — see Billing tab">
+                          +more?
+                        </span>
+                      )}
+                    </div>
                     {m.current_stage && (
                       <span className="text-[10px] text-gray-400 truncate max-w-[120px]">{m.current_stage}</span>
                     )}

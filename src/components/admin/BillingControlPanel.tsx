@@ -398,12 +398,22 @@ export default function BillingControlPanel({ userId }: Props) {
         </div>
 
         <div className="p-5 grid grid-cols-2 md:grid-cols-3 gap-4">
-          {/* Program */}
-          <div>
-            <p className="text-xs text-gray-500 mb-0.5">Program</p>
-            <p className="text-sm font-semibold text-gray-900">
-              {program_info?.name ?? (program ?? 'None assigned')}
-            </p>
+          {/* Active Programs */}
+          <div className="col-span-2 md:col-span-3">
+            <p className="text-xs text-gray-500 mb-1.5">Active Programs</p>
+            {memberships.filter(m => m.status === 'active').length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {memberships.filter(m => m.status === 'active').map(m => (
+                  <span key={m.program_code} className={`inline-block text-xs font-semibold px-3 py-1 rounded-full border ${PROGRAM_COLORS[m.program_code] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                    {PROGRAM_LABELS[m.program_code] ?? m.program_code}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-gray-400">
+                {program_info?.name ?? (program ? PROGRAM_LABELS[program] ?? program : 'No programs enrolled')}
+              </p>
+            )}
           </div>
 
           {/* Access Status */}
