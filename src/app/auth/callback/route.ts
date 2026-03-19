@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
+import { logPortalEvent } from '@/lib/portal-events'
 
 async function sendNewSignupNotification(email: string, fullName: string) {
   const key = process.env.RESEND_API_KEY
@@ -92,6 +93,15 @@ export async function GET(request: NextRequest) {
             created_at: new Date().toISOString(),
           }).then(() => {})
           sendNewSignupNotification(user.email ?? '', fullName)
+          logPortalEvent({
+            userId: user.id,
+            eventType: 'account_created',
+            category: 'accounts',
+            severity: 'success',
+            title: 'New account created',
+            message: user.email,
+            metadata: { source: 'google_oauth', full_name: fullName },
+          })
         }
       }
 

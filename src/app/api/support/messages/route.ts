@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logMemoryEvent } from '@/lib/ai-memory'
+import { logPortalEvent } from '@/lib/portal-events'
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024 // 5 MB
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
@@ -168,6 +169,15 @@ export async function POST(req: NextRequest) {
   // Fire-and-forget notifications
   sendSupportNotificationEmail(user.email ?? '', subject, message, now, attachmentUrl)
   logMemoryEvent(user.id, 'support_message_sent', `Support message sent: ${subject}`, undefined, msg.id)
+  logPortalEvent({
+    userId: user.id,
+    eventType: 'support_message_sent',
+    category: 'support',
+    severity: 'info',
+    title: `Support message: ${subject}`,
+    message: message.substring(0, 200),
+    metadata: { user_email: user.email ?? '', subject },
+  })
 
   return NextResponse.json({ message: msg }, { status: 201 })
 }

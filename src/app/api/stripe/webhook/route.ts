@@ -3,6 +3,7 @@ import { stripe, PRICE_IDS, thirtyDaysFromNow } from '@/lib/stripe'
 import { createServiceClient } from '@/lib/supabase/server'
 import { generateTasksForUser } from '@/lib/task-templates'
 import { logActivity } from '@/lib/activity'
+import { logPortalEvent } from '@/lib/portal-events'
 import type { ProgramId } from '@/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
@@ -286,6 +287,17 @@ export async function POST(req: NextRequest) {
         await logActivity(userId, 'checkout_completed', { program, session_type: 'subscription', subscription_id: subscriptionId })
       }
 
+      // ── Portal event: subscription created ─────────────────────────────
+      logPortalEvent({
+        userId,
+        eventType: 'subscription_created',
+        category: 'subscriptions',
+        severity: 'success',
+        title: `New subscription: ${PROGRAM_NAMES[program]}`,
+        message: `User completed checkout for ${PROGRAM_NAMES[program]}`,
+        metadata: { program, session_type: sessionType ?? 'subscription', customer_id: customerId },
+      })
+
       // ── Log setup fee / checkout payment record ─────────────────────────
       if (session.amount_total && session.amount_total > 0) {
         const sessionId = session.id
@@ -415,6 +427,15 @@ export async function POST(req: NextRequest) {
         })
 
         await logActivity(sub.user_id, 'payment_failed', { customer_id: customerId })
+        logPortalEvent({
+          userId: sub.user_id,
+          eventType: 'payment_failed',
+          category: 'billing',
+          severity: 'critical',
+          title: 'Payment failed',
+          message: 'A subscription payment has failed. The user has been notified.',
+          metadata: { customer_id: customerId },
+        })
       }
 
       break

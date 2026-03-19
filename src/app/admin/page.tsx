@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare } from 'lucide-react'
+import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell } from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 import SeedDemoButton from './SeedDemoButton'
@@ -17,7 +17,7 @@ export default async function AdminHubPage() {
   if (!adminCheck?.is_admin) redirect('/dashboard')
 
   // Parallel data fetch
-  const [{ data: profiles }, { data: recentActivity }] = await Promise.all([
+  const [{ data: profiles }, { data: recentActivity }, { count: unreadNotifCount }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, full_name, email, business_name, subscription_status, assigned_program, portal_blocked, created_at')
@@ -27,6 +27,10 @@ export default async function AdminHubPage() {
       .select('id, user_id, event_type, event_data, created_at')
       .order('created_at', { ascending: false })
       .limit(20),
+    supabase
+      .from('admin_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_read', false),
   ])
 
   const all = profiles ?? []
@@ -96,6 +100,13 @@ export default async function AdminHubPage() {
       desc: 'View and reply to client support messages',
       icon: MessageSquare,
       color: 'bg-blue-600',
+    },
+    {
+      href: '/admin/activity',
+      label: 'Activity Feed',
+      desc: 'Real-time client activity and alerts',
+      icon: Bell,
+      color: 'bg-amber-500',
     },
   ]
 
@@ -249,10 +260,18 @@ export default async function AdminHubPage() {
 
         {/* Recent Activity Log */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="font-bold text-gray-900 flex items-center gap-2">
               <FileText size={18} className="text-gray-500" /> Recent Activity
+              {(unreadNotifCount ?? 0) > 0 && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+                  {unreadNotifCount} unread
+                </span>
+              )}
             </h2>
+            <Link href="/admin/activity" className="text-sm text-amber-600 hover:text-amber-700 font-medium">
+              View feed →
+            </Link>
           </div>
           <div className="divide-y divide-gray-50">
             {(recentActivity ?? []).map((log) => (

@@ -128,6 +128,25 @@ export default function MemberDetail({
   const [syncing, setSyncing] = useState(false)
   const [lastSyncResult, setLastSyncResult] = useState<{ message: string; fields?: string[]; ok: boolean } | null>(null)
 
+  // ── Invite ──
+  const [inviteStatus, setInviteStatus] = useState<string>(
+    (profile as UserProfile & { invite_status?: string; invite_token?: string; invite_sent_at?: string; invite_accepted_at?: string; invite_expires_at?: string }).invite_status ?? 'not_sent'
+  )
+  const [inviteToken] = useState<string | null>(
+    (profile as UserProfile & { invite_token?: string }).invite_token ?? null
+  )
+  const [inviteSentAt] = useState<string | null>(
+    (profile as UserProfile & { invite_sent_at?: string }).invite_sent_at ?? null
+  )
+  const [inviteAcceptedAt] = useState<string | null>(
+    (profile as UserProfile & { invite_accepted_at?: string }).invite_accepted_at ?? null
+  )
+  const [inviteExpiresAt] = useState<string | null>(
+    (profile as UserProfile & { invite_expires_at?: string }).invite_expires_at ?? null
+  )
+  const [sendingInvite, setSendingInvite] = useState(false)
+  const [inviteCopied, setInviteCopied] = useState(false)
+
   // ── AI Controls ──
   const [aiForm, setAiForm] = useState({
     ai_suspended: profile.ai_suspended ?? false,
@@ -501,6 +520,40 @@ export default function MemberDetail({
       toast.error('Failed to apply credit adjustment')
     } finally {
       setApplyingCredit(false)
+    }
+  }
+
+  // ── Invite handlers ──
+
+  async function sendInvite(resend = false) {
+    setSendingInvite(true)
+    try {
+      const res = await fetch('/api/admin/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: profile.id, resend }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send invite')
+      setInviteStatus('sent')
+      toast.success(resend ? 'Invite resent!' : 'Invite sent!')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send invite')
+    } finally {
+      setSendingInvite(false)
+    }
+  }
+
+  async function copyInviteLink() {
+    if (!inviteToken) return
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin
+    const link = `${siteUrl}/claim-account?token=${inviteToken}`
+    try {
+      await navigator.clipboard.writeText(link)
+      setInviteCopied(true)
+      setTimeout(() => setInviteCopied(false), 2000)
+    } catch {
+      toast.error('Failed to copy link')
     }
   }
 
@@ -1386,6 +1439,70 @@ export default function MemberDetail({
                     {profile.notion_page_id ? '✓' : '—'}
                   </div>
                   <div className="text-[10px] text-gray-400">Notion Linked</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Portal Invite */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+              <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <ExternalLink size={18} className="text-green-600" /> Portal Invite
+              </h2>
+              <div className="space-y-3">
+                {/* Status badge */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">Status:</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                    inviteStatus === 'accepted' ? 'bg-green-100 text-green-700' :
+                    inviteStatus === 'sent' ? 'bg-blue-100 text-blue-700' :
+                    inviteStatus === 'expired' ? 'bg-red-100 text-red-600' :
+                    'bg-gray-100 text-gray-500'
+                  }`}>
+                    {inviteStatus === 'not_sent' ? 'not sent' : inviteStatus}
+                  </span>
+                </div>
+
+                {/* Timestamps */}
+                {inviteSentAt && (
+                  <div className="text-xs text-gray-500">
+                    Sent: <span className="text-gray-700">{fmtDateTime(inviteSentAt)}</span>
+                  </div>
+                )}
+                {inviteAcceptedAt && (
+                  <div className="text-xs text-gray-500">
+                    Accepted: <span className="text-green-700 font-medium">{fmtDateTime(inviteAcceptedAt)}</span>
+                  </div>
+                )}
+                {inviteExpiresAt && inviteStatus === 'sent' && (
+                  <div className="text-xs text-gray-500">
+                    Expires: <span className={new Date(inviteExpiresAt) < new Date() ? 'text-red-600 font-medium' : 'text-gray-700'}>{fmtDateTime(inviteExpiresAt)}</span>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex flex-col gap-2 pt-1">
+                  {inviteStatus !== 'accepted' && (
+                    <button
+                      onClick={() => sendInvite(inviteStatus === 'sent')}
+                      disabled={sendingInvite}
+                      className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold py-2 px-3 rounded-xl disabled:opacity-50 transition-colors"
+                    >
+                      {sendingInvite ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
+                      {inviteStatus === 'sent' ? 'Resend Invite' : 'Send Portal Invite'}
+                    </button>
+                  )}
+                  {inviteToken && inviteStatus === 'sent' && inviteExpiresAt && new Date(inviteExpiresAt) > new Date() && (
+                    <button
+                      onClick={copyInviteLink}
+                      className="w-full flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 text-xs font-semibold py-2 px-3 rounded-xl transition-colors"
+                    >
+                      {inviteCopied ? <CheckCircle size={12} className="text-green-500" /> : <ExternalLink size={12} />}
+                      {inviteCopied ? 'Copied!' : 'Copy Invite Link'}
+                    </button>
+                  )}
+                  {inviteStatus === 'accepted' && (
+                    <p className="text-xs text-green-600 text-center font-medium">Member has claimed their account.</p>
+                  )}
                 </div>
               </div>
             </div>
