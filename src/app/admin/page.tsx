@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign } from 'lucide-react'
+import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare } from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 import SeedDemoButton from './SeedDemoButton'
@@ -89,6 +89,13 @@ export default async function AdminHubPage() {
       desc: 'Track collected revenue, MRR, setup fees, and outstanding balances',
       icon: DollarSign,
       color: 'bg-green-700',
+    },
+    {
+      href: '/admin/support',
+      label: 'Support Inbox',
+      desc: 'View and reply to client support messages',
+      icon: MessageSquare,
+      color: 'bg-blue-600',
     },
   ]
 
