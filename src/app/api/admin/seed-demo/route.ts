@@ -224,7 +224,7 @@ const DEMO_A_DOCUMENTS = [
 
 const DEMO_A_APPROVALS = [
   {
-    id: 'da01-appr-0001-0000-000000000001',
+    id: 'da010000-0000-4000-8000-000000000001',
     user_id: DEMO_A_ID,
     program_type: 'Program A',
     approval_type: '0% APR Card',
@@ -240,7 +240,7 @@ const DEMO_A_APPROVALS = [
     created_at: daysAgo(10),
   },
   {
-    id: 'da01-appr-0002-0000-000000000002',
+    id: 'da010000-0000-4000-8000-000000000002',
     user_id: DEMO_A_ID,
     program_type: 'Program A',
     approval_type: '0% APR Card',
@@ -256,7 +256,7 @@ const DEMO_A_APPROVALS = [
     created_at: daysAgo(10),
   },
   {
-    id: 'da01-appr-0003-0000-000000000003',
+    id: 'da010000-0000-4000-8000-000000000003',
     user_id: DEMO_A_ID,
     program_type: 'Program A',
     approval_type: 'Business Credit Card',
@@ -272,7 +272,7 @@ const DEMO_A_APPROVALS = [
     created_at: daysAgo(10),
   },
   {
-    id: 'da01-appr-0004-0000-000000000004',
+    id: 'da010000-0000-4000-8000-000000000004',
     user_id: DEMO_A_ID,
     program_type: 'Program A',
     approval_type: '0% APR Card',
@@ -527,7 +527,7 @@ const DEMO_B_DOCUMENTS = [
 
 const DEMO_B_APPROVALS = [
   {
-    id: 'db02-appr-0001-0000-000000000001',
+    id: 'db020000-0000-4000-8000-000000000001',
     user_id: DEMO_B_ID,
     program_type: 'Program B',
     approval_type: 'Net 30 Account',
@@ -543,7 +543,7 @@ const DEMO_B_APPROVALS = [
     created_at: daysAgo(35),
   },
   {
-    id: 'db02-appr-0002-0000-000000000002',
+    id: 'db020000-0000-4000-8000-000000000002',
     user_id: DEMO_B_ID,
     program_type: 'Program B',
     approval_type: 'Net 30 Account',
@@ -559,7 +559,7 @@ const DEMO_B_APPROVALS = [
     created_at: daysAgo(30),
   },
   {
-    id: 'db02-appr-0003-0000-000000000003',
+    id: 'db020000-0000-4000-8000-000000000003',
     user_id: DEMO_B_ID,
     program_type: 'Program B',
     approval_type: 'Net 30 Account',
@@ -575,7 +575,7 @@ const DEMO_B_APPROVALS = [
     created_at: daysAgo(22),
   },
   {
-    id: 'db02-appr-0004-0000-000000000004',
+    id: 'db020000-0000-4000-8000-000000000004',
     user_id: DEMO_B_ID,
     program_type: 'Program B',
     approval_type: 'Store Account',
