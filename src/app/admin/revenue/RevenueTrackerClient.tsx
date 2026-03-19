@@ -126,6 +126,7 @@ export default function RevenueTrackerClient() {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showGoalForm, setShowGoalForm] = useState(false)
   const [savingGoal, setSavingGoal] = useState(false)
+  const [goalError, setGoalError] = useState<string | null>(null)
   const [goalForm, setGoalForm] = useState<GoalForm>({
     period_type: 'monthly',
     period_start: new Date().toISOString().slice(0, 7) + '-01',
@@ -157,7 +158,23 @@ export default function RevenueTrackerClient() {
   }
 
   async function handleSaveGoal() {
-    if (!goalForm.revenue_goal || !goalForm.period_start) return
+    setGoalError(null)
+    if (!goalForm.revenue_goal || !goalForm.period_start) {
+      setGoalError('Please enter a goal amount and start date.')
+      return
+    }
+    // Auto-compute period_end if not provided
+    let periodEnd = goalForm.period_end
+    if (!periodEnd && goalForm.period_start) {
+      const start = new Date(goalForm.period_start)
+      if (goalForm.period_type === 'monthly') {
+        periodEnd = new Date(start.getFullYear(), start.getMonth() + 1, 0).toISOString().split('T')[0]
+      } else if (goalForm.period_type === 'quarterly') {
+        periodEnd = new Date(start.getFullYear(), start.getMonth() + 3, 0).toISOString().split('T')[0]
+      } else {
+        periodEnd = new Date(start.getFullYear() + 1, start.getMonth(), start.getDate() - 1).toISOString().split('T')[0]
+      }
+    }
     setSavingGoal(true)
     try {
       const res = await fetch('/api/admin/revenue', {
@@ -166,14 +183,20 @@ export default function RevenueTrackerClient() {
         body: JSON.stringify({
           period_type: goalForm.period_type,
           period_start: goalForm.period_start,
-          period_end: goalForm.period_end || null,
+          period_end: periodEnd,
           revenue_goal: Number(goalForm.revenue_goal),
         }),
       })
+      const data = await res.json()
       if (res.ok) {
         setShowGoalForm(false)
+        setGoalError(null)
         await fetchRevenue()
+      } else {
+        setGoalError(data.error || 'Failed to save goal. Please try again.')
       }
+    } catch {
+      setGoalError('Something went wrong. Please try again.')
     } finally {
       setSavingGoal(false)
     }
@@ -434,14 +457,19 @@ export default function RevenueTrackerClient() {
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
                   </div>
-                  <div className="col-span-2 sm:col-span-4 flex justify-end">
-                    <button
-                      onClick={handleSaveGoal}
-                      disabled={savingGoal}
-                      className="px-5 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-                    >
-                      {savingGoal ? 'Saving...' : 'Save Goal'}
-                    </button>
+                  <div className="col-span-2 sm:col-span-4 space-y-2">
+                    {goalError && (
+                      <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{goalError}</p>
+                    )}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleSaveGoal}
+                        disabled={savingGoal}
+                        className="px-5 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                      >
+                        {savingGoal ? 'Saving...' : 'Save Goal'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

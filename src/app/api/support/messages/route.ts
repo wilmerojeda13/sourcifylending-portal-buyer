@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logMemoryEvent } from '@/lib/ai-memory'
 
-// ─── Email helper (Resend API via fetch) ──────────────────────────────────────
+const MAX_FILE_BYTES = 5 * 1024 * 1024 // 5 MB
+const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
+
+// ─── Email helper ──────────────────────────────────────────────────────────────
 async function sendSupportNotificationEmail(
   userEmail: string,
   subject: string,
   message: string,
   submittedAt: string,
+  attachmentUrl?: string | null,
 ) {
   const RESEND_API_KEY = process.env.RESEND_API_KEY
   if (!RESEND_API_KEY) {
     console.warn('[Support] RESEND_API_KEY not set — skipping email notification')
     return
   }
+
+  const attachmentHtml = attachmentUrl
+    ? `<div style="margin-top:16px"><p style="color:#6b7280;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px">Attachment</p><a href="${attachmentUrl}" style="color:#16a34a;font-size:14px;text-decoration:underline">View attachment →</a></div>`
+    : ''
 
   const htmlBody = `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
@@ -30,6 +38,7 @@ async function sendSupportNotificationEmail(
           <p style="color:#6b7280;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px">Message</p>
           <p style="font-size:14px;line-height:1.6;margin:0;white-space:pre-wrap">${message}</p>
         </div>
+        ${attachmentHtml}
         <p style="margin-top:24px;font-size:13px;color:#6b7280">Reply to <strong>${userEmail}</strong> or log into the admin panel to respond.</p>
       </div>
     </div>
@@ -38,10 +47,7 @@ async function sendSupportNotificationEmail(
   try {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: 'SourcifyLending Portal <no-reply@ai.sourcifylending.com>',
         to: ['abel@sourcifylending.com'],
@@ -55,7 +61,7 @@ async function sendSupportNotificationEmail(
   }
 }
 
-// ─── GET — list the authenticated user's support messages ────────────────────
+// ─── GET — list the authenticated user's support messages ─────────────────────
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -63,36 +69,77 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('support_messages')
-    .select('id, subject, message, status, admin_reply, created_at, updated_at')
+    .select('id, subject, message, status, admin_reply, attachment_url, created_at, updated_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
   if (error) {
     const isSchemaError = error.message?.includes('schema cache') || error.code === 'PGRST204'
-    const msg = isSchemaError
-      ? 'Support inbox is still being set up. Please check back shortly.'
-      : 'Unable to load messages. Please try again.'
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({
+      error: isSchemaError
+        ? 'Support inbox is still being set up. Please check back shortly.'
+        : 'Unable to load messages. Please try again.',
+    }, { status: 500 })
   }
   return NextResponse.json({ messages: data })
 }
 
-// ─── POST — submit a new support message ─────────────────────────────────────
+// ─── POST — submit a new support message (FormData for optional attachment) ───
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json()
-  const subject = (body.subject ?? '').trim()
-  const message = (body.message ?? '').trim()
+  // Parse FormData (supports both file uploads and plain JSON fallback)
+  let subject = '', message = '', attachment: File | null = null
+  const contentType = req.headers.get('content-type') ?? ''
+
+  if (contentType.includes('multipart/form-data')) {
+    const form = await req.formData()
+    subject = ((form.get('subject') as string) ?? '').trim()
+    message = ((form.get('message') as string) ?? '').trim()
+    attachment = (form.get('attachment') as File | null) ?? null
+  } else {
+    const body = await req.json()
+    subject = (body.subject ?? '').trim()
+    message = (body.message ?? '').trim()
+  }
 
   if (!subject) return NextResponse.json({ error: 'Subject is required' }, { status: 400 })
   if (!message) return NextResponse.json({ error: 'Message is required' }, { status: 400 })
   if (subject.length > 200) return NextResponse.json({ error: 'Subject too long (max 200 chars)' }, { status: 400 })
 
-  // Use service client for insert (RLS insert policy requires auth.uid())
-  // Regular client is fine here since user is authenticated
+  // ── Upload attachment to Supabase Storage ─────────────────────────────────
+  let attachmentUrl: string | null = null
+  if (attachment && attachment.size > 0) {
+    if (!ALLOWED_MIME.includes(attachment.type)) {
+      return NextResponse.json({ error: 'Invalid file type. Allowed: JPG, PNG, GIF, WebP, PDF' }, { status: 400 })
+    }
+    if (attachment.size > MAX_FILE_BYTES) {
+      return NextResponse.json({ error: 'File too large. Maximum 5 MB.' }, { status: 400 })
+    }
+
+    const serviceClient = await createServiceClient()
+    const ext = attachment.name.split('.').pop() ?? 'bin'
+    const path = `${user.id}/${Date.now()}.${ext}`
+    const buffer = Buffer.from(await attachment.arrayBuffer())
+
+    const { error: uploadError } = await serviceClient.storage
+      .from('support-attachments')
+      .upload(path, buffer, { contentType: attachment.type, upsert: false })
+
+    if (uploadError) {
+      console.error('[Support] Storage upload error:', uploadError)
+      // Non-fatal — continue without attachment
+    } else {
+      const { data: urlData } = serviceClient.storage
+        .from('support-attachments')
+        .getPublicUrl(path)
+      attachmentUrl = urlData?.publicUrl ?? null
+    }
+  }
+
+  // ── Insert message ────────────────────────────────────────────────────────
   const now = new Date().toISOString()
   const { data: msg, error } = await supabase
     .from('support_messages')
@@ -102,22 +149,24 @@ export async function POST(req: NextRequest) {
       subject,
       message,
       status: 'open',
+      attachment_url: attachmentUrl,
       created_at: now,
       updated_at: now,
     })
-    .select('id, subject, message, status, created_at')
+    .select('id, subject, message, status, attachment_url, created_at')
     .single()
 
   if (error) {
     const isSchemaError = error.message?.includes('schema cache') || error.code === 'PGRST204'
-    const msg = isSchemaError
-      ? "We couldn't send your message right now — support system is being configured. Please try again shortly."
-      : "We couldn't send your message right now. Please try again."
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({
+      error: isSchemaError
+        ? "We couldn't send your message right now — support system is being configured. Please try again shortly."
+        : "We couldn't send your message right now. Please try again.",
+    }, { status: 500 })
   }
 
-  // Fire-and-forget: email notification + memory event
-  sendSupportNotificationEmail(user.email ?? '', subject, message, now)
+  // Fire-and-forget notifications
+  sendSupportNotificationEmail(user.email ?? '', subject, message, now, attachmentUrl)
   logMemoryEvent(user.id, 'support_message_sent', `Support message sent: ${subject}`, undefined, msg.id)
 
   return NextResponse.json({ message: msg }, { status: 201 })
