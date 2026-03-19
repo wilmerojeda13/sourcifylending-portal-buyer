@@ -4,9 +4,19 @@ import PortalLayout from '@/components/layout/PortalLayout'
 import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/Badge'
-import { CreditCard, CheckCircle, Shield, Loader2, ArrowRightLeft, Zap, Building2, BarChart3, Calendar, AlertCircle } from 'lucide-react'
+import {
+  CreditCard, CheckCircle, Shield, Loader2, Zap, Building2,
+  BarChart3, Calendar, Plus, ExternalLink,
+} from 'lucide-react'
 import type { UserProfile } from '@/types'
 import toast from 'react-hot-toast'
+
+interface Membership {
+  id: string
+  program_code: string
+  status: string
+  started_at: string
+}
 
 interface PaymentArrangement {
   setup_fee_total: number
@@ -17,7 +27,19 @@ interface PaymentArrangement {
   next_due_date: string | null
 }
 
-const PLAN_FEATURES: Record<string, string[]> = {
+const PROGRAM_NAMES: Record<string, string> = {
+  program_a: 'Program A — 0% APR Card Strategy',
+  program_b: 'Program B — Business Credit Builder',
+  program_c: 'Program C — Capital Monitoring',
+}
+
+const PROGRAM_PRICES: Record<string, string> = {
+  program_a: '$399/month',
+  program_b: '$199/month',
+  program_c: '$97/month',
+}
+
+const PROGRAM_FEATURES: Record<string, string[]> = {
   program_a: [
     'Full 0% APR Card Strategy program',
     'AI Fulfillment Agent — full access',
@@ -43,47 +65,57 @@ const PLAN_FEATURES: Record<string, string[]> = {
     'Banking analysis',
     'Obligation risk scan',
     '30-day action plan',
-    'Do/Don\'t monthly rules',
+    "Do/Don't monthly rules",
   ],
 }
 
-const PLAN_PRICES: Record<string, string> = {
-  program_a: '$399/month',
-  program_b: '$199/month',
-  program_c: '$97/month',
+const PROGRAM_ICONS: Record<string, React.ReactNode> = {
+  program_a: <Zap size={18} className="text-blue-600" />,
+  program_b: <Building2 size={18} className="text-green-600" />,
+  program_c: <BarChart3 size={18} className="text-purple-600" />,
 }
 
-const PLAN_NAMES: Record<string, string> = {
-  program_a: 'Program A — 0% APR Card Strategy',
-  program_b: 'Program B — Business Credit Builder',
-  program_c: 'Program C — Capital Monitoring',
+const PROGRAM_ICON_BG: Record<string, string> = {
+  program_a: 'bg-blue-100',
+  program_b: 'bg-green-100',
+  program_c: 'bg-purple-100',
+}
+
+function getAvailableAddOns(activeMemberships: Membership[]): string[] {
+  const active = activeMemberships.map((m) => m.program_code)
+  if (active.length === 0) return []
+  if ((active.includes('program_a') || active.includes('program_b')) && !active.includes('program_c')) {
+    return ['program_c']
+  }
+  return []
 }
 
 export default function BillingPage() {
   const supabase = createClient()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [portalLoading, setPortalLoading] = useState(false)
-  const [changingPlan, setChangingPlan] = useState<string | null>(null)
-  const [showChangePlan, setShowChangePlan] = useState(false)
-  const [selectingPlan, setSelectingPlan] = useState<string | null>(null)
-  const [showProgramSwitch, setShowProgramSwitch] = useState(false)
+  const [memberships, setMemberships] = useState<Membership[]>([])
   const [arrangement, setArrangement] = useState<PaymentArrangement | null>(null)
   const [totalPaid, setTotalPaid] = useState<number>(0)
+  const [loading, setLoading] = useState(true)
+  const [portalLoading, setPortalLoading] = useState(false)
+  const [addingOn, setAddingOn] = useState<string | null>(null)
+  const [selectingPlan, setSelectingPlan] = useState<string | null>(null)
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const [{ data: p }, { data: sub }, { data: arr }, { data: records }] = await Promise.all([
+      const [{ data: p }, { data: sub }, { data: mem }, { data: arr }, { data: records }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('subscriptions').select('stripe_customer_id').eq('user_id', user.id).single(),
+        supabase.from('subscriptions').select('stripe_customer_id').eq('user_id', user.id).maybeSingle(),
+        supabase.from('memberships').select('*').eq('user_id', user.id).eq('status', 'active'),
         supabase.from('payment_arrangements').select('*').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
         supabase.from('payment_records').select('amount').eq('user_id', user.id),
       ])
       setProfile(p)
       setStripeCustomerId(sub?.stripe_customer_id ?? null)
+      setMemberships(mem ?? [])
       setArrangement(arr ?? null)
       setTotalPaid((records ?? []).reduce((sum, r) => sum + Number(r.amount), 0))
       setLoading(false)
@@ -91,32 +123,21 @@ export default function BillingPage() {
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Check for add-on success/cancel from URL params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('add_on') === 'success') {
+      toast.success('Add-on membership activated!')
+      window.history.replaceState({}, '', '/billing')
+    } else if (params.get('add_on') === 'canceled') {
+      toast.error('Add-on checkout was canceled.')
+      window.history.replaceState({}, '', '/billing')
+    }
+  }, [])
+
   const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
   const canManageBilling = isActive && !!stripeCustomerId
-  const canChangePlan = isActive
-
-  const handleSubscribe = () => {
-    window.location.href = '/enroll'
-  }
-
-  const handleSelectAndEnroll = async (selectedProgram: string) => {
-    setSelectingPlan(selectedProgram)
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { toast.error('Please log in first'); return }
-      const { error } = await supabase
-        .from('profiles')
-        .update({ assigned_program: selectedProgram, updated_at: new Date().toISOString() })
-        .eq('id', user.id)
-      if (error) { toast.error('Failed to select program. Please try again.'); return }
-      window.location.href = '/enroll'
-    } catch {
-      toast.error('Something went wrong. Please try again.')
-    } finally {
-      setSelectingPlan(null)
-    }
-  }
+  const availableAddOns = getAvailableAddOns(memberships)
 
   const handlePortal = async () => {
     setPortalLoading(true)
@@ -134,27 +155,42 @@ export default function BillingPage() {
     setPortalLoading(false)
   }
 
-  const handleChangePlan = async (newProgram: string) => {
-    if (!confirm(`Switch to ${PLAN_NAMES[newProgram]}? Your billing will be prorated immediately.`)) return
-    setChangingPlan(newProgram)
+  const handleAddOn = async (program: string) => {
+    setAddingOn(program)
     try {
-      const res = await fetch('/api/stripe/change-plan', {
+      const res = await fetch('/api/stripe/add-membership', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_program: newProgram }),
+        body: JSON.stringify({ program }),
       })
       const data = await res.json()
-      if (data.success) {
-        toast.success(`Plan changed to ${PLAN_NAMES[newProgram]}`)
-        setProfile((p) => p ? { ...p, assigned_program: newProgram } : p)
-        setShowChangePlan(false)
+      if (data.url) {
+        window.location.href = data.url
       } else {
-        toast.error(data.error || 'Failed to change plan')
+        toast.error(data.error || 'Failed to start checkout')
       }
     } catch {
       toast.error('Something went wrong.')
     }
-    setChangingPlan(null)
+    setAddingOn(null)
+  }
+
+  const handleSelectAndEnroll = async (selectedProgram: string) => {
+    setSelectingPlan(selectedProgram)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { toast.error('Please log in first'); return }
+      const { error } = await supabase
+        .from('profiles')
+        .update({ assigned_program: selectedProgram, updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+      if (error) { toast.error('Failed to select program. Please try again.'); return }
+      window.location.href = '/enroll'
+    } catch {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
+      setSelectingPlan(null)
+    }
   }
 
   if (loading) {
@@ -169,15 +205,11 @@ export default function BillingPage() {
   }
 
   const program = profile?.assigned_program || null
-  const features = program ? PLAN_FEATURES[program] : []
-  const price = program ? PLAN_PRICES[program] : ''
-
-  const otherPrograms = Object.keys(PLAN_NAMES).filter((p) => p !== program)
 
   return (
     <PortalLayout
       userName={profile?.full_name || ''}
-      programLabel={getProgramShortLabel(profile?.assigned_program)}
+      programLabel={getProgramShortLabel(profile?.assigned_program ?? null)}
       assignedProgram={profile?.assigned_program}
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
@@ -186,56 +218,87 @@ export default function BillingPage() {
       <div className="mb-6">
         <h1 className="page-title flex items-center gap-2">
           <CreditCard size={24} className="text-green-500" />
-          Billing & Subscription
+          Billing & Membership
         </h1>
-        <p className="text-gray-500 text-sm mt-1">Manage your SourcifyLending membership</p>
+        <p className="text-gray-500 text-sm mt-1">Manage your SourcifyLending memberships</p>
       </div>
 
-      {/* Current Status */}
-      <div className="card mb-6">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Subscription Status</p>
-            <div className="flex items-center gap-2 mb-2">
-              <StatusBadge status={profile?.subscription_status || 'inactive'} />
-              <span className="font-bold text-gray-900">{getProgramShortLabel(program)}</span>
-            </div>
-            {price && <p className="text-2xl font-bold text-green-600">{price}</p>}
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {canChangePlan && (
-              <button
-                onClick={() => setShowChangePlan((v) => !v)}
-                className="btn-secondary text-sm flex items-center gap-1.5"
-              >
-                <ArrowRightLeft size={14} />
-                Change Plan
-              </button>
-            )}
-            {canManageBilling ? (
-              <button
-                onClick={handlePortal}
-                disabled={portalLoading}
-                className="btn-secondary text-sm"
-              >
-                {portalLoading ? <Loader2 size={14} className="animate-spin" /> : null}
-                Manage Subscription
-              </button>
-            ) : null}
+      {/* ── Active Memberships ─────────────────────────────────────────────── */}
+      {memberships.length > 0 && (
+        <div className="mb-6">
+          <h2 className="section-title mb-3">Active Memberships</h2>
+          <div className="space-y-3">
+            {memberships.map((m) => (
+              <div key={m.id} className="card border border-green-200 bg-green-50/30">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 ${PROGRAM_ICON_BG[m.program_code] ?? 'bg-gray-100'} rounded-xl flex items-center justify-center shrink-0`}>
+                      {PROGRAM_ICONS[m.program_code]}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 text-sm">{PROGRAM_NAMES[m.program_code] ?? m.program_code}</p>
+                      <p className="text-green-600 font-bold text-sm">{PROGRAM_PRICES[m.program_code]}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <StatusBadge status="active" />
+                    {canManageBilling && (
+                      <button
+                        onClick={handlePortal}
+                        disabled={portalLoading}
+                        className="btn-secondary text-xs flex items-center gap-1"
+                      >
+                        {portalLoading ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
+                        Manage
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-green-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(PROGRAM_FEATURES[m.program_code] ?? []).map((f) => (
+                    <div key={f} className="flex items-center gap-2 text-xs text-gray-600">
+                      <CheckCircle size={13} className="text-green-500 shrink-0" />
+                      {f}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
+      )}
 
-        {!isActive && (
-          <div className="mt-4 pt-4 border-t border-gray-100 bg-amber-50 rounded-xl p-4">
-            <p className="text-sm font-semibold text-amber-800 mb-1">Membership Inactive</p>
-            <p className="text-xs text-amber-600 leading-relaxed">
-              Your roadmap progress is paused. Reactivate your subscription to continue from your current stage and regain full AI agent access.
-            </p>
+      {/* ── Fallback: legacy single-program active (no memberships rows yet) ── */}
+      {memberships.length === 0 && isActive && program && (
+        <div className="card mb-6 border border-green-200 bg-green-50/30">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 ${PROGRAM_ICON_BG[program] ?? 'bg-gray-100'} rounded-xl flex items-center justify-center shrink-0`}>
+                {PROGRAM_ICONS[program]}
+              </div>
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">{PROGRAM_NAMES[program]}</p>
+                <p className="text-green-600 font-bold text-sm">{PROGRAM_PRICES[program]}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <StatusBadge status={profile?.subscription_status || 'active'} />
+              {canManageBilling && (
+                <button
+                  onClick={handlePortal}
+                  disabled={portalLoading}
+                  className="btn-secondary text-xs flex items-center gap-1"
+                >
+                  {portalLoading ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
+                  Manage
+                </button>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Payment Arrangement Summary (client-facing) */}
+      {/* ── Payment Arrangement Summary ────────────────────────────────────── */}
       {arrangement && (
         <div className="card mb-6 border border-purple-200 bg-purple-50/40">
           <h2 className="section-title mb-3 flex items-center gap-2 text-purple-800">
@@ -255,7 +318,7 @@ export default function BillingPage() {
                 </div>
                 {arrangement.setup_fee_remaining > 0 && (
                   <div>
-                    <p className="text-xs text-gray-500 mb-0.5">Remaining Setup Balance</p>
+                    <p className="text-xs text-gray-500 mb-0.5">Remaining Balance</p>
                     <p className="font-semibold text-orange-600">${Number(arrangement.setup_fee_remaining).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                   </div>
                 )}
@@ -279,61 +342,45 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Change Plan Panel */}
-      {showChangePlan && canChangePlan && (
-        <div className="card mb-6 border-2 border-blue-200 bg-blue-50/40">
-          <h2 className="section-title mb-1 flex items-center gap-2">
-            <ArrowRightLeft size={16} className="text-blue-500" />
-            Switch Plan
-          </h2>
-          <p className="text-xs text-gray-500 mb-4">Your billing will be prorated — you only pay the difference. No new setup fee.</p>
+      {/* ── Available Add-ons ──────────────────────────────────────────────── */}
+      {availableAddOns.length > 0 && (
+        <div className="mb-6">
+          <h2 className="section-title mb-1">Available Add-ons</h2>
+          <p className="text-xs text-gray-500 mb-3">Enhance your membership with additional programs.</p>
           <div className="space-y-3">
-            {otherPrograms.map((p) => (
-              <div key={p} className="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-4 py-3">
-                <div>
-                  <p className="font-semibold text-gray-900 text-sm">{PLAN_NAMES[p]}</p>
-                  <p className="text-green-600 font-bold text-sm">{PLAN_PRICES[p]}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {(PLAN_FEATURES[p] || []).slice(0, 2).join(' · ')}
-                  </p>
+            {availableAddOns.map((addon) => (
+              <div key={addon} className="card border-2 border-dashed border-purple-200 bg-purple-50/20 hover:border-purple-400 transition-colors">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-10 h-10 ${PROGRAM_ICON_BG[addon] ?? 'bg-gray-100'} rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>
+                      {PROGRAM_ICONS[addon]}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">{PROGRAM_NAMES[addon]}</p>
+                      <p className="text-purple-600 font-bold text-sm">{PROGRAM_PRICES[addon]}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                        {addon === 'program_c' && 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan.'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleAddOn(addon)}
+                    disabled={addingOn !== null}
+                    className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
+                  >
+                    {addingOn === addon ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                    Add
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleChangePlan(p)}
-                  disabled={changingPlan !== null}
-                  className="btn-primary text-xs px-4 py-2 shrink-0 ml-3"
-                >
-                  {changingPlan === p ? <Loader2 size={13} className="animate-spin" /> : 'Switch'}
-                </button>
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={() => setShowChangePlan(false)}
-            className="mt-3 text-xs text-gray-400 hover:text-gray-600 underline"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {/* Plan Details */}
-      {program && (
-        <div className="card mb-6">
-          <h2 className="section-title mb-4">Your Plan — {getProgramShortLabel(program)}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {features.map((feature) => (
-              <div key={feature} className="flex items-center gap-2.5 text-sm text-gray-700">
-                <CheckCircle size={16} className="text-green-500 shrink-0" />
-                {feature}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Subscribe / Reactivate CTA */}
-      {!isActive && program && !showProgramSwitch && (
-        <div className="card bg-gradient-to-br from-green-600 to-green-800 border-0 text-white">
+      {/* ── Inactive: Reactivate / Subscribe CTA ──────────────────────────── */}
+      {!isActive && program && (
+        <div className="card bg-gradient-to-br from-green-600 to-green-800 border-0 text-white mb-6">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
               <Shield size={22} className="text-white" />
@@ -348,157 +395,58 @@ export default function BillingPage() {
                   : `Subscribe to unlock full AI fulfillment, task tracking, document management, and reports for ${getProgramShortLabel(program)}.`
                 }
               </p>
-              {price && <p className="text-white font-bold text-xl mb-4">{price}</p>}
-              <div className="flex items-center gap-3 flex-wrap">
-                <button
-                  onClick={handleSubscribe}
-                  className="bg-white text-green-700 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors inline-flex items-center gap-2"
-                >
-                  <CreditCard size={16} />
-                  Subscribe Now
-                </button>
-                <button
-                  onClick={() => setShowProgramSwitch(true)}
-                  className="text-green-200 hover:text-white text-sm underline underline-offset-2 transition-colors"
-                >
-                  Switch program
-                </button>
-              </div>
+              <p className="text-white font-bold text-xl mb-4">{PROGRAM_PRICES[program]}</p>
+              <button
+                onClick={() => window.location.href = '/enroll'}
+                className="bg-white text-green-700 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors inline-flex items-center gap-2"
+              >
+                <CreditCard size={16} />
+                Subscribe Now
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Program switcher for inactive users */}
-      {!isActive && program && showProgramSwitch && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Choose Your Program</h2>
-              <p className="text-sm text-gray-500 mt-1">Select a plan and proceed to payment</p>
-            </div>
-            <button onClick={() => setShowProgramSwitch(false)} className="text-sm text-gray-400 hover:text-gray-600 underline">Cancel</button>
-          </div>
-
-          {Object.entries({ program_a: { icon: <Zap size={18} className="text-blue-600" />, bg: 'bg-blue-100', label: 'Program A — 0% APR Card Strategy', desc: 'Build high-limit 0% intro APR credit card stack for business or personal capital', badge: '$1,500 setup', badgeColor: 'bg-blue-100 text-blue-700', monthly: 'then $399/month' }, program_b: { icon: <Building2 size={18} className="text-green-600" />, bg: 'bg-green-100', label: 'Program B — Business Credit Builder', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badge: '$997 setup', badgeColor: 'bg-green-100 text-green-700', monthly: 'then $199/month' }, program_c: { icon: <BarChart3 size={18} className="text-purple-600" />, bg: 'bg-purple-100', label: 'Program C — Capital Monitoring', desc: 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan', badge: 'No setup fee', badgeColor: 'bg-purple-100 text-purple-700', monthly: '$97/month' } }).map(([key, p]) => (
-            <div key={key} className={`card border-2 transition-colors ${program === key ? 'border-green-400 bg-green-50/40' : 'border-gray-200 hover:border-green-400'}`}>
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 ${p.bg} rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>{p.icon}</div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-900">{p.label}</span>
-                      {program === key && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 uppercase">Current</span>}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{p.desc}</p>
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${p.badgeColor}`}>{p.badge}</span>
-                      <span className="text-xs text-gray-500">{p.monthly}</span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => { setShowProgramSwitch(false); handleSelectAndEnroll(key) }}
-                  disabled={selectingPlan !== null}
-                  className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
-                >
-                  {selectingPlan === key ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                  {program === key ? 'Continue' : 'Select'}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* No program assigned — show plan selector so they can subscribe directly */}
+      {/* ── No program: full plan selector ────────────────────────────────── */}
       {!isActive && !program && (
         <div className="space-y-4">
           <div className="text-center mb-2">
             <h2 className="text-xl font-bold text-gray-900">Choose Your Program</h2>
-            <p className="text-sm text-gray-500 mt-1">Select a plan and proceed directly to payment — no analyzer required</p>
+            <p className="text-sm text-gray-500 mt-1">Select a plan and proceed directly to payment</p>
           </div>
 
-          {/* Program A */}
-          <div className="card border-2 border-gray-200 hover:border-green-400 transition-colors">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
-                  <Zap size={18} className="text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-bold text-gray-900">Program A — 0% APR Card Strategy</p>
-                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">Build high-limit 0% intro APR credit card stack for business or personal capital</p>
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">$1,500 setup</span>
-                    <span className="text-xs text-gray-500">then $399/month</span>
+          {[
+            { key: 'program_a', badge: '$1,500 setup', monthly: 'then $399/month', desc: 'Build high-limit 0% intro APR credit card stack for business or personal capital', badgeColor: 'bg-blue-100 text-blue-700' },
+            { key: 'program_b', badge: '$997 setup', monthly: 'then $199/month', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badgeColor: 'bg-green-100 text-green-700' },
+            { key: 'program_c', badge: 'No setup fee', monthly: '$97/month', desc: 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan', badgeColor: 'bg-purple-100 text-purple-700' },
+          ].map(({ key, badge, monthly, desc, badgeColor }) => (
+            <div key={key} className="card border-2 border-gray-200 hover:border-green-400 transition-colors">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 ${PROGRAM_ICON_BG[key]} rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>
+                    {PROGRAM_ICONS[key]}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900">{PROGRAM_NAMES[key]}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{desc}</p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeColor}`}>{badge}</span>
+                      <span className="text-xs text-gray-500">{monthly}</span>
+                    </div>
                   </div>
                 </div>
+                <button
+                  onClick={() => handleSelectAndEnroll(key)}
+                  disabled={selectingPlan !== null}
+                  className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
+                >
+                  {selectingPlan === key ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+                  Get Started
+                </button>
               </div>
-              <button
-                onClick={() => handleSelectAndEnroll('program_a')}
-                disabled={selectingPlan !== null}
-                className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
-              >
-                {selectingPlan === 'program_a' ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                Get Started
-              </button>
             </div>
-          </div>
-
-          {/* Program B */}
-          <div className="card border-2 border-gray-200 hover:border-green-400 transition-colors">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
-                  <Building2 size={18} className="text-green-600" />
-                </div>
-                <div>
-                  <p className="font-bold text-gray-900">Program B — Business Credit Builder</p>
-                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring</p>
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className="text-xs bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full">$997 setup</span>
-                    <span className="text-xs text-gray-500">then $199/month</span>
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => handleSelectAndEnroll('program_b')}
-                disabled={selectingPlan !== null}
-                className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
-              >
-                {selectingPlan === 'program_b' ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                Get Started
-              </button>
-            </div>
-          </div>
-
-          {/* Program C */}
-          <div className="card border-2 border-gray-200 hover:border-green-400 transition-colors">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
-                  <BarChart3 size={18} className="text-purple-600" />
-                </div>
-                <div>
-                  <p className="font-bold text-gray-900">Program C — Capital Monitoring</p>
-                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan</p>
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className="text-xs bg-purple-100 text-purple-700 font-semibold px-2 py-0.5 rounded-full">No setup fee</span>
-                    <span className="text-xs text-gray-500">$97/month</span>
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => handleSelectAndEnroll('program_c')}
-                disabled={selectingPlan !== null}
-                className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
-              >
-                {selectingPlan === 'program_c' ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                Get Started
-              </button>
-            </div>
-          </div>
+          ))}
 
           <p className="text-xs text-gray-400 text-center pt-2">
             Not sure which program fits? <a href="/analyzer" className="text-green-600 underline font-medium">Take the free analyzer</a> — takes 2 minutes.
@@ -506,7 +454,6 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Legal Disclaimer */}
       <p className="text-xs text-gray-400 text-center mt-6 leading-relaxed px-2">
         Subscriptions are billed monthly. Cancel anytime. Cancellation pauses progress and limits portal access — data is never deleted. SourcifyLending does not guarantee specific credit approvals, credit limits, or funding outcomes.
       </p>

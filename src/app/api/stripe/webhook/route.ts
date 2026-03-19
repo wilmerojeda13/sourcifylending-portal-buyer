@@ -20,6 +20,26 @@ const PROGRAM_NAMES: Record<ProgramId, string> = {
   program_c: 'Capital Monitoring Membership',
 }
 
+// ─── Helper: upsert into memberships table ────────────────────────────────────
+async function upsertMembership(
+  supabase: SupabaseClient,
+  userId: string,
+  program: ProgramId,
+  stripeSubscriptionId: string,
+) {
+  await supabase.from('memberships').upsert(
+    {
+      user_id: userId,
+      program_code: program,
+      status: 'active',
+      stripe_subscription_id: stripeSubscriptionId,
+      started_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,program_code' }
+  )
+}
+
 // ─── Helper: activate a user after successful payment ─────────────────────────
 async function activateUser(
   supabase: SupabaseClient,
@@ -40,7 +60,10 @@ async function activateUser(
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' })
 
-  // 2. Update profile — also promote prospect → active_member on upgrade
+  // 2. Upsert memberships table
+  await upsertMembership(supabase, userId, program, subscriptionId)
+
+  // 3. Update profile — also promote prospect → active_member on upgrade
   await supabase.from('profiles').update({
     subscription_status: 'active',
     assigned_program: program,
@@ -50,7 +73,7 @@ async function activateUser(
     updated_at: new Date().toISOString(),
   }).eq('id', userId)
 
-  // 3. Generate tasks if none exist yet
+  // 4. Generate tasks if none exist yet
   const { data: existing } = await supabase
     .from('tasks').select('task_id').eq('user_id', userId).limit(1)
   if (!existing || existing.length === 0) {
@@ -60,7 +83,7 @@ async function activateUser(
     }
   }
 
-  // 4. Welcome notification
+  // 5. Welcome notification
   await supabase.from('notifications').insert({
     user_id: userId,
     type: 'system',
@@ -170,6 +193,34 @@ export async function POST(req: NextRequest) {
 
       if (!program) break
 
+      // ── Add-on membership (Program C added to existing A or B) ────────────
+      if (sessionType === 'add_membership') {
+        const subscriptionId = session.subscription as string
+        const sub = await stripe.subscriptions.retrieve(subscriptionId)
+        const periodEnd = new Date(sub.current_period_end * 1000).toISOString()
+
+        // Insert/update the new membership row only — don't overwrite primary subscription
+        await upsertMembership(supabase, userId, program, subscriptionId)
+
+        // Keep subscriptions table customer linked
+        await supabase.from('subscriptions').upsert(
+          { user_id: userId, stripe_customer_id: customerId, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' }
+        )
+
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          type: 'system',
+          title: '✅ Add-on Membership Activated!',
+          message: `Your ${PROGRAM_NAMES[program]} add-on is now active and ready to use.`,
+          read: false,
+          created_at: new Date().toISOString(),
+        })
+
+        await logActivity(userId, 'checkout_completed', { program, session_type: 'add_membership', subscription_id: subscriptionId, period_end: periodEnd })
+        break
+      }
+
       if (sessionType === 'setup_fee') {
         // ── Programs A & B: setup fee paid ─────────────────────────────────
         // Retrieve payment intent to get the saved payment method
@@ -251,6 +302,13 @@ export async function POST(req: NextRequest) {
       const sub    = event.data.object as Stripe.Subscription
       const userId = sub.metadata?.user_id
       if (!userId) break
+
+      // Mark the specific membership row as canceled (matched by stripe_subscription_id)
+      await supabase.from('memberships').update({
+        status: 'canceled',
+        ended_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('stripe_subscription_id', sub.id)
 
       await supabase.from('subscriptions').update({
         status: 'canceled',
