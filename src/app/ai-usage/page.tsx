@@ -168,6 +168,31 @@ function AIUsageInner() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // When returning from Stripe (?purchased=1), the webhook may not have fired yet.
+  // Auto-poll every 2s until purchased credits appear (max 5 attempts = 10s).
+  useEffect(() => {
+    if (!justPurchased) return
+    let attempts = 0
+    const maxAttempts = 5
+    const intervalMs = 2000
+
+    const poll = setInterval(async () => {
+      attempts++
+      const res = await fetch('/api/ai-usage')
+      if (res.ok) {
+        const data = await res.json()
+        if ((data.purchased_credits_remaining ?? 0) > 0 || attempts >= maxAttempts) {
+          setUsageData(data)
+          clearInterval(poll)
+        }
+      } else if (attempts >= maxAttempts) {
+        clearInterval(poll)
+      }
+    }, intervalMs)
+
+    return () => clearInterval(poll)
+  }, [justPurchased]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleBuy = async (packId: string) => {
     setBuying(packId)
     setBuyError(null)
@@ -243,11 +268,18 @@ function AIUsageInner() {
         {/* Purchase success banner */}
         {justPurchased && (
           <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
-            <CheckCircle size={18} className="text-green-500 shrink-0 mt-0.5" />
+            {purchasedRemaining > 0
+              ? <CheckCircle size={18} className="text-green-500 shrink-0 mt-0.5" />
+              : <Loader2 size={18} className="text-green-500 shrink-0 mt-0.5 animate-spin" />
+            }
             <div>
-              <p className="text-sm font-semibold text-green-800">Credits added successfully!</p>
+              <p className="text-sm font-semibold text-green-800">
+                {purchasedRemaining > 0 ? 'Credits added successfully!' : 'Payment received — syncing credits…'}
+              </p>
               <p className="text-sm text-green-700 mt-0.5">
-                Your purchased credits are active and ready to use.
+                {purchasedRemaining > 0
+                  ? `${purchasedRemaining} purchased credits are active and ready to use.`
+                  : 'This usually takes just a few seconds. Your balance will update automatically.'}
               </p>
             </div>
           </div>
