@@ -4,7 +4,7 @@ import PortalLayout from '@/components/layout/PortalLayout'
 import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/Badge'
-import { CreditCard, CheckCircle, Shield, Loader2, ArrowRightLeft } from 'lucide-react'
+import { CreditCard, CheckCircle, Shield, Loader2, ArrowRightLeft, Zap, Building2, BarChart3 } from 'lucide-react'
 import type { UserProfile } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -58,6 +58,7 @@ export default function BillingPage() {
   const [portalLoading, setPortalLoading] = useState(false)
   const [changingPlan, setChangingPlan] = useState<string | null>(null)
   const [showChangePlan, setShowChangePlan] = useState(false)
+  const [selectingPlan, setSelectingPlan] = useState<string | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -79,11 +80,26 @@ export default function BillingPage() {
   const canChangePlan = isActive
 
   const handleSubscribe = () => {
-    if (!profile?.assigned_program) {
-      toast.error('Please run the analyzer first to get a program assigned')
-      return
-    }
     window.location.href = '/enroll'
+  }
+
+  const handleSelectAndEnroll = async (selectedProgram: string) => {
+    setSelectingPlan(selectedProgram)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { toast.error('Please log in first'); return }
+      const { error } = await supabase
+        .from('profiles')
+        .update({ assigned_program: selectedProgram, updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+      if (error) { toast.error('Failed to select program. Please try again.'); return }
+      window.location.href = '/enroll'
+    } catch {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
+      setSelectingPlan(null)
+    }
   }
 
   const handlePortal = async () => {
@@ -256,7 +272,7 @@ export default function BillingPage() {
       )}
 
       {/* Subscribe / Reactivate CTA */}
-      {!isActive && (
+      {!isActive && program && (
         <div className="card bg-gradient-to-br from-green-600 to-green-800 border-0 text-white">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
@@ -272,24 +288,111 @@ export default function BillingPage() {
                   : `Subscribe to unlock full AI fulfillment, task tracking, document management, and reports for ${getProgramShortLabel(program)}.`
                 }
               </p>
-              {price && (
-                <p className="text-white font-bold text-xl mb-4">{price}</p>
-              )}
+              {price && <p className="text-white font-bold text-xl mb-4">{price}</p>}
               <button
                 onClick={handleSubscribe}
-                disabled={!program}
-                className="bg-white text-green-700 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors inline-flex items-center gap-2 disabled:opacity-60"
+                className="bg-white text-green-700 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors inline-flex items-center gap-2"
               >
                 <CreditCard size={16} />
                 Subscribe Now
               </button>
-              {!program && (
-                <p className="text-green-300 text-xs mt-3">
-                  Run the analyzer first to get a program assigned — <a href="/analyzer" className="text-white underline">Free Analyzer</a>
-                </p>
-              )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* No program assigned — show plan selector so they can subscribe directly */}
+      {!isActive && !program && (
+        <div className="space-y-4">
+          <div className="text-center mb-2">
+            <h2 className="text-xl font-bold text-gray-900">Choose Your Program</h2>
+            <p className="text-sm text-gray-500 mt-1">Select a plan and proceed directly to payment — no analyzer required</p>
+          </div>
+
+          {/* Program A */}
+          <div className="card border-2 border-gray-200 hover:border-green-400 transition-colors">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+                  <Zap size={18} className="text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Program A — 0% APR Card Strategy</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">Build high-limit 0% intro APR credit card stack for business or personal capital</p>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">$1,500 setup</span>
+                    <span className="text-xs text-gray-500">then $399/month</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => handleSelectAndEnroll('program_a')}
+                disabled={selectingPlan !== null}
+                className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
+              >
+                {selectingPlan === 'program_a' ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+                Get Started
+              </button>
+            </div>
+          </div>
+
+          {/* Program B */}
+          <div className="card border-2 border-gray-200 hover:border-green-400 transition-colors">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+                  <Building2 size={18} className="text-green-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Program B — Business Credit Builder</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring</p>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span className="text-xs bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full">$997 setup</span>
+                    <span className="text-xs text-gray-500">then $199/month</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => handleSelectAndEnroll('program_b')}
+                disabled={selectingPlan !== null}
+                className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
+              >
+                {selectingPlan === 'program_b' ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+                Get Started
+              </button>
+            </div>
+          </div>
+
+          {/* Program C */}
+          <div className="card border-2 border-gray-200 hover:border-green-400 transition-colors">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+                  <BarChart3 size={18} className="text-purple-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Program C — Capital Monitoring</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan</p>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span className="text-xs bg-purple-100 text-purple-700 font-semibold px-2 py-0.5 rounded-full">No setup fee</span>
+                    <span className="text-xs text-gray-500">$97/month</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => handleSelectAndEnroll('program_c')}
+                disabled={selectingPlan !== null}
+                className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
+              >
+                {selectingPlan === 'program_c' ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+                Get Started
+              </button>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-400 text-center pt-2">
+            Not sure which program fits? <a href="/analyzer" className="text-green-600 underline font-medium">Take the free analyzer</a> — takes 2 minutes.
+          </p>
         </div>
       )}
 
