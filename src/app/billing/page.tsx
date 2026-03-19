@@ -4,9 +4,18 @@ import PortalLayout from '@/components/layout/PortalLayout'
 import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/Badge'
-import { CreditCard, CheckCircle, Shield, Loader2, ArrowRightLeft, Zap, Building2, BarChart3 } from 'lucide-react'
+import { CreditCard, CheckCircle, Shield, Loader2, ArrowRightLeft, Zap, Building2, BarChart3, Calendar, AlertCircle } from 'lucide-react'
 import type { UserProfile } from '@/types'
 import toast from 'react-hot-toast'
+
+interface PaymentArrangement {
+  setup_fee_total: number
+  setup_fee_paid: number
+  setup_fee_remaining: number
+  recurring_amount: number
+  next_amount_due: number | null
+  next_due_date: string | null
+}
 
 const PLAN_FEATURES: Record<string, string[]> = {
   program_a: [
@@ -60,17 +69,23 @@ export default function BillingPage() {
   const [showChangePlan, setShowChangePlan] = useState(false)
   const [selectingPlan, setSelectingPlan] = useState<string | null>(null)
   const [showProgramSwitch, setShowProgramSwitch] = useState(false)
+  const [arrangement, setArrangement] = useState<PaymentArrangement | null>(null)
+  const [totalPaid, setTotalPaid] = useState<number>(0)
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const [{ data: p }, { data: sub }] = await Promise.all([
+      const [{ data: p }, { data: sub }, { data: arr }, { data: records }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
         supabase.from('subscriptions').select('stripe_customer_id').eq('user_id', user.id).single(),
+        supabase.from('payment_arrangements').select('*').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
+        supabase.from('payment_records').select('amount').eq('user_id', user.id),
       ])
       setProfile(p)
       setStripeCustomerId(sub?.stripe_customer_id ?? null)
+      setArrangement(arr ?? null)
+      setTotalPaid((records ?? []).reduce((sum, r) => sum + Number(r.amount), 0))
       setLoading(false)
     }
     init()
@@ -219,6 +234,50 @@ export default function BillingPage() {
           </div>
         )}
       </div>
+
+      {/* Payment Arrangement Summary (client-facing) */}
+      {arrangement && (
+        <div className="card mb-6 border border-purple-200 bg-purple-50/40">
+          <h2 className="section-title mb-3 flex items-center gap-2 text-purple-800">
+            <Calendar size={16} className="text-purple-600" />
+            Payment Plan Summary
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {arrangement.setup_fee_total > 0 && (
+              <>
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Setup Fee</p>
+                  <p className="font-semibold text-gray-900">${Number(arrangement.setup_fee_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Payment Received</p>
+                  <p className="font-semibold text-green-700">${Number(arrangement.setup_fee_paid).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                </div>
+                {arrangement.setup_fee_remaining > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">Remaining Setup Balance</p>
+                    <p className="font-semibold text-orange-600">${Number(arrangement.setup_fee_remaining).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                )}
+              </>
+            )}
+            {arrangement.next_amount_due && (
+              <div>
+                <p className="text-xs text-gray-500 mb-0.5">Next Payment Due</p>
+                <p className="font-bold text-purple-800 text-lg">${Number(arrangement.next_amount_due).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                {arrangement.next_due_date && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {new Date(arrangement.next_due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          {totalPaid > 0 && (
+            <p className="text-xs text-gray-400 mt-3">Total payments logged: <span className="font-semibold text-gray-600">${totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></p>
+          )}
+        </div>
+      )}
 
       {/* Change Plan Panel */}
       {showChangePlan && canChangePlan && (

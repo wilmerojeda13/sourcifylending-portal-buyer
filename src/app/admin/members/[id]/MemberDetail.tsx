@@ -6,8 +6,9 @@ import {
   ArrowLeft, User, Shield, ShieldOff, CheckCircle, Clock, Lock, AlertTriangle,
   FileText, BarChart2, Bell, Save, Loader2, AlertOctagon, ChevronDown, ChevronUp,
   MessageSquare, Tag, RefreshCw, LayoutDashboard, Pin, Trash2, Plus, X,
-  ExternalLink, ChevronRight, Zap, BanIcon,
+  ExternalLink, ChevronRight, Zap, BanIcon, DollarSign,
 } from 'lucide-react'
+import BillingControlPanel from '@/components/admin/BillingControlPanel'
 import type {
   UserProfile, Task, Document, ActivityLog, ContactNote, Ticket,
   ProgramId, SubscriptionStatus, ReadinessStatus, TicketStatus, TicketPriority,
@@ -33,7 +34,7 @@ interface Props {
   tickets: Ticket[]
 }
 
-type ActiveTab = 'overview' | 'notes' | 'tickets' | 'notion' | 'ai'
+type ActiveTab = 'overview' | 'notes' | 'tickets' | 'notion' | 'ai' | 'billing'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STATUS_OPTIONS: SubscriptionStatus[] = ['active', 'trialing', 'past_due', 'canceled', 'inactive']
@@ -510,6 +511,7 @@ export default function MemberDetail({
     { id: 'tickets', label: 'Tickets', icon: <Tag size={14} />, count: tickets.filter((t) => t.status === 'open' || t.status === 'in_progress').length },
     { id: 'notion', label: 'Notion Sync', icon: <RefreshCw size={14} /> },
     { id: 'ai', label: 'AI Credits', icon: <Zap size={14} /> },
+    { id: 'billing', label: 'Billing', icon: <DollarSign size={14} /> },
   ]
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -568,7 +570,7 @@ export default function MemberDetail({
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); if (tab.id === 'ai') loadAiEvents() }}
+                  onClick={() => { setActiveTab(tab.id as ActiveTab); if (tab.id === 'ai') loadAiEvents() }}
                   className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition-colors ${
                     activeTab === tab.id
                       ? 'bg-green-600 text-white shadow-sm'
@@ -1122,6 +1124,13 @@ export default function MemberDetail({
                   </ul>
                 </div>
 
+              </div>
+            )}
+
+            {/* ══ TAB: BILLING ══ */}
+            {activeTab === 'billing' && (
+              <div className="space-y-4">
+                <BillingControlPanel userId={profile.id} />
               </div>
             )}
 
