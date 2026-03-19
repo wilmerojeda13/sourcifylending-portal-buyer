@@ -43,7 +43,7 @@ async function sendSupportNotificationEmail(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'SourcifyLending Portal <no-reply@sourcifylending.com>',
+        from: 'SourcifyLending Portal <no-reply@ai.sourcifylending.com>',
         to: ['abel@sourcifylending.com'],
         reply_to: userEmail,
         subject: `New Portal Support Message: ${subject}`,

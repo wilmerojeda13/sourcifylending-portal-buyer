@@ -10,7 +10,7 @@ async function sendNewSignupNotification(email: string, fullName: string) {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'SourcifyLending Portal <no-reply@sourcifylending.com>',
+        from: 'SourcifyLending Portal <no-reply@ai.sourcifylending.com>',
         to: ['abel@sourcifylending.com'],
         subject: `New Sign-Up: ${fullName || email}`,
         html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
