@@ -12,6 +12,7 @@ interface MemberRow {
   business_name: string | null
   subscription_status: string
   assigned_program: ProgramId | null
+  active_programs: string[]
   current_stage: string | null
   portal_blocked: boolean
   is_demo: boolean
@@ -20,6 +21,18 @@ interface MemberRow {
   stripe_customer_id: string | null
   stripe_status: string | null
   current_period_end: string | null
+}
+
+const PROGRAM_BADGE: Record<string, string> = {
+  program_a: 'bg-blue-100 text-blue-700 border border-blue-200',
+  program_b: 'bg-purple-100 text-purple-700 border border-purple-200',
+  program_c: 'bg-green-100 text-green-700 border border-green-200',
+}
+
+const PROGRAM_SHORT: Record<string, string> = {
+  program_a: 'Program A',
+  program_b: 'Program B',
+  program_c: 'Program C',
 }
 
 const STATUS_OPTIONS: SubscriptionStatus[] = ['active', 'trialing', 'past_due', 'canceled', 'inactive']
@@ -147,7 +160,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
             <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wide">
               <th className="px-4 py-3 text-left">Member</th>
               <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Primary Program / Stage</th>
+              <th className="px-4 py-3 text-left">Enrolled Programs</th>
               <th className="px-4 py-3 text-left">Stripe IDs</th>
               <th className="px-4 py-3 text-left">Actions</th>
             </tr>
@@ -199,36 +212,28 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
                   </div>
                 </td>
 
-                {/* Primary Program / Stage */}
+                {/* Enrolled Programs */}
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {m.assigned_program ? (
-                        <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${
-                          m.assigned_program === 'program_a' ? 'bg-blue-100 text-blue-700' :
-                          m.assigned_program === 'program_b' ? 'bg-purple-100 text-purple-700' :
-                          'bg-green-100 text-green-700'
-                        }`}>
-                          {getProgramShortLabel(m.assigned_program)}
-                        </span>
-                      ) : (
-                        <span className="text-[11px] text-gray-400">No program</span>
-                      )}
-                      {/* Multi-program indicator — shown when member has more than 1 program */}
-                      {m.assigned_program && (
-                        <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full" title="May have additional programs — see Billing tab">
-                          +more?
-                        </span>
-                      )}
-                    </div>
+                    {m.active_programs.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {m.active_programs.map((code) => (
+                          <span key={code} className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${PROGRAM_BADGE[code] ?? 'bg-gray-100 text-gray-600 border border-gray-200'}`}>
+                            {PROGRAM_SHORT[code] ?? code}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-gray-400">Not enrolled</span>
+                    )}
                     {m.current_stage && (
-                      <span className="text-[10px] text-gray-400 truncate max-w-[120px]">{m.current_stage}</span>
+                      <span className="text-[10px] text-gray-400 truncate max-w-[140px]">{m.current_stage}</span>
                     )}
                     <Link
                       href={`/admin/members/${m.id}`}
                       className="text-[10px] text-green-600 hover:text-green-700 font-medium underline underline-offset-2"
                     >
-                      Manage programs →
+                      Manage →
                     </Link>
                   </div>
                 </td>

@@ -12,8 +12,8 @@ export default async function AdminMembersPage() {
   const { data: adminCheck } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
   if (!adminCheck?.is_admin) redirect('/dashboard')
 
-  // Load profiles + subscriptions in parallel
-  const [{ data: profiles }, { data: subscriptions }] = await Promise.all([
+  // Load profiles + subscriptions + memberships in parallel
+  const [{ data: profiles }, { data: subscriptions }, { data: allMemberships }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, full_name, email, business_name, subscription_status, assigned_program, current_stage, portal_blocked, is_demo, created_at')
@@ -21,9 +21,20 @@ export default async function AdminMembersPage() {
     supabase
       .from('subscriptions')
       .select('user_id, stripe_subscription_id, stripe_customer_id, status, current_period_end'),
+    supabase
+      .from('memberships')
+      .select('user_id, program_code, status')
+      .eq('status', 'active'),
   ])
 
   const subMap = new Map((subscriptions ?? []).map((s) => [s.user_id, s]))
+
+  // Build a map of user_id → active program codes
+  const membershipMap = new Map<string, string[]>()
+  for (const m of allMemberships ?? []) {
+    if (!membershipMap.has(m.user_id)) membershipMap.set(m.user_id, [])
+    membershipMap.get(m.user_id)!.push(m.program_code)
+  }
 
   const members = (profiles ?? []).map((p) => {
     const sub = subMap.get(p.id)
@@ -34,6 +45,7 @@ export default async function AdminMembersPage() {
       business_name: p.business_name ?? null,
       subscription_status: p.subscription_status ?? 'inactive',
       assigned_program: p.assigned_program ?? null,
+      active_programs: membershipMap.get(p.id) ?? [],
       current_stage: p.current_stage ?? null,
       portal_blocked: p.portal_blocked ?? false,
       is_demo: p.is_demo ?? false,
