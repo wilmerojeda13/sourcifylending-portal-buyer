@@ -92,7 +92,12 @@ export default function PortalLayout({
         // ── Shared for all active members ────────────────────────────────────
         { href: '/opportunities',   label: 'Opportunities',   icon: TrendingUp },
         { href: '/funding-results', label: 'Funding Results', icon: DollarSign },
-        { href: '/credit-disputes', label: 'Credit Disputes', icon: ShieldAlert },
+
+        // ── Program A only: credit dispute tooling ───────────────────────────
+        ...(assignedProgram === 'program_a'
+          ? [{ href: '/credit-disputes', label: 'Credit Disputes', icon: ShieldAlert }]
+          : []),
+
         { href: '/ai-usage',        label: 'AI Credits',      icon: Zap },
 
         { href: '/reports', label: 'Reports', icon: BarChart2 },
