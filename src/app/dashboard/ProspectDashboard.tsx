@@ -6,6 +6,7 @@ import {
   FileText, CheckSquare, TrendingUp, ChevronRight,
 } from 'lucide-react'
 import { StatusBadge } from '@/components/ui/Badge'
+import AnalyzerResultClaimer from '@/components/auth/AnalyzerResultClaimer'
 import type { UserProfile } from '@/types'
 
 const PROGRAM_NAMES: Record<string, { short: string; full: string; description: string }> = {
@@ -57,6 +58,9 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
 
   return (
     <div className="space-y-5">
+
+      {/* Claim pending analyzer result from Google OAuth sessionStorage (no-op if already set) */}
+      {!result && <AnalyzerResultClaimer />}
 
       {/* Welcome header */}
       <div>
