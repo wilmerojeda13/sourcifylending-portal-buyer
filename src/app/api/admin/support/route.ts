@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from('support_messages')
-    .select('id, user_id, user_email, subject, message, status, admin_reply, attachment_url, created_at, updated_at, profiles!support_messages_user_id_fkey(full_name, business_name)')
+    .select('id, user_id, user_email, subject, message, status, admin_reply, attachment_url, created_at, updated_at')
     .order('created_at', { ascending: false })
 
   if (statusFilter) query = query.eq('status', statusFilter)
@@ -81,7 +81,21 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ messages: data ?? [] })
+  // Enrich with profile names
+  const messages = data ?? []
+  if (messages.length > 0) {
+    const userIds = [...new Set(messages.map(m => m.user_id).filter(Boolean))]
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, business_name')
+      .in('id', userIds)
+    const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
+    messages.forEach((m: Record<string, unknown>) => {
+      m.profiles = profileMap[m.user_id as string] ?? null
+    })
+  }
+
+  return NextResponse.json({ messages })
 }
 
 // ─── PATCH — admin replies to or updates a support message ───────────────────
@@ -106,10 +120,20 @@ export async function PATCH(req: NextRequest) {
     .from('support_messages')
     .update(updates)
     .eq('id', id)
-    .select('id, user_id, user_email, subject, message, status, admin_reply, attachment_url, created_at, updated_at, profiles!support_messages_user_id_fkey(full_name, business_name)')
+    .select('id, user_id, user_email, subject, message, status, admin_reply, attachment_url, created_at, updated_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Enrich with profile
+  if (updated) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, full_name, business_name')
+      .eq('id', updated.user_id)
+      .maybeSingle()
+    ;(updated as Record<string, unknown>).profiles = profile ?? null
+  }
 
   // Send reply email to client + portal notification
   if (admin_reply && updated) {
