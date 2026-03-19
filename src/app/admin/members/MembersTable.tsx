@@ -202,22 +202,26 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
                 {/* Program / Stage */}
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-xs text-gray-600 font-medium">
-                      {m.assigned_program ? getProgramShortLabel(m.assigned_program) : <span className="text-gray-400">None</span>}
-                    </span>
+                    {m.assigned_program ? (
+                      <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${
+                        m.assigned_program === 'program_a' ? 'bg-blue-100 text-blue-700' :
+                        m.assigned_program === 'program_b' ? 'bg-purple-100 text-purple-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {getProgramShortLabel(m.assigned_program)}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-gray-400">No program</span>
+                    )}
                     {m.current_stage && (
                       <span className="text-[10px] text-gray-400 truncate max-w-[120px]">{m.current_stage}</span>
                     )}
-                    <select
-                      value={m.assigned_program ?? ''}
-                      onChange={(e) => updateProgram(m.id, (e.target.value as ProgramId) || null)}
-                      disabled={saving === m.id + '_program'}
-                      className="text-xs border border-gray-200 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
+                    <Link
+                      href={`/admin/members/${m.id}`}
+                      className="text-[10px] text-green-600 hover:text-green-700 font-medium underline underline-offset-2"
                     >
-                      {PROGRAM_OPTIONS.map((p) => (
-                        <option key={p} value={p}>{p ? getProgramShortLabel(p) : '— None —'}</option>
-                      ))}
-                    </select>
+                      Manage programs →
+                    </Link>
                   </div>
                 </td>
 
