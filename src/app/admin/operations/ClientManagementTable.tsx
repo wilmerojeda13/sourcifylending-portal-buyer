@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, ChevronDown, ChevronUp, Save, ExternalLink } from 'lucide-react'
+import { Search, Save, ExternalLink, Trash2, UserPlus, X, Loader2 } from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
 
 interface ClientRow {
@@ -91,10 +91,7 @@ function SupportCell({
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="text-left w-full"
-      >
+      <button onClick={() => setOpen(true)} className="text-left w-full">
         {assignment?.assigned_to_name ? (
           <span className="text-xs font-medium text-gray-700 truncate block max-w-[120px]">
             {assignment.assigned_to_name}
@@ -147,10 +144,12 @@ function ClientTableRow({
   client,
   assignment,
   onSaveAssignment,
+  onDelete,
 }: {
   client: ClientRow
   assignment: AssignmentRow | undefined
   onSaveAssignment: (clientId: string, name: string, notes: string) => Promise<void>
+  onDelete: (clientId: string, name: string) => void
 }) {
   const health = HEALTH_CONFIG[client.health_status]
 
@@ -177,14 +176,10 @@ function ClientTableRow({
                 {client.subscription_status}
               </span>
               {client.portal_blocked && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase bg-red-100 text-red-600">
-                  Blocked
-                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase bg-red-100 text-red-600">Blocked</span>
               )}
               {client.is_demo && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase bg-purple-100 text-purple-600">
-                  Demo
-                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase bg-purple-100 text-purple-600">Demo</span>
               )}
             </div>
           </div>
@@ -267,29 +262,224 @@ function ClientTableRow({
             <ExternalLink size={11} />
             Portal
           </a>
+          <button
+            onClick={() => onDelete(client.id, client.full_name || client.email)}
+            className="text-xs border border-red-200 hover:bg-red-50 text-red-600 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap"
+            title="Delete member"
+          >
+            <Trash2 size={11} />
+            Delete
+          </button>
         </div>
       </td>
     </tr>
   )
 }
 
+// ─── Create Member Modal ──────────────────────────────────────────────────────
+function CreateMemberModal({ onClose, onCreate }: {
+  onClose: () => void
+  onCreate: (member: ClientRow) => void
+}) {
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [program, setProgram] = useState('')
+  const [accountState, setAccountState] = useState('prospect')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: fullName,
+          email,
+          password,
+          assigned_program: program || null,
+          account_state: accountState,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'Failed to create member'); return }
+      onCreate(data.member)
+      onClose()
+    } catch {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900 flex items-center gap-2">
+            <UserPlus size={18} className="text-green-600" />
+            Create New Member
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Full Name</label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Jane Smith"
+              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Email <span className="text-red-500">*</span></label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="jane@example.com"
+              required
+              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Password <span className="text-red-500">*</span></label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min 6 characters"
+              required
+              minLength={6}
+              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Program</label>
+              <select
+                value={program}
+                onChange={(e) => setProgram(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+              >
+                <option value="">None</option>
+                <option value="program_a">Program A</option>
+                <option value="program_b">Program B</option>
+                <option value="program_c">Program C</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Account Type</label>
+              <select
+                value={accountState}
+                onChange={(e) => setAccountState(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+              >
+                <option value="prospect">Prospect</option>
+                <option value="active_member">Active Member</option>
+              </select>
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+            >
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <UserPlus size={15} />}
+              {loading ? 'Creating…' : 'Create Member'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ─── Delete Confirmation Modal ────────────────────────────────────────────────
+function DeleteConfirmModal({ name, onConfirm, onCancel, loading }: {
+  name: string
+  onConfirm: () => void
+  onCancel: () => void
+  loading: boolean
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
+        <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Trash2 size={22} className="text-red-600" />
+        </div>
+        <h2 className="font-bold text-gray-900 text-center text-lg mb-2">Delete Member?</h2>
+        <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
+          This will permanently delete <strong className="text-gray-800">{name}</strong> and all their data. This cannot be undone.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
+          >
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+            {loading ? 'Deleting…' : 'Yes, Delete'}
+          </button>
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors py-2.5"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Table ───────────────────────────────────────────────────────────────
 export default function ClientManagementTable({ clients, assignments }: Props) {
+  const [clientsList, setClientsList] = useState<ClientRow[]>(clients)
   const [search, setSearch] = useState('')
   const [filterHealth, setFilterHealth] = useState<'' | 'good' | 'needs_attention' | 'at_risk'>('')
   const [filterProgram, setFilterProgram] = useState('')
   const [assignmentState, setAssignmentState] = useState<Map<string, AssignmentRow>>(
     () => new Map(assignments.map((a) => [a.client_user_id, a]))
   )
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const saveAssignment = useCallback(async (clientId: string, name: string, notes: string) => {
     const res = await fetch('/api/admin/support-assignment', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_user_id: clientId,
-        assigned_to_name: name || null,
-        support_notes: notes || null,
-      }),
+      body: JSON.stringify({ client_user_id: clientId, assigned_to_name: name || null, support_notes: notes || null }),
     })
     if (!res.ok) throw new Error('Failed to save assignment')
     const { assignment } = await res.json()
@@ -304,9 +494,27 @@ export default function ClientManagementTable({ clients, assignments }: Props) {
     })
   }, [])
 
-  const programs = Array.from(new Set(clients.map((c) => c.assigned_program).filter(Boolean))) as string[]
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/admin/members', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: deleteTarget.id }),
+      })
+      if (res.ok) {
+        setClientsList((prev) => prev.filter((c) => c.id !== deleteTarget.id))
+        setDeleteTarget(null)
+      }
+    } finally {
+      setDeleting(false)
+    }
+  }
 
-  const filtered = clients.filter((c) => {
+  const programs = Array.from(new Set(clientsList.map((c) => c.assigned_program).filter(Boolean))) as string[]
+
+  const filtered = clientsList.filter((c) => {
     const q = search.toLowerCase()
     const matchSearch = !q ||
       c.full_name.toLowerCase().includes(q) ||
@@ -322,117 +530,133 @@ export default function ClientManagementTable({ clients, assignments }: Props) {
   )
 
   return (
-    <div className="space-y-6">
-
-      {/* Clients Needing Attention quick callout */}
-      {atRiskAndAttention.length > 0 && (
-        <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-5">
-          <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            Clients Needing Attention
-            <span className="text-xs font-medium text-gray-400 ml-1">({atRiskAndAttention.length})</span>
-          </h2>
-          <div className="space-y-2">
-            {atRiskAndAttention.map((c) => {
-              const health = HEALTH_CONFIG[c.health_status]
-              return (
-                <div key={c.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${health.dot}`} />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-semibold text-gray-900 truncate block">
-                      {c.full_name || 'Unknown'}
-                    </span>
-                    <span className="text-xs text-gray-400 truncate block">{c.email}</span>
-                  </div>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${health.badge}`}>
-                    {health.label}
-                  </span>
-                  <span className="text-xs text-gray-400">{relativeTime(c.last_activity)}</span>
-                  <Link
-                    href={`/admin/members/${c.id}`}
-                    className="text-xs text-green-600 hover:underline shrink-0"
-                  >
-                    View →
-                  </Link>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+    <>
+      {showCreateModal && (
+        <CreateMemberModal
+          onClose={() => setShowCreateModal(false)}
+          onCreate={(member) => setClientsList((prev) => [member, ...prev])}
+        />
       )}
 
-      {/* Full Table */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
-        {/* Filters */}
-        <div className="p-4 border-b border-gray-100 flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search name, email, or business..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="border border-gray-200 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-            />
-          </div>
-          <select
-            value={filterHealth}
-            onChange={(e) => setFilterHealth(e.target.value as typeof filterHealth)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            <option value="">All Health</option>
-            <option value="good">Good</option>
-            <option value="needs_attention">Needs Attention</option>
-            <option value="at_risk">At Risk</option>
-          </select>
-          <select
-            value={filterProgram}
-            onChange={(e) => setFilterProgram(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            <option value="">All Programs</option>
-            {programs.map((p) => (
-              <option key={p} value={p}>{getProgramShortLabel(p)}</option>
-            ))}
-          </select>
-          <span className="text-xs text-gray-400 ml-auto shrink-0">{filtered.length} client{filtered.length !== 1 ? 's' : ''}</span>
-        </div>
+      {deleteTarget && (
+        <DeleteConfirmModal
+          name={deleteTarget.name}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
+          loading={deleting}
+        />
+      )}
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/50">
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name / Email</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Health</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Program / Stage</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Progress</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Last Activity</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Funding</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Support</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((client) => (
-                <ClientTableRow
-                  key={client.id}
-                  client={client}
-                  assignment={assignmentState.get(client.id)}
-                  onSaveAssignment={saveAssignment}
-                />
+      <div className="space-y-6">
+        {/* Clients Needing Attention */}
+        {atRiskAndAttention.length > 0 && (
+          <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-5">
+            <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              Clients Needing Attention
+              <span className="text-xs font-medium text-gray-400 ml-1">({atRiskAndAttention.length})</span>
+            </h2>
+            <div className="space-y-2">
+              {atRiskAndAttention.map((c) => {
+                const health = HEALTH_CONFIG[c.health_status]
+                return (
+                  <div key={c.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${health.dot}`} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-gray-900 truncate block">{c.full_name || 'Unknown'}</span>
+                      <span className="text-xs text-gray-400 truncate block">{c.email}</span>
+                    </div>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${health.badge}`}>{health.label}</span>
+                    <span className="text-xs text-gray-400">{relativeTime(c.last_activity)}</span>
+                    <Link href={`/admin/members/${c.id}`} className="text-xs text-green-600 hover:underline shrink-0">View →</Link>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Full Table */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+          {/* Filters + Create Button */}
+          <div className="p-4 border-b border-gray-100 flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search name, email, or business..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="border border-gray-200 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              />
+            </div>
+            <select
+              value={filterHealth}
+              onChange={(e) => setFilterHealth(e.target.value as typeof filterHealth)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="">All Health</option>
+              <option value="good">Good</option>
+              <option value="needs_attention">Needs Attention</option>
+              <option value="at_risk">At Risk</option>
+            </select>
+            <select
+              value={filterProgram}
+              onChange={(e) => setFilterProgram(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="">All Programs</option>
+              {programs.map((p) => (
+                <option key={p} value={p}>{getProgramShortLabel(p)}</option>
               ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-400">
-                    No clients match your filters
-                  </td>
+            </select>
+            <span className="text-xs text-gray-400 shrink-0">{filtered.length} client{filtered.length !== 1 ? 's' : ''}</span>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="ml-auto flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+            >
+              <UserPlus size={14} />
+              New Member
+            </button>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50/50">
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name / Email</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Health</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Program / Stage</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Progress</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Last Activity</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Funding</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Support</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((client) => (
+                  <ClientTableRow
+                    key={client.id}
+                    client={client}
+                    assignment={assignmentState.get(client.id)}
+                    onSaveAssignment={saveAssignment}
+                    onDelete={(id, name) => setDeleteTarget({ id, name })}
+                  />
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-400">
+                      No clients match your filters
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
