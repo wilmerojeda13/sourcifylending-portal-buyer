@@ -262,6 +262,25 @@ export async function POST(req: NextRequest) {
         await logActivity(userId, 'checkout_completed', { program, session_type: 'subscription', subscription_id: subscriptionId })
       }
 
+      // ── Log setup fee / checkout payment record ─────────────────────────
+      if (session.amount_total && session.amount_total > 0) {
+        const sessionId = session.id
+        const setupAmount = session.amount_total / 100
+        await supabase.from('payment_records').insert({
+          user_id: userId,
+          amount: setupAmount,
+          payment_date: new Date().toISOString().split('T')[0],
+          payment_source: 'stripe_checkout',
+          payment_type: sessionType === 'setup_fee' ? 'setup_fee' : 'recurring',
+          payment_status: 'paid',
+          stripe_customer_id: typeof customerId === 'string' ? customerId : null,
+          stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+          stripe_checkout_session_id: sessionId,
+          notes: `Stripe checkout completed: ${sessionId}`,
+          logged_by: 'stripe_webhook',
+        }).select().maybeSingle()
+      }
+
       break
     }
 
@@ -374,6 +393,78 @@ export async function POST(req: NextRequest) {
         await logActivity(sub.user_id, 'payment_failed', { customer_id: customerId })
       }
 
+      break
+    }
+
+    // ── Invoice paid (recurring subscription payment) ───────────────────────
+    case 'invoice.paid': {
+      const invoice = event.data.object as Stripe.Invoice
+      const customerId = invoice.customer as string
+
+      const { data: sub } = await supabase
+        .from('subscriptions')
+        .select('user_id, id')
+        .eq('stripe_customer_id', customerId)
+        .maybeSingle()
+
+      if (sub) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, business_name, assigned_program')
+          .eq('id', sub.user_id)
+          .maybeSingle()
+
+        const amountPaid = (invoice.amount_paid || 0) / 100
+        if (amountPaid > 0) {
+          await supabase.from('payment_records').insert({
+            user_id: sub.user_id,
+            subscription_id: sub.id,
+            amount: amountPaid,
+            payment_date: new Date().toISOString().split('T')[0],
+            payment_source: 'stripe_invoice',
+            payment_type: 'recurring',
+            payment_status: 'paid',
+            client_name_snapshot: profile?.full_name || profile?.business_name || null,
+            program_code: profile?.assigned_program || null,
+            stripe_customer_id: customerId,
+            stripe_invoice_id: invoice.id,
+            notes: `Stripe invoice paid: ${invoice.id}`,
+            logged_by: 'stripe_webhook',
+          })
+        }
+      }
+      break
+    }
+
+    // ── Charge refunded ─────────────────────────────────────────────────────
+    case 'charge.refunded': {
+      const charge = event.data.object as Stripe.Charge
+      const customerId = charge.customer as string
+
+      const { data: sub } = await supabase
+        .from('subscriptions')
+        .select('user_id, id')
+        .eq('stripe_customer_id', customerId)
+        .maybeSingle()
+
+      if (sub) {
+        const refundAmount = (charge.amount_refunded || 0) / 100
+        if (refundAmount > 0) {
+          await supabase.from('payment_records').insert({
+            user_id: sub.user_id,
+            subscription_id: sub.id,
+            amount: -refundAmount,
+            payment_date: new Date().toISOString().split('T')[0],
+            payment_source: 'stripe_invoice',
+            payment_type: 'refund',
+            payment_status: 'refunded',
+            stripe_customer_id: typeof customerId === 'string' ? customerId : null,
+            stripe_payment_intent_id: typeof charge.payment_intent === 'string' ? charge.payment_intent : null,
+            notes: `Stripe refund: charge ${charge.id}`,
+            logged_by: 'stripe_webhook',
+          })
+        }
+      }
       break
     }
   }
