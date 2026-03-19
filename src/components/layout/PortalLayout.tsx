@@ -20,9 +20,10 @@ const BASE_NAV_ITEMS = [
   { href: '/billing', label: 'Billing', icon: CreditCard },
 ]
 
-// Prospect accounts only see Dashboard + Upgrade + Support
+// Prospect accounts only see Dashboard + Funding Results + Upgrade + Support
 const PROSPECT_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/funding-results', label: 'Funding Results', icon: DollarSign },
   { href: '/billing', label: 'Upgrade', icon: ArrowUpCircle },
   { href: '/support', label: 'Support', icon: MessageSquare },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -90,17 +91,13 @@ export default function PortalLayout({
           : []),
 
         // ── Shared for all active members ────────────────────────────────────
-        { href: '/opportunities', label: 'Opportunities', icon: TrendingUp },
-        { href: '/ai-usage',      label: 'AI Credits',    icon: Zap },
+        { href: '/opportunities',    label: 'Opportunities',   icon: TrendingUp },
+        { href: '/funding-results',  label: 'Funding Results', icon: DollarSign },
+        { href: '/ai-usage',         label: 'AI Credits',      icon: Zap },
 
         // ── Program A only: credit repair / dispute tooling ──────────────────
         ...(assignedProgram === 'program_a'
           ? [{ href: '/credit-disputes', label: 'Credit Disputes', icon: ShieldAlert }]
-          : []),
-
-        // ── Program B only: funding outcome tracking ─────────────────────────
-        ...(assignedProgram === 'program_b'
-          ? [{ href: '/funding-results', label: 'Funding Results', icon: DollarSign }]
           : []),
 
         { href: '/reports', label: 'Reports', icon: BarChart2 },

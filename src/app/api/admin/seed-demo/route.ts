@@ -222,6 +222,73 @@ const DEMO_A_DOCUMENTS = [
   },
 ]
 
+const DEMO_A_APPROVALS = [
+  {
+    id: 'da01-appr-0001-0000-000000000001',
+    user_id: DEMO_A_ID,
+    program_type: 'Program A',
+    approval_type: '0% APR Card',
+    issuer_name: 'Chase',
+    account_name: 'Chase Ink Business Preferred',
+    approved_amount: null,
+    approved_limit: 8000,
+    approval_date: daysAgo(10).split('T')[0],
+    status: 'Approved',
+    notes: 'Applied Card Set 1. Approved instantly. 0% intro APR for 12 months.',
+    decline_reason: null,
+    mark_for_reattempt: false,
+    created_at: daysAgo(10),
+  },
+  {
+    id: 'da01-appr-0002-0000-000000000002',
+    user_id: DEMO_A_ID,
+    program_type: 'Program A',
+    approval_type: '0% APR Card',
+    issuer_name: 'American Express',
+    account_name: 'Amex Blue Business Plus',
+    approved_amount: null,
+    approved_limit: 7500,
+    approval_date: daysAgo(10).split('T')[0],
+    status: 'Approved',
+    notes: 'Applied same day as Chase. Approved. 0% intro APR for 15 months.',
+    decline_reason: null,
+    mark_for_reattempt: false,
+    created_at: daysAgo(10),
+  },
+  {
+    id: 'da01-appr-0003-0000-000000000003',
+    user_id: DEMO_A_ID,
+    program_type: 'Program A',
+    approval_type: 'Business Credit Card',
+    issuer_name: 'US Bank',
+    account_name: 'US Bank Business Triple Cash',
+    approved_amount: null,
+    approved_limit: null,
+    approval_date: daysAgo(10).split('T')[0],
+    status: 'Declined',
+    notes: 'Applied Set 1 — denied. Too many recent inquiries.',
+    decline_reason: 'too many inquiries',
+    mark_for_reattempt: true,
+    created_at: daysAgo(10),
+  },
+  {
+    id: 'da01-appr-0004-0000-000000000004',
+    user_id: DEMO_A_ID,
+    program_type: 'Program A',
+    approval_type: '0% APR Card',
+    issuer_name: 'Capital One',
+    account_name: 'Capital One Venture X Business',
+    approved_amount: null,
+    approved_limit: 5000,
+    approval_date: daysFromNow(14),
+    status: 'Pending',
+    notes: 'Card Set 2 application window in 14 days. Pre-scheduled.',
+    decline_reason: null,
+    mark_for_reattempt: false,
+    created_at: daysAgo(1),
+  },
+]
+
 const DEMO_A_NOTIFICATIONS = [
   {
     user_id: DEMO_A_ID,
@@ -455,6 +522,73 @@ const DEMO_B_DOCUMENTS = [
     uploaded_at: daysAgo(20),
     review_status: 'reviewed',
     notes: 'Average daily balance $4,200. 0 NSF events. Clean.',
+  },
+]
+
+const DEMO_B_APPROVALS = [
+  {
+    id: 'db02-appr-0001-0000-000000000001',
+    user_id: DEMO_B_ID,
+    program_type: 'Program B',
+    approval_type: 'Net 30 Account',
+    issuer_name: 'Uline',
+    account_name: 'Uline Net-30 Trade Account',
+    approved_amount: null,
+    approved_limit: 2500,
+    approval_date: daysAgo(35).split('T')[0],
+    status: 'Approved',
+    notes: 'First vendor account. Reporting to D&B and Experian Business.',
+    decline_reason: null,
+    mark_for_reattempt: false,
+    created_at: daysAgo(35),
+  },
+  {
+    id: 'db02-appr-0002-0000-000000000002',
+    user_id: DEMO_B_ID,
+    program_type: 'Program B',
+    approval_type: 'Net 30 Account',
+    issuer_name: 'Quill',
+    account_name: 'Quill Office Supplies Net-30',
+    approved_amount: null,
+    approved_limit: 1500,
+    approval_date: daysAgo(30).split('T')[0],
+    status: 'Approved',
+    notes: 'Approved. Initial $50 purchase placed to trigger reporting.',
+    decline_reason: null,
+    mark_for_reattempt: false,
+    created_at: daysAgo(30),
+  },
+  {
+    id: 'db02-appr-0003-0000-000000000003',
+    user_id: DEMO_B_ID,
+    program_type: 'Program B',
+    approval_type: 'Net 30 Account',
+    issuer_name: 'Grainger',
+    account_name: 'Grainger Net-30 Account',
+    approved_amount: null,
+    approved_limit: 3000,
+    approval_date: daysAgo(22).split('T')[0],
+    status: 'Approved',
+    notes: 'Approved. Reports to D&B. Good for facilities/cleaning industry.',
+    decline_reason: null,
+    mark_for_reattempt: false,
+    created_at: daysAgo(22),
+  },
+  {
+    id: 'db02-appr-0004-0000-000000000004',
+    user_id: DEMO_B_ID,
+    program_type: 'Program B',
+    approval_type: 'Store Account',
+    issuer_name: 'Staples',
+    account_name: 'Staples Business Advantage',
+    approved_amount: null,
+    approved_limit: null,
+    approval_date: daysFromNow(7),
+    status: 'Pending',
+    notes: 'Application scheduled. Due in 7 days.',
+    decline_reason: null,
+    mark_for_reattempt: false,
+    created_at: daysAgo(0),
   },
 ]
 
@@ -731,6 +865,7 @@ export async function POST() {
       reports: DEMO_A_REPORTS,
       documents: DEMO_A_DOCUMENTS,
       notifications: DEMO_A_NOTIFICATIONS,
+      approvals: DEMO_A_APPROVALS,
     },
     {
       id: DEMO_B_ID,
@@ -741,6 +876,7 @@ export async function POST() {
       reports: DEMO_B_REPORTS,
       documents: DEMO_B_DOCUMENTS,
       notifications: DEMO_B_NOTIFICATIONS,
+      approvals: DEMO_B_APPROVALS,
     },
     {
       id: DEMO_C_ID,
@@ -751,6 +887,7 @@ export async function POST() {
       reports: DEMO_C_REPORTS,
       documents: DEMO_C_DOCUMENTS,
       notifications: DEMO_C_NOTIFICATIONS,
+      approvals: [],
     },
   ]
 
@@ -799,6 +936,13 @@ export async function POST() {
       await supabase.from('notifications').delete().eq('user_id', demo.id)
       const { error: notifsError } = await supabase.from('notifications').insert(demo.notifications)
       if (notifsError) errors.push(`Notifications ${demo.email}: ${notifsError.message}`)
+
+      // 7. Delete + reinsert funding approvals
+      await supabase.from('funding_approvals').delete().eq('user_id', demo.id)
+      if (demo.approvals.length > 0) {
+        const { error: approvalsError } = await supabase.from('funding_approvals').insert(demo.approvals)
+        if (approvalsError) errors.push(`Approvals ${demo.email}: ${approvalsError.message}`)
+      }
 
     } catch (err) {
       errors.push(`Fatal error for ${demo.email}: ${String(err)}`)
