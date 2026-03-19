@@ -61,6 +61,10 @@ export async function GET(_req: NextRequest) {
       .filter((p) => isCollected(p) && p.payment_type === 'recurring')
       .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
 
+    const addOnCollected = allPayments
+      .filter((p) => isCollected(p) && p.payment_type === 'add_on')
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+
     const arrangementOutstanding = allArrangements
       .reduce((sum, a) => sum + (Number(a.setup_fee_remaining) || 0), 0)
 
@@ -193,6 +197,7 @@ export async function GET(_req: NextRequest) {
         thisMonth,
         setupFeesCollected,
         recurringCollected,
+        addOnCollected,
         outstandingBalance,
         mrr,
         activePayingClients,

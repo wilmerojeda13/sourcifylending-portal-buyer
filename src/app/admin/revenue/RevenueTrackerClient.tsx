@@ -13,6 +13,7 @@ import {
   Target,
   CheckCircle,
   Clock,
+  Zap,
 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -22,6 +23,7 @@ interface Metrics {
   thisMonth: number
   setupFeesCollected: number
   recurringCollected: number
+  addOnCollected: number
   outstandingBalance: number
   mrr: number
   activePayingClients: number
@@ -327,6 +329,18 @@ export default function RevenueTrackerClient() {
                 </div>
                 <p className="text-2xl font-bold text-gray-900">{fmt(metrics.recurringCollected)}</p>
                 <p className="text-xs text-gray-400 mt-1">All time collected</p>
+              </div>
+
+              {/* AI Packages */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <Zap size={18} className="text-purple-600" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">AI Packages</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{fmt(metrics.addOnCollected)}</p>
+                <p className="text-xs text-gray-400 mt-1">Credit pack purchases</p>
               </div>
 
               {/* Outstanding Balance */}

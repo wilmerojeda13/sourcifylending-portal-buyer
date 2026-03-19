@@ -187,6 +187,30 @@ export async function POST(req: NextRequest) {
           created_at: now,
         })
 
+        // 4. Log to payment_records for revenue tracker
+        if (session.amount_total && session.amount_total > 0) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, business_name, assigned_program')
+            .eq('id', userId)
+            .maybeSingle()
+
+          await supabase.from('payment_records').insert({
+            user_id: userId,
+            amount: session.amount_total / 100,
+            payment_date: new Date().toISOString().split('T')[0],
+            payment_source: 'stripe_checkout',
+            payment_type: 'add_on',
+            payment_status: 'paid',
+            client_name_snapshot: profile?.full_name || profile?.business_name || null,
+            program_code: profile?.assigned_program || null,
+            stripe_customer_id: typeof customerId === 'string' ? customerId : null,
+            stripe_payment_intent_id: typeof paymentIntentId === 'string' ? paymentIntentId : null,
+            notes: `AI credit pack: ${creditsAmount} credits (${packId})`,
+            logged_by: 'stripe_webhook',
+          })
+        }
+
         console.log(`[AI-CREDITS-WEBHOOK] Granted ${creditsAmount} credits to user ${userId}`)
         break
       }
