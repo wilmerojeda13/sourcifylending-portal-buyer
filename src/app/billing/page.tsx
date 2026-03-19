@@ -59,6 +59,7 @@ export default function BillingPage() {
   const [changingPlan, setChangingPlan] = useState<string | null>(null)
   const [showChangePlan, setShowChangePlan] = useState(false)
   const [selectingPlan, setSelectingPlan] = useState<string | null>(null)
+  const [showProgramSwitch, setShowProgramSwitch] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -272,7 +273,7 @@ export default function BillingPage() {
       )}
 
       {/* Subscribe / Reactivate CTA */}
-      {!isActive && program && (
+      {!isActive && program && !showProgramSwitch && (
         <div className="card bg-gradient-to-br from-green-600 to-green-800 border-0 text-white">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
@@ -289,15 +290,65 @@ export default function BillingPage() {
                 }
               </p>
               {price && <p className="text-white font-bold text-xl mb-4">{price}</p>}
-              <button
-                onClick={handleSubscribe}
-                className="bg-white text-green-700 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors inline-flex items-center gap-2"
-              >
-                <CreditCard size={16} />
-                Subscribe Now
-              </button>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={handleSubscribe}
+                  className="bg-white text-green-700 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors inline-flex items-center gap-2"
+                >
+                  <CreditCard size={16} />
+                  Subscribe Now
+                </button>
+                <button
+                  onClick={() => setShowProgramSwitch(true)}
+                  className="text-green-200 hover:text-white text-sm underline underline-offset-2 transition-colors"
+                >
+                  Switch program
+                </button>
+              </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Program switcher for inactive users */}
+      {!isActive && program && showProgramSwitch && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Choose Your Program</h2>
+              <p className="text-sm text-gray-500 mt-1">Select a plan and proceed to payment</p>
+            </div>
+            <button onClick={() => setShowProgramSwitch(false)} className="text-sm text-gray-400 hover:text-gray-600 underline">Cancel</button>
+          </div>
+
+          {Object.entries({ program_a: { icon: <Zap size={18} className="text-blue-600" />, bg: 'bg-blue-100', label: 'Program A — 0% APR Card Strategy', desc: 'Build high-limit 0% intro APR credit card stack for business or personal capital', badge: '$1,500 setup', badgeColor: 'bg-blue-100 text-blue-700', monthly: 'then $399/month' }, program_b: { icon: <Building2 size={18} className="text-green-600" />, bg: 'bg-green-100', label: 'Program B — Business Credit Builder', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badge: '$997 setup', badgeColor: 'bg-green-100 text-green-700', monthly: 'then $199/month' }, program_c: { icon: <BarChart3 size={18} className="text-purple-600" />, bg: 'bg-purple-100', label: 'Program C — Capital Monitoring', desc: 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan', badge: 'No setup fee', badgeColor: 'bg-purple-100 text-purple-700', monthly: '$97/month' } }).map(([key, p]) => (
+            <div key={key} className={`card border-2 transition-colors ${program === key ? 'border-green-400 bg-green-50/40' : 'border-gray-200 hover:border-green-400'}`}>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 ${p.bg} rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>{p.icon}</div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-900">{p.label}</span>
+                      {program === key && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 uppercase">Current</span>}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{p.desc}</p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${p.badgeColor}`}>{p.badge}</span>
+                      <span className="text-xs text-gray-500">{p.monthly}</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowProgramSwitch(false); handleSelectAndEnroll(key) }}
+                  disabled={selectingPlan !== null}
+                  className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
+                >
+                  {selectingPlan === key ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+                  {program === key ? 'Continue' : 'Select'}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
