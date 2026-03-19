@@ -127,8 +127,27 @@ export type DocumentType =
   | 'bank_statement'
   | 'vendor_confirmation'
   | 'other'
+  | 'articles_of_organization'
+  | 'driver_license'
+  | 'utility_bill'
+  | 'voided_check'
+  | 'business_license'
+  | 'duns_confirmation'
 
 export type ReviewStatus = 'pending' | 'reviewed' | 'approved' | 'rejected'
+
+export interface AIDocumentAnalysis {
+  detected_type: string
+  matches_declared_type: boolean
+  is_valid: boolean
+  confidence: 'high' | 'medium' | 'low'
+  validation_summary: string
+  rejection_reason: string | null
+  extracted_fields: Record<string, string>
+  tasks_to_complete: string[]
+  next_step_guidance: string
+  recommendation: 'approved' | 'needs_review' | 'rejected'
+}
 
 export interface Document {
   document_id: string
@@ -140,6 +159,9 @@ export interface Document {
   uploaded_at: string
   review_status: ReviewStatus
   notes: string | null
+  ai_analysis_status?: 'pending' | 'analyzing' | 'completed' | 'failed' | 'skipped' | null
+  ai_analysis?: AIDocumentAnalysis | null
+  ai_analyzed_at?: string | null
 }
 
 // ─── Reports ──────────────────────────────────────────────────────────────────
@@ -342,6 +364,7 @@ export interface UserAIUsageEvent {
   estimated_cost_usd: number
   model_used: string | null
   request_status: 'success' | 'failed' | 'blocked'
+  credit_source: 'monthly' | 'purchased'
   metadata_json: Record<string, unknown> | null
   created_at: string
 }
@@ -354,4 +377,51 @@ export interface AICreditAdjustment {
   reason: string | null
   created_by: string | null
   created_at: string
+}
+
+// ─── AI Credit Packs ───────────────────────────────────────────────────────────
+export interface AICreditPack {
+  id: string
+  name: string
+  description: string | null
+  credits_amount: number
+  price_usd: number
+  stripe_price_id: string | null
+  is_active: boolean
+  display_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface UserPurchasedAICredits {
+  id: string
+  user_id: string
+  credits_purchased: number
+  credits_used: number
+  credits_remaining: number
+  source_type: 'stripe_purchase' | 'admin_grant' | 'admin_deduction' | 'promo'
+  source_reference_id: string | null
+  purchase_date: string
+  expires_at: string | null
+  status: 'active' | 'consumed' | 'expired' | 'reversed'
+  created_at: string
+  updated_at: string
+}
+
+export interface AICreditPurchaseTransaction {
+  id: string
+  user_id: string
+  ai_credit_pack_id: string | null
+  purchased_credits_bucket_id: string | null
+  stripe_checkout_session_id: string | null
+  stripe_payment_intent_id: string | null
+  stripe_invoice_id: string | null
+  amount_paid: number | null
+  credits_added: number
+  transaction_status: 'pending' | 'completed' | 'failed' | 'reversed'
+  adjusted_by: string | null
+  adjustment_reason: string | null
+  metadata_json: Record<string, unknown> | null
+  created_at: string
+  updated_at: string
 }

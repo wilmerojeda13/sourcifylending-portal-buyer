@@ -4,9 +4,10 @@ import Link from 'next/link'
 import {
   Zap, Settings, Users, TrendingUp, AlertTriangle, RefreshCw,
   Loader2, ChevronDown, ChevronRight, CheckCircle, XCircle,
-  DollarSign, Clock, Shield, Edit3, Save, X, WifiOff, Wifi
+  DollarSign, Clock, Shield, Edit3, Save, X, WifiOff, Wifi,
+  Package, ShoppingBag, Plus, ToggleLeft, ToggleRight, Gift
 } from 'lucide-react'
-import type { AIProgramLimits, AIActionCost } from '@/types'
+import type { AIProgramLimits, AIActionCost, AICreditPack } from '@/types'
 
 const PROGRAM_LABELS: Record<string, string> = {
   program_a: 'Program A — 0% Intro APR',
@@ -49,6 +50,21 @@ interface TopUser {
   credits_allocated: number
 }
 
+interface PurchaseTransaction {
+  id: string
+  user_id: string
+  credits_added: number
+  amount_paid: number | null
+  transaction_status: string
+  adjusted_by: string | null
+  adjustment_reason: string | null
+  created_at: string
+  profiles: { full_name: string | null; email: string | null; assigned_program: string | null } | null
+  ai_credit_packs: { name: string; credits_amount: number; price_usd: number } | null
+}
+
+const BLANK_PACK = { name: '', description: '', credits_amount: 100, price_usd: 9.99, stripe_price_id: '', display_order: 99 }
+
 export default function AIControlsPage() {
   const [limits, setLimits] = useState<AIProgramLimits[]>([])
   const [costs, setCosts] = useState<AIActionCost[]>([])
@@ -57,7 +73,7 @@ export default function AIControlsPage() {
   const [recentEvents, setRecentEvents] = useState<UsageEvent[]>([])
   const [byProgram, setByProgram] = useState<Record<string, { total_credits: number; total_cost_usd: number; request_count: number }>>({})
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'limits' | 'costs' | 'users' | 'status'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'limits' | 'costs' | 'users' | 'status' | 'packs' | 'purchases'>('overview')
 
   // Edit states
   const [editingLimit, setEditingLimit] = useState<string | null>(null)
@@ -72,6 +88,25 @@ export default function AIControlsPage() {
   const [maintenanceNote, setMaintenanceNote] = useState('')
   const [statusLoading, setStatusLoading] = useState(false)
   const [statusSaving, setStatusSaving] = useState(false)
+
+  // ── Credit Packs ──
+  const [packs, setPacks] = useState<AICreditPack[]>([])
+  const [packsLoading, setPacksLoading] = useState(false)
+  const [editingPack, setEditingPack] = useState<string | null>(null) // pack id or 'new'
+  const [packDraft, setPackDraft] = useState<typeof BLANK_PACK>(BLANK_PACK)
+  const [packSaving, setPackSaving] = useState(false)
+  const [packMsg, setPackMsg] = useState('')
+
+  // ── Purchases ──
+  const [purchases, setPurchases] = useState<PurchaseTransaction[]>([])
+  const [purchasesTotal, setPurchasesTotal] = useState(0)
+  const [purchasesLoading, setPurchasesLoading] = useState(false)
+  const [grantUserId, setGrantUserId] = useState('')
+  const [grantCredits, setGrantCredits] = useState('')
+  const [grantSourceType, setGrantSourceType] = useState<'admin_grant' | 'promo'>('admin_grant')
+  const [grantReason, setGrantReason] = useState('')
+  const [grantSaving, setGrantSaving] = useState(false)
+  const [grantMsg, setGrantMsg] = useState('')
 
   const loadMaintenance = useCallback(async () => {
     setStatusLoading(true)
@@ -145,7 +180,36 @@ export default function AIControlsPage() {
     setLoading(false)
   }, [])
 
+  const loadPacks = useCallback(async () => {
+    setPacksLoading(true)
+    try {
+      const res = await fetch('/api/admin/ai-credit-packs')
+      if (res.ok) { const d = await res.json(); setPacks(d.packs ?? []) }
+    } finally {
+      setPacksLoading(false)
+    }
+  }, [])
+
+  const loadPurchases = useCallback(async () => {
+    setPurchasesLoading(true)
+    try {
+      const res = await fetch('/api/admin/ai-credit-purchases?limit=100')
+      if (res.ok) {
+        const d = await res.json()
+        setPurchases(d.transactions ?? [])
+        setPurchasesTotal(d.total ?? 0)
+      }
+    } finally {
+      setPurchasesLoading(false)
+    }
+  }, [])
+
   useEffect(() => { load(); loadMaintenance() }, [load, loadMaintenance])
+
+  useEffect(() => {
+    if (activeTab === 'packs') loadPacks()
+    if (activeTab === 'purchases') loadPurchases()
+  }, [activeTab, loadPacks, loadPurchases])
 
   // ── Save program limit ──
   const saveLimit = async (program: string) => {
@@ -185,12 +249,81 @@ export default function AIControlsPage() {
     }
   }
 
+  // ── Credit Pack CRUD ──
+  const savePack = async () => {
+    setPackSaving(true)
+    const isNew = editingPack === 'new'
+    try {
+      const res = await fetch('/api/admin/ai-credit-packs', {
+        method: isNew ? 'POST' : 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(isNew ? packDraft : { id: editingPack, ...packDraft }),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error ?? 'Failed')
+      setPackMsg(isNew ? 'Pack created!' : 'Pack updated!')
+      setTimeout(() => setPackMsg(''), 3000)
+      setEditingPack(null)
+      setPackDraft(BLANK_PACK)
+      loadPacks()
+    } catch (e) {
+      setPackMsg((e as Error).message)
+    } finally {
+      setPackSaving(false)
+    }
+  }
+
+  const togglePackActive = async (pack: AICreditPack) => {
+    const res = await fetch('/api/admin/ai-credit-packs', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: pack.id, is_active: !pack.is_active }),
+    })
+    if (res.ok) loadPacks()
+  }
+
+  const deletePack = async (id: string) => {
+    if (!confirm('Deactivate this pack? It will no longer appear to users but purchase history is preserved.')) return
+    await fetch(`/api/admin/ai-credit-packs?id=${id}`, { method: 'DELETE' })
+    loadPacks()
+  }
+
+  // ── Manual Credit Grant ──
+  const submitGrant = async () => {
+    if (!grantUserId.trim() || !grantCredits) return
+    setGrantSaving(true)
+    setGrantMsg('')
+    try {
+      const res = await fetch('/api/admin/ai-credit-purchases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: grantUserId.trim(),
+          credits_amount: Number(grantCredits),
+          source_type: grantSourceType,
+          reason: grantReason.trim() || undefined,
+        }),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error ?? 'Failed')
+      setGrantMsg(`✅ ${grantCredits} credits granted successfully.`)
+      setGrantUserId(''); setGrantCredits(''); setGrantReason('')
+      loadPurchases()
+    } catch (e) {
+      setGrantMsg(`❌ ${(e as Error).message}`)
+    } finally {
+      setGrantSaving(false)
+    }
+  }
+
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: TrendingUp },
-    { id: 'limits', label: 'Program Limits', icon: Settings },
-    { id: 'costs', label: 'Action Costs', icon: Zap },
-    { id: 'users', label: 'Top Users', icon: Users },
-    { id: 'status', label: 'System Status', icon: maintenanceEnabled ? WifiOff : Wifi },
+    { id: 'overview',   label: 'Overview',       icon: TrendingUp },
+    { id: 'limits',     label: 'Program Limits',  icon: Settings },
+    { id: 'costs',      label: 'Action Costs',    icon: Zap },
+    { id: 'users',      label: 'Top Users',        icon: Users },
+    { id: 'packs',      label: 'Credit Packs',     icon: Package },
+    { id: 'purchases',  label: 'Purchases',        icon: ShoppingBag },
+    { id: 'status',     label: 'System Status',    icon: maintenanceEnabled ? WifiOff : Wifi },
   ] as const
 
   return (
@@ -219,7 +352,7 @@ export default function AIControlsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 w-fit">
+        <div className="flex flex-wrap gap-1 bg-white border border-gray-200 rounded-xl p-1 w-fit">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -235,7 +368,7 @@ export default function AIControlsPage() {
           ))}
         </div>
 
-        {loading ? (
+        {loading && activeTab !== 'packs' && activeTab !== 'purchases' ? (
           <div className="flex items-center justify-center h-32">
             <Loader2 size={24} className="animate-spin text-green-400" />
           </div>
@@ -482,6 +615,271 @@ export default function AIControlsPage() {
               </div>
             )}
 
+            {/* ── CREDIT PACKS TAB ── */}
+            {activeTab === 'packs' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-bold text-gray-900">Purchasable AI Credit Packs</h2>
+                    <p className="text-sm text-gray-500 mt-0.5">Define the extra credit packs available for purchase in the AI Usage page.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {packMsg && <span className="text-sm font-medium text-green-600">{packMsg}</span>}
+                    <button
+                      onClick={() => { setEditingPack('new'); setPackDraft(BLANK_PACK) }}
+                      disabled={editingPack === 'new'}
+                      className="flex items-center gap-1.5 text-xs bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-40 transition-colors"
+                    >
+                      <Plus size={14} /> New Pack
+                    </button>
+                    <button onClick={loadPacks} disabled={packsLoading} className="btn-secondary text-xs px-3 py-2">
+                      {packsLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* New pack form */}
+                {editingPack === 'new' && (
+                  <div className="bg-green-50 border border-green-200 rounded-2xl p-5 space-y-4">
+                    <h3 className="font-bold text-green-800 text-sm flex items-center gap-2"><Plus size={14} /> New Credit Pack</h3>
+                    <PackForm draft={packDraft} onChange={setPackDraft} />
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={savePack}
+                        disabled={packSaving}
+                        className="flex items-center gap-1.5 text-xs bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {packSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Create Pack
+                      </button>
+                      <button
+                        onClick={() => { setEditingPack(null); setPackDraft(BLANK_PACK) }}
+                        className="text-xs text-gray-500 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {packsLoading ? (
+                  <div className="flex items-center justify-center h-24">
+                    <Loader2 size={20} className="animate-spin text-green-400" />
+                  </div>
+                ) : packs.length === 0 ? (
+                  <div className="bg-white border border-gray-200 rounded-2xl p-10 text-center text-gray-400 text-sm">
+                    No credit packs yet. Click <strong>New Pack</strong> to create one.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {packs.map((pack) => (
+                      <div
+                        key={pack.id}
+                        className={`bg-white border rounded-2xl shadow-sm overflow-hidden transition-colors ${pack.is_active ? 'border-gray-200' : 'border-gray-100 opacity-60'}`}
+                      >
+                        {editingPack === pack.id ? (
+                          <div className="p-5 space-y-4">
+                            <PackForm draft={packDraft} onChange={setPackDraft} />
+                            <div className="flex gap-2 pt-2">
+                              <button
+                                onClick={savePack}
+                                disabled={packSaving}
+                                className="flex items-center gap-1.5 text-xs bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                              >
+                                {packSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
+                              </button>
+                              <button
+                                onClick={() => { setEditingPack(null); setPackDraft(BLANK_PACK) }}
+                                className="text-xs text-gray-500 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-4 px-5 py-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-gray-900 text-sm">{pack.name}</p>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${pack.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                  {pack.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              </div>
+                              {pack.description && (
+                                <p className="text-xs text-gray-400 mt-0.5">{pack.description}</p>
+                              )}
+                              <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                                <span className="font-bold text-green-700">{pack.credits_amount} credits</span>
+                                <span>·</span>
+                                <span className="font-bold text-gray-800">${Number(pack.price_usd).toFixed(2)}</span>
+                                {pack.stripe_price_id && (
+                                  <><span>·</span><span className="font-mono text-gray-400">{pack.stripe_price_id}</span></>
+                                )}
+                                <span>·</span>
+                                <span>Order: {pack.display_order}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={() => togglePackActive(pack)}
+                                title={pack.is_active ? 'Deactivate' : 'Activate'}
+                                className={`p-1.5 rounded-lg transition-colors ${pack.is_active ? 'text-green-500 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-50'}`}
+                              >
+                                {pack.is_active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                              </button>
+                              <button
+                                onClick={() => { setEditingPack(pack.id); setPackDraft({ name: pack.name, description: pack.description ?? '', credits_amount: pack.credits_amount, price_usd: Number(pack.price_usd), stripe_price_id: pack.stripe_price_id ?? '', display_order: pack.display_order }) }}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+                              >
+                                <Edit3 size={15} />
+                              </button>
+                              <button
+                                onClick={() => deletePack(pack.id)}
+                                className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                              >
+                                <X size={15} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-700">
+                  <strong>Stripe Price ID (optional):</strong> If you create a Price in your Stripe dashboard, paste its ID here (e.g. <code>price_xxx</code>) for faster checkout. If left blank, a dynamic price_data object is used automatically — both work fine.
+                </div>
+              </div>
+            )}
+
+            {/* ── PURCHASES TAB ── */}
+            {activeTab === 'purchases' && (
+              <div className="space-y-6">
+
+                {/* Manual Grant Card */}
+                <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+                  <h2 className="font-bold text-gray-900 text-sm flex items-center gap-2 mb-1">
+                    <Gift size={15} className="text-green-500" /> Manual Credit Grant
+                  </h2>
+                  <p className="text-xs text-gray-500 mb-4">Grant extra purchased-bucket credits to any user. They receive an in-app notification.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">User ID</label>
+                      <input
+                        type="text"
+                        value={grantUserId}
+                        onChange={(e) => setGrantUserId(e.target.value)}
+                        placeholder="UUID from profiles table"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Credits</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={grantCredits}
+                        onChange={(e) => setGrantCredits(e.target.value)}
+                        placeholder="e.g. 50"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Type</label>
+                      <select
+                        value={grantSourceType}
+                        onChange={(e) => setGrantSourceType(e.target.value as 'admin_grant' | 'promo')}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                      >
+                        <option value="admin_grant">Admin Grant</option>
+                        <option value="promo">Promo / Bonus</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Reason (optional — shown to user)</label>
+                    <input
+                      type="text"
+                      value={grantReason}
+                      onChange={(e) => setGrantReason(e.target.value)}
+                      placeholder="e.g. Beta tester bonus, Customer support resolution…"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 mt-4">
+                    <button
+                      onClick={submitGrant}
+                      disabled={grantSaving || !grantUserId.trim() || !grantCredits}
+                      className="flex items-center gap-1.5 text-sm bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 disabled:opacity-40 transition-colors"
+                    >
+                      {grantSaving ? <Loader2 size={14} className="animate-spin" /> : <Gift size={14} />}
+                      Grant Credits
+                    </button>
+                    {grantMsg && <span className="text-sm font-medium text-gray-700">{grantMsg}</span>}
+                  </div>
+                </div>
+
+                {/* Transaction History */}
+                <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                    <ShoppingBag size={15} className="text-gray-400" />
+                    <h2 className="font-bold text-gray-900 text-sm">Purchase Transaction History</h2>
+                    <span className="ml-auto text-xs text-gray-400">{purchasesTotal} total</span>
+                    <button onClick={loadPurchases} disabled={purchasesLoading} className="ml-2 text-gray-400 hover:text-gray-600">
+                      {purchasesLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    </button>
+                  </div>
+                  <div className="divide-y divide-gray-50 max-h-[32rem] overflow-y-auto">
+                    {purchasesLoading ? (
+                      <div className="flex items-center justify-center h-24">
+                        <Loader2 size={20} className="animate-spin text-green-400" />
+                      </div>
+                    ) : purchases.length === 0 ? (
+                      <div className="px-5 py-8 text-center text-gray-400 text-sm">No purchases yet</div>
+                    ) : purchases.map((txn) => {
+                      const isGrant = !txn.ai_credit_packs
+                      const statusColor = txn.transaction_status === 'completed' ? 'bg-green-400'
+                        : txn.transaction_status === 'failed' ? 'bg-red-400'
+                        : txn.transaction_status === 'reversed' ? 'bg-amber-400'
+                        : 'bg-gray-300'
+                      return (
+                        <div key={txn.id} className="flex items-center gap-4 px-5 py-3">
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${statusColor}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">
+                              {txn.profiles?.full_name || 'Unknown'}
+                              {' '}
+                              <span className="text-gray-400 font-normal">
+                                {txn.profiles?.email ? `· ${txn.profiles.email}` : ''}
+                              </span>
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {isGrant
+                                ? `Admin ${txn.adjusted_by ? 'grant' : 'grant'}${txn.adjustment_reason ? `: "${txn.adjustment_reason}"` : ''}`
+                                : `Pack: ${txn.ai_credit_packs?.name ?? 'Unknown'}`}
+                              {' · '}
+                              {txn.transaction_status}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-bold text-gray-900">+{txn.credits_added} cr</p>
+                            <p className="text-xs text-gray-400">
+                              {txn.amount_paid != null && txn.amount_paid > 0
+                                ? `$${Number(txn.amount_paid).toFixed(2)}`
+                                : isGrant ? 'Free' : '$0.00'}
+                            </p>
+                          </div>
+                          <span className="text-xs text-gray-300 shrink-0 ml-2">
+                            {new Date(txn.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ── SYSTEM STATUS TAB ── */}
             {activeTab === 'status' && (
               <div className="space-y-6">
@@ -640,6 +1038,81 @@ export default function AIControlsPage() {
             )}
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── Pack Form (shared for create & edit) ────────────────────────────────────
+function PackForm({
+  draft,
+  onChange,
+}: {
+  draft: typeof BLANK_PACK
+  onChange: (d: typeof BLANK_PACK) => void
+}) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="sm:col-span-2 md:col-span-1">
+        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Pack Name *</label>
+        <input
+          type="text"
+          value={draft.name}
+          onChange={(e) => onChange({ ...draft, name: e.target.value })}
+          placeholder="e.g. Starter Pack"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Credits *</label>
+        <input
+          type="number"
+          min={1}
+          value={draft.credits_amount}
+          onChange={(e) => onChange({ ...draft, credits_amount: parseInt(e.target.value) || 0 })}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Price (USD) *</label>
+        <input
+          type="number"
+          min={0}
+          step={0.01}
+          value={draft.price_usd}
+          onChange={(e) => onChange({ ...draft, price_usd: parseFloat(e.target.value) || 0 })}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Description</label>
+        <input
+          type="text"
+          value={draft.description}
+          onChange={(e) => onChange({ ...draft, description: e.target.value })}
+          placeholder="Short description shown to users"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Display Order</label>
+        <input
+          type="number"
+          min={0}
+          value={draft.display_order}
+          onChange={(e) => onChange({ ...draft, display_order: parseInt(e.target.value) || 0 })}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">Stripe Price ID (optional)</label>
+        <input
+          type="text"
+          value={draft.stripe_price_id}
+          onChange={(e) => onChange({ ...draft, stripe_price_id: e.target.value })}
+          placeholder="price_xxx — leave blank to use dynamic pricing"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-400"
+        />
       </div>
     </div>
   )

@@ -4,7 +4,7 @@ import PortalLayout from '@/components/layout/PortalLayout'
 import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel, formatDateTime } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/Badge'
-import { Upload, FileText, CheckCircle, Clock, XCircle, Trash2 } from 'lucide-react'
+import { Upload, FileText, CheckCircle, Clock, XCircle, Bot, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react'
 import type { Document, DocumentType, UserProfile } from '@/types'
 import toast from 'react-hot-toast'
 import { useDropzone } from 'react-dropzone'
@@ -15,8 +15,103 @@ const DOC_TYPES: { value: DocumentType; label: string }[] = [
   { value: 'ein_letter', label: 'EIN Letter' },
   { value: 'bank_statement', label: 'Bank Statement' },
   { value: 'vendor_confirmation', label: 'Vendor Confirmation' },
+  { value: 'articles_of_organization', label: 'Articles of Organization / Incorporation' },
+  { value: 'driver_license', label: 'Driver License / Government ID' },
+  { value: 'utility_bill', label: 'Utility Bill / Address Proof' },
+  { value: 'voided_check', label: 'Voided Check' },
+  { value: 'business_license', label: 'Business License / Permit' },
+  { value: 'duns_confirmation', label: 'D-U-N-S Confirmation' },
   { value: 'other', label: 'Other Supporting Document' },
 ]
+
+function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: boolean }) {
+  const status = doc.ai_analysis_status
+
+  if (isAnalyzing || status === 'analyzing') {
+    return (
+      <div className="mt-2 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+        <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
+        AI is reviewing this document…
+      </div>
+    )
+  }
+
+  if (status === 'skipped') {
+    return (
+      <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
+        <Bot size={12} />
+        AI review not available (insufficient credits)
+      </div>
+    )
+  }
+
+  if (status === 'failed') {
+    return (
+      <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+        <AlertCircle size={12} />
+        AI analysis could not be completed
+      </div>
+    )
+  }
+
+  if (status !== 'completed' || !doc.ai_analysis) return null
+
+  const a = doc.ai_analysis
+  const isApproved = a.recommendation === 'approved'
+  const isRejected = a.recommendation === 'rejected'
+
+  return (
+    <div className={`mt-2 rounded-xl border text-xs overflow-hidden ${
+      isApproved ? 'border-green-200 bg-green-50' :
+      isRejected ? 'border-red-200 bg-red-50' :
+      'border-amber-200 bg-amber-50'
+    }`}>
+      <div className={`flex items-center gap-2 px-3 py-2 border-b ${
+        isApproved ? 'border-green-100' : isRejected ? 'border-red-100' : 'border-amber-100'
+      }`}>
+        <Bot size={12} className={isApproved ? 'text-green-600' : isRejected ? 'text-red-500' : 'text-amber-600'} />
+        <span className={`font-bold uppercase tracking-wide text-[10px] ${
+          isApproved ? 'text-green-700' : isRejected ? 'text-red-600' : 'text-amber-700'
+        }`}>
+          AI Review — {isApproved ? 'Accepted' : isRejected ? 'Rejected' : 'Needs Review'}
+        </span>
+        <span className="ml-auto text-[10px] opacity-60 capitalize">{a.confidence} confidence</span>
+      </div>
+
+      <div className="px-3 py-2 space-y-1.5">
+        <p className={isApproved ? 'text-green-700' : isRejected ? 'text-red-600' : 'text-amber-700'}>
+          {a.validation_summary}
+        </p>
+
+        {a.rejection_reason && (
+          <p className="text-red-600 font-medium">⚠ {a.rejection_reason}</p>
+        )}
+
+        {Object.keys(a.extracted_fields ?? {}).length > 0 && (
+          <div className="pt-1 border-t border-opacity-50 space-y-0.5" style={{ borderColor: isApproved ? '#bbf7d0' : '#fde68a' }}>
+            {Object.entries(a.extracted_fields).map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <span className="text-gray-400 capitalize shrink-0">{k.replace(/_/g, ' ')}:</span>
+                <span className="font-semibold text-gray-700">{v}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {a.tasks_to_complete?.length > 0 && (
+          <div className="flex items-center gap-1.5 text-green-700 pt-0.5">
+            <CheckCircle2 size={11} />
+            <span className="font-semibold">Auto-completed: {a.tasks_to_complete.map(t => t.replace(/_/g, ' ')).join(', ')}</span>
+          </div>
+        )}
+
+        {a.next_step_guidance && (
+          <p className="text-gray-500 pt-0.5 italic">{a.next_step_guidance}</p>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function DocumentsPage() {
   const supabase = createClient()
@@ -27,6 +122,7 @@ export default function DocumentsPage() {
   const [selectedType, setSelectedType] = useState<DocumentType>('other')
   const [userId, setUserId] = useState<string>('')
   const [isActive, setIsActive] = useState(false)
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -65,7 +161,7 @@ export default function DocumentsPage() {
 
     const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(path)
 
-    const { error: dbError } = await supabase.from('documents').insert({
+    const { data: inserted, error: dbError } = await supabase.from('documents').insert({
       user_id: userId,
       document_type: selectedType,
       file_url: publicUrl,
@@ -73,14 +169,40 @@ export default function DocumentsPage() {
       file_size: file.size,
       uploaded_at: new Date().toISOString(),
       review_status: 'pending',
-    })
+    }).select('document_id').single()
 
     if (dbError) { toast.error('Failed to save document record'); setUploading(false); return }
 
     const { data: refreshed } = await supabase.from('documents').select('*').eq('user_id', userId).order('uploaded_at', { ascending: false })
     setDocuments(refreshed || [])
-    toast.success('Document uploaded successfully!')
     setUploading(false)
+
+    // Trigger AI analysis (fire and update in background)
+    const docId = inserted?.document_id
+    if (docId) {
+      setAnalyzingId(docId)
+      toast.success('Document uploaded! AI is analyzing it now...')
+      try {
+        const analysisRes = await fetch('/api/documents/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ document_id: docId }),
+        })
+        const analysisData = await analysisRes.json()
+        if (analysisData.tasks_completed?.length > 0) {
+          toast.success(`✓ ${analysisData.tasks_completed.length} task(s) automatically completed!`, { duration: 5000 })
+        } else if (analysisData.skipped) {
+          // silent
+        }
+      } catch {
+        // silent — analysis is non-blocking
+      } finally {
+        setAnalyzingId(null)
+        // Refresh documents to get analysis result
+        const { data: refreshed2 } = await supabase.from('documents').select('*').eq('user_id', userId).order('uploaded_at', { ascending: false })
+        setDocuments(refreshed2 || [])
+      }
+    }
   }
 
   const onDrop = useCallback((files: File[]) => {
@@ -122,6 +244,7 @@ export default function DocumentsPage() {
 
   const pendingCount = documents.filter((d) => d.review_status === 'pending').length
   const approvedCount = documents.filter((d) => d.review_status === 'approved').length
+  const aiAnalyzedCount = documents.filter((d) => d.ai_analysis_status === 'completed').length
 
   return (
     <PortalLayout
@@ -138,10 +261,11 @@ export default function DocumentsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-4 gap-3 mb-6">
         {[
           { label: 'Total', value: documents.length, color: 'text-gray-900' },
           { label: 'Pending Review', value: pendingCount, color: 'text-yellow-600' },
+          { label: 'AI Analyzed', value: aiAnalyzedCount, color: 'text-blue-600' },
           { label: 'Approved', value: approvedCount, color: 'text-green-600' },
         ].map(({ label, value, color }) => (
           <div key={label} className="card text-center">
@@ -195,6 +319,10 @@ export default function DocumentsPage() {
                 {isDragActive ? 'Drop file here' : 'Drag & drop or click to upload'}
               </p>
               <p className="text-xs text-gray-400 mt-1">PDF, PNG, JPG, DOCX — max 10MB</p>
+              <p className="text-xs text-blue-400 mt-1 flex items-center justify-center gap-1">
+                <Sparkles size={11} />
+                AI document review included
+              </p>
             </>
           )}
         </div>
@@ -235,6 +363,7 @@ export default function DocumentsPage() {
                   {doc.notes && (
                     <p className="text-xs text-gray-500 mt-1.5 bg-gray-50 px-2.5 py-1.5 rounded-lg">{doc.notes}</p>
                   )}
+                  <AIAnalysisCard doc={doc} isAnalyzing={analyzingId === doc.document_id} />
                 </div>
                 <a
                   href={doc.file_url}

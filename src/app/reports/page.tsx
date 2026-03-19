@@ -42,7 +42,6 @@ export default function ReportsPage() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateReport = async () => {
-    if (!isActive) { toast.error('Reactivate subscription to generate reports'); return }
     setGenerating(true)
     try {
       const res = await fetch('/api/reports', {
@@ -50,8 +49,12 @@ export default function ReportsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ report_type: selectedType }),
       })
-      if (!res.ok) throw new Error('Failed to generate report')
       const data = await res.json()
+      if (!res.ok) {
+        toast.error(data?.error || 'Failed to generate report. Please try again.')
+        setGenerating(false)
+        return
+      }
       setReports((prev) => [data, ...prev])
       setExpandedId(data.report_id)
       toast.success('Report generated!')
@@ -102,7 +105,7 @@ export default function ReportsPage() {
               className="input-field"
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value as ReportType)}
-              disabled={!isActive}
+              disabled={generating}
             >
               {REPORT_TYPES.map((rt) => (
                 <option key={rt.value} value={rt.value}>{rt.label}</option>
@@ -114,7 +117,7 @@ export default function ReportsPage() {
           </div>
           <button
             onClick={generateReport}
-            disabled={generating || !isActive}
+            disabled={generating}
             className="btn-primary w-full sm:w-auto"
           >
             {generating ? (

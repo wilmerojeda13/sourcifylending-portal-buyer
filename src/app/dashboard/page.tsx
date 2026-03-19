@@ -12,7 +12,7 @@ import Link from 'next/link'
 import type { UserProfile } from '@/types'
 import {
   ArrowRight, CheckCircle, Clock, AlertCircle, Bot,
-  TrendingUp, FileText, Bell, Lock
+  TrendingUp, FileText, Bell, Lock, DollarSign
 } from 'lucide-react'
 
 export default async function DashboardPage() {
@@ -56,14 +56,25 @@ export default async function DashboardPage() {
     { data: docs },
     { data: reports },
     { data: notifications },
+    { data: fundingApprovals },
   ] = await Promise.all([
     supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
     supabase.from('documents').select('*').eq('user_id', user.id),
     supabase.from('reports').select('*').eq('user_id', user.id).order('generated_at', { ascending: false }).limit(3),
     supabase.from('notifications').select('*').eq('user_id', user.id).eq('read', false).order('created_at', { ascending: false }).limit(5),
+    supabase.from('funding_approvals').select('approved_amount,approved_limit,approval_type,issuer_name,approval_date').eq('user_id', user.id).eq('status', 'Approved'),
   ])
 
   const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+
+  const CREDIT_ACCOUNT_TYPES = ['0% APR Card', 'Business Credit Card', 'Vendor Account', 'Store Account', 'Fleet Account', 'Line of Credit']
+  const totalFundingApproved = (fundingApprovals ?? []).reduce((sum, a) => {
+    const isCreditAccount = CREDIT_ACCOUNT_TYPES.includes(a.approval_type)
+    const amt = isCreditAccount ? (a.approved_limit ?? a.approved_amount ?? 0) : (a.approved_amount ?? a.approved_limit ?? 0)
+    return sum + Number(amt)
+  }, 0)
+  const mostRecentApproval = fundingApprovals?.[0] ?? null
+
   const completedTasks = tasks?.filter((t) => t.status === 'completed') || []
   const pendingTasks = tasks?.filter((t) => t.status === 'pending') || []
   const nextTask = pendingTasks[0] || null
@@ -107,6 +118,26 @@ export default async function DashboardPage() {
           {profile?.assigned_program ? getProgramShortLabel(profile.assigned_program) : 'No program assigned yet'}
         </p>
       </div>
+
+      {/* Funding Results Hero — only show if approvals exist */}
+      {totalFundingApproved > 0 && (
+        <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl px-5 py-4 mb-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium text-green-200">Total Approved Funding So Far</p>
+            <p className="text-3xl font-bold text-white">
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalFundingApproved)}
+            </p>
+            {mostRecentApproval && (
+              <p className="text-xs text-green-200 mt-0.5">
+                Latest: {mostRecentApproval.issuer_name} · {mostRecentApproval.approval_date}
+              </p>
+            )}
+          </div>
+          <Link href="/funding-results" className="shrink-0 flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors">
+            <DollarSign size={14} /> View All
+          </Link>
+        </div>
+      )}
 
       {/* Top Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -192,7 +223,10 @@ export default async function DashboardPage() {
                   </div>
                 </div>
                 <div className="mt-4 flex gap-2">
-                  <Link href="/progress" className="btn-primary text-xs px-4 py-2.5">
+                  <Link
+                    href={`/progress?taskId=${encodeURIComponent(nextTask.task_id)}`}
+                    className="btn-primary text-xs px-4 py-2.5"
+                  >
                     Go to Task
                   </Link>
                   <Link href="/agent" className="btn-secondary text-xs px-4 py-2.5">

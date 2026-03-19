@@ -60,6 +60,7 @@ export default async function OpportunitiesPage() {
         currentStage={profile?.current_stage ?? null}
         assignedProgram={profile?.assigned_program ?? null}
         isActive={isActive}
+        userIndustry={profile?.industry ?? null}
       />
 
       {/* Legal disclaimer */}

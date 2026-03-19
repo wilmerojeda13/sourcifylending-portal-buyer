@@ -2,6 +2,14 @@
  * AI Usage Control System
  * Enforces program-level credit limits, daily caps, hourly rate limits,
  * and heavy action limits before any paid AI execution.
+ *
+ * Credit bucket priority (per business rules):
+ *   1. Included monthly credits (reset monthly)
+ *   2. Purchased extra credits (persist; do not reset monthly)
+ *
+ * When monthly credits are exhausted, usage falls back to purchased credits.
+ * Purchased credits bypass daily/heavy caps (user paid for them) but still
+ * respect the hourly rate limit as an anti-abuse guard.
  */
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -17,9 +25,20 @@ export type AIActionType =
   | 'heavy_agent_workflow'
   | 'underwriting_or_multi_step_deep_analysis'
 
+// ─── Credit source ─────────────────────────────────────────────────────────────
+export type CreditSource = 'monthly' | 'purchased'
+
 // ─── Result Types ──────────────────────────────────────────────────────────────
 export type UsageCheckResult =
-  | { allowed: true; creditCost: number; isHeavy: boolean; balanceId: string; program: string }
+  | {
+      allowed: true
+      creditCost: number
+      isHeavy: boolean
+      balanceId: string
+      program: string
+      creditSource: CreditSource
+      purchasedBucketId: string | null
+    }
   | { allowed: false; message: string; reason: UsageBlockReason }
 
 export type UsageBlockReason =
@@ -60,7 +79,13 @@ function getMonthEnd(d: Date): Date {
 /**
  * Server-side pre-flight check before running any AI action.
  * Does NOT deduct credits — call recordAIUsage after execution to commit.
- * Returns { allowed: true } with cost info, or { allowed: false } with user-safe message.
+ *
+ * Priority:
+ *   1. Use included monthly credits if available.
+ *   2. Fall back to purchased extra credits if monthly is exhausted.
+ *   3. Block if both are exhausted.
+ *
+ * Purchased credits bypass daily/heavy caps but still respect hourly rate limit.
  */
 export async function checkAIUsage(
   userId: string,
@@ -73,7 +98,7 @@ export async function checkAIUsage(
     const { data: profile } = await supabase
       .from('profiles')
       .select(
-        'assigned_program, ai_suspended, ai_custom_monthly_credits, ai_custom_daily_cap, ai_custom_heavy_limit'
+        'assigned_program, ai_suspended, ai_custom_monthly_credits, ai_custom_daily_cap, ai_custom_heavy_limit, subscription_status'
       )
       .eq('id', userId)
       .single()
@@ -126,7 +151,7 @@ export async function checkAIUsage(
     const maxHeavyPerDay = profile.ai_custom_heavy_limit ?? limits.max_heavy_actions_per_day
     const maxRequestsPerHour = limits.max_requests_per_hour
 
-    // ── 4. Get or create balance for current billing period ──
+    // ── 4. Get or create monthly balance for current billing period ──
     const now = new Date()
     const billingStart = getMonthStart(now)
     const billingEnd = getMonthEnd(now)
@@ -191,36 +216,7 @@ export async function checkAIUsage(
         .eq('id', balance.id)
     }
 
-    // ── 6. Enforce monthly credit limit ──
-    if (balance.credits_remaining < creditCost) {
-      const resetDate = new Date(balance.billing_period_end)
-      const resetStr = resetDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
-      return {
-        allowed: false,
-        message: `You've reached your monthly AI guidance limit for your current program. Access resets on ${resetStr}.`,
-        reason: 'monthly_limit',
-      }
-    }
-
-    // ── 7. Enforce daily credit cap ──
-    if (dailyCreditsUsed + creditCost > dailyCreditCap) {
-      return {
-        allowed: false,
-        message: "You've reached today's AI usage limit for your current program. Please try again tomorrow.",
-        reason: 'daily_limit',
-      }
-    }
-
-    // ── 8. Enforce heavy action daily limit ──
-    if (isHeavy && heavyUsedToday >= maxHeavyPerDay) {
-      return {
-        allowed: false,
-        message: "You've used today's advanced AI analysis limit. Please try again tomorrow.",
-        reason: 'heavy_limit',
-      }
-    }
-
-    // ── 9. Enforce hourly request rate ──
+    // ── 6. Enforce hourly request rate (applies to ALL credit sources) ──
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString()
     const { count: recentCount } = await supabase
       .from('user_ai_usage_events')
@@ -237,25 +233,114 @@ export async function checkAIUsage(
       }
     }
 
+    // ── 7. Try monthly credits first ──────────────────────────────────────────
+    const monthlyHasCredits = balance.credits_remaining >= creditCost
+
+    if (monthlyHasCredits) {
+      // ── 7a. Enforce daily credit cap (monthly bucket only) ──
+      if (dailyCreditsUsed + creditCost > dailyCreditCap) {
+        // Before blocking, check if purchased credits can cover this
+        // (purchased credits bypass daily cap, handled in step 8)
+      } else {
+        // ── 7b. Enforce heavy action daily limit (monthly bucket only) ──
+        if (isHeavy && heavyUsedToday >= maxHeavyPerDay) {
+          // Before blocking, check purchased credits (bypass heavy limit too)
+        } else {
+          // ── Monthly credits available and within daily/heavy caps ──
+          return {
+            allowed: true,
+            creditCost,
+            isHeavy,
+            balanceId: balance.id,
+            program: profile.assigned_program,
+            creditSource: 'monthly',
+            purchasedBucketId: null,
+          }
+        }
+      }
+    }
+
+    // ── 8. Monthly credits exhausted or daily/heavy cap hit — try purchased ──
+    // Load the oldest active purchased credit bucket with enough remaining credits.
+    const isActiveMember =
+      profile.subscription_status === 'active' ||
+      profile.subscription_status === 'trialing'
+
+    if (isActiveMember) {
+      const { data: purchasedBuckets } = await supabase
+        .from('user_purchased_ai_credits')
+        .select('id, credits_remaining')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .gte('credits_remaining', creditCost)
+        .order('purchase_date', { ascending: true }) // FIFO — consume oldest first
+        .limit(1)
+
+      const oldestBucket = purchasedBuckets?.[0] ?? null
+
+      if (oldestBucket) {
+        // Purchased credits available — bypass daily/heavy caps
+        return {
+          allowed: true,
+          creditCost,
+          isHeavy,
+          balanceId: balance.id,
+          program: profile.assigned_program,
+          creditSource: 'purchased',
+          purchasedBucketId: oldestBucket.id,
+        }
+      }
+    }
+
+    // ── 9. Both buckets exhausted — return appropriate block reason ──
+
+    // Determine the specific reason for better UX messaging
+    if (!monthlyHasCredits) {
+      const resetDate = new Date(balance.billing_period_end)
+      const resetStr = resetDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+      return {
+        allowed: false,
+        message: `You've used your included AI credits for this billing period. You can wait until your reset date (${resetStr}) or purchase extra AI credits to continue now.`,
+        reason: 'monthly_limit',
+      }
+    }
+
+    if (dailyCreditsUsed + creditCost > dailyCreditCap) {
+      return {
+        allowed: false,
+        message: "You've reached today's AI usage limit. Please try again tomorrow or purchase extra AI credits.",
+        reason: 'daily_limit',
+      }
+    }
+
     return {
-      allowed: true,
-      creditCost,
-      isHeavy,
-      balanceId: balance.id,
-      program: profile.assigned_program,
+      allowed: false,
+      message: "You've used today's advanced AI analysis limit. Please try again tomorrow or purchase extra AI credits.",
+      reason: 'heavy_limit',
     }
   } catch (err) {
     console.error('AI usage check error:', err)
     // On unexpected error, allow through — don't block users due to system issues
-    return { allowed: true, creditCost: 1, isHeavy: false, balanceId: '', program: '' }
+    return {
+      allowed: true,
+      creditCost: 1,
+      isHeavy: false,
+      balanceId: '',
+      program: '',
+      creditSource: 'monthly',
+      purchasedBucketId: null,
+    }
   }
 }
 
 // ─── recordAIUsage ─────────────────────────────────────────────────────────────
 /**
- * Records a usage event and deducts credits from the user's balance.
+ * Records a usage event and deducts credits from the correct bucket.
  * Call this AFTER the AI action completes.
  * Only deducts on 'success' — blocked/failed events are logged but not charged.
+ *
+ * If creditSource === 'purchased', deducts from the specified purchased bucket.
+ * Otherwise deducts from the monthly balance (balanceId).
  */
 export async function recordAIUsage(
   userId: string,
@@ -267,13 +352,15 @@ export async function recordAIUsage(
   status: 'success' | 'failed' | 'blocked',
   model: string,
   estimatedCostUsd: number,
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>,
+  creditSource: CreditSource = 'monthly',
+  purchasedBucketId: string | null = null
 ): Promise<void> {
   try {
     const supabase = await createServiceClient()
     const now = new Date()
 
-    // ── Log the event ──
+    // ── Log the event (with credit_source for audit) ──
     await supabase.from('user_ai_usage_events').insert({
       user_id: userId,
       program,
@@ -282,11 +369,37 @@ export async function recordAIUsage(
       estimated_cost_usd: status === 'success' ? estimatedCostUsd : 0,
       model_used: model,
       request_status: status,
+      credit_source: status === 'success' ? creditSource : 'monthly',
       metadata_json: metadata ?? null,
     })
 
-    // ── Deduct from balance only on success ──
-    if (status === 'success' && balanceId) {
+    if (status !== 'success') return
+
+    // ── Deduct from the correct bucket ──
+    if (creditSource === 'purchased' && purchasedBucketId) {
+      // Deduct from purchased credit bucket
+      const { data: bucket } = await supabase
+        .from('user_purchased_ai_credits')
+        .select('credits_used, credits_remaining')
+        .eq('id', purchasedBucketId)
+        .single()
+
+      if (bucket) {
+        const newRemaining = Math.max(0, bucket.credits_remaining - creditCost)
+        const newUsed = bucket.credits_used + creditCost
+        await supabase
+          .from('user_purchased_ai_credits')
+          .update({
+            credits_used: newUsed,
+            credits_remaining: newRemaining,
+            // Mark as consumed once fully depleted
+            status: newRemaining === 0 ? 'consumed' : 'active',
+            updated_at: now.toISOString(),
+          })
+          .eq('id', purchasedBucketId)
+      }
+    } else if (creditSource === 'monthly' && balanceId) {
+      // Deduct from monthly balance
       const { data: currentBalance } = await supabase
         .from('user_ai_balances')
         .select('credits_used, credits_remaining, daily_credits_used, heavy_actions_used_today')
@@ -326,7 +439,6 @@ export async function getUserAIStatus(userId: string) {
     const [
       { data: profile },
       { data: balance },
-      { data: programLimits },
     ] = await Promise.all([
       supabase
         .from('profiles')
@@ -342,14 +454,29 @@ export async function getUserAIStatus(userId: string) {
         .order('created_at', { ascending: false })
         .limit(1)
         .single(),
-      supabase
-        .from('ai_program_limits')
-        .select('*')
-        .single(), // will re-query with program once we have it
     ])
 
     return { profile, balance }
   } catch {
     return { profile: null, balance: null }
+  }
+}
+
+// ─── getPurchasedCreditsTotal ──────────────────────────────────────────────────
+/**
+ * Returns the total purchased AI credits remaining for a user.
+ */
+export async function getPurchasedCreditsRemaining(userId: string): Promise<number> {
+  try {
+    const supabase = await createServiceClient()
+    const { data } = await supabase
+      .from('user_purchased_ai_credits')
+      .select('credits_remaining')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+
+    return (data ?? []).reduce((sum, row) => sum + (row.credits_remaining ?? 0), 0)
+  } catch {
+    return 0
   }
 }

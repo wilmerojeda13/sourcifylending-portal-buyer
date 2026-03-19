@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -107,6 +108,15 @@ export default function SignupPage() {
         </div>
 
         <div className="card shadow-sm">
+          {/* Google OAuth */}
+          <GoogleSignInButton redirectTo="/dashboard" label="Sign up with Google" />
+
+          <div className="flex items-center gap-3 my-4">
+            <div className="flex-1 h-px bg-gray-100" />
+            <span className="text-xs text-gray-400 font-medium">or create with email</span>
+            <div className="flex-1 h-px bg-gray-100" />
+          </div>
+
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
               <label className="label">Full Name</label>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { sendWelcomeEmail } from '@/lib/email'
 import type { AnalyzerResult } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -104,6 +105,20 @@ export async function POST(req: NextRequest) {
       },
       created_at: now,
     })
+
+    // Send welcome email (fire-and-forget)
+    if (analyzer_result?.assigned_program) {
+      const PROGRAM_LABELS: Record<string, string> = {
+        program_a: 'Program A — 0% Intro APR Card Strategy',
+        program_b: 'Program B — Business Credit Builder',
+        program_c: 'Program C — Capital Monitoring Membership',
+      }
+      sendWelcomeEmail({
+        toEmail: email.toLowerCase().trim(),
+        toName: full_name,
+        programLabel: PROGRAM_LABELS[analyzer_result.assigned_program] ?? analyzer_result.assigned_program,
+      }).catch(() => {})
+    }
 
     return NextResponse.json({ success: true, user_id: userId })
   } catch (error) {

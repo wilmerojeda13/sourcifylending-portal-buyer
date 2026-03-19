@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap } from 'lucide-react'
+import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse } from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 import SeedDemoButton from './SeedDemoButton'
@@ -75,6 +75,13 @@ export default async function AdminHubPage() {
       desc: 'Manage AI credit limits, action costs, and usage analytics',
       icon: Zap,
       color: 'bg-purple-600',
+    },
+    {
+      href: '/admin/operations',
+      label: 'Client Operations',
+      desc: 'Health status, support assignments, and funding tracker',
+      icon: HeartPulse,
+      color: 'bg-rose-600',
     },
   ]
 

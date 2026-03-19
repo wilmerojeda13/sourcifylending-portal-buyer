@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createServiceClient()
 
+  try {
   switch (event.type) {
 
     // ── Checkout completed ──────────────────────────────────────────────────
@@ -93,10 +94,81 @@ export async function POST(req: NextRequest) {
       const session    = event.data.object as Stripe.CheckoutSession
       const userId     = session.metadata?.user_id
       const program    = session.metadata?.program as ProgramId
-      const sessionType = session.metadata?.session_type   // 'setup_fee' | 'subscription'
+      const sessionType = session.metadata?.session_type   // 'setup_fee' | 'subscription' | 'ai_credit_pack'
       const customerId = session.customer as string
 
-      if (!userId || !program) break
+      if (!userId) break
+
+      // ── AI Credit Pack purchase ─────────────────────────────────────────
+      if (sessionType === 'ai_credit_pack') {
+        const packId         = session.metadata?.pack_id
+        const creditsAmount  = parseInt(session.metadata?.credits_amount ?? '0', 10)
+        const sessionId      = session.id
+        const paymentIntentId = session.payment_intent as string | null
+
+        if (!packId || !creditsAmount || !sessionId) break
+
+        // Idempotency guard — skip if already processed
+        const { data: existing } = await supabase
+          .from('ai_credit_purchase_transactions')
+          .select('id')
+          .eq('stripe_checkout_session_id', sessionId)
+          .maybeSingle()
+
+        if (existing) {
+          console.log(`[AI-CREDITS-WEBHOOK] Already processed session ${sessionId}, skipping.`)
+          break
+        }
+
+        // 1. Create purchased credit bucket
+        const now = new Date().toISOString()
+        const { data: bucket, error: bucketErr } = await supabase
+          .from('user_purchased_ai_credits')
+          .insert({
+            user_id: userId,
+            credits_purchased: creditsAmount,
+            credits_used: 0,
+            credits_remaining: creditsAmount,
+            source_type: 'stripe_purchase',
+            source_reference_id: sessionId,
+            purchase_date: now,
+            status: 'active',
+          })
+          .select('id')
+          .single()
+
+        if (bucketErr || !bucket) {
+          console.error('[AI-CREDITS-WEBHOOK] Failed to create credit bucket:', bucketErr)
+          break
+        }
+
+        // 2. Log the transaction (UNIQUE on session ID — safe to insert)
+        await supabase.from('ai_credit_purchase_transactions').insert({
+          user_id: userId,
+          ai_credit_pack_id: packId,
+          purchased_credits_bucket_id: bucket.id,
+          stripe_checkout_session_id: sessionId,
+          stripe_payment_intent_id: paymentIntentId,
+          amount_paid: session.amount_total != null ? session.amount_total / 100 : null,
+          credits_added: creditsAmount,
+          transaction_status: 'completed',
+        })
+
+        // 3. Welcome notification
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          type: 'system',
+          title: '✅ AI Credits Added!',
+          message: `${creditsAmount} extra AI credits have been added to your account and are ready to use.`,
+          read: false,
+          created_at: now,
+        })
+
+        console.log(`[AI-CREDITS-WEBHOOK] Granted ${creditsAmount} credits to user ${userId}`)
+        break
+      }
+
+      if (!program) break
 
       if (sessionType === 'setup_fee') {
         // ── Programs A & B: setup fee paid ─────────────────────────────────
@@ -246,6 +318,12 @@ export async function POST(req: NextRequest) {
 
       break
     }
+  }
+
+  } catch (err) {
+    console.error('[Stripe Webhook] Unhandled error processing event:', event.type, err)
+    // Return 200 to prevent Stripe from endlessly retrying — log the error for investigation
+    return NextResponse.json({ received: true, warning: 'Processing error logged' })
   }
 
   return NextResponse.json({ received: true })

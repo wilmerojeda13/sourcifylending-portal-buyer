@@ -104,19 +104,31 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { creditCost, isHeavy, balanceId, program } = usageCheck
+    const { creditCost, isHeavy, balanceId, program, creditSource, purchasedBucketId } = usageCheck
 
-    // Fetch user context
+    // Fetch user context — load all account data before responding
     const [
       { data: profile },
       { data: tasks },
       { data: documents },
       { data: reports },
+      { data: memoryProfile },
+      { data: recentEvents },
+      { data: activeDisputes },
+      { data: approvedFunding },
     ] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
       supabase.from('documents').select('document_type,review_status,file_name').eq('user_id', user.id),
       supabase.from('reports').select('report_type,title,generated_at').eq('user_id', user.id).order('generated_at', { ascending: false }).limit(5),
+      // AI memory profile — structured persistent memory
+      supabase.from('ai_memory_profiles').select('*').eq('user_id', user.id).single().then(r => r),
+      // Recent account events — last 10
+      supabase.from('ai_memory_events').select('event_type,event_title,event_details,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10).then(r => r),
+      // Active credit disputes
+      supabase.from('credit_disputes').select('bureau,item_disputed,status,investigation_deadline').eq('user_id', user.id).in('status', ['Sent', 'Under Investigation', 'Escalated']).then(r => r),
+      // Total approved funding
+      supabase.from('funding_approvals').select('approved_amount,approved_limit,approval_type,issuer_name,approval_date').eq('user_id', user.id).eq('status', 'Approved').then(r => r),
     ])
 
     // Fetch opportunities for this user's program (top 10 by priority)
@@ -134,6 +146,15 @@ export async function POST(req: NextRequest) {
     }
 
     const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+
+    // Compute total approved funding
+    const CREDIT_ACCOUNT_TYPES = ['0% APR Card', 'Business Credit Card', 'Vendor Account', 'Store Account', 'Fleet Account', 'Line of Credit']
+    const totalFundingApproved = (approvedFunding ?? []).reduce((sum, a) => {
+      const isCreditAccount = CREDIT_ACCOUNT_TYPES.includes(a.approval_type)
+      const amt = isCreditAccount ? (a.approved_limit ?? a.approved_amount ?? 0) : (a.approved_amount ?? a.approved_limit ?? 0)
+      return sum + Number(amt)
+    }, 0)
+    const formatMoney = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 
     const completedTasks = tasks?.filter((t) => t.status === 'completed') || []
     const pendingTasks = tasks?.filter((t) => t.status === 'pending') || []
@@ -193,6 +214,27 @@ RECENT REPORTS:
 ${reports && reports.length > 0
   ? reports.map((r) => `- ${r.title} (${r.report_type})`).join('\n')
   : '- No reports generated yet'}
+
+FUNDING RESULTS:
+- Total Approved Capital: ${totalFundingApproved > 0 ? formatMoney(totalFundingApproved) : 'None logged yet'}
+- Total Approvals: ${approvedFunding?.length ?? 0}
+${approvedFunding && approvedFunding.length > 0
+  ? approvedFunding.slice(0, 5).map(a => `- ${a.issuer_name}: ${a.approved_limit ?? a.approved_amount ?? 0} (${a.approval_date})`).join('\n')
+  : ''}
+
+ACTIVE CREDIT DISPUTES:
+${activeDisputes && activeDisputes.length > 0
+  ? activeDisputes.map(d => `- ${d.bureau}: ${d.item_disputed} [${d.status}]${d.investigation_deadline ? ` — deadline ${d.investigation_deadline.split('T')[0]}` : ''}`).join('\n')
+  : '- No active disputes'}
+
+${memoryProfile?.last_summary ? `AI MEMORY — PRIOR CONVERSATION SUMMARY:\n${memoryProfile.last_summary}` : ''}
+${memoryProfile?.key_facts ? `KEY CLIENT FACTS:\n${memoryProfile.key_facts}` : ''}
+${memoryProfile?.next_steps ? `SAVED NEXT STEPS FROM PRIOR SESSION:\n${memoryProfile.next_steps}` : ''}
+
+RECENT ACCOUNT EVENTS (most recent first):
+${recentEvents && recentEvents.length > 0
+  ? recentEvents.map(e => `- [${e.created_at?.split('T')[0]}] ${e.event_title}${e.event_details ? ': ' + e.event_details : ''}`).join('\n')
+  : '- No events logged yet'}
 
 ${!isActive ? `
 IMPORTANT: This user's subscription is INACTIVE.
@@ -287,7 +329,9 @@ Keep responses focused, structured with bullets when listing items, and always e
       callStatus,
       model,
       getEstimatedCostUsd(actionType),
-      { action_type: actionType }
+      { action_type: actionType },
+      creditSource,
+      purchasedBucketId
     )
 
     return NextResponse.json({ message: aiMessage })

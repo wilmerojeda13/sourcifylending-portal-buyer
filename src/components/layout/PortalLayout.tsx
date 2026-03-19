@@ -4,7 +4,8 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Bot, FileText, CheckSquare, BarChart2,
-  CreditCard, Bell, LogOut, Menu, X, ChevronRight, Star, TrendingUp, ShieldCheck, Zap, ArrowUpCircle
+  CreditCard, Bell, LogOut, Menu, X, ChevronRight, Star, TrendingUp, ShieldCheck, Zap, ArrowUpCircle,
+  MessageSquare, Settings, ShieldAlert, DollarSign, Building2, BookOpen
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -19,10 +20,12 @@ const BASE_NAV_ITEMS = [
   { href: '/billing', label: 'Billing', icon: CreditCard },
 ]
 
-// Prospect accounts only see Dashboard + Upgrade
+// Prospect accounts only see Dashboard + Upgrade + Support
 const PROSPECT_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/billing', label: 'Upgrade', icon: ArrowUpCircle },
+  { href: '/support', label: 'Support', icon: MessageSquare },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 // Bottom mobile nav always shows these 6 for members
@@ -57,17 +60,49 @@ export default function PortalLayout({
   const [mobileOpen, setMobileOpen] = useState(false)
   const supabase = createClient()
 
-  // Build sidebar nav: prospects get a minimal nav; members get the full nav
+  // ── Program-aware sidebar nav ──────────────────────────────────────────────
+  // Prospects get a minimal nav. Active members get only items relevant to
+  // their assigned program. Cross-program leakage is explicitly prevented:
+  //   Program A  → Credit Optimization, Credit Disputes (NOT Biz Credit, NOT Funding Results)
+  //   Program B  → Biz Credit Setup, Credit Monitoring, Biz Resources, Funding Results (NOT Credit Disputes)
+  //   Program C  → no program-specific extras beyond shared base items
+  //   No program / unknown → only shared base items shown
   const sidebarNavItems = isProspect
     ? PROSPECT_NAV_ITEMS
     : [
         ...BASE_NAV_ITEMS.slice(0, 4), // Dashboard, AI Agent, Documents, Progress
+
+        // ── Program A only ───────────────────────────────────────────────────
         ...(assignedProgram === 'program_a'
           ? [{ href: '/credit-optimization', label: 'Credit Optimization', icon: Star }]
           : []),
+
+        // ── Program B only ───────────────────────────────────────────────────
+        ...(assignedProgram === 'program_b'
+          ? [
+              { href: '/business-credit-setup',      label: 'Biz Credit Setup',  icon: Building2 },
+              { href: '/business-credit-monitoring',  label: 'Credit Monitoring', icon: TrendingUp },
+              { href: '/business-resources',          label: 'Biz Resources',     icon: BookOpen },
+            ]
+          : []),
+
+        // ── Shared for all active members ────────────────────────────────────
         { href: '/opportunities', label: 'Opportunities', icon: TrendingUp },
-        { href: '/ai-usage', label: 'AI Credits', icon: Zap },
+        { href: '/ai-usage',      label: 'AI Credits',    icon: Zap },
+
+        // ── Program A only: credit repair / dispute tooling ──────────────────
+        ...(assignedProgram === 'program_a'
+          ? [{ href: '/credit-disputes', label: 'Credit Disputes', icon: ShieldAlert }]
+          : []),
+
+        // ── Program B only: funding outcome tracking ─────────────────────────
+        ...(assignedProgram === 'program_b'
+          ? [{ href: '/funding-results', label: 'Funding Results', icon: DollarSign }]
+          : []),
+
         ...BASE_NAV_ITEMS.slice(4), // Reports, Billing
+        { href: '/support',   label: 'Support Inbox', icon: MessageSquare },
+        { href: '/settings',  label: 'Settings',      icon: Settings },
       ]
 
   const handleSignOut = async () => {

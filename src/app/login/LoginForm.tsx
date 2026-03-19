@@ -4,6 +4,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { createClient } from '@/lib/supabase/client'
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton'
 
 export default function LoginForm() {
 
@@ -46,6 +47,15 @@ export default function LoginForm() {
 
   return (
     <div className="card shadow-sm">
+      {/* Google OAuth */}
+      <GoogleSignInButton redirectTo="/dashboard" />
+
+      <div className="flex items-center gap-3 my-4">
+        <div className="flex-1 h-px bg-gray-100" />
+        <span className="text-xs text-gray-400 font-medium">or</span>
+        <div className="flex-1 h-px bg-gray-100" />
+      </div>
+
       <form onSubmit={handleLogin} className="space-y-4">
         <div>
           <label className="label">Email Address</label>
@@ -91,6 +101,11 @@ export default function LoginForm() {
           Don&apos;t have an account?{' '}
           <Link href="/signup" className="text-green-600 font-semibold hover:text-green-700">
             Create one
+          </Link>
+        </p>
+        <p className="text-sm text-gray-500">
+          <Link href="/forgot-password" className="text-gray-500 hover:text-green-600">
+            Forgot your password?
           </Link>
         </p>
         <p className="text-xs text-gray-400">

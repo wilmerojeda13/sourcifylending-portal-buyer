@@ -1,0 +1,238 @@
+'use client'
+
+import { useState } from 'react'
+import { User, Building2, Mail, Phone, CheckCircle2, XCircle, Loader2, Settings } from 'lucide-react'
+
+interface ProfileData {
+  full_name: string
+  email: string
+  business_name: string
+  entity_type: string
+  industry: string
+  phone: string
+}
+
+interface Props {
+  initialProfile: ProfileData
+}
+
+const ENTITY_TYPES = ['LLC', 'S-Corp', 'C-Corp', 'Sole Proprietorship', 'Partnership', 'Non-Profit', 'Other']
+const INDUSTRIES = [
+  'Construction', 'Trucking / Transportation', 'HVAC', 'Retail',
+  'Restaurant / Food Service', 'Healthcare', 'Technology', 'Real Estate',
+  'Professional Services', 'Manufacturing', 'Wholesale / Distribution', 'Other',
+]
+
+export default function SettingsClient({ initialProfile }: Props) {
+  const [form, setForm] = useState<ProfileData>(initialProfile)
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const set = (field: keyof ProfileData, value: string) =>
+    setForm(prev => ({ ...prev, [field]: value }))
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setSuccess(null)
+
+    if (!form.full_name.trim()) { setError('Name cannot be blank.'); return }
+    if (!form.email.trim()) { setError('Email cannot be blank.'); return }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(form.email.trim())) { setError('Please enter a valid email address.'); return }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+
+      if (!res.ok && !data.profileUpdated) {
+        setError(data.error || 'Failed to save changes.')
+        return
+      }
+
+      if (data.emailChangeRequested) {
+        setSuccess('Profile saved. A confirmation email has been sent to your new email address — please check your inbox to confirm the change.')
+      } else if (data.profileUpdated && !res.ok) {
+        // Profile saved but email change failed
+        setError(data.error)
+        setSuccess('Profile information saved successfully.')
+      } else {
+        setSuccess('Your profile has been updated successfully.')
+      }
+    } catch {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <Settings size={20} className="text-green-600" />
+          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        </div>
+        <p className="text-sm text-gray-500">
+          Update your profile and account information. Keep your contact details current so we can support your account.
+        </p>
+      </div>
+
+      <form onSubmit={handleSave} className="space-y-5">
+        {/* Personal Information */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-50 flex items-center gap-2">
+            <User size={15} className="text-green-600" />
+            <h2 className="text-sm font-semibold text-gray-900">Personal Information</h2>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                Full Name <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.full_name}
+                onChange={e => set('full_name', e.target.value)}
+                placeholder="Your full name"
+                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                disabled={loading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                <span className="flex items-center gap-1.5">
+                  <Mail size={11} />
+                  Email Address <span className="text-red-400">*</span>
+                </span>
+              </label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={e => set('email', e.target.value)}
+                placeholder="your@email.com"
+                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                disabled={loading}
+              />
+              {form.email !== initialProfile.email && (
+                <p className="mt-1.5 text-xs text-amber-600">
+                  Changing your email requires confirmation. A verification link will be sent to your new address.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                <span className="flex items-center gap-1.5">
+                  <Phone size={11} />
+                  Phone Number
+                </span>
+              </label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={e => set('phone', e.target.value)}
+                placeholder="(555) 000-0000"
+                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                disabled={loading}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Business Information */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-50 flex items-center gap-2">
+            <Building2 size={15} className="text-green-600" />
+            <h2 className="text-sm font-semibold text-gray-900">Business Information</h2>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                Business Name
+              </label>
+              <input
+                type="text"
+                value={form.business_name}
+                onChange={e => set('business_name', e.target.value)}
+                placeholder="Your business name"
+                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                disabled={loading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                Entity Type
+              </label>
+              <select
+                value={form.entity_type}
+                onChange={e => set('entity_type', e.target.value)}
+                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all bg-white"
+                disabled={loading}
+              >
+                <option value="">Select entity type…</option>
+                {ENTITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+                Industry
+              </label>
+              <select
+                value={form.industry}
+                onChange={e => set('industry', e.target.value)}
+                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all bg-white"
+                disabled={loading}
+              >
+                <option value="">Select industry…</option>
+                {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Status messages */}
+        {error && (
+          <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+            <XCircle size={15} className="text-red-500 mt-0.5 shrink-0" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+        {success && (
+          <div className="flex items-start gap-2.5 bg-green-50 border border-green-100 rounded-xl px-4 py-3">
+            <CheckCircle2 size={15} className="text-green-600 mt-0.5 shrink-0" />
+            <p className="text-sm text-green-700">{success}</p>
+          </div>
+        )}
+
+        {/* Save */}
+        <div className="flex items-center justify-end">
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors"
+          >
+            {loading ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                Saving…
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}

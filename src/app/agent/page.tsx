@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import PortalLayout from '@/components/layout/PortalLayout'
-import { Send, Bot, User, RefreshCw, Loader2, WifiOff } from 'lucide-react'
+import { Send, Bot, User, RefreshCw, Loader2, WifiOff, History } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel } from '@/lib/utils'
 import type { ChatMessage, UserProfile } from '@/types'
@@ -29,6 +29,11 @@ export default function AgentPage() {
   const [isActive, setIsActive] = useState(false)
   const [platformMaintenance, setPlatformMaintenance] = useState(false)
 
+  // Conversation persistence
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [priorSummary, setPriorSummary] = useState<string | null>(null)
+  const [showRolloverBanner, setShowRolloverBanner] = useState(false)
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
@@ -40,24 +45,61 @@ export default function AgentPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      const [{ data: p }, convRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        fetch('/api/agent/conversation'),
+      ])
+
       setProfile(p)
       const active = p?.subscription_status === 'active' || p?.subscription_status === 'trialing'
       setIsActive(active)
 
-      const greeting: ChatMessage = {
-        id: uuidv4(),
-        role: 'assistant',
-        content: active
-          ? `Hi ${(p?.full_name || 'there').split(' ')[0]}! 👋 I'm your AI Fulfillment Agent for the **${getProgramShortLabel(p?.assigned_program)}** program.\n\nI have full visibility into your tasks, documents, and progress. Ask me anything — or tap one of the quick prompts below to get started.`
-          : `Hi there! Your subscription is currently inactive, so my capabilities are limited. Please **reactivate your subscription** to access full AI fulfillment guidance.\n\nI can still answer general questions about your program.`,
-        timestamp: new Date().toISOString(),
+      const convData = convRes.ok ? await convRes.json() : null
+      const convId = convData?.conversation_id ?? null
+      setConversationId(convId)
+
+      if (convData?.was_rolled_over) {
+        setPriorSummary(convData.prior_summary ?? null)
+        setShowRolloverBanner(true)
       }
-      setMessages([greeting])
+
+      // Restore previous messages from this conversation
+      const priorMessages: ChatMessage[] = (convData?.messages ?? []).map((m: {
+        id: string; role: string; content: string; created_at: string
+      }) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        timestamp: m.created_at,
+      }))
+
+      if (priorMessages.length === 0) {
+        const greeting: ChatMessage = {
+          id: uuidv4(),
+          role: 'assistant',
+          content: active
+            ? `Hi ${(p?.full_name || 'there').split(' ')[0]}! 👋 I'm your AI Fulfillment Agent for the **${getProgramShortLabel(p?.assigned_program)}** program.\n\nI have full visibility into your tasks, documents, and progress. Ask me anything — or tap one of the quick prompts below to get started.`
+            : `Hi there! Your subscription is currently inactive, so my capabilities are limited. Please **reactivate your subscription** to access full AI fulfillment guidance.\n\nI can still answer general questions about your program.`,
+          timestamp: new Date().toISOString(),
+        }
+        setMessages([greeting])
+      } else {
+        setMessages(priorMessages)
+      }
+
       setInitializing(false)
     }
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const persistMessage = useCallback(async (role: 'user' | 'assistant', content: string) => {
+    if (!conversationId) return
+    fetch('/api/agent/conversation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversation_id: conversationId, role, content }),
+    }).catch(() => {})
+  }, [conversationId])
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || loading) return
@@ -72,6 +114,8 @@ export default function AgentPage() {
     setInput('')
     setLoading(true)
 
+    persistMessage('user', userMsg.content)
+
     try {
       const res = await fetch('/api/agent', {
         method: 'POST',
@@ -83,20 +127,21 @@ export default function AgentPage() {
 
       const data = await res.json()
 
-      // ── Platform-level maintenance / outage ───────────────────────────────
       if (data.platform_maintenance) {
         setPlatformMaintenance(true)
         setLoading(false)
         return
       }
 
+      const aiContent = data.message || 'I encountered an error. Please try again.'
       const assistantMsg: ChatMessage = {
         id: uuidv4(),
         role: 'assistant',
-        content: data.message || 'I encountered an error. Please try again.',
+        content: aiContent,
         timestamp: new Date().toISOString(),
       }
       setMessages((prev) => [...prev, assistantMsg])
+      persistMessage('assistant', aiContent)
     } catch {
       const errMsg: ChatMessage = {
         id: uuidv4(),
@@ -107,7 +152,7 @@ export default function AgentPage() {
       setMessages((prev) => [...prev, errMsg])
     }
     setLoading(false)
-  }, [messages, loading])
+  }, [messages, loading, persistMessage])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -117,8 +162,16 @@ export default function AgentPage() {
   }
 
   const clearChat = () => {
-    setMessages(messages.slice(0, 1))
+    const greeting: ChatMessage = {
+      id: uuidv4(),
+      role: 'assistant',
+      content: `Chat cleared. I still have your full profile and progress context. What would you like to work on?`,
+      timestamp: new Date().toISOString(),
+    }
+    setMessages([greeting])
   }
+
+  const hasHistory = messages.length > 1
 
   return (
     <PortalLayout
@@ -136,14 +189,42 @@ export default function AgentPage() {
             <h1 className="page-title flex items-center gap-2">
               <Bot size={24} className="text-green-500" /> AI Fulfillment Agent
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm text-gray-500 mt-0.5 flex items-center gap-1.5">
               {profile?.assigned_program ? getProgramShortLabel(profile.assigned_program) : 'AI-powered guidance for your credit journey'}
+              {hasHistory && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-green-600 font-semibold bg-green-50 px-1.5 py-0.5 rounded-full">
+                  <History size={10} /> Saved
+                </span>
+              )}
             </p>
           </div>
           <button onClick={clearChat} className="btn-secondary text-xs px-3 py-2">
             <RefreshCw size={14} /> Clear
           </button>
         </div>
+
+        {/* Rollover Banner */}
+        {showRolloverBanner && (
+          <div className="shrink-0 mb-3 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-blue-900 flex items-center gap-1.5">
+                  <History size={14} /> Continuing where you left off
+                </p>
+                {priorSummary ? (
+                  <p className="text-xs text-blue-700 mt-1 leading-relaxed">
+                    <strong>Prior session summary:</strong> {priorSummary}
+                  </p>
+                ) : (
+                  <p className="text-xs text-blue-700 mt-1">
+                    Your previous conversation was archived to keep things organized. Your progress and context are fully preserved.
+                  </p>
+                )}
+              </div>
+              <button onClick={() => setShowRolloverBanner(false)} className="text-blue-400 hover:text-blue-600 text-xs shrink-0">✕</button>
+            </div>
+          </div>
+        )}
 
         {/* Platform Maintenance Banner */}
         {platformMaintenance && (
@@ -155,10 +236,7 @@ export default function AgentPage() {
                 The AI assistant is temporarily unavailable due to maintenance, upgrades, or a temporary service issue.
                 We&apos;re actively working to restore access as quickly as possible. Please try again shortly.
               </p>
-              <button
-                onClick={() => setPlatformMaintenance(false)}
-                className="mt-2 text-xs text-amber-700 underline underline-offset-2 hover:text-amber-900"
-              >
+              <button onClick={() => setPlatformMaintenance(false)} className="mt-2 text-xs text-amber-700 underline underline-offset-2 hover:text-amber-900">
                 Dismiss
               </button>
             </div>
@@ -254,26 +332,32 @@ export default function AgentPage() {
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user'
-  const content = message.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')
+  const content = message.content
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br/>')
 
   return (
     <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
       <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
         isUser ? 'bg-gray-100' : 'bg-green-600'
       }`}>
-        {isUser
-          ? <User size={16} className="text-gray-500" />
-          : <Bot size={16} className="text-white" />
-        }
+        {isUser ? <User size={16} className="text-gray-500" /> : <Bot size={16} className="text-white" />}
       </div>
-      <div
-        className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
-          isUser
-            ? 'bg-green-600 text-white rounded-tr-sm'
-            : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm'
-        }`}
-        dangerouslySetInnerHTML={{ __html: content }}
-      />
+      <div className="flex flex-col gap-1 max-w-[80%]">
+        <div
+          className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
+            isUser
+              ? 'bg-green-600 text-white rounded-tr-sm'
+              : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm'
+          }`}
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+        {message.timestamp && (
+          <p className={`text-[10px] text-gray-300 ${isUser ? 'text-right' : ''}`}>
+            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
+      </div>
     </div>
   )
 }

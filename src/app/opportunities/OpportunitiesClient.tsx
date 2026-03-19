@@ -2,13 +2,90 @@
 
 import { useState, useMemo } from 'react'
 import type { AccountOpportunity, OpportunityCategory } from '@/types'
-import { ExternalLink, Lock, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+import { ExternalLink, Lock, CheckCircle, Clock, AlertCircle, Sparkles } from 'lucide-react'
 
 interface Props {
   opportunities: AccountOpportunity[]
   currentStage: string | null
   assignedProgram: string | null
   isActive: boolean
+  userIndustry?: string | null
+}
+
+// ─── Industry → personalized tips mapping ─────────────────────────────────────
+const INDUSTRY_TIPS: Record<string, { headline: string; tips: string[] }> = {
+  Construction: {
+    headline: 'Construction & Contracting Funding Priorities',
+    tips: [
+      'Fleet/gas cards are especially valuable — fuel costs are a major operating expense',
+      'Net-30 vendors like Grainger and Home Depot report to D&B, building your PAYDEX while covering job-site supplies',
+      'Establish equipment financing tradelines early — lenders look for asset-backed credit history',
+    ],
+  },
+  Healthcare: {
+    headline: 'Healthcare & Medical Funding Priorities',
+    tips: [
+      'Business credit cards with 0% intro APR can bridge gaps between insurance reimbursements',
+      'Vendor accounts for medical supplies (office + equipment) help build business credit without a personal guarantee',
+      'Revenue-based lines of credit are popular in healthcare — focus on showing consistent monthly deposits',
+    ],
+  },
+  Technology: {
+    headline: 'Tech & Software Funding Priorities',
+    tips: [
+      'Corporate cards (Brex, Ramp) are designed for tech companies and report to D&B without a personal guarantee',
+      'SaaS businesses often qualify for lines of credit based on recurring revenue — ensure consistent bank deposits',
+      'Amazon Business net-30 is ideal for tech supply purchases and builds D&B trade history',
+    ],
+  },
+  Retail: {
+    headline: 'Retail & E-Commerce Funding Priorities',
+    tips: [
+      "Store accounts (Sam's Club, Home Depot) are easy entry points that report to business bureaus",
+      'High-limit business cards with rewards optimize inventory purchasing while building credit history',
+      'Net-30 vendor accounts for packaging and supplies (Uline, Quill) are ideal starter tradelines',
+    ],
+  },
+  'Restaurants/Food Service': {
+    headline: 'Food & Hospitality Funding Priorities',
+    tips: [
+      'Fleet/gas cards cover delivery vehicle costs and report monthly to business bureaus',
+      'Net-30 vendor accounts with food/supply distributors establish early trade history',
+      'Business cards with dining and food service rewards maximize return on daily spending',
+    ],
+  },
+  'Transportation/Logistics': {
+    headline: 'Transportation & Logistics Funding Priorities',
+    tips: [
+      'WEX Fleet cards are purpose-built for this industry — report to D&B and Equifax Business',
+      'Fleet account tradelines are the fastest path to a strong PAYDEX score for logistics companies',
+      'Fuel and maintenance vendor net-30 accounts diversify your tradeline portfolio quickly',
+    ],
+  },
+  'Real Estate': {
+    headline: 'Real Estate Funding Priorities',
+    tips: [
+      'Home Depot and commercial accounts are strong tradelines for property investors',
+      '0% intro APR business cards provide interest-free working capital for renovations and holding costs',
+      'Business lines of credit are preferred by RE investors — establish the profile now before you need them',
+    ],
+  },
+  'Professional Services': {
+    headline: 'Professional Services Funding Priorities',
+    tips: [
+      'Corporate charge cards (Brex, Ramp) require no personal guarantee and suit service-based businesses',
+      'Build tradelines through office supply vendors (Quill, Crown) while covering everyday expenses',
+      'Business credit cards with travel and software rewards align with typical service business spending',
+    ],
+  },
+  Manufacturing: {
+    headline: 'Manufacturing Funding Priorities',
+    tips: [
+      'Grainger and industrial supply vendor net-30 accounts are strong tradelines for manufacturers',
+      'Equipment financing tradelines improve your business credit depth and signal capital worthiness',
+      'Fleet accounts for delivery and logistics vehicles report monthly to business bureaus',
+    ],
+  },
 }
 
 const CATEGORY_LABELS: Record<OpportunityCategory, string> = {
@@ -60,6 +137,7 @@ export default function OpportunitiesClient({
   currentStage,
   assignedProgram,
   isActive,
+  userIndustry,
 }: Props) {
   const [filterCategory, setFilterCategory] = useState<OpportunityCategory | ''>('')
   const [filterPG, setFilterPG] = useState<'all' | 'yes' | 'no' | 'varies'>('all')
@@ -85,8 +163,29 @@ export default function OpportunitiesClient({
   const recommendedCount = enriched.filter((o) => o.status === 'recommended').length
   const futureCount = enriched.filter((o) => o.status === 'future').length
 
+  const industryTip = userIndustry ? INDUSTRY_TIPS[userIndustry] : null
+
   return (
     <div className="space-y-5">
+      {/* Industry Personalization Banner */}
+      {industryTip && (
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={16} className="text-green-600" />
+            <p className="text-sm font-bold text-green-900">{industryTip.headline}</p>
+          </div>
+          <ul className="space-y-1.5">
+            {industryTip.tips.map((tip, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs text-green-800">
+                <span className="text-green-500 font-bold mt-0.5 shrink-0">•</span>
+                {tip}
+              </li>
+            ))}
+          </ul>
+          <p className="text-[10px] text-green-600 mt-2 opacity-70">Based on your industry: {userIndustry}</p>
+        </div>
+      )}
+
       {/* Summary stats */}
       <div className="flex gap-3 flex-wrap">
         <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-center">
@@ -161,6 +260,13 @@ export default function OpportunitiesClient({
   )
 }
 
+function safeUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  const trimmed = url.trim()
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return null
+}
+
 function OpportunityCard({
   opp,
   status,
@@ -172,6 +278,8 @@ function OpportunityCard({
 }) {
   const isRecommended = status === 'recommended'
   const blurred = !isActive
+  const learnMoreUrl = safeUrl(opp.learn_more_url)
+  const applyUrl = safeUrl(opp.apply_url)
 
   return (
     <div
@@ -246,11 +354,11 @@ function OpportunityCard({
       )}
 
       {/* Actions */}
-      {!blurred && (opp.learn_more_url || opp.apply_url) && (
+      {!blurred && (learnMoreUrl || applyUrl) && (
         <div className="flex gap-2 pt-1">
-          {opp.learn_more_url && (
+          {learnMoreUrl && (
             <a
-              href={opp.learn_more_url}
+              href={learnMoreUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
@@ -258,9 +366,9 @@ function OpportunityCard({
               Learn More <ExternalLink size={10} />
             </a>
           )}
-          {opp.apply_url && (
+          {applyUrl && (
             <a
-              href={opp.apply_url}
+              href={applyUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
@@ -271,7 +379,7 @@ function OpportunityCard({
         </div>
       )}
 
-      {!blurred && !opp.learn_more_url && !opp.apply_url && isRecommended && (
+      {!blurred && !learnMoreUrl && !applyUrl && isRecommended && (
         <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
           <AlertCircle size={12} />
           Contact your advisor for application guidance

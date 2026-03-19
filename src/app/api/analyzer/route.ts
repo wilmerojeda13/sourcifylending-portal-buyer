@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { routeAnalyzer } from '@/lib/program-router'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import type { AnalyzerInput } from '@/types'
 
@@ -27,8 +27,9 @@ export async function POST(req: NextRequest) {
 
     // Optionally save to analyzer_results if user is logged in
     try {
+      const authClient = await createClient()
+      const { data: { user } } = await authClient.auth.getUser()
       const supabase = await createServiceClient()
-      const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         await supabase.from('analyzer_results').upsert({
           user_id: user.id,

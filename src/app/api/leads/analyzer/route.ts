@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { routeAnalyzer } from '@/lib/program-router'
+import { sendAnalyzerResultEmail } from '@/lib/email'
 import type { AnalyzerInput } from '@/types'
 
 const NOTION_API_VERSION = '2022-06-28'
@@ -207,6 +208,15 @@ export async function POST(req: NextRequest) {
     } catch (notionErr) {
       console.error('Notion sync error (non-fatal):', notionErr)
     }
+
+    // Send analyzer results email (fire-and-forget — never block the response)
+    sendAnalyzerResultEmail({
+      toEmail: email.toLowerCase().trim(),
+      toName: full_name,
+      result,
+      leadId,
+      businessName: business_name,
+    }).catch((e) => console.error('Analyzer email send error (non-fatal):', e))
 
     return NextResponse.json({ ...result, lead_id: leadId })
   } catch (error) {

@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import { createClient } from '@/lib/supabase/client'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -11,13 +12,46 @@ import toast from 'react-hot-toast'
 
 type ViewMode = 'list' | 'board'
 
-export default function ProgressPage() {
+// ─── Suspense wrapper — required because useSearchParams causes CSR bailout ───
+export default function ProgressPageWrapper() {
+  return (
+    <Suspense fallback={
+      <PortalLayout>
+        <div className="animate-pulse space-y-4">
+          {[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-gray-200 rounded-2xl" />)}
+        </div>
+      </PortalLayout>
+    }>
+      <ProgressPage />
+    </Suspense>
+  )
+}
+
+function ProgressPage() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const targetTaskId = searchParams.get('taskId')
+  const taskRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null)
+
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<ViewMode>('list')
   const [isActive, setIsActive] = useState(false)
+
+  // Auto-scroll to target task once tasks are loaded
+  useEffect(() => {
+    if (!targetTaskId || tasks.length === 0) return
+    const ref = taskRefs.current[targetTaskId]
+    if (ref) {
+      setTimeout(() => {
+        ref.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        setHighlightedTaskId(targetTaskId)
+        setTimeout(() => setHighlightedTaskId(null), 3000)
+      }, 300)
+    }
+  }, [targetTaskId, tasks])
 
   useEffect(() => {
     const init = async () => {
@@ -153,7 +187,14 @@ export default function ProgressPage() {
               <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2 px-1">{stage}</h3>
               <div className="space-y-2">
                 {tasks.filter((t) => t.stage === stage).map((task) => (
-                  <TaskRow key={task.task_id} task={task} onComplete={markComplete} isActive={isActive} />
+                  <TaskRow
+                    key={task.task_id}
+                    task={task}
+                    onComplete={markComplete}
+                    isActive={isActive}
+                    highlighted={highlightedTaskId === task.task_id}
+                    setRef={(el) => { taskRefs.current[task.task_id] = el }}
+                  />
                 ))}
               </div>
             </div>
@@ -186,7 +227,15 @@ export default function ProgressPage() {
   )
 }
 
-function TaskRow({ task, onComplete, isActive }: { task: Task; onComplete: (id: string) => void; isActive: boolean }) {
+function TaskRow({
+  task, onComplete, isActive, highlighted = false, setRef
+}: {
+  task: Task
+  onComplete: (id: string) => void
+  isActive: boolean
+  highlighted?: boolean
+  setRef?: (el: HTMLDivElement | null) => void
+}) {
   const statusIcon = {
     completed: <CheckCircle size={18} className="text-green-500" />,
     pending: <Clock size={18} className="text-green-500" />,
@@ -195,7 +244,10 @@ function TaskRow({ task, onComplete, isActive }: { task: Task; onComplete: (id: 
   }[task.status]
 
   return (
-    <div className={`card flex items-start gap-3 ${task.status === 'locked' ? 'opacity-60' : ''}`}>
+    <div
+      ref={setRef}
+      className={`card flex items-start gap-3 transition-all duration-700 ${task.status === 'locked' ? 'opacity-60' : ''} ${highlighted ? 'ring-2 ring-green-500 ring-offset-1 shadow-lg bg-green-50' : ''}`}
+    >
       <div className="mt-0.5">{statusIcon}</div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2 flex-wrap">
