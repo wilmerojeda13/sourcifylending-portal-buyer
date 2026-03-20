@@ -113,14 +113,6 @@ function AgentPage() {
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-send prompt when arriving from "Ask AI" button on a task
-  const autoPromptSentRef = useRef(false)
-  useEffect(() => {
-    if (!autoPrompt || initializing || autoPromptSentRef.current) return
-    autoPromptSentRef.current = true
-    sendMessage(autoPrompt)
-  }, [autoPrompt, initializing, sendMessage])
-
   const persistMessage = useCallback(async (role: 'user' | 'assistant', content: string) => {
     if (!conversationId) return
     fetch('/api/agent/conversation', {
@@ -182,6 +174,14 @@ function AgentPage() {
     }
     setLoading(false)
   }, [messages, loading, persistMessage])
+
+  // Auto-send prompt when arriving from "Ask AI" button on a task
+  const autoPromptSentRef = useRef(false)
+  useEffect(() => {
+    if (!autoPrompt || initializing || autoPromptSentRef.current) return
+    autoPromptSentRef.current = true
+    sendMessage(autoPrompt)
+  }, [autoPrompt, initializing, sendMessage])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
