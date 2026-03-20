@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Bot, FileText, CheckSquare, BarChart2,
   CreditCard, Bell, LogOut, Menu, X, ChevronRight, Star, TrendingUp, ShieldCheck, Zap, ArrowUpCircle,
-  MessageSquare, Settings, ShieldAlert, DollarSign, Building2, BookOpen, PieChart
+  MessageSquare, Settings, ShieldAlert, DollarSign, Building2, BookOpen, PieChart, ClipboardList
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -43,6 +43,8 @@ interface PortalLayoutProps {
   isAdmin?: boolean
   isDelegate?: boolean
   accountState?: 'prospect' | 'active_member'
+  /** ISO string — when set and in the past, shows a "Due" badge on Monthly Review nav item */
+  uwNextDueAt?: string | null
 }
 
 export default function PortalLayout({
@@ -56,7 +58,9 @@ export default function PortalLayout({
   isAdmin = false,
   isDelegate = false,
   accountState = 'active_member',
+  uwNextDueAt,
 }: PortalLayoutProps) {
+  const uwReviewDue = !!uwNextDueAt && new Date(uwNextDueAt) < new Date()
   const isProspect = accountState === 'prospect'
   const pathname = usePathname()
   const router = useRouter()
@@ -87,6 +91,11 @@ export default function PortalLayout({
               { href: '/business-credit-monitoring',  label: 'Biz Credit Monitoring', icon: TrendingUp },
               { href: '/business-resources',          label: 'Biz Resources',         icon: BookOpen },
             ]
+          : []),
+
+        // ── Underwriting review — Program A & B only ─────────────────────────
+        ...(assignedProgram === 'program_a' || assignedProgram === 'program_b'
+          ? [{ href: '/underwriting', label: 'Monthly Review', icon: ClipboardList }]
           : []),
 
         // ── Shared for all active members ────────────────────────────────────
@@ -146,6 +155,7 @@ export default function PortalLayout({
 
   const NavLink = ({ href, label, icon: Icon }: typeof BASE_NAV_ITEMS[number]) => {
     const active = pathname === href || pathname.startsWith(href + '/')
+    const showDueBadge = href === '/underwriting' && uwReviewDue
     return (
       <Link
         href={href}
@@ -154,11 +164,16 @@ export default function PortalLayout({
           'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150',
           active
             ? 'bg-green-600 text-white shadow-sm'
+            : showDueBadge
+            ? 'text-amber-700 bg-amber-50 hover:bg-amber-100'
             : 'text-gray-600 hover:bg-green-50 hover:text-green-700'
         )}
       >
         <Icon size={18} />
         <span>{label}</span>
+        {showDueBadge && !active && (
+          <span className="ml-auto text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full">DUE</span>
+        )}
         {active && <ChevronRight size={14} className="ml-auto opacity-70" />}
       </Link>
     )

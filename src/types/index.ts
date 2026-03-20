@@ -83,6 +83,64 @@ export interface UserProfile {
   analyzed_at: string | null
   created_at: string
   updated_at: string
+  // ── Underwriting ────────────────────────────────────────────────────────────
+  underwriting_completed_at: string | null       // last review completion timestamp
+  underwriting_next_due_at: string | null        // NULL or past = gate triggers
+  underwriting_review_count: number              // total reviews completed
+  underwriting_program: string | null
+  uw_approval_likelihood: 'high' | 'medium' | 'low' | 'disqualified' | null
+  uw_risk_score: number | null
+  uw_risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | null
+  uw_ai_summary: string | null
+  uw_ai_recommendations: string[]
+  uw_disqualification_reason: string | null
+  uw_key_issues: string[]
+  uw_next_accounts: string[]
+  uw_estimated_funding_range: string | null
+  uw_recommended_issuers: string[]
+  // Previous review snapshot (for delta display)
+  uw_prev_approval_likelihood: string | null
+  uw_prev_risk_score: number | null
+  uw_prev_stage: string | null
+  // Raw underwriting form answers (stored for roadmap personalization)
+  uw_annual_revenue_conf: string | null
+  uw_average_daily_balance: string | null
+  uw_bank_statement_months: string | null
+  uw_outstanding_balances: string | null
+  uw_recent_derogatory: boolean
+  uw_public_records: boolean
+  uw_time_in_business_conf: string | null
+  // Program A specific
+  uw_card_application_strategy: string | null
+  uw_existing_card_balances: string | null
+  uw_authorized_user_status: boolean
+  // Program B specific
+  uw_duns_status: string | null
+  uw_ein_open_date: string | null
+  uw_vendor_tier_readiness: string | null
+}
+
+// ─── Underwriting Review (history record) ─────────────────────────────────────
+export interface UnderwritingReview {
+  id: string
+  user_id: string
+  program: string
+  review_number: number
+  completed_at: string
+  approval_likelihood: 'high' | 'medium' | 'low' | 'disqualified'
+  risk_level: 'LOW' | 'MEDIUM' | 'HIGH'
+  risk_score: number
+  determined_stage: string | null
+  ai_summary: string | null
+  ai_recommendations: string[]
+  key_issues: string[]
+  next_accounts: string[]
+  estimated_funding_range: string | null
+  recommended_issuers: string[]
+  risk_score_delta: number | null   // positive = improvement
+  stage_advanced: boolean
+  raw_answers: Record<string, unknown>
+  created_at: string
 }
 
 // ─── Subscription ─────────────────────────────────────────────────────────────
@@ -225,6 +283,14 @@ export type ActivityEventType =
   | 'portal_unblocked'
   | 'notification_sent'
   | 'admin_profile_updated'
+  // ── Underwriting & Roadmap ──
+  | 'underwriting_started'
+  | 'underwriting_completed'
+  | 'underwriting_disqualified'
+  | 'roadmap_generated'
+  | 'opportunity_viewed'
+  | 'application_attempted'
+  | 'subscription_started'
 
 export interface ActivityLog {
   id: string

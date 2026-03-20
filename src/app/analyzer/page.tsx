@@ -425,6 +425,7 @@ function AnalyzerResults({
   contactBusinessName,
   isLoggedIn,
   loggedInUserName,
+  loggedInAssignedProgram: _loggedInAssignedProgram,
 }: {
   result: AnalyzerResult
   businessName?: string
@@ -590,7 +591,7 @@ function AnalyzerResults({
               {loggedInUserName ? `${loggedInUserName.split(' ')[0]}, your` : 'Your'} results are saved to your account and your AI roadmap is being generated. Head to your dashboard to see your next steps.
             </p>
             <Link href="/dashboard" className="btn-primary inline-flex items-center gap-2 px-6 py-3">
-              Go to My Dashboard <ArrowRight size={16} />
+              View Your Dashboard <ArrowRight size={16} />
             </Link>
           </div>
         ) : (

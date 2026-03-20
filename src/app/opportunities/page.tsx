@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import { getProgramShortLabel } from '@/lib/utils'
 import OpportunitiesClient from './OpportunitiesClient'
+import UnderwritingGateBanner from '@/components/dashboard/UnderwritingGateBanner'
 import type { AccountOpportunity } from '@/types'
 
 export default async function OpportunitiesPage() {
@@ -20,6 +21,43 @@ export default async function OpportunitiesPage() {
     .select('*')
     .eq('id', user.id)
     .single()
+
+  // ── Underwriting gate — must have a current (non-expired) review to see opportunities ──
+  const uwNextDue = profile?.underwriting_next_due_at
+  const needsUnderwriting =
+    profile?.account_state === 'active_member' &&
+    (profile?.assigned_program === 'program_a' || profile?.assigned_program === 'program_b') &&
+    (!uwNextDue || new Date(uwNextDue) < new Date())
+
+  if (needsUnderwriting) {
+    const { data: uwNotifs } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('read', false)
+    return (
+      <PortalLayout
+        userName={profile?.full_name || user.email || 'Client'}
+        programLabel={getProgramShortLabel(profile?.assigned_program)}
+        notificationCount={uwNotifs?.length || 0}
+        assignedProgram={profile?.assigned_program}
+      >
+        <div className="mb-6">
+          <h1 className="page-title">Funding Opportunities</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {(profile?.underwriting_review_count ?? 0) > 0
+              ? 'Your monthly review is due — complete it to continue accessing opportunities.'
+              : 'Complete your underwriting review to unlock opportunities.'}
+          </p>
+        </div>
+        <UnderwritingGateBanner
+          program={profile?.assigned_program ?? 'program_b'}
+          reviewCount={profile?.underwriting_review_count ?? 0}
+          nextDueAt={uwNextDue ?? null}
+        />
+      </PortalLayout>
+    )
+  }
 
   const [{ data: notifications }, { data: opportunities }] = await Promise.all([
     supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
@@ -64,7 +102,13 @@ export default async function OpportunitiesPage() {
       />
 
       {/* Legal disclaimer */}
-      <div className="mt-8 border-t border-gray-200 pt-5 text-xs text-gray-400 leading-relaxed">
+      <div className="mt-8 border-t border-gray-200 pt-5 text-xs text-gray-400 leading-relaxed space-y-2">
+        <p>
+          <strong className="text-gray-500">Personalization Notice:</strong> All recommendations shown on this page
+          are based on the information you provided during your profile analysis and underwriting review.
+          SourcifyLending logs your underwriting timestamp and the data used to generate these recommendations
+          to ensure accuracy and accountability.
+        </p>
         <p>
           <strong className="text-gray-500">Disclaimer:</strong> The funding accounts and credit opportunities listed
           above are provided for informational and educational purposes only. SourcifyLending does not guarantee

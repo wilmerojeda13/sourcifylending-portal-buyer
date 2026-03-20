@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import type { ProgramId, SubscriptionStatus } from '@/types'
 import { getProgramShortLabel } from '@/lib/utils'
+import { Loader2, Plus, X } from 'lucide-react'
 
 interface MemberRow {
   id: string
@@ -52,6 +53,63 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
   const [canceling, setCanceling] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+
+  // Create user modal
+  const [showCreate, setShowCreate] = useState(false)
+  const [createForm, setCreateForm] = useState({ full_name: '', email: '', assigned_program: '', subscription_status: 'inactive' })
+  const [creating, setCreating] = useState(false)
+  const [createResult, setCreateResult] = useState<{ temp_password: string } | null>(null)
+  const [createError, setCreateError] = useState('')
+
+  async function createUser() {
+    if (!createForm.full_name.trim() || !createForm.email.trim()) { setCreateError('Name and email are required'); return }
+    setCreating(true)
+    setCreateError('')
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: createForm.full_name,
+          email: createForm.email,
+          assigned_program: createForm.assigned_program || null,
+          subscription_status: createForm.subscription_status,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setCreateError(data.error || 'Failed to create user'); return }
+      setCreateResult({ temp_password: data.temp_password })
+      // Add new row to table
+      setRows((prev) => [{
+        id: data.user_id,
+        full_name: createForm.full_name,
+        email: createForm.email,
+        business_name: null,
+        subscription_status: createForm.subscription_status,
+        assigned_program: (createForm.assigned_program as ProgramId) || null,
+        active_programs: [],
+        current_stage: null,
+        portal_blocked: false,
+        is_demo: false,
+        created_at: new Date().toISOString(),
+        stripe_subscription_id: null,
+        stripe_customer_id: null,
+        stripe_status: null,
+        current_period_end: null,
+      }, ...prev])
+    } catch {
+      setCreateError('Something went wrong. Please try again.')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  function closeCreateModal() {
+    setShowCreate(false)
+    setCreateForm({ full_name: '', email: '', assigned_program: '', subscription_status: 'inactive' })
+    setCreateResult(null)
+    setCreateError('')
+  }
 
   const filtered = rows.filter((m) => {
     const q = search.toLowerCase()
@@ -131,6 +189,97 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
 
   return (
     <div className="space-y-4">
+      {/* Create User Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Create New User</h2>
+              <button onClick={closeCreateModal} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            {createResult ? (
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                  <p className="text-sm font-semibold text-green-800 mb-1">Account created successfully!</p>
+                  <p className="text-xs text-green-700">Share these credentials with the new member:</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl px-4 py-3 space-y-1">
+                  <p className="text-xs text-gray-500">Email</p>
+                  <p className="text-sm font-mono font-semibold text-gray-900">{createForm.email}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl px-4 py-3 space-y-1">
+                  <p className="text-xs text-gray-500">Temporary Password</p>
+                  <p className="text-sm font-mono font-semibold text-gray-900 select-all">{createResult.temp_password}</p>
+                </div>
+                <p className="text-xs text-amber-600">⚠ Copy this password now — it won&apos;t be shown again.</p>
+                <button onClick={closeCreateModal} className="w-full text-sm px-4 py-2 rounded-xl bg-gray-900 text-white font-semibold hover:bg-gray-700">
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    value={createForm.full_name}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, full_name: e.target.value }))}
+                    placeholder="John Smith"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Email *</label>
+                  <input
+                    type="email"
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                    placeholder="john@example.com"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Program (optional)</label>
+                  <select
+                    value={createForm.assigned_program}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, assigned_program: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                  >
+                    <option value="">No program</option>
+                    <option value="program_a">Program A — 0% Intro APR Advisory</option>
+                    <option value="program_b">Program B — Business Credit Builder</option>
+                    <option value="program_c">Program C — Capital Monitoring</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Subscription Status</label>
+                  <select
+                    value={createForm.subscription_status}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, subscription_status: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                  >
+                    {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                {createError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{createError}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button onClick={closeCreateModal} className="flex-1 text-sm px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={createUser}
+                    disabled={creating}
+                    className="flex-1 text-sm px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
+                  >
+                    {creating ? <><Loader2 size={14} className="animate-spin" /> Creating…</> : 'Create User'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <input
@@ -151,6 +300,12 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
           ))}
         </select>
         <span className="text-sm text-gray-400 self-center">{filtered.length} member{filtered.length !== 1 ? 's' : ''}</span>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="ml-auto flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white transition-colors"
+        >
+          <Plus size={15} /> Create User
+        </button>
       </div>
 
       {/* Table */}

@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import ProspectDashboard from '@/app/dashboard/ProspectDashboard'
 import GenerateRoadmapButton from '@/components/dashboard/GenerateRoadmapButton'
+import UnderwritingGateBanner from '@/components/dashboard/UnderwritingGateBanner'
 import { getProgramShortLabel, getReadinessColor, formatDate } from '@/lib/utils'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/Badge'
@@ -51,6 +52,39 @@ export default async function DashboardPage() {
     )
   }
 
+  // ── Underwriting gate — block roadmap/opportunities until reviewed (monthly) ─
+  const uwNextDue = profile?.underwriting_next_due_at
+  const needsUnderwriting =
+    profile?.account_state === 'active_member' &&
+    (profile?.assigned_program === 'program_a' || profile?.assigned_program === 'program_b') &&
+    (!uwNextDue || new Date(uwNextDue) < new Date())
+
+  if (needsUnderwriting) {
+    const { data: uwNotifs } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('read', false)
+    return (
+      <PortalLayout
+        userName={profile?.full_name || user.email || 'Client'}
+        programLabel={getProgramShortLabel(profile?.assigned_program)}
+        notificationCount={uwNotifs?.length || 0}
+        assignedProgram={profile?.assigned_program}
+        portalBlocked={profile?.portal_blocked}
+        isDemo={profile?.is_demo}
+        isAdmin={profile?.is_admin}
+        accountState="active_member"
+      >
+        <UnderwritingGateBanner
+          program={profile?.assigned_program ?? 'program_b'}
+          reviewCount={profile?.underwriting_review_count ?? 0}
+          nextDueAt={uwNextDue ?? null}
+        />
+      </PortalLayout>
+    )
+  }
+
   // ── Member path — fetch member-specific data ───────────────────────────────
   const [
     { data: tasks },
@@ -67,6 +101,15 @@ export default async function DashboardPage() {
   ])
 
   const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+
+  // ── Underwriting countdown — only for programs A & B with a current review ─
+  const showUWCountdown =
+    (profile?.assigned_program === 'program_a' || profile?.assigned_program === 'program_b') &&
+    !!profile?.underwriting_next_due_at
+  const uwDaysUntilDue = showUWCountdown
+    ? Math.ceil((new Date(profile!.underwriting_next_due_at!).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null
+  const uwCountdownUrgent = uwDaysUntilDue !== null && uwDaysUntilDue <= 7
 
   const CREDIT_ACCOUNT_TYPES = ['0% APR Card', 'Business Credit Card', 'Vendor Account', 'Store Account', 'Fleet Account', 'Line of Credit']
   const totalFundingApproved = (fundingApprovals ?? []).reduce((sum, a) => {
@@ -92,6 +135,7 @@ export default async function DashboardPage() {
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
       accountState="active_member"
+      uwNextDueAt={profile?.underwriting_next_due_at ?? null}
     >
       {/* Subscription Locked Banner */}
       {!isActive && (
@@ -137,6 +181,37 @@ export default async function DashboardPage() {
           <Link href="/funding-results" className="shrink-0 flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors">
             <DollarSign size={14} /> View All
           </Link>
+        </div>
+      )}
+
+      {/* Underwriting Renewal Countdown */}
+      {showUWCountdown && uwDaysUntilDue !== null && (
+        <div className={`rounded-2xl px-4 py-3 mb-5 flex items-center justify-between gap-3 border ${
+          uwCountdownUrgent
+            ? 'bg-amber-50 border-amber-200'
+            : 'bg-green-50 border-green-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <TrendingUp size={18} className={uwCountdownUrgent ? 'text-amber-600 shrink-0' : 'text-green-600 shrink-0'} />
+            <div>
+              <p className={`text-sm font-semibold ${uwCountdownUrgent ? 'text-amber-800' : 'text-green-800'}`}>
+                {uwDaysUntilDue > 0
+                  ? `Monthly review due in ${uwDaysUntilDue} day${uwDaysUntilDue !== 1 ? 's' : ''}`
+                  : 'Monthly review due today'}
+              </p>
+              <p className={`text-xs mt-0.5 ${uwCountdownUrgent ? 'text-amber-600' : 'text-green-600'}`}>
+                Review #{(profile?.underwriting_review_count ?? 0) + 1} · Re-underwriting keeps your roadmap current
+              </p>
+            </div>
+          </div>
+          {uwCountdownUrgent && (
+            <Link
+              href="/underwriting"
+              className="shrink-0 text-xs font-bold bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 transition-colors"
+            >
+              Start Now
+            </Link>
+          )}
         </div>
       )}
 

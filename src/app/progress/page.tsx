@@ -65,6 +65,17 @@ function ProgressPage() {
         supabase.from('profiles').select('*').eq('id', user.id).single(),
         supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
       ])
+      // ── Underwriting gate — redirect if never reviewed or review expired ────
+      const uwNextDue = p?.underwriting_next_due_at
+      const needsUW =
+        p?.account_state === 'active_member' &&
+        (p?.assigned_program === 'program_a' || p?.assigned_program === 'program_b') &&
+        (!uwNextDue || new Date(uwNextDue) < new Date())
+      if (needsUW) {
+        router.replace('/underwriting')
+        return
+      }
+
       setProfile(p)
       setTasks(t || [])
       setIsActive(p?.subscription_status === 'active' || p?.subscription_status === 'trialing')

@@ -323,3 +323,241 @@ export async function sendWelcomeEmail({
     return { success: false }
   }
 }
+
+// ─── Underwriting Complete Email ───────────────────────────────────────────────
+export async function sendUnderwritingCompleteEmail({
+  toEmail,
+  toName,
+  program,
+  approvalLikelihood,
+  riskLevel,
+  aiSummary,
+  aiRecommendations,
+  estimatedFundingRange,
+  determinedStage,
+  keyIssues,
+  reviewNumber = 1,
+  riskScoreDelta = null,
+  nextDueAt = null,
+}: {
+  toEmail: string
+  toName: string
+  program: string
+  approvalLikelihood: 'high' | 'medium' | 'low' | 'disqualified'
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
+  aiSummary: string | null
+  aiRecommendations: string[]
+  estimatedFundingRange: string | null
+  determinedStage: string | null
+  keyIssues: string[]
+  /** Which review number this is (1 = first review) */
+  reviewNumber?: number
+  /** risk_score_delta: positive = improvement (score went down) */
+  riskScoreDelta?: number | null
+  /** ISO string of next review due date */
+  nextDueAt?: string | null
+}): Promise<{ success: boolean }> {
+  if (!process.env.RESEND_API_KEY) return { success: false }
+
+  const firstName = (toName || 'Client').split(' ')[0]
+  const dashboardUrl = `${SITE_URL}/dashboard`
+  const isRenewal = reviewNumber > 1
+
+  const programLabel = PROGRAM_LABELS[program] ?? program
+
+  // Format next due date for display
+  const nextDueDateLabel = nextDueAt
+    ? new Date(nextDueAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null
+
+  // Delta label: positive = improvement
+  const deltaLabel = riskScoreDelta !== null && riskScoreDelta !== undefined
+    ? riskScoreDelta > 0
+      ? `↓ ${riskScoreDelta} pts improvement`
+      : riskScoreDelta < 0
+      ? `↑ ${Math.abs(riskScoreDelta)} pts increase`
+      : 'No change'
+    : null
+
+  const outcomeConfig: Record<string, { bg: string; border: string; text: string; label: string; icon: string }> = {
+    high:          { bg: '#f0fdf4', border: '#86efac', text: '#15803d', label: 'Strong Approval Likelihood',             icon: '✅' },
+    medium:        { bg: '#fefce8', border: '#fde68a', text: '#a16207', label: 'Moderate Approval Likelihood',           icon: '⚠️' },
+    low:           { bg: '#fff7ed', border: '#fed7aa', text: '#c2410c', label: 'Lower Approval Likelihood — Action Required', icon: '🔶' },
+    disqualified:  { bg: '#fef2f2', border: '#fca5a5', text: '#b91c1c', label: 'Additional Steps Required',              icon: '🚧' },
+  }
+  const outcome = outcomeConfig[approvalLikelihood] ?? outcomeConfig.medium
+
+  const recRows = aiRecommendations.length > 0
+    ? aiRecommendations.map(r => `<li style="padding:5px 0;color:#374151;font-size:14px;">→ ${r}</li>`).join('')
+    : ''
+
+  const issueRows = keyIssues.length > 0
+    ? keyIssues.map(i => `<li style="padding:4px 0;color:#374151;font-size:14px;">⚠️ ${i}</li>`).join('')
+    : ''
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>Underwriting Review Complete — SourcifyLending</title></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0"
+        style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:#16a34a;padding:32px 40px;text-align:center;">
+            <span style="color:#ffffff;font-weight:800;font-size:22px;">SourcifyLending</span>
+            <p style="color:#bbf7d0;font-size:13px;margin:8px 0 0 0;letter-spacing:0.5px;text-transform:uppercase;font-weight:600;">
+              Underwriting Review Complete
+            </p>
+          </td>
+        </tr>
+
+        <!-- Greeting -->
+        <tr>
+          <td style="padding:32px 40px 0 40px;">
+            ${isRenewal
+              ? `<p style="margin:0 0 10px 0;display:inline-block;background:#fef3c7;border:1px solid #fde68a;color:#92400e;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:4px 10px;border-radius:20px;">
+                  Monthly Review #${reviewNumber}
+                </p>`
+              : ''}
+            <h1 style="margin:0 0 8px 0;font-size:24px;font-weight:800;color:#111827;">
+              Hi ${firstName}, your underwriting is done! 🎯
+            </h1>
+            <p style="margin:0;color:#6b7280;font-size:15px;line-height:1.6;">
+              ${isRenewal
+                ? `Review #${reviewNumber} of your <strong style="color:#111827;">${programLabel}</strong> file is complete.`
+                : `Your profile has been analyzed for <strong style="color:#111827;">${programLabel}</strong>.`}
+              Here's your personalized underwriting summary.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Outcome Badge -->
+        <tr>
+          <td style="padding:24px 40px 0 40px;">
+            <table width="100%" cellpadding="0" cellspacing="0"
+              style="background:${outcome.bg};border:1px solid ${outcome.border};border-radius:12px;padding:20px 24px;">
+              <tr>
+                <td>
+                  <p style="margin:0 0 4px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;color:${outcome.text};">
+                    Underwriting Outcome
+                  </p>
+                  <p style="margin:0;font-size:22px;font-weight:800;color:#111827;">
+                    ${outcome.icon} ${outcome.label}
+                  </p>
+                  <p style="margin:8px 0 0 0;font-size:13px;color:${outcome.text};font-weight:600;">
+                    Risk Level: ${riskLevel}${estimatedFundingRange ? ' &nbsp;·&nbsp; Est. Funding: ' + estimatedFundingRange : ''}${determinedStage ? ' &nbsp;·&nbsp; Stage: ' + determinedStage : ''}
+                  </p>
+                  ${deltaLabel ? `<p style="margin:6px 0 0 0;font-size:12px;color:${riskScoreDelta !== null && riskScoreDelta! > 0 ? '#15803d' : riskScoreDelta! < 0 ? '#b91c1c' : '#6b7280'};font-weight:700;">
+                    Risk Score vs. Last Review: ${deltaLabel}
+                  </p>` : ''}
+                  ${nextDueDateLabel ? `<p style="margin:6px 0 0 0;font-size:12px;color:#6b7280;">
+                    Next review due: ${nextDueDateLabel}
+                  </p>` : ''}
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        ${aiSummary ? `
+        <!-- AI Summary -->
+        <tr>
+          <td style="padding:16px 40px 0 40px;">
+            <table width="100%" cellpadding="0" cellspacing="0"
+              style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px 24px;">
+              <tr>
+                <td>
+                  <p style="margin:0 0 8px 0;font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">
+                    AI Underwriting Summary
+                  </p>
+                  <p style="margin:0;font-size:14px;color:#334155;line-height:1.7;">${aiSummary}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>` : ''}
+
+        ${recRows ? `
+        <!-- Recommendations -->
+        <tr>
+          <td style="padding:16px 40px 0 40px;">
+            <table width="100%" cellpadding="0" cellspacing="0"
+              style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px 24px;">
+              <tr>
+                <td>
+                  <p style="margin:0 0 12px 0;font-size:14px;font-weight:700;color:#15803d;">
+                    Your Next Steps
+                  </p>
+                  <ul style="margin:0;padding:0;list-style:none;">${recRows}</ul>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>` : ''}
+
+        ${issueRows ? `
+        <!-- Key Issues -->
+        <tr>
+          <td style="padding:16px 40px 0 40px;">
+            <table width="100%" cellpadding="0" cellspacing="0"
+              style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:20px 24px;">
+              <tr>
+                <td>
+                  <p style="margin:0 0 12px 0;font-size:14px;font-weight:700;color:#92400e;">
+                    Areas to Address (${keyIssues.length})
+                  </p>
+                  <ul style="margin:0;padding:0 0 0 4px;list-style:none;">${issueRows}</ul>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>` : ''}
+
+        <!-- CTA -->
+        <tr>
+          <td style="padding:32px 40px;text-align:center;">
+            <p style="margin:0 0 20px 0;font-size:15px;font-weight:700;color:#111827;">
+              Your funding plan is ready — head to your dashboard.
+            </p>
+            <a href="${dashboardUrl}"
+              style="display:inline-block;background:#16a34a;color:#ffffff;font-weight:700;font-size:15px;
+                     padding:14px 36px;border-radius:12px;text-decoration:none;letter-spacing:0.2px;">
+              Go to My Dashboard →
+            </a>
+          </td>
+        </tr>
+
+        <!-- Legal Footer -->
+        <tr>
+          <td style="padding:0 40px 24px 40px;border-top:1px solid #e5e7eb;padding-top:24px;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;text-align:center;">
+              All recommendations are based on the information you provided during your profile analysis.
+              SourcifyLending does not guarantee approvals, credit limits, or funding outcomes. Individual results vary.
+              © ${new Date().getFullYear()} SourcifyLending
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: toEmail,
+      subject: isRenewal
+        ? `Monthly Review #${reviewNumber} Complete — SourcifyLending`
+        : `Your Underwriting Review is Complete — SourcifyLending`,
+      html,
+    })
+    return { success: !error }
+  } catch {
+    return { success: false }
+  }
+}

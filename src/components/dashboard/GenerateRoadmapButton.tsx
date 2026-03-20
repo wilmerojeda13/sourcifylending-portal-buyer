@@ -12,11 +12,27 @@ export default function GenerateRoadmapButton() {
     setLoading(true)
     setError('')
     try {
+      // Safety gate: verify underwriting is complete before generating roadmap
+      const statusRes = await fetch('/api/underwriting')
+      if (statusRes.ok) {
+        const statusData = await statusRes.json()
+        if (statusData.needs_underwriting) {
+          router.push('/underwriting')
+          return
+        }
+      }
+
       const res = await fetch('/api/tasks/generate', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
         setError(data.error || 'Something went wrong. Please try again.')
       } else {
+        // Log roadmap generation event (fire-and-forget)
+        fetch('/api/activity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event_type: 'roadmap_generated' }),
+        }).catch(() => {})
         // Refresh the page to show the newly generated tasks
         router.refresh()
       }

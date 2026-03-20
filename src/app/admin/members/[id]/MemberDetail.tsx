@@ -100,6 +100,9 @@ export default function MemberDetail({
   const [saving, setSaving] = useState(false)
   const [canceling, setCanceling] = useState(false)
   const [blocking, setBlocking] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('')
   const [showActivityLog, setShowActivityLog] = useState(false)
 
   // ── Notification ──
@@ -240,6 +243,20 @@ export default function MemberDetail({
       toast.error('Cancellation failed')
     } finally {
       setCanceling(false)
+    }
+  }
+
+  async function deleteAccount() {
+    if (deleteConfirmEmail !== profile.email) { toast.error('Email does not match'); return }
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/users?id=${profile.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Delete failed')
+      toast.success('Account permanently deleted')
+      window.location.href = '/admin/members'
+    } catch {
+      toast.error('Failed to delete account')
+      setDeleting(false)
     }
   }
 
@@ -610,8 +627,49 @@ export default function MemberDetail({
               {blocking ? <Loader2 size={12} className="animate-spin" /> : form.portal_blocked ? <ShieldOff size={12} /> : <Shield size={12} />}
               {form.portal_blocked ? 'Unblock Portal' : 'Block Portal'}
             </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border border-red-300 text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
+            >
+              <Trash2 size={12} /> Delete Account
+            </button>
           </div>
         </div>
+
+        {/* ── Delete Confirmation Modal ── */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+              <h2 className="text-lg font-bold text-red-700 mb-1">Permanently Delete Account</h2>
+              <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                This will permanently delete <strong>{profile.full_name}</strong>&apos;s account, all their tasks, documents, and data. <strong>This cannot be undone.</strong>
+              </p>
+              <p className="text-xs text-gray-500 mb-2 font-medium">Type the member&apos;s email to confirm:</p>
+              <input
+                type="email"
+                value={deleteConfirmEmail}
+                onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                placeholder={profile.email}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-red-400"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmEmail('') }}
+                  className="flex-1 text-sm px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteAccount}
+                  disabled={deleting || deleteConfirmEmail !== profile.email}
+                  className="flex-1 text-sm px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {deleting ? <><Loader2 size={14} className="animate-spin" /> Deleting…</> : 'Delete Account'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 

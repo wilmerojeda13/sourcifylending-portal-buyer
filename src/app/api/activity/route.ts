@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
       'checkout_started', 'checkout_completed', 'subscription_reactivated',
       'subscription_canceled', 'payment_failed', 'task_completed',
       'document_uploaded', 'report_generated', 'portal_accessed',
+      // Underwriting & intelligence system events
+      'underwriting_started', 'underwriting_completed', 'underwriting_disqualified',
+      'roadmap_generated', 'opportunity_viewed', 'application_attempted', 'subscription_started',
     ]
 
     if (!validEvents.includes(event_type)) {
