@@ -75,7 +75,7 @@ export default function AnalyzerPage() {
   const [loading, setLoading] = useState(false)
 
   // Logged-in user state
-  const [loggedInUser, setLoggedInUser] = useState<{ name: string; email: string } | null>(null)
+  const [loggedInUser, setLoggedInUser] = useState<{ name: string; email: string; assignedProgram?: string } | null>(null)
 
   // Contact gate state (only used for guests)
   const [showContactGate, setShowContactGate] = useState(false)
@@ -91,12 +91,13 @@ export default function AnalyzerPage() {
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, email')
+          .select('full_name, email, assigned_program')
           .eq('id', user.id)
           .single()
         setLoggedInUser({
           name: profile?.full_name || user.user_metadata?.full_name || '',
           email: profile?.email || user.email || '',
+          assignedProgram: profile?.assigned_program || undefined,
         })
       }
     }
@@ -188,6 +189,7 @@ export default function AnalyzerPage() {
         contactBusinessName={answers.business_name}
         isLoggedIn={!!loggedInUser}
         loggedInUserName={loggedInUser?.name}
+        loggedInAssignedProgram={loggedInUser?.assignedProgram}
       />
     )
   }
@@ -432,6 +434,7 @@ function AnalyzerResults({
   contactBusinessName?: string
   isLoggedIn?: boolean
   loggedInUserName?: string
+  loggedInAssignedProgram?: string
 }) {
   const router = useRouter()
   const supabase = createClient()

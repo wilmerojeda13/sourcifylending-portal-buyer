@@ -343,13 +343,10 @@ export default function CreditOptimizationClient({ profile, nextTask, isActive }
             <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4 flex items-start gap-3">
               <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-blue-800">Run the analyzer to populate these metrics</p>
+                <p className="text-sm font-semibold text-blue-800">Credit metrics not yet populated</p>
                 <p className="text-xs text-blue-600 mt-0.5">
-                  Your credit data will appear here after completing the funding readiness analyzer.
+                  Your advisor will update your credit profile. Reach out via Support if you have questions.
                 </p>
-                <Link href="/analyzer" className="mt-2 inline-block text-xs font-bold text-blue-700 underline underline-offset-2">
-                  Go to Analyzer →
-                </Link>
               </div>
             </div>
           )}
@@ -370,9 +367,6 @@ export default function CreditOptimizationClient({ profile, nextTask, isActive }
           <div className="mt-4 flex gap-3">
             <Link href="/opportunities" className="text-sm font-semibold text-green-700 bg-green-50 border border-green-200 px-4 py-2.5 rounded-xl hover:bg-green-100 transition-colors">
               View Funding Opportunities →
-            </Link>
-            <Link href="/analyzer" className="text-sm text-gray-600 border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
-              Re-run Analyzer
             </Link>
           </div>
         </div>

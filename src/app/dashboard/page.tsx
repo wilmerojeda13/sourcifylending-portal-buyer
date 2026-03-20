@@ -150,6 +150,8 @@ export default async function DashboardPage() {
               <StatusBadge status={profile.readiness_status} />
               <p className="text-xs text-gray-400 mt-2">Based on analyzer results</p>
             </>
+          ) : isActive ? (
+            <p className="text-xs text-gray-400 mt-1">Not yet assessed</p>
           ) : (
             <Link href="/analyzer" className="text-xs text-green-600 font-medium flex items-center gap-1 mt-1">
               Run analyzer <ArrowRight size={12} />

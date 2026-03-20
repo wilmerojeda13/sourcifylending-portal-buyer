@@ -474,7 +474,7 @@ export default function BillingPage() {
           ))}
 
           <p className="text-xs text-gray-400 text-center pt-2">
-            Not sure which program fits? <a href="/analyzer" className="text-green-600 underline font-medium">Take the free analyzer</a> — takes 2 minutes.
+            Not sure which program fits? Contact us at <span className="font-medium text-gray-500">support@sourcifylending.com</span> and we&apos;ll help you choose.
           </p>
         </div>
       )}
