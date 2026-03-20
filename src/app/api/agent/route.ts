@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import {
   checkAIUsage,
   recordAIUsage,
@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    console.error('Agent error: OPENAI_API_KEY is not configured')
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('Agent error: ANTHROPIC_API_KEY is not configured')
     // Treat missing API key as a platform-level issue (not a user credit issue)
     return NextResponse.json(
       { message: PLATFORM_MAINTENANCE_MESSAGE, platform_maintenance: true },
@@ -61,10 +61,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    baseURL: process.env.OPENAI_BASE_URL,
-  })
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
   try {
     const supabase = await createClient()
@@ -263,22 +260,19 @@ When asked about opportunities, cards, vendors, or lenders: Reference ONLY items
 
 Keep responses focused, structured with bullets when listing items, and always end with a clear next action.`
 
-    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+    const model = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'
     let aiMessage = 'I encountered an error. Please try again.'
     let callStatus: 'success' | 'failed' = 'failed'
 
     try {
-      const response = await openai.chat.completions.create({
+      const response = await anthropic.messages.create({
         model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages,
-        ],
         max_tokens: 600,
-        temperature: 0.7,
+        system: systemPrompt,
+        messages,
       })
 
-      aiMessage = response.choices[0]?.message?.content || aiMessage
+      aiMessage = response.content[0]?.type === 'text' ? response.content[0].text : aiMessage
       callStatus = 'success'
     } catch (aiErr) {
       const errMsg = aiErr instanceof Error ? aiErr.message : String(aiErr)
@@ -290,11 +284,11 @@ Keep responses focused, structured with bullets when listing items, and always e
         errMsg.includes('503') ||
         errMsg.includes('502') ||
         errMsg.includes('529') ||
-        errMsg.includes('insufficient_quota') ||
+        errMsg.includes('overload') ||
         errMsg.includes('ECONNREFUSED') ||
         errMsg.includes('ETIMEDOUT') ||
         errMsg.includes('network')
-      console.error(`[AI-PLATFORM-ERROR] OpenAI call failed (isPlatformError=${isPlatformError}):`, errMsg)
+      console.error(`[AI-PLATFORM-ERROR] Anthropic call failed (isPlatformError=${isPlatformError}):`, errMsg)
       if (isPlatformError) {
         // Record the failed attempt then return the maintenance message
         await recordAIUsage(

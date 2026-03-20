@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 
 const PROGRAM_NAMES: Record<string, string> = {
   program_a: 'Program A — 0% Intro APR Card Strategy',
@@ -70,7 +70,7 @@ export async function POST() {
     const primaryGoal = answers.primary_goal || 'build_ein_credit'
     const nsfActivity = answers.nsf_last_90_days === 'true' ? 'Yes' : 'No'
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
     const systemPrompt = `You are an expert business credit advisor for SourcifyLending.
 Your job is to generate a personalized, actionable onboarding task list for a new client based on their profile.
@@ -101,24 +101,22 @@ Return ONLY this JSON format:
   }
 ]`
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.4,
+    const message = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1500,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
     })
 
-    const raw = completion.choices[0]?.message?.content?.trim() ?? '[]'
+    const raw = message.content[0]?.type === 'text' ? message.content[0].text.trim() : '[]'
 
     let generatedTasks: GeneratedTask[] = []
     try {
-      generatedTasks = JSON.parse(raw)
+      const cleaned = raw.replace(/^```json\n?/i, '').replace(/\n?```$/i, '').trim()
+      generatedTasks = JSON.parse(cleaned)
       if (!Array.isArray(generatedTasks)) throw new Error('Not an array')
     } catch {
-      console.error('[TaskGen] Failed to parse OpenAI response:', raw)
+      console.error('[TaskGen] Failed to parse AI response:', raw)
       return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 })
     }
 

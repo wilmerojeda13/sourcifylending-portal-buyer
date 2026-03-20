@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import type { ReportType } from '@/types'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -222,29 +222,20 @@ export async function POST(req: NextRequest) {
 
     let content: string
 
-    if (isDemo || !process.env.OPENAI_API_KEY) {
+    if (isDemo || !process.env.ANTHROPIC_API_KEY) {
       // Demo accounts (or missing key): use static sample content
       content = DEMO_REPORT_CONTENT[report_type]
     } else {
-      // Live report — call OpenAI
+      // Live report — call Anthropic
       try {
-        const openai = new OpenAI({
-          apiKey: process.env.OPENAI_API_KEY,
-          baseURL: process.env.OPENAI_BASE_URL,
-        })
-        const response = await openai.chat.completions.create({
-          model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a professional business credit consultant generating formal client reports for SourcifyLending. Reports must be professional, factual, and never promise specific credit outcomes or approvals.',
-            },
-            { role: 'user', content: promptFn(ctx) },
-          ],
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+        const response = await anthropic.messages.create({
+          model: 'claude-haiku-4-5-20251001',
           max_tokens: 800,
-          temperature: 0.6,
+          system: 'You are a professional business credit consultant generating formal client reports for SourcifyLending. Reports must be professional, factual, and never promise specific credit outcomes or approvals.',
+          messages: [{ role: 'user', content: promptFn(ctx) }],
         })
-        content = response.choices[0]?.message?.content || ''
+        content = response.content[0]?.type === 'text' ? response.content[0].text : ''
         if (!content) throw new Error('Empty response from AI provider')
       } catch (aiErr) {
         const msg = aiErr instanceof Error ? aiErr.message : String(aiErr)

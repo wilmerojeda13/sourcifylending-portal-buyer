@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import { checkAIUsage, recordAIUsage } from '@/lib/ai-usage'
 import { logMemoryEvent } from '@/lib/ai-memory'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 // Map detected document types to business_credibility checklist keys
 const DOC_TYPE_TO_TASKS: Record<string, string[]> = {
@@ -108,35 +108,29 @@ Rules:
 - tasks_to_complete should only include keys for valid, accepted documents
 - If the image is unclear, blurry, or unreadable, set is_valid false with rejection_reason explaining why`
 
-    const userContent = isImage
+    const userContent: Anthropic.MessageParam['content'] = isImage
       ? [
           {
             type: 'text' as const,
             text: `Declared document type: ${declaredLabel}\nFilename: ${doc.file_name}\n\nAnalyze this document image and return the JSON assessment.`,
           },
           {
-            type: 'image_url' as const,
-            image_url: { url: doc.file_url, detail: 'high' as const },
+            type: 'image' as const,
+            source: { type: 'url' as const, url: doc.file_url },
           },
         ]
       : `Declared document type: ${declaredLabel}\nFilename: ${doc.file_name}\nFile extension: .${ext}\n\nNote: This file type (${ext}) cannot be visually previewed. Base your analysis on the declared type, filename, and common document characteristics. If the filename is clearly mismatched from the declared type, flag it. Otherwise, provide guidance appropriate for this document type.\n\nReturn the JSON assessment.`
 
-    const model = isImage ? 'gpt-4o' : 'gpt-4o-mini'
+    const model = isImage ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001'
 
-    const completion = await openai.chat.completions.create({
+    const message = await anthropic.messages.create({
       model,
       max_tokens: 800,
-      temperature: 0,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: userContent,
-        },
-      ],
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userContent }],
     })
 
-    const rawContent = completion.choices[0]?.message?.content ?? '{}'
+    const rawContent = message.content[0]?.type === 'text' ? message.content[0].text : '{}'
 
     // Parse JSON — strip any accidental markdown fences
     let analysis: Record<string, unknown>
