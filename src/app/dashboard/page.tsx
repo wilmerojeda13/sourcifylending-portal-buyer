@@ -142,22 +142,19 @@ export default async function DashboardPage() {
 
       {/* Top Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {/* Readiness */}
-        <div className="card col-span-2 md:col-span-1">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Funding Readiness</p>
-          {profile?.readiness_status ? (
-            <>
+        {/* Readiness — hide entirely for active members who never ran the analyzer */}
+        {(profile?.readiness_status || !isActive) && (
+          <div className="card col-span-2 md:col-span-1">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Funding Readiness</p>
+            {profile?.readiness_status ? (
               <StatusBadge status={profile.readiness_status} />
-              <p className="text-xs text-gray-400 mt-2">Based on analyzer results</p>
-            </>
-          ) : isActive ? (
-            <p className="text-xs text-gray-400 mt-1">Not yet assessed</p>
-          ) : (
-            <Link href="/analyzer" className="text-xs text-green-600 font-medium flex items-center gap-1 mt-1">
-              Run analyzer <ArrowRight size={12} />
-            </Link>
-          )}
-        </div>
+            ) : (
+              <Link href="/analyzer" className="text-xs text-green-600 font-medium flex items-center gap-1 mt-1">
+                Run analyzer <ArrowRight size={12} />
+              </Link>
+            )}
+          </div>
+        )}
 
         {/* Program */}
         <div className="card col-span-2 md:col-span-1">
