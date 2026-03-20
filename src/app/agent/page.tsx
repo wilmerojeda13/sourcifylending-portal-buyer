@@ -1,5 +1,6 @@
 'use client'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import { Send, Bot, User, RefreshCw, Loader2, WifiOff, History } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -16,8 +17,18 @@ const QUICK_PROMPTS = [
   "Generate a progress summary",
 ]
 
-export default function AgentPage() {
+export default function AgentPageWrapper() {
+  return (
+    <Suspense fallback={<PortalLayout><div className="flex items-center justify-center h-64"><Loader2 size={24} className="animate-spin text-green-400" /></div></PortalLayout>}>
+      <AgentPage />
+    </Suspense>
+  )
+}
+
+function AgentPage() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const autoPrompt = searchParams.get('prompt')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -101,6 +112,14 @@ export default function AgentPage() {
     }
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-send prompt when arriving from "Ask AI" button on a task
+  const autoPromptSentRef = useRef(false)
+  useEffect(() => {
+    if (!autoPrompt || initializing || autoPromptSentRef.current) return
+    autoPromptSentRef.current = true
+    sendMessage(autoPrompt)
+  }, [autoPrompt, initializing, sendMessage])
 
   const persistMessage = useCallback(async (role: 'user' | 'assistant', content: string) => {
     if (!conversationId) return

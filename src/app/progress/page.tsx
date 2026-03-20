@@ -1,12 +1,12 @@
 'use client'
 import { useState, useEffect, useRef, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import { createClient } from '@/lib/supabase/client'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/Badge'
 import { getProgramShortLabel, formatDate } from '@/lib/utils'
-import { CheckCircle, Clock, Lock, AlertTriangle, FileText, List, LayoutGrid, Sparkles } from 'lucide-react'
+import { CheckCircle, Clock, Lock, AlertTriangle, FileText, List, LayoutGrid, Sparkles, Bot, X } from 'lucide-react'
 import type { Task, UserProfile } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -29,6 +29,7 @@ export default function ProgressPageWrapper() {
 
 function ProgressPage() {
   const supabase = createClient()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const targetTaskId = searchParams.get('taskId')
   const taskRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -41,6 +42,7 @@ function ProgressPage() {
   const [isActive, setIsActive] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState('')
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false)
 
   // Auto-scroll to target task once tasks are loaded
   useEffect(() => {
@@ -81,6 +83,7 @@ function ProgressPage() {
         setGenerateError(data.error || 'Something went wrong. Please try again.')
       } else if (data.tasks) {
         setTasks(data.tasks)
+        setShowWelcomeBanner(true)
       }
     } catch {
       setGenerateError('Something went wrong. Please try again.')
@@ -198,6 +201,24 @@ function ProgressPage() {
         </div>
       </div>
 
+      {/* Welcome banner after roadmap generation */}
+      {showWelcomeBanner && tasks.length > 0 && (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-2xl px-4 py-4 flex items-start gap-3">
+          <div className="w-9 h-9 bg-green-600 rounded-xl flex items-center justify-center shrink-0">
+            <Sparkles size={18} className="text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-green-900 mb-0.5">Your roadmap is ready!</p>
+            <p className="text-xs text-green-700 leading-relaxed">
+              Start with <strong>Task 1: {tasks.find(t => t.status === 'pending')?.title || tasks[0]?.title}</strong>. Tap <strong>Ask AI</strong> on any task and your advisor will walk you through it step by step.
+            </p>
+          </div>
+          <button onClick={() => setShowWelcomeBanner(false)} className="text-green-400 hover:text-green-600 shrink-0">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* List View */}
       {view === 'list' && (
         <div className="space-y-3">
@@ -213,6 +234,7 @@ function ProgressPage() {
                     isActive={isActive}
                     highlighted={highlightedTaskId === task.task_id}
                     setRef={(el) => { taskRefs.current[task.task_id] = el }}
+                    onAskAI={(title) => router.push(`/agent?prompt=${encodeURIComponent(`Walk me through this task step by step: "${title}"`)}`)}
                   />
                 ))}
               </div>
@@ -279,13 +301,14 @@ function ProgressPage() {
 }
 
 function TaskRow({
-  task, onComplete, isActive, highlighted = false, setRef
+  task, onComplete, isActive, highlighted = false, setRef, onAskAI
 }: {
   task: Task
   onComplete: (id: string) => void
   isActive: boolean
   highlighted?: boolean
   setRef?: (el: HTMLDivElement | null) => void
+  onAskAI?: (title: string) => void
 }) {
   const statusIcon = {
     completed: <CheckCircle size={18} className="text-green-500" />,
@@ -323,13 +346,21 @@ function TaskRow({
         </div>
       </div>
       {task.status === 'pending' && (
-        <button
-          onClick={() => onComplete(task.task_id)}
-          disabled={!isActive}
-          className="shrink-0 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
-        >
-          Complete
-        </button>
+        <div className="flex flex-col gap-1.5 shrink-0">
+          <button
+            onClick={() => onComplete(task.task_id)}
+            disabled={!isActive}
+            className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
+          >
+            Complete
+          </button>
+          <button
+            onClick={() => onAskAI?.(task.title)}
+            className="text-xs bg-white border border-green-200 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors font-medium flex items-center gap-1 justify-center"
+          >
+            <Bot size={11} /> Ask AI
+          </button>
+        </div>
       )}
     </div>
   )
