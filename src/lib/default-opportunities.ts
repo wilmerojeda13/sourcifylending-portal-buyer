@@ -969,6 +969,23 @@ const PROGRAM_B: DefaultOpportunity[] = [
     notes: 'Reports to Equifax Business and Creditsafe — useful for rounding out multi-bureau coverage. No PG. Monthly subscription fee (verify current pricing on fairfigure.com). EIN required. Primarily a tradeline-building service, not a product/service vendor.',
   },
 
+  // ── Equipment Financing Stage — Home Depot Project Loan ──
+  {
+    name: 'Home Depot Project Loan',
+    program: 'program_b',
+    stage: 'Equipment Financing',
+    category: 'funding',
+    reports_to: 'Dun & Bradstreet, Experian Business',
+    terms: 'Fixed installment loan for large purchases; up to $55,000; repayment up to 84 months (verify current terms at apply URL)',
+    pg_required: 'yes',
+    description: 'Home Depot Project Loan provides fixed installment financing for large business purchases — equipment, materials, and renovation projects. Available up to $55,000 with repayment terms up to 84 months. Citi-issued and reports to business bureaus via SBFE. PG required. Direct apply URL confirmed active March 2026. Best for contractors and businesses financing large single-project purchases.',
+    learn_more_url: 'https://www.homedepot.com/c/credit-center',
+    apply_url: 'https://www.homedepotcredit.com/business/project-loan',
+    priority_score: 70,
+    is_active: true,
+    notes: 'Direct apply URL confirmed active March 2026 at homedepotcredit.com/business/project-loan. Citi-issued fixed installment loan — not a revolving account. D&B and Experian Business reporting via SBFE. PG required. Loan amounts and exact repayment terms could not be confirmed from live page (JavaScript-redirect only) — verify current terms at apply URL before recommending specific amounts. Best for contractors financing a large single project (renovation, equipment, materials). EIN required.',
+  },
+
   // ── Store Credit Stage — Contractor / Trades Additions (Needs Manual Review) ──
   // These are confirmed real businesses with commercial accounts but bureau reporting
   // and exact terms could not be verified from official sites in March 2026 audit.
