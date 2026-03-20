@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/Badge'
 import { getProgramShortLabel, formatDate } from '@/lib/utils'
-import { CheckCircle, Clock, Lock, AlertTriangle, FileText, List, LayoutGrid } from 'lucide-react'
+import { CheckCircle, Clock, Lock, AlertTriangle, FileText, List, LayoutGrid, Sparkles } from 'lucide-react'
 import type { Task, UserProfile } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -39,6 +39,8 @@ function ProgressPage() {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<ViewMode>('list')
   const [isActive, setIsActive] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState('')
 
   // Auto-scroll to target task once tasks are loaded
   useEffect(() => {
@@ -68,6 +70,23 @@ function ProgressPage() {
     }
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const generateRoadmap = async () => {
+    setGenerating(true)
+    setGenerateError('')
+    try {
+      const res = await fetch('/api/tasks/generate', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        setGenerateError(data.error || 'Something went wrong. Please try again.')
+      } else if (data.tasks) {
+        setTasks(data.tasks)
+      }
+    } catch {
+      setGenerateError('Something went wrong. Please try again.')
+    }
+    setGenerating(false)
+  }
 
   const markComplete = async (taskId: string) => {
     if (!isActive) { toast.error('Reactivate subscription to complete tasks'); return }
@@ -222,8 +241,33 @@ function ProgressPage() {
         <div className="card text-center py-12">
           {isActive ? (
             <>
-              <p className="text-gray-700 font-medium text-sm mb-1">Your program is active</p>
-              <p className="text-gray-400 text-xs leading-relaxed max-w-sm mx-auto">Your advisor is preparing your task list. Check back soon or reach out via Support if you have questions.</p>
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Sparkles size={22} className="text-green-600" />
+              </div>
+              <p className="text-gray-800 font-semibold text-sm mb-1">Ready to build your roadmap?</p>
+              <p className="text-gray-400 text-xs leading-relaxed max-w-sm mx-auto mb-4">
+                Our AI advisor will generate a personalized task list based on your profile and program.
+              </p>
+              {generateError && (
+                <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3 max-w-xs mx-auto">{generateError}</p>
+              )}
+              <button
+                onClick={generateRoadmap}
+                disabled={generating}
+                className="btn-primary text-xs px-5 py-2.5 inline-flex items-center gap-2"
+              >
+                {generating ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Generating your roadmap…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={14} />
+                    Generate My Roadmap
+                  </>
+                )}
+              </button>
             </>
           ) : (
             <p className="text-gray-400 text-sm">No tasks assigned yet. Subscribe to begin your program.</p>

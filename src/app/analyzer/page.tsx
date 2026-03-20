@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -68,17 +68,40 @@ interface AnalyzerApiResult extends AnalyzerResult {
 }
 
 export default function AnalyzerPage() {
+  const supabase = createClient()
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [result, setResult] = useState<AnalyzerApiResult | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // Contact gate state
+  // Logged-in user state
+  const [loggedInUser, setLoggedInUser] = useState<{ name: string; email: string } | null>(null)
+
+  // Contact gate state (only used for guests)
   const [showContactGate, setShowContactGate] = useState(false)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [contactError, setContactError] = useState('')
+
+  // Check auth on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', user.id)
+          .single()
+        setLoggedInUser({
+          name: profile?.full_name || user.user_metadata?.full_name || '',
+          email: profile?.email || user.email || '',
+        })
+      }
+    }
+    checkAuth()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const current = QUESTIONS[step]
   const progress = (step / TOTAL_STEPS) * 100
@@ -86,13 +109,49 @@ export default function AnalyzerPage() {
   const setValue = (val: string) => setAnswers({ ...answers, [current.id]: val })
   const currentVal = answers[current.id] || ''
 
+  const submitAnalyzer = async (name: string, userEmail: string, userPhone?: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/leads/analyzer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: name,
+          email: userEmail,
+          phone: userPhone || undefined,
+          business_name: answers.business_name || undefined,
+          answers,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setContactError(data.error || 'Something went wrong. Please try again.')
+      } else {
+        setResult(data as AnalyzerApiResult)
+        // If user is logged in, trigger AI roadmap generation in the background
+        if (loggedInUser) {
+          fetch('/api/tasks/generate', { method: 'POST' }).catch(() => {})
+        }
+      }
+    } catch {
+      setContactError('Something went wrong. Please try again.')
+    }
+    setLoading(false)
+  }
+
   const handleNext = () => {
     if (!currentVal && current.type !== 'boolean') return
     if (step < TOTAL_STEPS - 1) {
       setStep(step + 1)
     } else {
-      // All questions answered — show contact gate
-      setShowContactGate(true)
+      // All questions answered
+      if (loggedInUser) {
+        // Logged-in: skip contact gate, submit directly
+        submitAnalyzer(loggedInUser.name, loggedInUser.email)
+      } else {
+        // Guest: show contact gate
+        setShowContactGate(true)
+      }
     }
   }
 
@@ -103,30 +162,7 @@ export default function AnalyzerPage() {
       setContactError('Please enter a valid email address.')
       return
     }
-
-    setLoading(true)
-    try {
-      const res = await fetch('/api/leads/analyzer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: fullName.trim(),
-          email: email.trim(),
-          phone: phone.trim() || undefined,
-          business_name: answers.business_name || undefined,
-          answers,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setContactError(data.error || 'Something went wrong. Please try again.')
-      } else {
-        setResult(data as AnalyzerApiResult)
-      }
-    } catch {
-      setContactError('Something went wrong. Please try again.')
-    }
-    setLoading(false)
+    await submitAnalyzer(fullName.trim(), email.trim(), phone.trim() || undefined)
   }
 
   if (loading) {
@@ -147,9 +183,11 @@ export default function AnalyzerPage() {
         result={result}
         businessName={answers.business_name}
         leadId={result.lead_id}
-        contactEmail={email}
-        contactName={fullName}
+        contactEmail={loggedInUser?.email || email}
+        contactName={loggedInUser?.name || fullName}
         contactBusinessName={answers.business_name}
+        isLoggedIn={!!loggedInUser}
+        loggedInUserName={loggedInUser?.name}
       />
     )
   }
@@ -383,6 +421,8 @@ function AnalyzerResults({
   contactEmail,
   contactName,
   contactBusinessName,
+  isLoggedIn,
+  loggedInUserName,
 }: {
   result: AnalyzerResult
   businessName?: string
@@ -390,6 +430,8 @@ function AnalyzerResults({
   contactEmail?: string
   contactName?: string
   contactBusinessName?: string
+  isLoggedIn?: boolean
+  loggedInUserName?: string
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -531,116 +573,135 @@ function AnalyzerResults({
           </div>
         )}
 
-        {/* ─── Three-Way CTA ─────────────────────────────────────────────────── */}
-        <div className="space-y-3">
-          {/* Primary: Create Free Account */}
-          <div className="card border-2 border-green-500 bg-white">
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles size={16} className="text-green-600" />
-              <span className="text-xs font-bold text-green-600 uppercase tracking-wide">Free — No Credit Card</span>
+        {/* ─── CTA Block ─────────────────────────────────────────────────────── */}
+        {isLoggedIn ? (
+          /* Logged-in: results saved automatically — go to dashboard */
+          <div className="card border-2 border-green-500 bg-white text-center py-6">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <CheckCircle size={22} className="text-green-600" />
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-1">
-              Save Your Results &amp; Access Your Free Portal
+              Your analysis has been saved
             </h3>
             <p className="text-sm text-gray-500 mb-4 leading-relaxed">
-              Create a free account to save your analysis, see your personalized roadmap preview, and access your prospect dashboard.
+              {loggedInUserName ? `${loggedInUserName.split(' ')[0]}, your` : 'Your'} results are saved to your account and your AI roadmap is being generated. Head to your dashboard to see your next steps.
             </p>
-
-            {!showSignupForm ? (
-              <div className="space-y-3">
-                <div onClick={saveAnalyzerToSession}>
-                  <GoogleSignInButton
-                    redirectTo="/dashboard"
-                    label="Continue with Google — Free"
-                  />
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-px bg-gray-100" />
-                  <span className="text-xs text-gray-400">or</span>
-                  <div className="flex-1 h-px bg-gray-100" />
-                </div>
-                <button
-                  onClick={() => setShowSignupForm(true)}
-                  className="btn-primary w-full py-3.5 text-base"
-                >
-                  Create with Email <ArrowRight size={16} />
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex gap-2 text-sm text-gray-600 bg-gray-50 rounded-xl px-3 py-2.5">
-                  <span className="font-medium text-gray-900 truncate">{contactEmail}</span>
-                  <span className="text-gray-400 shrink-0">· pre-filled</span>
-                </div>
-                <div className="relative">
-                  <input
-                    type={showPass ? 'text' : 'password'}
-                    className="input-field pr-12"
-                    placeholder="Choose a password (min 8 chars)"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleCreateFreeAccount()}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                {signupError && (
-                  <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{signupError}</p>
-                )}
-                <button
-                  onClick={handleCreateFreeAccount}
-                  disabled={signupLoading || signupPassword.length < 8}
-                  className="btn-primary w-full py-3.5"
-                >
-                  {signupLoading ? 'Creating account…' : 'Enter My Portal →'}
-                </button>
-                <p className="text-xs text-gray-400 text-center">
-                  Already have an account?{' '}
-                  <Link href="/login" className="text-green-600 font-semibold">Sign in</Link>
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Secondary CTAs side by side */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Book a Call */}
-            {BOOKING_URL ? (
-              <a
-                href={BOOKING_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="card border border-gray-200 hover:border-green-300 hover:bg-green-50/30 transition-all group text-center py-5"
-              >
-                <CalendarDays size={22} className="text-green-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                <p className="font-bold text-gray-900 text-sm">Book a Strategy Call</p>
-                <p className="text-xs text-gray-500 mt-1">Talk to an advisor about your results</p>
-              </a>
-            ) : (
-              <div className="card border border-gray-200 text-center py-5">
-                <CalendarDays size={22} className="text-gray-300 mx-auto mb-2" />
-                <p className="font-bold text-gray-400 text-sm">Strategy Call</p>
-                <p className="text-xs text-gray-400 mt-1">Coming soon</p>
-              </div>
-            )}
-
-            {/* Join Paid Program */}
-            <Link
-              href="/signup"
-              className="card border border-gray-200 hover:border-green-300 hover:bg-green-50/30 transition-all group text-center py-5"
-            >
-              <ChevronRight size={22} className="text-green-600 mx-auto mb-2 group-hover:translate-x-0.5 transition-transform" />
-              <p className="font-bold text-gray-900 text-sm">Start {programNames[result.assigned_program].split('—')[0].trim()}</p>
-              <p className="text-xs text-gray-500 mt-1">Full program access</p>
+            <Link href="/dashboard" className="btn-primary inline-flex items-center gap-2 px-6 py-3">
+              Go to My Dashboard <ArrowRight size={16} />
             </Link>
           </div>
-        </div>
+        ) : (
+          /* Guest: show account creation + secondary CTAs */
+          <div className="space-y-3">
+            {/* Primary: Create Free Account */}
+            <div className="card border-2 border-green-500 bg-white">
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles size={16} className="text-green-600" />
+                <span className="text-xs font-bold text-green-600 uppercase tracking-wide">Free — No Credit Card</span>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">
+                Save Your Results &amp; Access Your Free Portal
+              </h3>
+              <p className="text-sm text-gray-500 mb-4 leading-relaxed">
+                Create a free account to save your analysis, see your personalized roadmap preview, and access your prospect dashboard.
+              </p>
+
+              {!showSignupForm ? (
+                <div className="space-y-3">
+                  <div onClick={saveAnalyzerToSession}>
+                    <GoogleSignInButton
+                      redirectTo="/dashboard"
+                      label="Continue with Google — Free"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-gray-100" />
+                    <span className="text-xs text-gray-400">or</span>
+                    <div className="flex-1 h-px bg-gray-100" />
+                  </div>
+                  <button
+                    onClick={() => setShowSignupForm(true)}
+                    className="btn-primary w-full py-3.5 text-base"
+                  >
+                    Create with Email <ArrowRight size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex gap-2 text-sm text-gray-600 bg-gray-50 rounded-xl px-3 py-2.5">
+                    <span className="font-medium text-gray-900 truncate">{contactEmail}</span>
+                    <span className="text-gray-400 shrink-0">· pre-filled</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      className="input-field pr-12"
+                      placeholder="Choose a password (min 8 chars)"
+                      value={signupPassword}
+                      onChange={(e) => setSignupPassword(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleCreateFreeAccount()}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass(!showPass)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {signupError && (
+                    <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{signupError}</p>
+                  )}
+                  <button
+                    onClick={handleCreateFreeAccount}
+                    disabled={signupLoading || signupPassword.length < 8}
+                    className="btn-primary w-full py-3.5"
+                  >
+                    {signupLoading ? 'Creating account…' : 'Enter My Portal →'}
+                  </button>
+                  <p className="text-xs text-gray-400 text-center">
+                    Already have an account?{' '}
+                    <Link href="/login" className="text-green-600 font-semibold">Sign in</Link>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Secondary CTAs side by side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Book a Call */}
+              {BOOKING_URL ? (
+                <a
+                  href={BOOKING_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="card border border-gray-200 hover:border-green-300 hover:bg-green-50/30 transition-all group text-center py-5"
+                >
+                  <CalendarDays size={22} className="text-green-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                  <p className="font-bold text-gray-900 text-sm">Book a Strategy Call</p>
+                  <p className="text-xs text-gray-500 mt-1">Talk to an advisor about your results</p>
+                </a>
+              ) : (
+                <div className="card border border-gray-200 text-center py-5">
+                  <CalendarDays size={22} className="text-gray-300 mx-auto mb-2" />
+                  <p className="font-bold text-gray-400 text-sm">Strategy Call</p>
+                  <p className="text-xs text-gray-400 mt-1">Coming soon</p>
+                </div>
+              )}
+
+              {/* Join Paid Program */}
+              <Link
+                href="/signup"
+                className="card border border-gray-200 hover:border-green-300 hover:bg-green-50/30 transition-all group text-center py-5"
+              >
+                <ChevronRight size={22} className="text-green-600 mx-auto mb-2 group-hover:translate-x-0.5 transition-transform" />
+                <p className="font-bold text-gray-900 text-sm">Start {programNames[result.assigned_program].split('—')[0].trim()}</p>
+                <p className="text-xs text-gray-500 mt-1">Full program access</p>
+              </Link>
+            </div>
+          </div>
+        )}
 
         <p className="text-xs text-gray-400 text-center leading-relaxed px-4">
           This analysis is for informational purposes only. SourcifyLending does not guarantee approvals, credit limits, or funding outcomes. Individual results vary based on lender criteria and market conditions.
