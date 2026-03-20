@@ -368,17 +368,18 @@ ON CONFLICT (id) DO NOTHING;
 -- ─── Dual-Program Demo Account (Alex Rivera) ──────────────────────────────────
 -- Login: demo@sourcifylending.com / DemoSL2026!
 -- Starts as Program A. "Switch Program" button swaps to Program B and back.
+--
+-- We INSERT only base columns (guaranteed to exist from 001_initial.sql),
+-- then UPDATE migration-added columns in a safe DO block so this seed
+-- runs cleanly regardless of which migrations have been applied.
 
 INSERT INTO profiles (
   id, full_name, email, business_name, business_age, entity_type, industry,
   monthly_revenue_range, monthly_deposit_range, nsf_flag,
   credit_score_range, utilization_range, inquiry_range,
   business_credit_reporting_status,
-  assigned_program, demo_secondary_program,
-  readiness_status, current_stage,
+  assigned_program, readiness_status, current_stage,
   progress_percentage, subscription_status,
-  account_state, is_demo,
-  underwriting_next_due_at, underwriting_review_count,
   created_at, updated_at
 ) VALUES (
   'eeeeeeee-0000-0000-0000-000000000005',
@@ -387,14 +388,37 @@ INSERT INTO profiles (
   '$10,001 – $25,000', '$5,001 – $10,000', false,
   '720–759', 'Under 30%', '0–2 inquiries',
   'Yes — reporting on Dun & Bradstreet and Experian',
-  'program_a', 'program_b',
-  'Ready', 'Application Strategy',
+  'program_a', 'Ready', 'Application Strategy',
   40, 'active',
-  'active_member', true,
-  NOW() + INTERVAL '25 days', 1,
   NOW() - INTERVAL '20 days', NOW()
 )
 ON CONFLICT (id) DO NOTHING;
+
+-- Safely set migration-added columns (each wrapped so missing columns don't abort the seed)
+DO $$ BEGIN
+  UPDATE profiles SET is_demo = true
+  WHERE id = 'eeeeeeee-0000-0000-0000-000000000005';
+EXCEPTION WHEN undefined_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  UPDATE profiles SET account_state = 'active_member'
+  WHERE id = 'eeeeeeee-0000-0000-0000-000000000005';
+EXCEPTION WHEN undefined_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  UPDATE profiles SET demo_secondary_program = 'program_b'
+  WHERE id = 'eeeeeeee-0000-0000-0000-000000000005';
+EXCEPTION WHEN undefined_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  UPDATE profiles SET underwriting_next_due_at = NOW() + INTERVAL '25 days'
+  WHERE id = 'eeeeeeee-0000-0000-0000-000000000005';
+EXCEPTION WHEN undefined_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  UPDATE profiles SET underwriting_review_count = 1
+  WHERE id = 'eeeeeeee-0000-0000-0000-000000000005';
+EXCEPTION WHEN undefined_column THEN NULL; END $$;
 
 INSERT INTO subscriptions (
   user_id, stripe_subscription_id, stripe_customer_id,
