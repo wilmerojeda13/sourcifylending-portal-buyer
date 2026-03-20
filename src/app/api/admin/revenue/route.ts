@@ -17,9 +17,10 @@ export async function GET(_req: NextRequest) {
       { data: subscriptions },
       { data: arrangements },
       { data: goals },
+      { data: profiles },
     ] = await Promise.all([
       supabase.from('payment_records')
-        .select('*, profile:profiles!payment_records_user_id_fkey(full_name, email, business_name, assigned_program)')
+        .select('*')
         .order('payment_date', { ascending: false }),
       supabase.from('subscriptions')
         .select('user_id, setup_fee_standard, setup_fee_paid, monthly_fee_standard, billing_status, access_status')
@@ -31,11 +32,19 @@ export async function GET(_req: NextRequest) {
         .select('*')
         .order('period_start', { ascending: false })
         .limit(4),
+      supabase.from('profiles')
+        .select('id, full_name, email, business_name, assigned_program'),
     ])
 
     const allPayments = payments ?? []
     const allSubscriptions = subscriptions ?? []
     const allArrangements = arrangements ?? []
+
+    // Build profile lookup by user id
+    const profileMap = new Map<string, Record<string, unknown>>()
+    for (const p of (profiles ?? [])) {
+      profileMap.set(p.id as string, p as Record<string, unknown>)
+    }
 
     const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
 
@@ -58,7 +67,7 @@ export async function GET(_req: NextRequest) {
       .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
 
     const recurringCollected = allPayments
-      .filter((p) => isCollected(p) && p.payment_type === 'recurring')
+      .filter((p) => isCollected(p) && (p.payment_type === 'recurring' || p.payment_type === 'monthly'))
       .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
 
     const addOnCollected = allPayments
@@ -99,7 +108,7 @@ export async function GET(_req: NextRequest) {
     for (const p of allPayments) {
       const uid = p.user_id as string
       if (!uid) continue
-      const profile = p.profile as Record<string, unknown> | null
+      const profile = profileMap.get(uid) ?? null
       if (!clientMap.has(uid)) {
         clientMap.set(uid, {
           userId: uid,
@@ -118,7 +127,7 @@ export async function GET(_req: NextRequest) {
         const amt = Number(p.amount) || 0
         entry.totalPaid += amt
         if (setupTypes.has(p.payment_type as string)) entry.setupPaid += amt
-        if (p.payment_type === 'recurring') entry.recurringPaid += amt
+        if (p.payment_type === 'recurring' || p.payment_type === 'monthly') entry.recurringPaid += amt
         if (!entry.lastPaymentDate || (p.payment_date as string) > entry.lastPaymentDate) {
           entry.lastPaymentDate = p.payment_date as string
         }
@@ -153,7 +162,7 @@ export async function GET(_req: NextRequest) {
 
     for (const p of allPayments) {
       if (!isCollected(p)) continue
-      const profile = p.profile as Record<string, unknown> | null
+      const profile = profileMap.get(p.user_id as string) ?? null
       const prog = (profile?.assigned_program as string) || 'none'
       if (!programMap.has(prog)) {
         programMap.set(prog, { totalCollected: 0, clientIds: new Set() })
@@ -171,7 +180,7 @@ export async function GET(_req: NextRequest) {
 
     // ── Recent Activity ────────────────────────────────────────────────────────
     const recentActivity = allPayments.slice(0, 20).map((p) => {
-      const profile = p.profile as Record<string, unknown> | null
+      const profile = profileMap.get(p.user_id as string) ?? null
       const clientName = (profile?.full_name as string)
         || (profile?.business_name as string)
         || 'Unknown Client'
