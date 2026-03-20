@@ -5,6 +5,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 const DEMO_A_ID = '00000000-0000-4000-8000-00000000da01'
 const DEMO_B_ID = '00000000-0000-4000-8000-00000000db02'
 const DEMO_C_ID = '00000000-0000-4000-8000-00000000dc03'
+const DEMO_AB_ID = '00000000-0000-4000-8000-00000000dab4'
 
 const now = new Date()
 const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000).toISOString()
@@ -844,6 +845,359 @@ const DEMO_C_NOTIFICATIONS = [
   },
 ]
 
+// ─── Credit Disputes — Demo A (Alex Mercer, Program A) ────────────────────────
+const DEMO_A_DISPUTES = [
+  {
+    user_id: DEMO_A_ID,
+    bureau: 'Experian',
+    dispute_type: 'Hard Inquiry',
+    item_disputed: 'Unauthorized Hard Inquiry — Capital One Auto, March 2024',
+    incorrect_information: 'Hard inquiry from Capital One Auto Finance dated 03/14/2024 does not belong to me. I never authorized or applied for auto financing through this lender.',
+    correct_information: 'This inquiry should be removed entirely. I have no record of applying for Capital One Auto Finance and did not authorize this credit pull.',
+    generated_letter: `To Whom It May Concern,\n\nI am writing to formally dispute an unauthorized hard inquiry appearing on my Experian credit report. The inquiry from Capital One Auto Finance dated 03/14/2024 was made without my knowledge or consent.\n\nUnder the Fair Credit Reporting Act (FCRA) Section 604, a consumer reporting agency may only furnish a consumer report when there is a permissible purpose. I did not apply for auto financing with Capital One, nor did I authorize any party to pull my credit for this purpose.\n\nI request that this unauthorized inquiry be immediately removed from my credit file.\n\nName: Alex Mercer\nSSN Last 4: On file\nDate of Birth: On file\n\nSincerely,\nAlex Mercer`,
+    status: 'Under Investigation',
+    date_generated: daysAgo(22),
+    date_sent: daysAgo(20),
+    investigation_deadline: daysAgo(-10),
+    response_notes: 'Bureau acknowledged receipt on ' + new Date(Date.now() - 18 * 86400000).toLocaleDateString() + '. Awaiting investigation results.',
+  },
+  {
+    user_id: DEMO_A_ID,
+    bureau: 'TransUnion',
+    dispute_type: 'Account Information',
+    item_disputed: 'Chase Freedom — Reported Balance $3,200 (Incorrect)',
+    incorrect_information: 'Chase Freedom account (Account #****4821) is showing a balance of $3,200. This account was paid in full on 01/15/2024 and the balance should be $0.',
+    correct_information: 'Balance should reflect $0. Payment was made in full on January 15, 2024. Bank statement and payment confirmation are available upon request.',
+    generated_letter: `To Whom It May Concern,\n\nI am writing to dispute inaccurate account information appearing on my TransUnion credit report.\n\nThe account in question:\n- Creditor: Chase Freedom\n- Account Number: ****4821\n- Reported Balance: $3,200 (INCORRECT)\n- Correct Balance: $0 (paid in full 01/15/2024)\n\nThis incorrect balance is inflating my reported utilization and negatively impacting my credit score. Under FCRA Section 611, I request an investigation and correction of this error.\n\nI have enclosed my January 2024 bank statement showing the payment of $3,200 to Chase on 01/15/2024.\n\nSincerely,\nAlex Mercer`,
+    status: 'Resolved',
+    date_generated: daysAgo(45),
+    date_sent: daysAgo(43),
+    investigation_deadline: daysAgo(13),
+    response_notes: 'TransUnion completed investigation on ' + new Date(Date.now() - 16 * 86400000).toLocaleDateString() + '. Account updated to $0 balance. Score improved +11 points.',
+  },
+  {
+    user_id: DEMO_A_ID,
+    bureau: 'Equifax',
+    dispute_type: 'Collection Account',
+    item_disputed: 'Midland Credit Management — $847 Collection (Not Mine)',
+    incorrect_information: 'Collection account from Midland Credit Management for $847 appearing on my file. I have no record of this debt. This account does not belong to me.',
+    correct_information: 'This collection account should be deleted. I have never had an account with the original creditor (listed as "Various") and have no obligation to this debt.',
+    generated_letter: `To Whom It May Concern,\n\nI am disputing a collection account appearing on my Equifax credit report that does not belong to me.\n\nCollection Account Details:\n- Collector: Midland Credit Management\n- Amount: $847\n- Original Creditor: Various (unspecified)\n- Account Status: Collection\n\nI have no knowledge of this debt and have never had an account with this collector or its listed original creditor. This appears to be a case of mixed file or identity error.\n\nPursuant to FCRA Section 611, I request that Equifax investigate this account and delete it from my credit file if it cannot be verified.\n\nSincerely,\nAlex Mercer`,
+    status: 'Sent',
+    date_generated: daysAgo(8),
+    date_sent: daysAgo(6),
+    investigation_deadline: daysAgo(-24),
+    response_notes: null,
+  },
+]
+
+// ─── Credit Disputes — Demo B (Brianna Cole, Program B) ──────────────────────
+const DEMO_B_DISPUTES = [
+  {
+    user_id: DEMO_B_ID,
+    bureau: 'Equifax',
+    dispute_type: 'Personal Information',
+    item_disputed: 'Incorrect Address — 4821 Westview Dr, Tampa FL (Not My Address)',
+    incorrect_information: 'An unknown address (4821 Westview Dr, Tampa FL 33612) is listed on my credit file. I have never lived at this address and it is not associated with any account I own.',
+    correct_information: 'My current address is on file. The incorrect address at 4821 Westview Dr, Tampa FL should be removed from my credit profile entirely.',
+    generated_letter: `To Whom It May Concern,\n\nI am writing to dispute incorrect personal information appearing on my Equifax credit report.\n\nThe following address listed on my file is incorrect:\n4821 Westview Dr, Tampa FL 33612\n\nI have never resided at this address. Its presence on my file may be the result of a mixed file or data entry error by a creditor.\n\nUnder the FCRA, I request that this address be removed from my credit file immediately.\n\nSincerely,\nBrianna Cole`,
+    status: 'Resolved',
+    date_generated: daysAgo(60),
+    date_sent: daysAgo(58),
+    investigation_deadline: daysAgo(28),
+    response_notes: 'Equifax removed the incorrect address on ' + new Date(Date.now() - 30 * 86400000).toLocaleDateString() + '. File updated successfully.',
+  },
+  {
+    user_id: DEMO_B_ID,
+    bureau: 'TransUnion',
+    dispute_type: 'Hard Inquiry',
+    item_disputed: 'Unauthorized Inquiry — Santander Consumer USA, July 2024',
+    incorrect_information: 'Hard inquiry from Santander Consumer USA dated 07/08/2024. I did not authorize this inquiry and have no record of applying for credit through Santander.',
+    correct_information: 'This inquiry should be removed. I never applied for financing with Santander Consumer USA and did not authorize this credit pull.',
+    generated_letter: `To Whom It May Concern,\n\nI am formally disputing an unauthorized hard inquiry on my TransUnion credit report.\n\nInquiry Details:\n- Creditor: Santander Consumer USA\n- Date: 07/08/2024\n\nI did not apply for any credit with Santander Consumer USA and did not authorize this inquiry. This pull was made without my knowledge or consent, in violation of FCRA Section 604.\n\nI request immediate removal of this unauthorized inquiry.\n\nSincerely,\nBrianna Cole`,
+    status: 'Under Investigation',
+    date_generated: daysAgo(14),
+    date_sent: daysAgo(12),
+    investigation_deadline: daysAgo(-18),
+    response_notes: 'Dispute submitted. TransUnion has 30 days to complete investigation per FCRA.',
+  },
+]
+
+// ─── Credit Disputes — Demo C (Carlos Vega, Program C) ───────────────────────
+const DEMO_C_DISPUTES = [
+  {
+    user_id: DEMO_C_ID,
+    bureau: 'Experian',
+    dispute_type: 'Account Information',
+    item_disputed: 'Auto Loan — Ally Financial — Payment History Error (Showing 30-Day Late, August 2023)',
+    incorrect_information: 'Ally Financial auto loan is showing a 30-day late payment for August 2023. This is inaccurate. Payment was submitted on 08/01/2023 via ACH — 5 days before the due date.',
+    correct_information: 'Payment for August 2023 was made on time via ACH on 08/01/2023. The account should show no late payments. Bank records and payment confirmation are available.',
+    generated_letter: `To Whom It May Concern,\n\nI am disputing an inaccurate late payment notation on my Experian credit report.\n\nAccount: Ally Financial — Auto Loan (Account #****7734)\nError: 30-day late payment reported for August 2023\nFact: Payment of $612 was submitted via ACH on 08/01/2023, five days before the due date of 08/06/2023.\n\nI have enclosed:\n1. ACH payment confirmation from my bank dated 08/01/2023\n2. August 2023 bank statement showing debit of $612\n\nThis error is negatively impacting my capital readiness score. Under FCRA Section 611, I request investigation and deletion of the erroneous late payment notation.\n\nSincerely,\nCarlos Vega`,
+    status: 'Resolved',
+    date_generated: daysAgo(55),
+    date_sent: daysAgo(53),
+    investigation_deadline: daysAgo(23),
+    response_notes: 'Experian confirmed payment was on time. Late payment notation removed on ' + new Date(Date.now() - 25 * 86400000).toLocaleDateString() + '. Score improved +18 points.',
+  },
+  {
+    user_id: DEMO_C_ID,
+    bureau: 'Equifax',
+    dispute_type: 'Account Information',
+    item_disputed: 'Closed Credit Card — Reported as Open with $0 Balance (Account Status Error)',
+    incorrect_information: 'A closed Capital One credit card (Account #****2291, closed 03/2022) is still being reported as "Open" on my Equifax file. The card was voluntarily closed over 2 years ago.',
+    correct_information: 'Account status should be updated to "Closed — Account in Good Standing." All payments were made on time prior to closure. No balance owed.',
+    generated_letter: `To Whom It May Concern,\n\nI am requesting correction of an account status error on my Equifax credit report.\n\nAccount: Capital One (Account #****2291)\nCurrent Status Reported: Open\nCorrect Status: Closed — March 2022 (Voluntarily by consumer)\n\nThis account was closed at my request in March 2022 with a $0 balance and clean payment history. Reporting it as open is inaccurate under the FCRA.\n\nI request that Equifax update the account status to reflect that it was closed in March 2022, in good standing.\n\nSincerely,\nCarlos Vega`,
+    status: 'Generated',
+    date_generated: daysAgo(3),
+    date_sent: null,
+    investigation_deadline: null,
+    response_notes: null,
+  },
+]
+
+// ─── Demo AB: Program A+B Dual Demo (Alex Rivera) ─────────────────────────────
+const DEMO_AB_PROFILE = {
+  id: DEMO_AB_ID,
+  full_name: 'Alex Rivera',
+  email: 'demo@sourcifylending.com',
+  business_name: 'Rivera Group LLC',
+  business_age: '2 years',
+  entity_type: 'LLC',
+  industry: 'Construction',
+  monthly_revenue_range: '$10k–$25k',
+  monthly_deposit_range: '$8k–$20k',
+  nsf_flag: false,
+  credit_score_range: '720-759',
+  utilization_range: '11-20%',
+  inquiry_range: '0-2',
+  business_credit_reporting_status: 'recently_opened',
+  assigned_program: 'program_a',
+  readiness_status: 'Ready',
+  current_stage: 'Application Strategy',
+  progress_percentage: 40,
+  subscription_status: 'active',
+  portal_blocked: false,
+  is_demo: true,
+  admin_notes: 'Dual-program demo account. Use "Switch Program" button in sidebar to toggle between Program A and Program B views. Login: demo@sourcifylending.com / DemoSL2026!',
+}
+
+const DEMO_AB_TASKS_A = [
+  { task_id: 'dab4-ta-01', user_id: DEMO_AB_ID, program: 'program_a', stage: 'Credit Readiness', title: 'Pull All Three Credit Reports', description: 'Obtain full personal credit reports from Experian, TransUnion, and Equifax via AnnualCreditReport.com.', status: 'completed', due_date: null, requires_document: true, completed_at: daysAgo(20), sort_order: 1 },
+  { task_id: 'dab4-ta-02', user_id: DEMO_AB_ID, program: 'program_a', stage: 'Credit Readiness', title: 'Dispute Any Inaccurate Negative Items', description: 'Review each report for errors and file disputes with the bureaus for any inaccurate derogatory marks.', status: 'completed', due_date: null, requires_document: false, completed_at: daysAgo(18), sort_order: 2 },
+  { task_id: 'dab4-ta-03', user_id: DEMO_AB_ID, program: 'program_a', stage: 'Credit Readiness', title: 'Pay Down Revolving Balances Below 30%', description: 'Bring all revolving credit card utilization under 30% across all accounts.', status: 'completed', due_date: null, requires_document: false, completed_at: daysAgo(16), sort_order: 3 },
+  { task_id: 'dab4-ta-04', user_id: DEMO_AB_ID, program: 'program_a', stage: 'Credit Readiness', title: 'Confirm Score is 700+', description: 'Verify your FICO score has reached 700 or above before proceeding to applications.', status: 'completed', due_date: null, requires_document: false, completed_at: daysAgo(14), sort_order: 4 },
+  { task_id: 'dab4-ta-05', user_id: DEMO_AB_ID, program: 'program_a', stage: 'Application Strategy', title: 'Research Best 0% Intro APR Business Cards', description: 'Identify 3–5 business cards with the longest 0% intro APR periods and highest credit limits.', status: 'completed', due_date: null, requires_document: false, completed_at: daysAgo(12), sort_order: 5 },
+  { task_id: 'dab4-ta-06', user_id: DEMO_AB_ID, program: 'program_a', stage: 'Application Strategy', title: 'Freeze Unused Bureau Reports', description: 'Freeze Equifax and TransUnion before applying to limit hard inquiries to target bureaus only.', status: 'pending', due_date: daysFromNow(3), requires_document: false, completed_at: null, sort_order: 6 },
+  { task_id: 'dab4-ta-07', user_id: DEMO_AB_ID, program: 'program_a', stage: 'Application Strategy', title: 'Time Applications in a Single Window', description: 'Submit all card applications within a 7–14 day window to minimize credit impact.', status: 'locked', due_date: null, requires_document: false, completed_at: null, sort_order: 7 },
+  { task_id: 'dab4-ta-08', user_id: DEMO_AB_ID, program: 'program_a', stage: 'Card Acquisition', title: 'Submit Applications for Target Cards', description: 'Apply for your pre-selected 0% intro APR business cards using the optimal application sequence.', status: 'locked', due_date: null, requires_document: false, completed_at: null, sort_order: 8 },
+  { task_id: 'dab4-ta-09', user_id: DEMO_AB_ID, program: 'program_a', stage: 'Card Acquisition', title: 'Record Approval Amounts and APR Windows', description: 'Log each approved card, credit limit, 0% intro period end date, and minimum payment.', status: 'locked', due_date: null, requires_document: false, completed_at: null, sort_order: 9 },
+  { task_id: 'dab4-ta-10', user_id: DEMO_AB_ID, program: 'program_a', stage: 'Optimization', title: 'Set Up Auto-Pay for Minimum Payments', description: 'Enable autopay for at least the minimum payment on each card to protect your credit score.', status: 'locked', due_date: null, requires_document: false, completed_at: null, sort_order: 10 },
+]
+
+const DEMO_AB_TASKS_B = [
+  { task_id: 'dab4-tb-01', user_id: DEMO_AB_ID, program: 'program_b', stage: 'Foundation', title: 'Register Business with Dun & Bradstreet (DUNS)', description: 'Obtain a free D-U-N-S number from Dun & Bradstreet to establish your business credit file.', status: 'completed', due_date: null, requires_document: false, completed_at: daysAgo(20), sort_order: 1 },
+  { task_id: 'dab4-tb-02', user_id: DEMO_AB_ID, program: 'program_b', stage: 'Foundation', title: 'Register on Experian Business and Equifax Business', description: 'Create business profiles on all major business credit bureaus.', status: 'completed', due_date: null, requires_document: false, completed_at: daysAgo(18), sort_order: 2 },
+  { task_id: 'dab4-tb-03', user_id: DEMO_AB_ID, program: 'program_b', stage: 'Foundation', title: 'Set Up Dedicated Business Phone & Address', description: 'Establish a 411-listed business phone number and a real business address (no PO boxes).', status: 'completed', due_date: null, requires_document: false, completed_at: daysAgo(17), sort_order: 3 },
+  { task_id: 'dab4-tb-04', user_id: DEMO_AB_ID, program: 'program_b', stage: 'Foundation', title: 'Open Dedicated Business Checking Account', description: 'Open a business-only bank account and keep it separate from personal finances.', status: 'completed', due_date: null, requires_document: true, completed_at: daysAgo(16), sort_order: 4 },
+  { task_id: 'dab4-tb-05', user_id: DEMO_AB_ID, program: 'program_b', stage: 'Vendor Accounts', title: 'Apply for Uline Net-30 Account', description: 'Apply for a Net-30 account with Uline — reports to D&B, Experian Business, and Equifax Business.', status: 'completed', due_date: null, requires_document: false, completed_at: daysAgo(14), sort_order: 5 },
+  { task_id: 'dab4-tb-06', user_id: DEMO_AB_ID, program: 'program_b', stage: 'Vendor Accounts', title: 'Apply for Quill Net-30 Account', description: 'Apply for a Net-30 account with Quill — reports to D&B and Experian Business.', status: 'completed', due_date: null, requires_document: false, completed_at: daysAgo(12), sort_order: 6 },
+  { task_id: 'dab4-tb-07', user_id: DEMO_AB_ID, program: 'program_b', stage: 'Vendor Accounts', title: 'Apply for Grainger Net-30 Account', description: 'Apply for a Grainger commercial account and make an initial purchase to establish a D&B PAYDEX tradeline.', status: 'pending', due_date: daysFromNow(5), requires_document: false, completed_at: null, sort_order: 7 },
+  { task_id: 'dab4-tb-08', user_id: DEMO_AB_ID, program: 'program_b', stage: 'Vendor Accounts', title: 'Verify All Vendor Accounts Are Reporting', description: 'Confirm each vendor account is appearing on your D&B, Experian Business, and Equifax Business reports.', status: 'locked', due_date: null, requires_document: false, completed_at: null, sort_order: 8 },
+  { task_id: 'dab4-tb-09', user_id: DEMO_AB_ID, program: 'program_b', stage: 'Store Credit', title: 'Apply for Home Depot Commercial Account', description: 'Net-30 commercial account — reports to D&B. Requires 1+ year in business and active DUNS.', status: 'locked', due_date: null, requires_document: false, completed_at: null, sort_order: 9 },
+  { task_id: 'dab4-tb-10', user_id: DEMO_AB_ID, program: 'program_b', stage: 'Fleet Credit', title: 'Apply for earnify™fleet Fuel Card', description: 'BP/Amoco fleet card — accepted at 7,500+ locations, reports to D&B and Experian Business.', status: 'locked', due_date: null, requires_document: false, completed_at: null, sort_order: 10 },
+]
+
+const DEMO_AB_REPORTS = [
+  {
+    user_id: DEMO_AB_ID,
+    report_type: 'credit_readiness_summary',
+    title: 'Credit Readiness Summary — Alex Rivera (Demo)',
+    generated_at: daysAgo(12),
+    content: `**Credit Readiness Summary**\n\nClient: Alex Rivera | Business: Rivera Group LLC | Program: Dual (A + B)\n\n**Overall Readiness: READY**\n\nAlex Rivera presents a strong credit profile eligible for both the 0% Intro APR Card Strategy (Program A) and the Business Credit Builder (Program B) simultaneously.\n\n**Personal Credit Strengths**\n- FICO score estimated at 738 — well above the 700 threshold for Program A targets\n- Utilization at 15% — excellent (under 20%)\n- Only 1 hard inquiry in last 12 months\n- 2-year LLC history in construction industry\n- Clean payment history — no late payments, no derogatory marks\n\n**Program A Recommendation**\nProceed with Experian-pull target cards first. Recommended sequence:\n1. Chase Ink Business Unlimited (Experian pull — highest approval rate)\n2. Wells Fargo Signify Business Cash (Experian pull — 0% for 12 months)\n3. Capital One Spark Cash Plus after 91-day window\n\n**Program B Status**\n- DUNS registered and active ✅\n- Experian Business and Equifax Business files open ✅\n- 2 vendor accounts reporting (Uline, Quill)\n- Grainger application pending — adding this brings you to 3 D&B tradelines\n\n**Risk Assessment:** Low. Both programs are viable and can run concurrently without conflict.`,
+  },
+  {
+    user_id: DEMO_AB_ID,
+    report_type: 'tradeline_progress_report',
+    title: 'Business Credit Progress Report — Rivera Group LLC',
+    generated_at: daysAgo(5),
+    content: `**Business Credit Progress Report**\n\nClient: Alex Rivera | Business: Rivera Group LLC | Date: ${new Date(Date.now() - 5 * 86400000).toLocaleDateString()}\n\n**Active Business Credit Files**\n- D&B DUNS: Registered ✅ | PAYDEX: 72 (improving)\n- Experian Business: File Active ✅ | Intelliscore: 61/100\n- Equifax Business: File Active ✅\n\n**Reporting Tradelines (2 Active)**\n\n| Vendor | Limit | Balance | Bureau(s) | Payment |\n|--------|-------|---------|-----------|--------|\n| Uline | $2,500 | $0 | D&B, Experian | Early x2 |\n| Quill | $1,500 | $0 | D&B | On time x1 |\n\n**PAYDEX Projection**\nCurrent: 72 | Target: 80+\nWith Grainger added and 2 more early payment cycles, projected PAYDEX reaches 80–85 within 60 days.\n\n**Program A Parallel Track**\nPersonal credit (738 FICO, 15% utilization) is application-ready now. Recommended to proceed with card applications while building business credit simultaneously.\n\n**Next Steps**\n1. Apply for Grainger Net-30 (next pending task)\n2. Freeze TransUnion + Equifax before Program A card applications\n3. Submit Program A applications within next 14 days`,
+  },
+]
+
+const DEMO_AB_APPROVALS = [
+  {
+    id: 'dab40000-0000-4000-8000-000000000001',
+    user_id: DEMO_AB_ID,
+    program_type: 'Program B',
+    approval_type: 'Net 30 Account',
+    issuer_name: 'Uline',
+    account_name: 'Uline Net-30 Trade Account',
+    approved_amount: null,
+    approved_limit: 2500,
+    approval_date: daysAgo(14).split('T')[0],
+    status: 'Approved',
+    notes: 'First business credit account. Reporting to D&B and Experian Business. First payment made early.',
+    decline_reason: null,
+    mark_for_reattempt: false,
+    created_at: daysAgo(14),
+  },
+  {
+    id: 'dab40000-0000-4000-8000-000000000002',
+    user_id: DEMO_AB_ID,
+    program_type: 'Program B',
+    approval_type: 'Net 30 Account',
+    issuer_name: 'Quill',
+    account_name: 'Quill Office Supplies Net-30',
+    approved_amount: null,
+    approved_limit: 1500,
+    approval_date: daysAgo(12).split('T')[0],
+    status: 'Approved',
+    notes: 'Approved. Initial purchase of $75 placed. Reports to D&B.',
+    decline_reason: null,
+    mark_for_reattempt: false,
+    created_at: daysAgo(12),
+  },
+  {
+    id: 'dab40000-0000-4000-8000-000000000003',
+    user_id: DEMO_AB_ID,
+    program_type: 'Program A',
+    approval_type: '0% APR Card',
+    issuer_name: 'Chase',
+    account_name: 'Chase Ink Business Unlimited',
+    approved_amount: null,
+    approved_limit: null,
+    approval_date: daysFromNow(10),
+    status: 'Pending',
+    notes: 'Targeted for Program A application window. Freeze TransUnion + Equifax first.',
+    decline_reason: null,
+    mark_for_reattempt: false,
+    created_at: daysAgo(2),
+  },
+]
+
+const DEMO_AB_NOTIFICATIONS = [
+  {
+    user_id: DEMO_AB_ID,
+    type: 'system',
+    title: '🎉 Welcome to SourcifyLending — Dual Program Demo',
+    message: 'This account shows both Program A (0% APR Card Strategy) and Program B (Business Credit Builder). Use the "Switch Program" button in the sidebar to toggle between views.',
+    read: true,
+    created_at: daysAgo(20),
+  },
+  {
+    user_id: DEMO_AB_ID,
+    type: 'task_due',
+    title: 'Task Ready: Freeze Unused Bureau Reports',
+    message: 'Your next Program A step is ready. Freeze TransUnion and Equifax before applying for target cards to protect your credit score.',
+    read: false,
+    created_at: daysAgo(2),
+  },
+  {
+    user_id: DEMO_AB_ID,
+    type: 'task_due',
+    title: 'Program B: Apply for Grainger Net-30',
+    message: 'Your Uline and Quill accounts are active. Apply for Grainger now to reach 3 D&B tradelines — the key milestone for PAYDEX 80+.',
+    read: false,
+    created_at: daysAgo(1),
+  },
+  {
+    user_id: DEMO_AB_ID,
+    type: 'ai_update',
+    title: 'Both programs are active and progressing',
+    message: 'Program A: Application Strategy 60% complete. Program B: Vendor Accounts 67% complete. You\'re ahead of schedule on both tracks.',
+    read: false,
+    created_at: daysAgo(3),
+  },
+]
+
+const DEMO_AB_DOCUMENTS = [
+  {
+    user_id: DEMO_AB_ID,
+    document_type: 'personal_credit_report',
+    file_url: 'https://placehold.co/600x400?text=Credit+Report+Demo',
+    file_name: 'alex_rivera_experian_report.pdf',
+    file_size: 289792,
+    uploaded_at: daysAgo(19),
+    review_status: 'approved',
+    notes: 'Experian report. FICO 738. Utilization 15%. 1 inquiry. Clean payment history.',
+  },
+  {
+    user_id: DEMO_AB_ID,
+    document_type: 'business_formation',
+    file_url: 'https://placehold.co/600x400?text=LLC+Formation+Demo',
+    file_name: 'rivera_group_llc_articles.pdf',
+    file_size: 198656,
+    uploaded_at: daysAgo(18),
+    review_status: 'approved',
+    notes: 'Florida LLC. 2 years in business. Construction industry.',
+  },
+]
+
+const DEMO_AB_BIZ_CREDIT_PROFILE = {
+  user_id: DEMO_AB_ID,
+  duns_number: '07-445-3821',
+  duns_status: 'verified',
+  duns_date: daysAgo(60).split('T')[0],
+  experian_status: 'registered',
+  experian_date: daysAgo(45).split('T')[0],
+  experian_score: null,
+  equifax_status: 'registered',
+  equifax_date: daysAgo(30).split('T')[0],
+  equifax_score: null,
+  nav_status: 'registered',
+  nav_date: daysAgo(30).split('T')[0],
+  paydex_score: 72,
+  paydex_date: daysAgo(7).split('T')[0],
+  intelliscore: 61,
+  intelliscore_date: daysAgo(7).split('T')[0],
+  notes: 'PAYDEX 72 — improving. 2 tradelines active (Uline, Quill). Target 80+ after Grainger addition.',
+}
+
+const DEMO_AB_CREDIBILITY = (() => {
+  const allKeys = ['ein_obtained','business_bank_account','business_address','business_phone_411',
+    'professional_email','business_website','duns_registered','experian_business_profile',
+    'equifax_business_profile','google_business_listed','business_license','naics_code_assigned']
+  const completedKeys = ['ein_obtained','business_bank_account','business_address','business_phone_411',
+    'professional_email','duns_registered','experian_business_profile','equifax_business_profile']
+  return allKeys.map(key => ({ user_id: DEMO_AB_ID, item_key: key, is_complete: completedKeys.includes(key) }))
+})()
+
+const DEMO_AB_TRADELINES = [
+  { user_id: DEMO_AB_ID, creditor_name: 'Uline', account_type: 'Net 30', credit_limit: 2500, balance: 0, payment_status: 'current', date_opened: daysAgo(60).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'First net-30 account. 2 early payment cycles.' },
+  { user_id: DEMO_AB_ID, creditor_name: 'Quill', account_type: 'Net 30', credit_limit: 1500, balance: 0, payment_status: 'current', date_opened: daysAgo(45).split('T')[0], reporting_bureaus: ['D&B'], notes: 'Office supplies account. 1 payment cycle completed.' },
+]
+
+const DEMO_AB_DISPUTES = [
+  {
+    user_id: DEMO_AB_ID,
+    bureau: 'Experian',
+    dispute_type: 'Hard Inquiry',
+    item_disputed: 'Unauthorized Hard Inquiry — Santander Consumer, April 2024',
+    incorrect_information: 'Hard inquiry from Santander Consumer USA dated 04/22/2024. I never applied for any financing through Santander and did not authorize this credit pull.',
+    correct_information: 'This inquiry should be removed. I did not apply for any Santander product and this pull was made without my consent.',
+    generated_letter: `To Whom It May Concern,\n\nI am formally disputing an unauthorized hard inquiry on my Experian credit report.\n\nInquiry: Santander Consumer USA | Date: 04/22/2024\n\nI did not apply for credit with Santander Consumer USA and did not authorize this inquiry. Per FCRA Section 604, credit may only be pulled with a permissible purpose. No such purpose exists here.\n\nI request this inquiry be immediately removed.\n\nSincerely,\nAlex Rivera`,
+    status: 'Resolved',
+    date_generated: daysAgo(35),
+    date_sent: daysAgo(33),
+    investigation_deadline: daysAgo(3),
+    response_notes: 'Experian removed the unauthorized inquiry on ' + new Date(Date.now() - 5 * 86400000).toLocaleDateString() + '. Score improved +6 points.',
+  },
+  {
+    user_id: DEMO_AB_ID,
+    bureau: 'TransUnion',
+    dispute_type: 'Account Information',
+    item_disputed: 'Personal Visa Card — Balance Showing $1,800 (Should Be $0)',
+    incorrect_information: 'A personal Visa card is showing an $1,800 balance on TransUnion. This card was paid in full and closed in February 2024.',
+    correct_information: 'Balance should be $0. Card was paid in full and closed February 2024. Closing letter is available from the issuer.',
+    generated_letter: `To Whom It May Concern,\n\nI am disputing an inaccurate balance on a closed account appearing on my TransUnion credit report.\n\nAccount: Personal Visa (closed 02/2024)\nReported Balance: $1,800\nCorrect Balance: $0 (paid in full prior to closure)\n\nThis incorrect balance is inflating my reported utilization. Under FCRA Section 611, I request investigation and correction.\n\nSincerely,\nAlex Rivera`,
+    status: 'Under Investigation',
+    date_generated: daysAgo(18),
+    date_sent: daysAgo(16),
+    investigation_deadline: daysAgo(-14),
+    response_notes: 'TransUnion acknowledged dispute on ' + new Date(Date.now() - 14 * 86400000).toLocaleDateString() + '. Investigation in progress.',
+  },
+]
+
 export async function POST() {
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
@@ -917,19 +1271,19 @@ export async function POST() {
 
   // ── Business tradelines seed data ─────────────────────────────────────────────
   const DEMO_B_TRADELINES = [
-    { user_id: DEMO_B_ID, vendor_name: 'Uline', account_type: 'Net 30', credit_limit: 2500, balance: 0, status: 'reporting', opened_date: daysAgo(85).split('T')[0], last_reported: daysAgo(14).split('T')[0], bureaus_reporting: ['D&B','Experian Business'], notes: 'First net-30 account. Paid early 3 consecutive cycles.' },
-    { user_id: DEMO_B_ID, vendor_name: 'Quill', account_type: 'Net 30', credit_limit: 1500, balance: 0, status: 'reporting', opened_date: daysAgo(70).split('T')[0], last_reported: daysAgo(14).split('T')[0], bureaus_reporting: ['D&B'], notes: 'Office supplies. Paid on time.' },
-    { user_id: DEMO_B_ID, vendor_name: 'Grainger', account_type: 'Net 30', credit_limit: 3000, balance: 480, status: 'reporting', opened_date: daysAgo(55).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['D&B','Experian Business'], notes: 'Industrial supplies. Active account.' },
-    { user_id: DEMO_B_ID, vendor_name: 'Office Depot Business', account_type: 'Net 30', credit_limit: 1000, balance: 0, status: 'reporting', opened_date: daysAgo(40).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['Experian Business'], notes: 'Recently started reporting.' },
+    { user_id: DEMO_B_ID, creditor_name: 'Uline', account_type: 'Net 30', credit_limit: 2500, balance: 0, payment_status: 'current', date_opened: daysAgo(85).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'First net-30 account. Paid early 3 consecutive cycles.' },
+    { user_id: DEMO_B_ID, creditor_name: 'Quill', account_type: 'Net 30', credit_limit: 1500, balance: 0, payment_status: 'current', date_opened: daysAgo(70).split('T')[0], reporting_bureaus: ['D&B'], notes: 'Office supplies. Paid on time.' },
+    { user_id: DEMO_B_ID, creditor_name: 'Grainger', account_type: 'Net 30', credit_limit: 3000, balance: 480, payment_status: 'current', date_opened: daysAgo(55).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'Industrial supplies. Active account.' },
+    { user_id: DEMO_B_ID, creditor_name: 'Office Depot Business', account_type: 'Net 30', credit_limit: 1000, balance: 0, payment_status: 'current', date_opened: daysAgo(40).split('T')[0], reporting_bureaus: ['Experian Business'], notes: 'Recently started reporting.' },
   ]
 
   const DEMO_C_TRADELINES = [
-    { user_id: DEMO_C_ID, vendor_name: 'Uline', account_type: 'Net 30', credit_limit: 5000, balance: 0, status: 'reporting', opened_date: daysAgo(170).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['D&B','Experian Business'], notes: 'Established account. Consistent early payment.' },
-    { user_id: DEMO_C_ID, vendor_name: 'Quill', account_type: 'Net 30', credit_limit: 2500, balance: 0, status: 'reporting', opened_date: daysAgo(160).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['D&B'], notes: 'Office supply account — 5 reporting cycles.' },
-    { user_id: DEMO_C_ID, vendor_name: 'Grainger', account_type: 'Net 30', credit_limit: 7500, balance: 1200, status: 'reporting', opened_date: daysAgo(140).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['D&B','Experian Business','Equifax Business'], notes: 'All 3 bureaus reporting.' },
-    { user_id: DEMO_C_ID, vendor_name: 'Home Depot Commercial', account_type: 'Revolving', credit_limit: 10000, balance: 2200, status: 'reporting', opened_date: daysAgo(120).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['Experian Business'], notes: 'Revolving commercial account.' },
-    { user_id: DEMO_C_ID, vendor_name: 'Staples Business Advantage', account_type: 'Net 30', credit_limit: 3000, balance: 0, status: 'reporting', opened_date: daysAgo(90).split('T')[0], last_reported: daysAgo(7).split('T')[0], bureaus_reporting: ['D&B','Experian Business'], notes: '5th reporting account — unlocked card eligibility.' },
-    { user_id: DEMO_C_ID, vendor_name: 'Amazon Business', account_type: 'Net 30', credit_limit: 5000, balance: 850, status: 'reporting', opened_date: daysAgo(60).split('T')[0], last_reported: daysAgo(3).split('T')[0], bureaus_reporting: ['Experian Business'], notes: 'Most recent addition. Active purchasing.' },
+    { user_id: DEMO_C_ID, creditor_name: 'Uline', account_type: 'Net 30', credit_limit: 5000, balance: 0, payment_status: 'current', date_opened: daysAgo(170).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'Established account. Consistent early payment.' },
+    { user_id: DEMO_C_ID, creditor_name: 'Quill', account_type: 'Net 30', credit_limit: 2500, balance: 0, payment_status: 'current', date_opened: daysAgo(160).split('T')[0], reporting_bureaus: ['D&B'], notes: 'Office supply account — 5 reporting cycles.' },
+    { user_id: DEMO_C_ID, creditor_name: 'Grainger', account_type: 'Net 30', credit_limit: 7500, balance: 1200, payment_status: 'current', date_opened: daysAgo(140).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business', 'Equifax Business'], notes: 'All 3 bureaus reporting.' },
+    { user_id: DEMO_C_ID, creditor_name: 'Home Depot Commercial', account_type: 'Revolving', credit_limit: 10000, balance: 2200, payment_status: 'current', date_opened: daysAgo(120).split('T')[0], reporting_bureaus: ['Experian Business'], notes: 'Revolving commercial account.' },
+    { user_id: DEMO_C_ID, creditor_name: 'Staples Business Advantage', account_type: 'Net 30', credit_limit: 3000, balance: 0, payment_status: 'current', date_opened: daysAgo(90).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: '5th reporting account — unlocked card eligibility.' },
+    { user_id: DEMO_C_ID, creditor_name: 'Amazon Business', account_type: 'Net 30', credit_limit: 5000, balance: 850, payment_status: 'current', date_opened: daysAgo(60).split('T')[0], reporting_bureaus: ['Experian Business'], notes: 'Most recent addition. Active purchasing.' },
   ]
 
   const demoUsers = [
@@ -946,6 +1300,8 @@ export async function POST() {
       bizCreditProfile: DEMO_A_BIZ_CREDIT_PROFILE,
       credibilityItems: DEMO_A_CREDIBILITY,
       tradelines: [],
+      disputes: DEMO_A_DISPUTES,
+      demoSecondaryProgram: null,
     },
     {
       id: DEMO_B_ID,
@@ -960,6 +1316,8 @@ export async function POST() {
       bizCreditProfile: DEMO_B_BIZ_CREDIT_PROFILE,
       credibilityItems: DEMO_B_CREDIBILITY,
       tradelines: DEMO_B_TRADELINES,
+      disputes: DEMO_B_DISPUTES,
+      demoSecondaryProgram: null,
     },
     {
       id: DEMO_C_ID,
@@ -974,6 +1332,24 @@ export async function POST() {
       bizCreditProfile: DEMO_C_BIZ_CREDIT_PROFILE,
       credibilityItems: DEMO_C_CREDIBILITY,
       tradelines: DEMO_C_TRADELINES,
+      disputes: DEMO_C_DISPUTES,
+      demoSecondaryProgram: null,
+    },
+    {
+      id: DEMO_AB_ID,
+      email: 'demo@sourcifylending.com',
+      password: 'DemoSL2026!',
+      profile: DEMO_AB_PROFILE,
+      tasks: [...DEMO_AB_TASKS_A, ...DEMO_AB_TASKS_B],
+      reports: DEMO_AB_REPORTS,
+      documents: DEMO_AB_DOCUMENTS,
+      notifications: DEMO_AB_NOTIFICATIONS,
+      approvals: DEMO_AB_APPROVALS,
+      bizCreditProfile: DEMO_AB_BIZ_CREDIT_PROFILE,
+      credibilityItems: DEMO_AB_CREDIBILITY,
+      tradelines: DEMO_AB_TRADELINES,
+      disputes: DEMO_AB_DISPUTES,
+      demoSecondaryProgram: 'program_b',
     },
   ]
 
@@ -1052,6 +1428,24 @@ export async function POST() {
         if (tlError) errors.push(`Tradelines ${demo.email}: ${tlError.message}`)
       }
 
+      // 11. Delete + reinsert credit disputes
+      if (demo.disputes && demo.disputes.length > 0) {
+        await supabase.from('credit_disputes').delete().eq('user_id', demo.id)
+        const { error: disputeError } = await supabase.from('credit_disputes').insert(demo.disputes)
+        if (disputeError) errors.push(`Disputes ${demo.email}: ${disputeError.message}`)
+      }
+
+      // 12. Set demo_secondary_program if applicable (migration-added column — silently skip if missing)
+      if (demo.demoSecondaryProgram) {
+        const { error: dspError } = await supabase
+          .from('profiles')
+          .update({ demo_secondary_program: demo.demoSecondaryProgram })
+          .eq('id', demo.id)
+        if (dspError && !dspError.message.includes('column') && !dspError.message.includes('schema')) {
+          errors.push(`DemoSecondaryProgram ${demo.email}: ${dspError.message}`)
+        }
+      }
+
     } catch (err) {
       errors.push(`Fatal error for ${demo.email}: ${String(err)}`)
     }
@@ -1067,11 +1461,12 @@ export async function POST() {
 
   return NextResponse.json({
     success: true,
-    message: 'All 3 demo users seeded successfully',
+    message: 'All 4 demo accounts seeded successfully',
     accounts: [
-      { name: 'Alex Mercer', email: 'demo-a@sourcifylending.com', program: 'Program A — 0% APR Advisory', progress: '55%' },
-      { name: 'Brianna Cole', email: 'demo-b@sourcifylending.com', program: 'Program B — Business Credit Builder', progress: '48%' },
-      { name: 'Carlos Vega', email: 'demo-c@sourcifylending.com', program: 'Program C — Capital Monitoring', progress: '60%' },
+      { name: 'Alex Mercer', email: 'demo-a@sourcifylending.com', program: 'Program A — 0% APR Advisory (pw: Demo1234!)' },
+      { name: 'Brianna Cole', email: 'demo-b@sourcifylending.com', program: 'Program B — Business Credit Builder (pw: Demo1234!)' },
+      { name: 'Carlos Vega', email: 'demo-c@sourcifylending.com', program: 'Program C — Capital Monitoring (pw: Demo1234!)' },
+      { name: 'Alex Rivera', email: 'demo@sourcifylending.com', program: 'Program A + B Dual Demo — use Switch Program button (pw: DemoSL2026!)' },
     ],
     password: 'Demo1234!',
   })

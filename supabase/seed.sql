@@ -47,17 +47,6 @@ INSERT INTO auth.users (
     NOW() - INTERVAL '60 days', NOW(),
     '', '', '', ''
   ),
-  (
-    'dddddddd-0000-0000-0000-000000000004',
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated', 'authenticated', 'taylor@example.com',
-    crypt('demo_password_123', gen_salt('bf')),
-    NOW(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"full_name":"Taylor Brooks"}'::jsonb,
-    NOW() - INTERVAL '90 days', NOW(),
-    '', '', '', ''
-  ),
   -- Dual-program demo account (Program A + Program B switcher)
   (
     'eeeeeeee-0000-0000-0000-000000000005',
@@ -79,7 +68,6 @@ INSERT INTO auth.identities (
   ('aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'email', '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","email":"jordan@example.com"}'::jsonb, NOW(), NOW() - INTERVAL '45 days', NOW()),
   ('bbbbbbbb-0000-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000002', 'email', '{"sub":"bbbbbbbb-0000-0000-0000-000000000002","email":"samantha@example.com"}'::jsonb, NOW(), NOW() - INTERVAL '30 days', NOW()),
   ('cccccccc-0000-0000-0000-000000000003', 'cccccccc-0000-0000-0000-000000000003', 'cccccccc-0000-0000-0000-000000000003', 'email', '{"sub":"cccccccc-0000-0000-0000-000000000003","email":"marcus@example.com"}'::jsonb, NOW(), NOW() - INTERVAL '60 days', NOW()),
-  ('dddddddd-0000-0000-0000-000000000004', 'dddddddd-0000-0000-0000-000000000004', 'dddddddd-0000-0000-0000-000000000004', 'email', '{"sub":"dddddddd-0000-0000-0000-000000000004","email":"taylor@example.com"}'::jsonb, NOW(), NOW() - INTERVAL '90 days', NOW()),
   ('eeeeeeee-0000-0000-0000-000000000005', 'eeeeeeee-0000-0000-0000-000000000005', 'eeeeeeee-0000-0000-0000-000000000005', 'email', '{"sub":"eeeeeeee-0000-0000-0000-000000000005","email":"demo@sourcifylending.com"}'::jsonb, NOW(), NOW() - INTERVAL '20 days', NOW())
 ON CONFLICT (id) DO NOTHING;
 
@@ -129,18 +117,6 @@ INSERT INTO profiles (
     'program_c', 'Ready', 'Monthly Review',
     60, 'active',
     NOW() - INTERVAL '60 days', NOW()
-  ),
-  -- Canceled client — locked tasks, subscription inactive
-  (
-    'dddddddd-0000-0000-0000-000000000004',
-    'Taylor Brooks', 'taylor@example.com',
-    'Brooks Ventures', '2 years', 'Sole Proprietor', 'Retail',
-    '$2,001 – $5,000', '$1,001 – $2,000', true,
-    '580–619', '75% or more', '6+ inquiries',
-    'No — not reporting on any bureau',
-    'program_c', 'Not Ready', 'Monthly Review',
-    5, 'canceled',
-    NOW() - INTERVAL '90 days', NOW()
   )
 ON CONFLICT (id) DO NOTHING;
 
@@ -171,13 +147,6 @@ INSERT INTO subscriptions (
     'active', 'program_c',
     NOW() - INTERVAL '30 days', NOW(),
     NOW() - INTERVAL '60 days', NOW()
-  ),
-  (
-    'dddddddd-0000-0000-0000-000000000004',
-    'sub_seed_canceled_004', 'cus_seed_taylor_004',
-    'canceled', 'program_c',
-    NOW() - INTERVAL '90 days', NOW() - INTERVAL '60 days',
-    NOW() - INTERVAL '90 days', NOW() - INTERVAL '60 days'
   )
 ON CONFLICT (user_id) DO NOTHING;
 
@@ -230,17 +199,6 @@ INSERT INTO tasks (task_id, user_id, program, stage, title, description, status,
   ('seed-c-04', 'cccccccc-0000-0000-0000-000000000003', 'program_c', 'Monthly Review', 'Generate AI Capital Readiness Report', 'Request an AI-generated capital readiness analysis for this month.', 'pending', false, 4, NOW() - INTERVAL '30 days'),
   ('seed-c-05', 'cccccccc-0000-0000-0000-000000000003', 'program_c', 'Monthly Review', 'Review Funding Opportunities Identified', 'Review lender matches and funding programs flagged by the AI this cycle.', 'locked', false, 5, NOW() - INTERVAL '30 days'),
   ('seed-c-06', 'cccccccc-0000-0000-0000-000000000003', 'program_c', 'Monthly Review', 'Submit Monthly Progress Check-In', 'Complete the monthly check-in survey and upload any new financial documents.', 'locked', true, 6, NOW() - INTERVAL '30 days')
-ON CONFLICT (task_id) DO NOTHING;
-
--- ─── Tasks — Program C Canceled (Taylor Brooks) — All Locked ─────────────────
-
-INSERT INTO tasks (task_id, user_id, program, stage, title, description, status, requires_document, sort_order, created_at) VALUES
-  ('seed-d-01', 'dddddddd-0000-0000-0000-000000000004', 'program_c', 'Monthly Review', 'Pull Current Personal Credit Reports', 'Download updated reports from all three bureaus for this month''s review cycle.', 'locked', true, 1, NOW() - INTERVAL '90 days'),
-  ('seed-d-02', 'dddddddd-0000-0000-0000-000000000004', 'program_c', 'Monthly Review', 'Review Business Credit Reports (D&B, Experian, Equifax)', 'Check all business bureau reports for new trade lines, scores, and any derogatory marks.', 'locked', true, 2, NOW() - INTERVAL '90 days'),
-  ('seed-d-03', 'dddddddd-0000-0000-0000-000000000004', 'program_c', 'Monthly Review', 'Check for New Inquiries or Negative Marks', 'Identify any hard inquiries or new negative items added since last month.', 'locked', false, 3, NOW() - INTERVAL '90 days'),
-  ('seed-d-04', 'dddddddd-0000-0000-0000-000000000004', 'program_c', 'Monthly Review', 'Generate AI Capital Readiness Report', 'Request an AI-generated capital readiness analysis for this month.', 'locked', false, 4, NOW() - INTERVAL '90 days'),
-  ('seed-d-05', 'dddddddd-0000-0000-0000-000000000004', 'program_c', 'Monthly Review', 'Review Funding Opportunities Identified', 'Review lender matches and funding programs flagged by the AI this cycle.', 'locked', false, 5, NOW() - INTERVAL '90 days'),
-  ('seed-d-06', 'dddddddd-0000-0000-0000-000000000004', 'program_c', 'Monthly Review', 'Submit Monthly Progress Check-In', 'Complete the monthly check-in survey and upload any new financial documents.', 'locked', true, 6, NOW() - INTERVAL '90 days')
 ON CONFLICT (task_id) DO NOTHING;
 
 -- ─── Reports ──────────────────────────────────────────────────────────────────
@@ -311,15 +269,6 @@ INSERT INTO notifications (id, user_id, type, title, message, read, created_at) 
     'Your March 2026 capital monitoring report has been generated. Your score increased 4 points!',
     false,
     NOW() - INTERVAL '7 days'
-  ),
-  (
-    'ffffffff-0000-0000-0000-000000000206',
-    'dddddddd-0000-0000-0000-000000000004',
-    'system',
-    'Membership Canceled',
-    'Your membership has been canceled. Your progress is saved and can be resumed by reactivating your subscription.',
-    false,
-    NOW() - INTERVAL '60 days'
   )
 ON CONFLICT (id) DO NOTHING;
 

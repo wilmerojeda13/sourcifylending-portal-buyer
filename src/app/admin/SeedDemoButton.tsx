@@ -17,7 +17,7 @@ export default function SeedDemoButton() {
   const [showAccounts, setShowAccounts] = useState(false)
 
   const handleSeed = async () => {
-    if (!confirm('Seed (or re-seed) all 3 demo users? Existing demo data will be replaced.')) return
+    if (!confirm('Seed (or re-seed) all 4 demo accounts? Existing demo data will be replaced.')) return
     setLoading(true)
     setResult(null)
     try {
@@ -39,7 +39,7 @@ export default function SeedDemoButton() {
         </div>
         <div>
           <h3 className="font-bold text-gray-900 text-sm">Seed Demo Users</h3>
-          <p className="text-xs text-gray-500 leading-snug">Create / reset all 3 seeded demo accounts for testing and sales demos</p>
+          <p className="text-xs text-gray-500 leading-snug">Create / reset all 4 demo accounts — Program A, B, C, and dual A+B switcher</p>
         </div>
       </div>
 

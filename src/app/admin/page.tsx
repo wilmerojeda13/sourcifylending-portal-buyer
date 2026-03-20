@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell } from 'lucide-react'
+import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3 } from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 import SeedDemoButton from './SeedDemoButton'
@@ -108,6 +108,13 @@ export default async function AdminHubPage() {
       desc: 'Real-time client activity and alerts',
       icon: Bell,
       color: 'bg-amber-500',
+    },
+    {
+      href: '/admin/intelligence',
+      label: 'Intelligence Dashboard',
+      desc: 'Approval rates, performance data, and AI learning',
+      icon: BarChart3,
+      color: 'bg-indigo-600',
     },
   ]
 
