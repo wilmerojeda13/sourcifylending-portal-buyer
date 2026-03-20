@@ -95,7 +95,7 @@ export default function PortalLayout({
 
         // ── Underwriting review — Program A & B only ─────────────────────────
         ...(assignedProgram === 'program_a' || assignedProgram === 'program_b'
-          ? [{ href: '/underwriting', label: 'Monthly Review', icon: ClipboardList }]
+          ? [{ href: '/underwriting', label: 'Underwrite Your Biz', icon: ClipboardList }]
           : []),
 
         // ── Shared for all active members ────────────────────────────────────
