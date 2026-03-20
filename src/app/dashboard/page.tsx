@@ -55,6 +55,7 @@ export default async function DashboardPage() {
   // ── Underwriting gate — block roadmap/opportunities until reviewed (monthly) ─
   const uwNextDue = profile?.underwriting_next_due_at
   const needsUnderwriting =
+    !profile?.is_demo &&
     profile?.account_state === 'active_member' &&
     (profile?.assigned_program === 'program_a' || profile?.assigned_program === 'program_b') &&
     (!uwNextDue || new Date(uwNextDue) < new Date())
