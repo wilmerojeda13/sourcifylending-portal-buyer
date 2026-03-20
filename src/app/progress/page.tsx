@@ -220,7 +220,14 @@ function ProgressPage() {
 
       {total === 0 && (
         <div className="card text-center py-12">
-          <p className="text-gray-400 text-sm">No tasks assigned yet. Subscribe to begin your program.</p>
+          {isActive ? (
+            <>
+              <p className="text-gray-700 font-medium text-sm mb-1">Your program is active</p>
+              <p className="text-gray-400 text-xs leading-relaxed max-w-sm mx-auto">Your advisor is preparing your task list. Check back soon or reach out via Support if you have questions.</p>
+            </>
+          ) : (
+            <p className="text-gray-400 text-sm">No tasks assigned yet. Subscribe to begin your program.</p>
+          )}
         </div>
       )}
     </PortalLayout>

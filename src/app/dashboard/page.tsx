@@ -236,8 +236,19 @@ export default async function DashboardPage() {
               </div>
             ) : totalTasks === 0 ? (
               <div className="bg-gray-50 rounded-xl p-5 text-center">
-                <p className="text-sm text-gray-500 mb-3">No tasks assigned yet.</p>
-                <Link href="/billing" className="btn-primary text-xs">Subscribe to Begin</Link>
+                {isActive ? (
+                  <>
+                    <Clock size={24} className="text-green-400 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-gray-700 mb-1">Your program is active</p>
+                    <p className="text-xs text-gray-400 leading-relaxed">Your advisor is preparing your task list. Check back soon or reach out via Support if you have questions.</p>
+                    <Link href="/support" className="inline-block mt-3 btn-secondary text-xs">Contact Support</Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-500 mb-3">No tasks assigned yet.</p>
+                    <Link href="/billing" className="btn-primary text-xs">Subscribe to Begin</Link>
+                  </>
+                )}
               </div>
             ) : (
               <div className="bg-green-50 rounded-xl p-5 text-center">
