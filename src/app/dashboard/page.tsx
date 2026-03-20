@@ -75,6 +75,7 @@ export default async function DashboardPage() {
         isDemo={profile?.is_demo}
         isAdmin={profile?.is_admin}
         accountState="active_member"
+        demoSecondaryProgram={profile?.demo_secondary_program ?? null}
       >
         <UnderwritingGateBanner
           program={profile?.assigned_program ?? 'program_b'}
@@ -136,6 +137,7 @@ export default async function DashboardPage() {
       isAdmin={profile?.is_admin}
       accountState="active_member"
       uwNextDueAt={profile?.underwriting_next_due_at ?? null}
+      demoSecondaryProgram={profile?.demo_secondary_program ?? null}
     >
       {/* Subscription Locked Banner */}
       {!isActive && (

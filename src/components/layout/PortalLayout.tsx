@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { RefreshCcw } from 'lucide-react'
 
 const BASE_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -45,6 +46,8 @@ interface PortalLayoutProps {
   accountState?: 'prospect' | 'active_member'
   /** ISO string — when set and in the past, shows a "Due" badge on Monthly Review nav item */
   uwNextDueAt?: string | null
+  /** Demo accounts only: the other program available to switch to */
+  demoSecondaryProgram?: string | null
 }
 
 export default function PortalLayout({
@@ -59,6 +62,7 @@ export default function PortalLayout({
   isDelegate = false,
   accountState = 'active_member',
   uwNextDueAt,
+  demoSecondaryProgram,
 }: PortalLayoutProps) {
   const uwReviewDue = !!uwNextDueAt && new Date(uwNextDueAt) < new Date()
   const isProspect = accountState === 'prospect'
@@ -117,9 +121,22 @@ export default function PortalLayout({
         { href: '/settings',  label: 'Settings',      icon: Settings },
       ]
 
+  const [switching, setSwitching] = useState(false)
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  const handleSwitchProgram = async () => {
+    setSwitching(true)
+    try {
+      await fetch('/api/demo/switch-program', { method: 'POST' })
+      router.push('/dashboard')
+      router.refresh()
+    } finally {
+      setSwitching(false)
+    }
   }
 
   // Hard suspension screen — overrides all portal content
@@ -228,6 +245,20 @@ export default function PortalLayout({
           </div>
           <span>Notifications</span>
         </Link>
+        {isDemo && demoSecondaryProgram && (
+          <button
+            onClick={handleSwitchProgram}
+            disabled={switching}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors disabled:opacity-60"
+          >
+            <RefreshCcw size={18} className={switching ? 'animate-spin' : ''} />
+            <span>
+              {switching
+                ? 'Switching…'
+                : `Switch to ${demoSecondaryProgram === 'program_a' ? 'Program A' : 'Program B'}`}
+            </span>
+          </button>
+        )}
         <button
           onClick={handleSignOut}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
