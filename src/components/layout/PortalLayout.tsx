@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Bot, FileText, CheckSquare, BarChart2,
   CreditCard, Bell, LogOut, Menu, X, ChevronRight, Star, TrendingUp, ShieldCheck, Zap, ArrowUpCircle,
-  MessageSquare, Settings, ShieldAlert, DollarSign, Building2, BookOpen
+  MessageSquare, Settings, ShieldAlert, DollarSign, Building2, BookOpen, PieChart
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -92,6 +92,7 @@ export default function PortalLayout({
         // ── Shared for all active members ────────────────────────────────────
         { href: '/opportunities',   label: 'Opportunities',   icon: TrendingUp },
         { href: '/funding-results', label: 'Funding Results', icon: DollarSign },
+        { href: '/roi',             label: 'ROI Tracker',     icon: PieChart },
 
         // ── Program A only: credit dispute tooling ───────────────────────────
         ...(assignedProgram === 'program_a'
