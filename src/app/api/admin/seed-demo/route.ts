@@ -1163,8 +1163,8 @@ const DEMO_AB_CREDIBILITY = (() => {
 })()
 
 const DEMO_AB_TRADELINES = [
-  { user_id: DEMO_AB_ID, creditor_name: 'Uline', account_type: 'Net 30', credit_limit: 2500, balance: 0, payment_status: 'current', date_opened: daysAgo(60).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'First net-30 account. 2 early payment cycles.' },
-  { user_id: DEMO_AB_ID, creditor_name: 'Quill', account_type: 'Net 30', credit_limit: 1500, balance: 0, payment_status: 'current', date_opened: daysAgo(45).split('T')[0], reporting_bureaus: ['D&B'], notes: 'Office supplies account. 1 payment cycle completed.' },
+  { user_id: DEMO_AB_ID, vendor_name: 'Uline', account_type: 'Net 30', credit_limit: 2500, balance: 0, payment_status: 'current', date_opened: daysAgo(60).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'First net-30 account. 2 early payment cycles.' },
+  { user_id: DEMO_AB_ID, vendor_name: 'Quill', account_type: 'Net 30', credit_limit: 1500, balance: 0, payment_status: 'current', date_opened: daysAgo(45).split('T')[0], reporting_bureaus: ['D&B'], notes: 'Office supplies account. 1 payment cycle completed.' },
 ]
 
 const DEMO_AB_DISPUTES = [
@@ -1271,19 +1271,19 @@ export async function POST() {
 
   // ── Business tradelines seed data ─────────────────────────────────────────────
   const DEMO_B_TRADELINES = [
-    { user_id: DEMO_B_ID, creditor_name: 'Uline', account_type: 'Net 30', credit_limit: 2500, balance: 0, payment_status: 'current', date_opened: daysAgo(85).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'First net-30 account. Paid early 3 consecutive cycles.' },
-    { user_id: DEMO_B_ID, creditor_name: 'Quill', account_type: 'Net 30', credit_limit: 1500, balance: 0, payment_status: 'current', date_opened: daysAgo(70).split('T')[0], reporting_bureaus: ['D&B'], notes: 'Office supplies. Paid on time.' },
-    { user_id: DEMO_B_ID, creditor_name: 'Grainger', account_type: 'Net 30', credit_limit: 3000, balance: 480, payment_status: 'current', date_opened: daysAgo(55).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'Industrial supplies. Active account.' },
-    { user_id: DEMO_B_ID, creditor_name: 'Office Depot Business', account_type: 'Net 30', credit_limit: 1000, balance: 0, payment_status: 'current', date_opened: daysAgo(40).split('T')[0], reporting_bureaus: ['Experian Business'], notes: 'Recently started reporting.' },
+    { user_id: DEMO_B_ID, vendor_name: 'Uline', account_type: 'Net 30', credit_limit: 2500, balance: 0, payment_status: 'current', date_opened: daysAgo(85).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'First net-30 account. Paid early 3 consecutive cycles.' },
+    { user_id: DEMO_B_ID, vendor_name: 'Quill', account_type: 'Net 30', credit_limit: 1500, balance: 0, payment_status: 'current', date_opened: daysAgo(70).split('T')[0], reporting_bureaus: ['D&B'], notes: 'Office supplies. Paid on time.' },
+    { user_id: DEMO_B_ID, vendor_name: 'Grainger', account_type: 'Net 30', credit_limit: 3000, balance: 480, payment_status: 'current', date_opened: daysAgo(55).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'Industrial supplies. Active account.' },
+    { user_id: DEMO_B_ID, vendor_name: 'Office Depot Business', account_type: 'Net 30', credit_limit: 1000, balance: 0, payment_status: 'current', date_opened: daysAgo(40).split('T')[0], reporting_bureaus: ['Experian Business'], notes: 'Recently started reporting.' },
   ]
 
   const DEMO_C_TRADELINES = [
-    { user_id: DEMO_C_ID, creditor_name: 'Uline', account_type: 'Net 30', credit_limit: 5000, balance: 0, payment_status: 'current', date_opened: daysAgo(170).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'Established account. Consistent early payment.' },
-    { user_id: DEMO_C_ID, creditor_name: 'Quill', account_type: 'Net 30', credit_limit: 2500, balance: 0, payment_status: 'current', date_opened: daysAgo(160).split('T')[0], reporting_bureaus: ['D&B'], notes: 'Office supply account — 5 reporting cycles.' },
-    { user_id: DEMO_C_ID, creditor_name: 'Grainger', account_type: 'Net 30', credit_limit: 7500, balance: 1200, payment_status: 'current', date_opened: daysAgo(140).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business', 'Equifax Business'], notes: 'All 3 bureaus reporting.' },
-    { user_id: DEMO_C_ID, creditor_name: 'Home Depot Commercial', account_type: 'Revolving', credit_limit: 10000, balance: 2200, payment_status: 'current', date_opened: daysAgo(120).split('T')[0], reporting_bureaus: ['Experian Business'], notes: 'Revolving commercial account.' },
-    { user_id: DEMO_C_ID, creditor_name: 'Staples Business Advantage', account_type: 'Net 30', credit_limit: 3000, balance: 0, payment_status: 'current', date_opened: daysAgo(90).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: '5th reporting account — unlocked card eligibility.' },
-    { user_id: DEMO_C_ID, creditor_name: 'Amazon Business', account_type: 'Net 30', credit_limit: 5000, balance: 850, payment_status: 'current', date_opened: daysAgo(60).split('T')[0], reporting_bureaus: ['Experian Business'], notes: 'Most recent addition. Active purchasing.' },
+    { user_id: DEMO_C_ID, vendor_name: 'Uline', account_type: 'Net 30', credit_limit: 5000, balance: 0, payment_status: 'current', date_opened: daysAgo(170).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: 'Established account. Consistent early payment.' },
+    { user_id: DEMO_C_ID, vendor_name: 'Quill', account_type: 'Net 30', credit_limit: 2500, balance: 0, payment_status: 'current', date_opened: daysAgo(160).split('T')[0], reporting_bureaus: ['D&B'], notes: 'Office supply account — 5 reporting cycles.' },
+    { user_id: DEMO_C_ID, vendor_name: 'Grainger', account_type: 'Net 30', credit_limit: 7500, balance: 1200, payment_status: 'current', date_opened: daysAgo(140).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business', 'Equifax Business'], notes: 'All 3 bureaus reporting.' },
+    { user_id: DEMO_C_ID, vendor_name: 'Home Depot Commercial', account_type: 'Revolving', credit_limit: 10000, balance: 2200, payment_status: 'current', date_opened: daysAgo(120).split('T')[0], reporting_bureaus: ['Experian Business'], notes: 'Revolving commercial account.' },
+    { user_id: DEMO_C_ID, vendor_name: 'Staples Business Advantage', account_type: 'Net 30', credit_limit: 3000, balance: 0, payment_status: 'current', date_opened: daysAgo(90).split('T')[0], reporting_bureaus: ['D&B', 'Experian Business'], notes: '5th reporting account — unlocked card eligibility.' },
+    { user_id: DEMO_C_ID, vendor_name: 'Amazon Business', account_type: 'Net 30', credit_limit: 5000, balance: 850, payment_status: 'current', date_opened: daysAgo(60).split('T')[0], reporting_bureaus: ['Experian Business'], notes: 'Most recent addition. Active purchasing.' },
   ]
 
   const demoUsers = [
