@@ -33,18 +33,21 @@ export async function GET(_req: NextRequest) {
         .order('period_start', { ascending: false })
         .limit(4),
       supabase.from('profiles')
-        .select('id, full_name, email, business_name, assigned_program'),
+        .select('id, full_name, email, business_name, assigned_program, is_demo'),
     ])
 
-    const allPayments = payments ?? []
-    const allSubscriptions = subscriptions ?? []
-    const allArrangements = arrangements ?? []
-
-    // Build profile lookup by user id
+    // Build profile lookup + demo exclusion set
     const profileMap = new Map<string, Record<string, unknown>>()
+    const demoUserIds = new Set<string>()
     for (const p of (profiles ?? [])) {
       profileMap.set(p.id as string, p as Record<string, unknown>)
+      if (p.is_demo) demoUserIds.add(p.id as string)
     }
+
+    // Exclude demo accounts from all revenue calculations
+    const allPayments = (payments ?? []).filter(p => !demoUserIds.has(p.user_id as string))
+    const allSubscriptions = (subscriptions ?? []).filter(s => !demoUserIds.has(s.user_id as string))
+    const allArrangements = (arrangements ?? []).filter(a => !demoUserIds.has(a.user_id as string))
 
     const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
 
