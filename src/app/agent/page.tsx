@@ -45,9 +45,10 @@ export default function AgentPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const [{ data: p }, convRes] = await Promise.all([
+      const [{ data: p }, convRes, { data: nextTaskData }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
         fetch('/api/agent/conversation'),
+        supabase.from('tasks').select('title, stage').eq('user_id', user.id).eq('status', 'pending').order('sort_order').limit(1).maybeSingle(),
       ])
 
       setProfile(p)
@@ -74,12 +75,21 @@ export default function AgentPage() {
       }))
 
       if (priorMessages.length === 0) {
+        const firstName = (p?.full_name || 'there').split(' ')[0]
+        let greetingText = ''
+        if (active) {
+          if (nextTaskData?.title) {
+            greetingText = `Hi ${firstName}! 👋 I'm your AI Fulfillment Agent for the **${getProgramShortLabel(p?.assigned_program)}** program.\n\nYour next task is: **"${nextTaskData.title}"** (${nextTaskData.stage}).\n\nWant me to walk you through it step by step? Just say **"yes"** or ask me anything about your program.`
+          } else {
+            greetingText = `Hi ${firstName}! 👋 I'm your AI Fulfillment Agent for the **${getProgramShortLabel(p?.assigned_program)}** program.\n\nI have full visibility into your tasks, documents, and progress. Ask me anything — or tap one of the quick prompts below to get started.`
+          }
+        } else {
+          greetingText = `Hi there! Your subscription is currently inactive, so my capabilities are limited. Please **reactivate your subscription** to access full AI fulfillment guidance.\n\nI can still answer general questions about your program.`
+        }
         const greeting: ChatMessage = {
           id: uuidv4(),
           role: 'assistant',
-          content: active
-            ? `Hi ${(p?.full_name || 'there').split(' ')[0]}! 👋 I'm your AI Fulfillment Agent for the **${getProgramShortLabel(p?.assigned_program)}** program.\n\nI have full visibility into your tasks, documents, and progress. Ask me anything — or tap one of the quick prompts below to get started.`
-            : `Hi there! Your subscription is currently inactive, so my capabilities are limited. Please **reactivate your subscription** to access full AI fulfillment guidance.\n\nI can still answer general questions about your program.`,
+          content: greetingText,
           timestamp: new Date().toISOString(),
         }
         setMessages([greeting])

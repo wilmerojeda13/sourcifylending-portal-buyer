@@ -8,35 +8,47 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { id: conversationId, isNew, wasRolledOver } = await getOrCreateActiveConversation(user.id)
+  try {
+    const { id: conversationId, isNew, wasRolledOver } = await getOrCreateActiveConversation(user.id)
 
-  // Load prior messages for this conversation
-  const { data: messages } = await supabase
-    .from('ai_messages')
-    .select('id, role, content, created_at')
-    .eq('conversation_id', conversationId)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: true })
-    .limit(100)
-
-  // If rolled over, load the prior conversation summary for context banner
-  let priorSummary: string | null = null
-  if (wasRolledOver) {
-    const { data: memProfile } = await supabase
-      .from('ai_memory_profiles')
-      .select('last_summary')
+    // Load prior messages for this conversation
+    const { data: messages } = await supabase
+      .from('ai_messages')
+      .select('id, role, content, created_at')
+      .eq('conversation_id', conversationId)
       .eq('user_id', user.id)
-      .maybeSingle()
-    priorSummary = memProfile?.last_summary ?? null
-  }
+      .order('created_at', { ascending: true })
+      .limit(100)
 
-  return NextResponse.json({
-    conversation_id: conversationId,
-    is_new: isNew,
-    was_rolled_over: wasRolledOver,
-    prior_summary: priorSummary,
-    messages: messages ?? [],
-  })
+    // If rolled over, load the prior conversation summary for context banner
+    let priorSummary: string | null = null
+    if (wasRolledOver) {
+      const { data: memProfile } = await supabase
+        .from('ai_memory_profiles')
+        .select('last_summary')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      priorSummary = memProfile?.last_summary ?? null
+    }
+
+    return NextResponse.json({
+      conversation_id: conversationId,
+      is_new: isNew,
+      was_rolled_over: wasRolledOver,
+      prior_summary: priorSummary,
+      messages: messages ?? [],
+    })
+  } catch (err) {
+    // Tables may not exist yet — return empty session so chat still works
+    console.error('[Conversation] Failed to load conversation (tables may not exist):', err)
+    return NextResponse.json({
+      conversation_id: null,
+      is_new: true,
+      was_rolled_over: false,
+      prior_summary: null,
+      messages: [],
+    })
+  }
 }
 
 // POST — save a message to the active conversation
@@ -68,7 +80,11 @@ export async function POST(req: NextRequest) {
     .select('id')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    // Silently fail if tables don't exist — don't break the chat
+    console.error('[Conversation] Failed to save message:', error.message)
+    return NextResponse.json({ message_id: null })
+  }
 
   // Update conversation token estimate
   await supabase.rpc('increment_conversation_tokens', {
