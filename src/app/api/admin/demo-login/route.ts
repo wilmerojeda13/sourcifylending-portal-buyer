@@ -5,6 +5,7 @@ const DEMO_EMAILS = [
   'demo-a@sourcifylending.com',
   'demo-b@sourcifylending.com',
   'demo-c@sourcifylending.com',
+  'demo@sourcifylending.com',
 ]
 
 export async function POST(req: NextRequest) {
@@ -22,13 +23,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not a demo account' }, { status: 400 })
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    // Use request origin so the redirect works from any environment
+    // (local dev on any port, staging, production) without needing to
+    // change env vars.
+    const origin = req.headers.get('origin')
+      || req.headers.get('referer')?.replace(/\/$/, '').split('/').slice(0, 3).join('/')
+      || process.env.NEXT_PUBLIC_APP_URL
+      || 'http://localhost:3001'
 
     const { data, error } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
       email,
       options: {
-        redirectTo: `${siteUrl}/auth/confirm?next=/dashboard`,
+        redirectTo: `${origin}/auth/confirm?next=/dashboard`,
       },
     })
 

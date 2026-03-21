@@ -324,7 +324,7 @@ export async function sendWelcomeEmail({
   }
 }
 
-// ─── Underwriting Complete Email ───────────────────────────────────────────────
+// ─── Underwriting Complete Email ─────────────────────────────────────────────
 export async function sendUnderwritingCompleteEmail({
   toEmail,
   toName,
@@ -559,5 +559,149 @@ export async function sendUnderwritingCompleteEmail({
     return { success: !error }
   } catch {
     return { success: false }
+  }
+}
+
+// ─── Payment Reminder Email ────────────────────────────────────────────────────
+export type PaymentReminderType = 'balance_due' | 'arrangement_due' | 'renewal_upcoming' | 'past_due'
+
+export async function sendPaymentReminderEmail({
+  toEmail,
+  toName,
+  reminderType,
+  amountDue,
+  balanceRemaining,
+  dueDate,
+  recurringAmount,
+  programLabel,
+  notes,
+}: {
+  toEmail: string
+  toName: string
+  reminderType: PaymentReminderType
+  amountDue?: number
+  balanceRemaining?: number
+  dueDate?: string
+  recurringAmount?: number
+  programLabel?: string
+  notes?: string
+}): Promise<{ success: boolean; error?: string }> {
+  if (!process.env.RESEND_API_KEY) return { success: false, error: 'Email not configured' }
+
+  const firstName = (toName || 'Client').split(' ')[0]
+  const billingUrl = `${SITE_URL}/billing`
+  const program = programLabel ?? 'SourcifyLending Membership'
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  const daysUntil = dueDate
+    ? Math.ceil((new Date(dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null
+
+  type Cfg = { subject: string; headerColor: string; headerLabel: string; badgeBg: string; badgeBorder: string; badgeText: string; badgeLabel: string; icon: string; headline: string; body: string; ctaText: string }
+  const configs: Record<PaymentReminderType, Cfg> = {
+    past_due: {
+      subject: '⚠️ Action Required: Payment Past Due — SourcifyLending',
+      headerColor: '#b91c1c', headerLabel: 'Payment Past Due',
+      badgeBg: '#fef2f2', badgeBorder: '#fca5a5', badgeText: '#b91c1c',
+      badgeLabel: '⚠️ Payment Overdue',
+      icon: '⚠️', headline: `Action required, ${firstName}`,
+      body: `Your subscription payment for <strong>${program}</strong> is past due. To avoid a service interruption, please update your payment method or contact us right away.`,
+      ctaText: 'Update Payment Method',
+    },
+    balance_due: {
+      subject: `Balance Due${amountDue ? ` — ${fmt(amountDue)}` : ''} — SourcifyLending`,
+      headerColor: '#b45309', headerLabel: 'Payment Reminder',
+      badgeBg: '#fffbeb', badgeBorder: '#fde68a', badgeText: '#92400e',
+      badgeLabel: `💳 Balance Due${amountDue ? `: ${fmt(amountDue)}` : ''}`,
+      icon: '💳', headline: `You have a remaining balance, ${firstName}`,
+      body: `Your <strong>${program}</strong> account has an outstanding setup fee balance${balanceRemaining ? ` of <strong>${fmt(balanceRemaining)}</strong>` : ''}${dueDate ? ` due on <strong>${fmtDate(dueDate)}</strong>` : ''}. Please ensure payment is made to keep your account in good standing.`,
+      ctaText: 'View Payment Details',
+    },
+    arrangement_due: {
+      subject: `Payment Due${dueDate ? ` ${fmtDate(dueDate)}` : ''} — SourcifyLending`,
+      headerColor: '#b45309', headerLabel: 'Upcoming Payment',
+      badgeBg: '#fffbeb', badgeBorder: '#fde68a', badgeText: '#92400e',
+      badgeLabel: `📅 Payment Due${daysUntil !== null ? ` in ${daysUntil} Day${daysUntil !== 1 ? 's' : ''}` : ''}`,
+      icon: '📅', headline: `Upcoming payment reminder, ${firstName}`,
+      body: `Your next scheduled payment${amountDue ? ` of <strong>${fmt(amountDue)}</strong>` : ''} for <strong>${program}</strong> is due${dueDate ? ` on <strong>${fmtDate(dueDate)}</strong>` : ' soon'}. Please make sure your payment method is ready.`,
+      ctaText: 'View Payment Schedule',
+    },
+    renewal_upcoming: {
+      subject: 'Your Membership Renews Soon — SourcifyLending',
+      headerColor: '#16a34a', headerLabel: 'Renewal Notice',
+      badgeBg: '#f0fdf4', badgeBorder: '#bbf7d0', badgeText: '#15803d',
+      badgeLabel: `🔄 Renews${daysUntil !== null ? ` in ${daysUntil} Day${daysUntil !== 1 ? 's' : ''}` : ' Soon'}`,
+      icon: '🔄', headline: `Your membership renews soon, ${firstName}`,
+      body: `Your <strong>${program}</strong> subscription renews${dueDate ? ` on <strong>${fmtDate(dueDate)}</strong>` : ' soon'}${recurringAmount ? ` for <strong>${fmt(recurringAmount)}/month</strong>` : ''}. Your card on file will be charged automatically — no action needed unless you want to make changes.`,
+      ctaText: 'Manage Subscription',
+    },
+  }
+
+  const c = configs[reminderType]
+
+  const summaryRows = [
+    balanceRemaining ? `<tr><td style="font-size:13px;color:#6b7280;padding:3px 0;">Balance Remaining</td><td style="font-size:13px;font-weight:700;color:#111827;text-align:right;">${fmt(balanceRemaining)}</td></tr>` : '',
+    amountDue        ? `<tr><td style="font-size:13px;color:#6b7280;padding:3px 0;">Amount Due</td><td style="font-size:13px;font-weight:700;color:#111827;text-align:right;">${fmt(amountDue)}</td></tr>` : '',
+    recurringAmount  ? `<tr><td style="font-size:13px;color:#6b7280;padding:3px 0;">Monthly Rate</td><td style="font-size:13px;font-weight:700;color:#111827;text-align:right;">${fmt(recurringAmount)}/mo</td></tr>` : '',
+    dueDate          ? `<tr><td style="font-size:13px;color:#6b7280;padding:3px 0;">${reminderType === 'renewal_upcoming' ? 'Renewal Date' : 'Due Date'}</td><td style="font-size:13px;font-weight:700;color:#111827;text-align:right;">${fmtDate(dueDate)}</td></tr>` : '',
+  ].filter(Boolean).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><title>${c.subject}</title></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:'Helvetica Neue',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+      <tr><td style="background:${c.headerColor};padding:28px 40px;text-align:center;">
+        <span style="color:#ffffff;font-weight:800;font-size:22px;">SourcifyLending</span>
+        <p style="color:rgba(255,255,255,0.8);font-size:12px;margin:6px 0 0 0;letter-spacing:0.5px;text-transform:uppercase;font-weight:600;">${c.headerLabel}</p>
+      </td></tr>
+      <tr><td style="padding:32px 40px 0 40px;">
+        <h1 style="margin:0 0 8px 0;font-size:22px;font-weight:800;color:#111827;">${c.icon} ${c.headline}</h1>
+      </td></tr>
+      <tr><td style="padding:20px 40px 0 40px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:${c.badgeBg};border:1px solid ${c.badgeBorder};border-radius:12px;padding:20px 24px;">
+          <tr><td>
+            <p style="margin:0 0 4px 0;font-size:11px;text-transform:uppercase;letter-spacing:0.8px;font-weight:700;color:${c.badgeText};">Payment Notice</p>
+            <p style="margin:0 0 10px 0;font-size:20px;font-weight:800;color:#111827;">${c.badgeLabel}</p>
+            <p style="margin:0;font-size:14px;color:#374151;line-height:1.7;">${c.body}</p>
+            ${notes ? `<p style="margin:12px 0 0 0;font-size:13px;color:#6b7280;font-style:italic;">${notes}</p>` : ''}
+          </td></tr>
+        </table>
+      </td></tr>
+      ${summaryRows ? `
+      <tr><td style="padding:16px 40px 0 40px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px 24px;">
+          <tr><td>
+            <p style="margin:0 0 10px 0;font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">Payment Summary</p>
+            <table width="100%" cellpadding="0" cellspacing="0">${summaryRows}</table>
+          </td></tr>
+        </table>
+      </td></tr>` : ''}
+      <tr><td style="padding:32px 40px;text-align:center;">
+        <a href="${billingUrl}" style="display:inline-block;background:${c.headerColor};color:#ffffff;font-weight:700;font-size:15px;padding:14px 36px;border-radius:12px;text-decoration:none;">${c.ctaText} →</a>
+        <p style="margin:16px 0 0 0;font-size:13px;color:#9ca3af;">Questions? Reply to this email or contact your advisor.</p>
+      </td></tr>
+      <tr><td style="padding:0 40px 24px 40px;border-top:1px solid #e5e7eb;padding-top:20px;">
+        <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;text-align:center;">
+          Automated payment reminder from SourcifyLending.<br/>© ${new Date().getFullYear()} SourcifyLending
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`
+
+  try {
+    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to: toEmail, subject: c.subject, html })
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 }

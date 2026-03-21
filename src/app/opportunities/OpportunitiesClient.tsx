@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import type { AccountOpportunity, OpportunityCategory } from '@/types'
 import {
   ExternalLink, Lock, CheckCircle, Clock, AlertCircle, Sparkles,
   Brain, ChevronDown, ChevronUp, AlertTriangle, X, ArrowRight,
   Shield, TrendingUp, Star,
 } from 'lucide-react'
+import OutcomeFeedbackModal from '@/components/OutcomeFeedbackModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MatchResult {
@@ -185,10 +186,29 @@ export default function OpportunitiesClient({
   const [matchData, setMatchData] = useState<MatchResult | null>(null)
   const [matchLoading, setMatchLoading] = useState(assignedProgram === 'program_b')
   const [warnOpportunity, setWarnOpportunity] = useState<AccountOpportunity | null>(null)
+  const [feedbackOpportunity, setFeedbackOpportunity] = useState<AccountOpportunity | null>(null)
   const [showBrowseAll, setShowBrowseAll] = useState(false)
   const [filterCategory, setFilterCategory] = useState<OpportunityCategory | ''>('')
   const [filterPG, setFilterPG] = useState<'all' | 'yes' | 'no' | 'varies'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'recommended' | 'future'>('all')
+
+  // Fire outcome feedback modal ~3s after clicking Apply
+  const handleApply = useCallback((opp: AccountOpportunity) => {
+    // Fire to new intelligence events endpoint (fire-and-forget)
+    fetch('/api/events/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action_type: 'application_started',
+        opportunity_id: opp.id,
+        opportunity_name: opp.name,
+        stage: opp.stage,
+        program: opp.program,
+      }),
+    }).catch(() => {})
+    // Show "Did you get approved?" modal after 3 seconds
+    setTimeout(() => setFeedbackOpportunity(opp), 3000)
+  }, [])
 
   // Fetch AI match data for Program B
   useEffect(() => {
@@ -341,6 +361,7 @@ export default function OpportunitiesClient({
                   opp={opp}
                   rank={idx + 1}
                   isActive={isActive}
+                  onApply={handleApply}
                 />
               ))}
             </div>
@@ -437,6 +458,7 @@ export default function OpportunitiesClient({
                         isActive={isActive}
                         isLocked={isLocked}
                         onLockedApply={isLocked ? () => setWarnOpportunity(opp) : undefined}
+                        onApply={!isLocked ? handleApply : undefined}
                       />
                     )
                   })}
@@ -451,6 +473,19 @@ export default function OpportunitiesClient({
             opp={warnOpportunity}
             currentStage={stage}
             onClose={() => setWarnOpportunity(null)}
+            onApplyAway={handleApply}
+          />
+        )}
+
+        {/* ── Outcome Feedback Modal ── */}
+        {feedbackOpportunity && (
+          <OutcomeFeedbackModal
+            opportunityName={feedbackOpportunity.name}
+            opportunityId={feedbackOpportunity.id}
+            program={feedbackOpportunity.program ?? assignedProgram ?? undefined}
+            stage={feedbackOpportunity.stage ?? undefined}
+            onClose={() => setFeedbackOpportunity(null)}
+            onSubmitted={() => setFeedbackOpportunity(null)}
           />
         )}
       </div>
@@ -530,7 +565,13 @@ export default function OpportunitiesClient({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filtered.map(opp => (
-          <OpportunityCard key={opp.id} opp={opp} status={opp.status as 'recommended' | 'future'} isActive={isActive} />
+          <OpportunityCard
+            key={opp.id}
+            opp={opp}
+            status={opp.status as 'recommended' | 'future'}
+            isActive={isActive}
+            onApply={handleApply}
+          />
         ))}
       </div>
 
@@ -538,6 +579,18 @@ export default function OpportunitiesClient({
         <div className="text-center py-12 text-gray-400 text-sm">
           No opportunities match the selected filters.
         </div>
+      )}
+
+      {/* ── Outcome Feedback Modal ── */}
+      {feedbackOpportunity && (
+        <OutcomeFeedbackModal
+          opportunityName={feedbackOpportunity.name}
+          opportunityId={feedbackOpportunity.id}
+          program={feedbackOpportunity.program ?? assignedProgram ?? undefined}
+          stage={feedbackOpportunity.stage ?? undefined}
+          onClose={() => setFeedbackOpportunity(null)}
+          onSubmitted={() => setFeedbackOpportunity(null)}
+        />
       )}
     </div>
   )
@@ -548,10 +601,12 @@ function RecommendedCard({
   opp,
   rank,
   isActive,
+  onApply,
 }: {
   opp: AccountOpportunity & { ai_reasoning: string | null; approval_probability?: 'high' | 'medium' | 'low' }
   rank: number
   isActive: boolean
+  onApply?: (opp: AccountOpportunity) => void
 }) {
   const applyUrl = safeUrl(opp.apply_url)
   const learnMoreUrl = safeUrl(opp.learn_more_url)
@@ -656,7 +711,10 @@ function RecommendedCard({
               href={applyUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => trackEvent('application_attempted', { opportunity_name: opp.name, stage: opp.stage, in_sequence: true })}
+              onClick={() => {
+                trackEvent('application_attempted', { opportunity_name: opp.name, stage: opp.stage, in_sequence: true })
+                onApply?.(opp)
+              }}
               className="flex-1 inline-flex items-center justify-center gap-1 text-xs bg-green-600 text-white px-3 py-2 rounded-xl hover:bg-green-700 transition-colors font-semibold"
             >
               Apply Now <ExternalLink size={10} />
@@ -728,10 +786,12 @@ function WarningModal({
   opp,
   currentStage,
   onClose,
+  onApplyAway,
 }: {
   opp: AccountOpportunity
   currentStage: string
   onClose: () => void
+  onApplyAway?: (opp: AccountOpportunity) => void
 }) {
   const applyUrl = safeUrl(opp.apply_url)
 
@@ -792,6 +852,7 @@ function WarningModal({
               rel="noopener noreferrer"
               onClick={() => {
                 trackEvent('application_attempted', { opportunity_name: opp.name, stage: opp.stage, in_sequence: false, out_of_sequence: true })
+                onApplyAway?.(opp)
                 onClose()
               }}
               className="flex-1 text-sm px-4 py-2.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors text-center font-medium"
@@ -816,12 +877,14 @@ function OpportunityCard({
   isActive,
   isLocked = false,
   onLockedApply,
+  onApply,
 }: {
   opp: AccountOpportunity
   status: 'recommended' | 'future'
   isActive: boolean
   isLocked?: boolean
   onLockedApply?: () => void
+  onApply?: (opp: AccountOpportunity) => void
 }) {
   const isRecommended = status === 'recommended'
   const blurred = !isActive
@@ -900,8 +963,16 @@ function OpportunityCard({
                 <Lock size={10} /> Apply (Locked)
               </button>
             ) : (
-              <a href={applyUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors">
+              <a
+                href={applyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  trackEvent('application_attempted', { opportunity_name: opp.name, stage: opp.stage })
+                  onApply?.(opp)
+                }}
+                className="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
+              >
                 Apply Now <ExternalLink size={10} />
               </a>
             )

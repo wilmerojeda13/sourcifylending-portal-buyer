@@ -180,10 +180,14 @@ export interface Task {
 // ─── Documents ────────────────────────────────────────────────────────────────
 export type DocumentType =
   | 'personal_credit_report'
+  | 'credit_score_report'
+  | 'inquiry_summary'
   | 'business_formation'
   | 'ein_letter'
   | 'bank_statement'
   | 'vendor_confirmation'
+  | 'vendor_account_screenshot'
+  | 'bureau_profile_screenshot'
   | 'other'
   | 'articles_of_organization'
   | 'driver_license'
@@ -191,10 +195,31 @@ export type DocumentType =
   | 'voided_check'
   | 'business_license'
   | 'duns_confirmation'
+  | 'monitoring_report'
 
 export type ReviewStatus = 'pending' | 'reviewed' | 'approved' | 'rejected'
 
+// Program A — credit-specific analysis output
+export interface CreditInsights {
+  estimated_score_range?: string | null
+  utilization_pct?: string | null
+  inquiry_count?: number | null
+  negative_accounts?: number | null
+  recommendations?: string[]
+}
+
+// Program B — business identity extracted from documents
+export interface BusinessIdentity {
+  business_name?: string | null
+  ein?: string | null
+  entity_type?: string | null
+  state?: string | null
+  address?: string | null
+  duns_number?: string | null
+}
+
 export interface AIDocumentAnalysis {
+  // ── Shared fields ──
   detected_type: string
   matches_declared_type: boolean
   is_valid: boolean
@@ -205,6 +230,22 @@ export interface AIDocumentAnalysis {
   tasks_to_complete: string[]
   next_step_guidance: string
   recommendation: 'approved' | 'needs_review' | 'rejected'
+  program_updates_summary?: string | null
+
+  // ── Program A ──
+  credit_insights?: CreditInsights | null
+  profile_updates?: Record<string, string> | null
+
+  // ── Program B ──
+  business_identity?: BusinessIdentity | null
+  checklist_completions?: string[] | null
+  credit_profile_updates?: Record<string, string> | null
+
+  // ── Program C ──
+  monitoring_summary?: string | null
+  alerts?: string[] | null
+  recommended_actions?: string[] | null
+  score_change?: string | null
 }
 
 export interface Document {
@@ -217,9 +258,11 @@ export interface Document {
   uploaded_at: string
   review_status: ReviewStatus
   notes: string | null
+  program?: string | null
   ai_analysis_status?: 'pending' | 'analyzing' | 'completed' | 'failed' | 'skipped' | null
   ai_analysis?: AIDocumentAnalysis | null
   ai_analyzed_at?: string | null
+  ai_program_updates?: Record<string, unknown> | null
 }
 
 // ─── Reports ──────────────────────────────────────────────────────────────────

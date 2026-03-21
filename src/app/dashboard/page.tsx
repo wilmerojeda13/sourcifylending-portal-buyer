@@ -7,6 +7,7 @@ import PortalLayout from '@/components/layout/PortalLayout'
 import ProspectDashboard from '@/app/dashboard/ProspectDashboard'
 import GenerateRoadmapButton from '@/components/dashboard/GenerateRoadmapButton'
 import UnderwritingGateBanner from '@/components/dashboard/UnderwritingGateBanner'
+import PaymentAlertBanner, { type PaymentAlert } from '@/components/dashboard/PaymentAlertBanner'
 import { getProgramShortLabel, getReadinessColor, formatDate } from '@/lib/utils'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/Badge'
@@ -94,12 +95,16 @@ export default async function DashboardPage() {
     { data: reports },
     { data: notifications },
     { data: fundingApprovals },
+    { data: arrangement },
+    { data: subscription },
   ] = await Promise.all([
     supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
     supabase.from('documents').select('*').eq('user_id', user.id),
     supabase.from('reports').select('*').eq('user_id', user.id).order('generated_at', { ascending: false }).limit(3),
     supabase.from('notifications').select('*').eq('user_id', user.id).eq('read', false).order('created_at', { ascending: false }).limit(5),
     supabase.from('funding_approvals').select('approved_amount,approved_limit,approval_type,issuer_name,approval_date').eq('user_id', user.id).eq('status', 'Approved'),
+    supabase.from('payment_arrangements').select('setup_fee_total,setup_fee_paid,recurring_amount,next_amount_due,next_due_date,notes,program_code').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
+    supabase.from('subscriptions').select('status,current_period_end,setup_fee_standard,setup_fee_paid,monthly_fee_standard,billing_status').eq('user_id', user.id).maybeSingle(),
   ])
 
   const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
@@ -126,6 +131,76 @@ export default async function DashboardPage() {
   const nextTask = pendingTasks[0] || null
   const totalTasks = tasks?.length || 0
   const progress = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0
+
+  // ── Payment alerts — computed server-side ──────────────────────────────────
+  const paymentAlerts: PaymentAlert[] = []
+
+  const daysUntil = (iso: string) =>
+    Math.ceil((new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  const dayLabel = (prefix: string, days: number) =>
+    days <= 0 ? `${prefix} Today` : days === 1 ? `${prefix} Tomorrow` : `${prefix} in ${days} Days`
+
+  // Past due — highest priority
+  if (subscription?.status === 'past_due') {
+    paymentAlerts.push({
+      type: 'past_due',
+      urgency: 'critical',
+      title: 'Payment Past Due',
+      message: 'Your subscription payment is overdue. Please update your payment method to avoid service interruption.',
+      amountDue: subscription.monthly_fee_standard ?? undefined,
+    })
+  }
+
+  // Setup fee balance remaining
+  if (arrangement) {
+    const total   = Number(arrangement.setup_fee_total ?? 0)
+    const paid    = Number(arrangement.setup_fee_paid  ?? 0)
+    const balance = total - paid
+    if (balance > 1) {
+      paymentAlerts.push({
+        type: 'balance_due',
+        urgency: 'warning',
+        title: `Balance Due: $${Math.round(balance).toLocaleString()}`,
+        message: `You have a remaining setup fee balance of $${Math.round(balance).toLocaleString()}${arrangement.next_due_date ? ` due on ${fmtDate(arrangement.next_due_date)}` : ''}.`,
+        amountDue: Number(arrangement.next_amount_due ?? balance),
+        balanceRemaining: balance,
+        dueDate: arrangement.next_due_date ?? undefined,
+        notes: arrangement.notes ?? undefined,
+      })
+    } else if (arrangement.next_due_date && arrangement.next_amount_due) {
+      const days = daysUntil(arrangement.next_due_date)
+      if (days <= 14 && days >= 0) {
+        paymentAlerts.push({
+          type: 'arrangement_due',
+          urgency: days <= 3 ? 'warning' : 'info',
+          title: dayLabel('Payment Due', days),
+          message: `Your next scheduled payment of $${Number(arrangement.next_amount_due).toLocaleString()} is due on ${fmtDate(arrangement.next_due_date)}.`,
+          amountDue: Number(arrangement.next_amount_due),
+          dueDate: arrangement.next_due_date,
+          daysUntilDue: days,
+          notes: arrangement.notes ?? undefined,
+        })
+      }
+    }
+  }
+
+  // Stripe renewal within 7 days
+  if (subscription?.current_period_end && subscription.status !== 'past_due') {
+    const days = daysUntil(subscription.current_period_end)
+    if (days <= 7 && days >= 0) {
+      paymentAlerts.push({
+        type: 'renewal_upcoming',
+        urgency: 'info',
+        title: dayLabel('Subscription Renews', days),
+        message: `Your membership renews on ${fmtDate(subscription.current_period_end)}${subscription.monthly_fee_standard ? ` for $${Number(subscription.monthly_fee_standard).toLocaleString()}/month` : ''}. Your card on file will be charged automatically.`,
+        amountDue: subscription.monthly_fee_standard ?? undefined,
+        dueDate: subscription.current_period_end,
+        daysUntilDue: days,
+      })
+    }
+  }
 
   return (
     <PortalLayout
@@ -155,6 +230,9 @@ export default async function DashboardPage() {
           </Link>
         </div>
       )}
+
+      {/* Payment Alerts — balance due, upcoming payment, renewal, past due */}
+      <PaymentAlertBanner alerts={paymentAlerts} />
 
       {/* Page Header */}
       <div className="mb-6">

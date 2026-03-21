@@ -7,6 +7,7 @@ const DEMO_ACCOUNTS = [
   { label: 'Alex Mercer', sub: 'Program A — 0% APR', email: 'demo-a@sourcifylending.com', color: 'bg-blue-500' },
   { label: 'Brianna Cole', sub: 'Program B — Biz Credit', email: 'demo-b@sourcifylending.com', color: 'bg-purple-500' },
   { label: 'Carlos Vega', sub: 'Program C — Monitoring', email: 'demo-c@sourcifylending.com', color: 'bg-green-500' },
+  { label: 'Alex Rivera', sub: 'Dual A+B — Switch Program', email: 'demo@sourcifylending.com', color: 'bg-orange-500' },
 ]
 
 export default function DemoLoginPanel() {

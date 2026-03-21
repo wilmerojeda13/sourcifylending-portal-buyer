@@ -6,6 +6,7 @@ import { getProgramShortLabel } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 import SeedDemoButton from './SeedDemoButton'
 import MigrateClientsButton from './MigrateClientsButton'
+import SendRemindersButton from './SendRemindersButton'
 const DemoLoginPanel = dynamic(() => import('./DemoLoginPanel'), { ssr: false })
 
 export default async function AdminHubPage() {
@@ -210,6 +211,7 @@ export default async function AdminHubPage() {
               </Link>
             ))}
             <MigrateClientsButton />
+            <SendRemindersButton />
             <SeedDemoButton />
             <DemoLoginPanel />
           </div>
