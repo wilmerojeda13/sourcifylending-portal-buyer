@@ -61,6 +61,57 @@ export async function GET(request: NextRequest) {
       // Ensure a profile row exists for OAuth users (Google sign-in creates no profile automatically)
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
+        // Affiliate referral attribution
+        try {
+          const refCode = cookieStore.get('affiliate_ref')?.value
+          if (refCode && user.email) {
+            const serviceClient = createServerClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.SUPABASE_SERVICE_ROLE_KEY!,
+              { cookies: { getAll() { return [] }, setAll() {} } }
+            )
+            const { data: affiliate } = await serviceClient
+              .from('affiliates')
+              .select('id, email')
+              .eq('referral_code', refCode.toUpperCase())
+              .eq('status', 'active')
+              .single()
+
+            if (affiliate) {
+              // Anti-abuse: block self-referral
+              const isSelfReferral = affiliate.email === user.email
+              const { data: existingRef } = await serviceClient
+                .from('affiliate_referrals')
+                .select('id')
+                .eq('affiliate_id', affiliate.id)
+                .eq('lead_email', user.email)
+                .maybeSingle()
+
+              if (!existingRef) {
+                await serviceClient.from('affiliate_referrals').insert({
+                  affiliate_id: affiliate.id,
+                  user_id: user.id,
+                  lead_name: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
+                  lead_email: user.email,
+                  referral_status: 'signed_up',
+                  is_self_referral: isSelfReferral,
+                  is_flagged: isSelfReferral,
+                  flag_reason: isSelfReferral ? 'Self-referral detected' : null,
+                })
+                // If self-referral, also create a flag
+                if (isSelfReferral) {
+                  await serviceClient.from('affiliate_flags').insert({
+                    affiliate_id: affiliate.id,
+                    flag_type: 'self_referral',
+                    reason: `Affiliate ${affiliate.email} attempted to refer themselves`,
+                    status: 'pending',
+                  })
+                }
+              }
+            }
+          }
+        } catch (e) { /* fire-and-forget — don't break auth */ }
+
         const { data: existing } = await supabase
           .from('profiles')
           .select('id')

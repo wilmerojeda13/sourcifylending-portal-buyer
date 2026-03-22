@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { generateTasksForUser } from '@/lib/task-templates'
 import { logActivity } from '@/lib/activity'
 import { logPortalEvent } from '@/lib/portal-events'
+import { getAffiliateByStripeCustomer, createCommission, reverseCommissions } from '@/lib/affiliates'
 import type { ProgramId } from '@/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
@@ -392,6 +393,16 @@ export async function POST(req: NextRequest) {
 
       await logActivity(userId, 'subscription_canceled', { subscription_id: sub.id })
 
+      // Update referral status when subscription is canceled
+      const deletedSub = event.data.object as Stripe.Subscription
+      if (deletedSub.customer) {
+        try {
+          await supabase.from('affiliate_referrals')
+            .update({ referral_status: 'canceled', subscription_active: false })
+            .eq('stripe_customer_id', deletedSub.customer as string)
+        } catch (e) { console.error('Referral update error:', e) }
+      }
+
       break
     }
 
@@ -478,6 +489,38 @@ export async function POST(req: NextRequest) {
           })
         }
       }
+
+      // Affiliate commission for recurring payments
+      const invPaid = event.data.object as Stripe.Invoice
+      if (invPaid.customer && invPaid.status === 'paid' && invPaid.amount_paid > 0) {
+        try {
+          const referral = await getAffiliateByStripeCustomer(invPaid.customer as string)
+          if (referral && referral.affiliates) {
+            // Determine commission type and program
+            const programType = referral.program_type || 'program_a'
+            const isSetup = invPaid.metadata?.commission_type === 'setup'
+            const commType = isSetup ? 'setup' : 'recurring'
+            await createCommission({
+              affiliateId: referral.affiliate_id,
+              referralId: referral.id,
+              userId: referral.user_id,
+              stripePaymentIntentId: invPaid.payment_intent as string | null,
+              stripeInvoiceId: invPaid.id,
+              programType,
+              commissionType: commType,
+              grossAmountCents: invPaid.amount_paid,
+              idempotencyKey: `inv_${invPaid.id}_${commType}`,
+            })
+            // Update referral status
+            await supabase.from('affiliate_referrals').update({
+              referral_status: 'active',
+              subscription_active: true,
+              last_payment_at: new Date().toISOString(),
+            }).eq('id', referral.id)
+          }
+        } catch (e) { console.error('Affiliate commission error:', e) }
+      }
+
       break
     }
 
@@ -510,6 +553,15 @@ export async function POST(req: NextRequest) {
           })
         }
       }
+
+      // Reverse affiliate commissions
+      const refundCharge = event.data.object as Stripe.Charge
+      if (refundCharge.payment_intent) {
+        try {
+          await reverseCommissions(refundCharge.payment_intent as string, null, 'charge_refunded')
+        } catch (e) { console.error('Commission reversal error:', e) }
+      }
+
       break
     }
   }

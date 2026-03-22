@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3 } from 'lucide-react'
+import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3, GitBranch } from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 import SeedDemoButton from './SeedDemoButton'
@@ -116,6 +116,13 @@ export default async function AdminHubPage() {
       desc: 'Approval rates, performance data, and AI learning',
       icon: BarChart3,
       color: 'bg-indigo-600',
+    },
+    {
+      href: '/admin/affiliates',
+      label: 'Affiliate Program',
+      desc: 'Manage affiliates, commissions, referrals, and resource content',
+      icon: GitBranch,
+      color: 'bg-emerald-500',
     },
   ]
 

@@ -24,8 +24,33 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // getUser() refreshes the token if needed
   await supabase.auth.getUser()
+
+  // Capture affiliate referral code from ?ref= query param
+  const url = new URL(request.url)
+  const refCode = url.searchParams.get('ref')
+  if (refCode && refCode.length >= 6 && refCode.length <= 12) {
+    const existing = request.cookies.get('affiliate_ref')
+    if (!existing) {
+      // Set cookie for 30 days
+      supabaseResponse.cookies.set('affiliate_ref', refCode.toUpperCase(), {
+        maxAge: 60 * 60 * 24 * 30,
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax',
+      })
+    }
+    // Fire-and-forget click tracking (don't await, don't block)
+    const origin = request.nextUrl.origin
+    fetch(`${origin}/api/affiliate/track-click`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        referralCode: refCode.toUpperCase(),
+        landingPage: url.pathname,
+      }),
+    }).catch(() => {})
+  }
 
   return supabaseResponse
 }
