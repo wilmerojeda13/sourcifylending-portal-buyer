@@ -66,6 +66,7 @@ export async function runFreeAccessQualificationCheck() {
     .from('affiliates')
     .select('id, has_free_program_b_access, qualification_start_date, status')
     .eq('status', 'active')
+    .eq('is_demo', false)
 
   if (!affiliates) return { processed: 0, unlocked: 0, locked: 0 }
 

@@ -7,6 +7,7 @@ import {
   Users, Plus, Search, Filter, Download, RefreshCw, ChevronLeft,
   Loader2, CheckCircle, XCircle, AlertCircle, ArrowRight, ExternalLink
 } from 'lucide-react'
+import ResetDemoAffiliateButton from './ResetDemoAffiliateButton'
 
 interface Affiliate {
   id: string
@@ -202,6 +203,7 @@ export default function AffiliatesPage() {
           {[
             { label: 'Affiliates', href: '/admin/affiliates', active: true },
             { label: 'Commissions', href: '/admin/affiliates/commissions' },
+            { label: 'Applications', href: '/admin/affiliates/applications' },
             { label: 'Settings', href: '/admin/affiliates/settings' },
             { label: 'Resources', href: '/admin/affiliates/resources' },
             { label: 'Flags', href: '/admin/affiliates/flags' },
@@ -233,6 +235,11 @@ export default function AffiliatesPage() {
               <div className="text-xs text-gray-400 mt-0.5">{label}</div>
             </div>
           ))}
+        </div>
+
+        {/* Demo Tools */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <ResetDemoAffiliateButton />
         </div>
 
         {/* Filter Bar */}

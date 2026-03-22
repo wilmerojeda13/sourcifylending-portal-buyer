@@ -13,6 +13,7 @@ import {
   TrendingUp,
   ChevronRight,
   AlertCircle,
+  FlaskConical,
 } from 'lucide-react'
 
 interface DashboardData {
@@ -37,6 +38,7 @@ interface DashboardData {
     activeCount: number
     daysRemaining: number | null
     threshold: number
+    is_demo: boolean
   }
 }
 
@@ -123,9 +125,17 @@ export default function AffiliateDashboardPage() {
 
       {/* Welcome */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Hi {affiliate.name.split(' ')[0]}! 👋
-        </h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Hi {affiliate.name.split(' ')[0]}! 👋
+          </h1>
+          {stats?.is_demo && (
+            <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-semibold">
+              <FlaskConical size={12} />
+              Demo Account
+            </span>
+          )}
+        </div>
         <p className="text-sm text-gray-500 mt-1">Here&apos;s your affiliate overview.</p>
       </div>
 

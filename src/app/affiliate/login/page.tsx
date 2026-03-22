@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react'
 
+const DEMO_EMAIL = 'affiliate@sourcifylending.com'
+const DEMO_PASSWORD = 'AffiliateDemo123!'
+
 export default function AffiliateLoginPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -14,6 +17,14 @@ export default function AffiliateLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [demoLoaded, setDemoLoaded] = useState(false)
+
+  const loadDemoCredentials = () => {
+    setEmail(DEMO_EMAIL)
+    setPassword(DEMO_PASSWORD)
+    setDemoLoaded(true)
+    setError(null)
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -145,6 +156,22 @@ export default function AffiliateLoginPage() {
               )}
             </button>
           </form>
+        </div>
+
+        {/* Demo Account */}
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={loadDemoCredentials}
+            className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-600 text-sm font-medium px-6 py-2.5 rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-colors"
+          >
+            👁 View Demo Account
+          </button>
+          {demoLoaded && (
+            <p className="mt-2 text-center text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Demo credentials loaded — click Sign In to continue
+            </p>
+          )}
         </div>
 
         {/* Footer links */}

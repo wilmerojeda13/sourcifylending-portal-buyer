@@ -62,6 +62,7 @@ export async function GET() {
         activeCount,
         daysRemaining,
         threshold: AFFILIATE_FREE_ACCESS_THRESHOLD,
+        is_demo: affiliate.is_demo ?? false,
       },
     })
   } catch (e) {
