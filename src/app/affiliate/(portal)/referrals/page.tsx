@@ -1,18 +1,22 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
-import { Users, AlertCircle, ChevronLeft, ChevronRight, Share2 } from 'lucide-react'
+import { Users, AlertCircle, ChevronLeft, ChevronRight, Share2, Loader2, Info } from 'lucide-react'
 
 type ReferralStatus = 'clicked' | 'signed_up' | 'active' | 'past_due' | 'canceled' | 'refunded' | 'chargeback'
+type DealType = 'referral_only' | 'affiliate_closed'
 
 interface Referral {
   id: string
   lead_name: string | null
   lead_email: string | null
-  program: string | null
+  program_type: string | null
   referral_status: ReferralStatus
   subscription_active: boolean
   created_at: string
-  last_payment_date: string | null
+  last_payment_at: string | null
+  deal_type: DealType
+  deal_type_locked: boolean
+  deal_type_approved: boolean | null
 }
 
 interface ReferralsData {
@@ -28,13 +32,13 @@ function fmtDate(iso: string | null) {
 }
 
 const STATUS_CONFIG: Record<ReferralStatus, { label: string; color: string }> = {
-  active:      { label: 'Active',      color: 'bg-green-100 text-green-700' },
-  signed_up:   { label: 'Signed Up',   color: 'bg-blue-100 text-blue-700' },
-  clicked:     { label: 'Clicked',     color: 'bg-gray-100 text-gray-500' },
-  past_due:    { label: 'Past Due',    color: 'bg-amber-100 text-amber-700' },
-  canceled:    { label: 'Canceled',    color: 'bg-red-100 text-red-500' },
-  refunded:    { label: 'Refunded',    color: 'bg-red-100 text-red-500' },
-  chargeback:  { label: 'Chargeback',  color: 'bg-red-100 text-red-600' },
+  active:     { label: 'Active',      color: 'bg-green-100 text-green-700' },
+  signed_up:  { label: 'Signed Up',   color: 'bg-blue-100 text-blue-700' },
+  clicked:    { label: 'Clicked',     color: 'bg-gray-100 text-gray-500' },
+  past_due:   { label: 'Past Due',    color: 'bg-amber-100 text-amber-700' },
+  canceled:   { label: 'Canceled',    color: 'bg-red-100 text-red-500' },
+  refunded:   { label: 'Refunded',    color: 'bg-red-100 text-red-500' },
+  chargeback: { label: 'Chargeback',  color: 'bg-red-100 text-red-600' },
 }
 
 function StatusBadge({ status }: { status: ReferralStatus }) {
@@ -43,6 +47,107 @@ function StatusBadge({ status }: { status: ReferralStatus }) {
     <span className={`inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded-full uppercase ${cfg.color}`}>
       {cfg.label}
     </span>
+  )
+}
+
+function DealTypeBadge({ dealType, locked, approved }: { dealType: DealType; locked: boolean; approved: boolean | null }) {
+  if (dealType === 'affiliate_closed') {
+    if (approved === true) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 uppercase">
+          Closed · 30% ✓
+        </span>
+      )
+    }
+    if (approved === false) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 uppercase">
+          Closed · Rejected
+        </span>
+      )
+    }
+    // null = pending approval or approval not required
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 uppercase">
+        Closed · 30%{locked ? '' : ' (pending)'}
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-500 uppercase">
+      Referral · 10%
+    </span>
+  )
+}
+
+function DealTypeSelector({
+  referralId,
+  currentDealType,
+  locked,
+  onUpdated,
+}: {
+  referralId: string
+  currentDealType: DealType
+  locked: boolean
+  onUpdated: (id: string, dt: DealType) => void
+}) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [selected, setSelected] = useState<DealType>(currentDealType)
+
+  if (locked) return null
+
+  async function handleChange(newType: DealType) {
+    if (newType === selected) return
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/affiliate/referrals/${referralId}/deal-type`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deal_type: newType }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'Failed to update'); return }
+      setSelected(newType)
+      onUpdated(referralId, newType)
+    } catch {
+      setError('Network error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mt-1.5 space-y-1">
+      {error && <p className="text-[10px] text-red-600">{error}</p>}
+      <div className="flex gap-1.5 flex-wrap">
+        <button
+          onClick={() => handleChange('referral_only')}
+          disabled={saving}
+          className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold border transition-colors flex items-center gap-1 ${
+            selected === 'referral_only'
+              ? 'bg-indigo-600 text-white border-indigo-600'
+              : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+          }`}
+        >
+          {saving && selected !== 'referral_only' ? null : null}
+          Referral (10%)
+        </button>
+        <button
+          onClick={() => handleChange('affiliate_closed')}
+          disabled={saving}
+          className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold border transition-colors flex items-center gap-1 ${
+            selected === 'affiliate_closed'
+              ? 'bg-purple-600 text-white border-purple-600'
+              : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400 hover:text-purple-600'
+          }`}
+        >
+          {saving ? <Loader2 size={10} className="animate-spin" /> : null}
+          I Closed It (30%)
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -66,16 +171,29 @@ export default function AffiliateReferralsPage() {
 
   useEffect(() => { load(page) }, [page, load])
 
+  function handleDealTypeUpdated(referralId: string, newType: DealType) {
+    setData(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        referrals: prev.referrals.map(r =>
+          r.id === referralId
+            ? { ...r, deal_type: newType, deal_type_approved: null }
+            : r
+        ),
+      }
+    })
+  }
+
   const referrals = data?.referrals ?? []
   const total = data?.total ?? 0
   const totalPages = data ? Math.ceil(data.total / data.limit) : 1
 
-  // Summary counts derived from current page data — for a real summary, the API would return totals
   const summary = {
     total,
-    active: referrals.filter((r) => r.referral_status === 'active').length,
-    signedUp: referrals.filter((r) => r.referral_status === 'signed_up').length,
-    canceled: referrals.filter((r) => r.referral_status === 'canceled').length,
+    active:    referrals.filter((r) => r.referral_status === 'active').length,
+    signedUp:  referrals.filter((r) => r.referral_status === 'signed_up').length,
+    canceled:  referrals.filter((r) => r.referral_status === 'canceled').length,
   }
 
   if (error) {
@@ -101,13 +219,26 @@ export default function AffiliateReferralsPage() {
         <p className="text-sm text-gray-500 mt-1">Track everyone who clicked your link or signed up.</p>
       </div>
 
+      {/* Deal Type Info Banner */}
+      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 flex gap-3 items-start">
+        <Info size={18} className="text-indigo-500 shrink-0 mt-0.5" />
+        <div className="text-sm text-indigo-800 space-y-0.5">
+          <p className="font-semibold">How deal types work</p>
+          <p className="text-indigo-600 text-xs">
+            <strong>Referral (10%):</strong> SourcifyLending closes the deal for you. &nbsp;
+            <strong>I Closed It (30%):</strong> You handled the full sales process yourself.
+            Deal type locks permanently after the client&apos;s first payment.
+          </p>
+        </div>
+      </div>
+
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Total Referrals', value: total, color: 'text-gray-900' },
-          { label: 'Active', value: summary.active, color: 'text-green-600' },
-          { label: 'Signed Up', value: summary.signedUp, color: 'text-blue-600' },
-          { label: 'Canceled', value: summary.canceled, color: 'text-red-500' },
+          { label: 'Total Referrals', value: total,           color: 'text-gray-900' },
+          { label: 'Active',          value: summary.active,  color: 'text-green-600' },
+          { label: 'Signed Up',       value: summary.signedUp, color: 'text-blue-600' },
+          { label: 'Canceled',        value: summary.canceled, color: 'text-red-500' },
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 text-center">
             <div className={`text-2xl font-bold ${color}`}>{value}</div>
@@ -156,6 +287,7 @@ export default function AffiliateReferralsPage() {
                   <tr className="border-b border-gray-100 bg-gray-50">
                     <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Lead</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Program</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Deal Type</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Created</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Last Payment</th>
@@ -163,10 +295,10 @@ export default function AffiliateReferralsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {referrals.map((r) => (
-                    <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={r.id} className="hover:bg-gray-50 transition-colors align-top">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
+                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                             <span className="text-xs font-bold text-indigo-600">
                               {(r.lead_name || 'A').charAt(0).toUpperCase()}
                             </span>
@@ -177,14 +309,30 @@ export default function AffiliateReferralsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600 text-xs capitalize">
-                        {r.program ? r.program.replace('_', ' ') : '—'}
+                      <td className="px-4 py-3.5 text-gray-600 text-xs capitalize align-top pt-4">
+                        {r.program_type ? r.program_type.replace('_', ' ') : '—'}
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3.5 align-top">
+                        <DealTypeBadge
+                          dealType={r.deal_type || 'referral_only'}
+                          locked={r.deal_type_locked}
+                          approved={r.deal_type_approved}
+                        />
+                        <DealTypeSelector
+                          referralId={r.id}
+                          currentDealType={r.deal_type || 'referral_only'}
+                          locked={r.deal_type_locked}
+                          onUpdated={handleDealTypeUpdated}
+                        />
+                        {r.deal_type_locked && (
+                          <p className="text-[10px] text-gray-400 mt-1">Locked after payment</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 align-top pt-4">
                         <StatusBadge status={r.referral_status} />
                       </td>
-                      <td className="px-4 py-3.5 text-xs text-gray-500">{fmtDate(r.created_at)}</td>
-                      <td className="px-4 py-3.5 text-xs text-gray-500">{fmtDate(r.last_payment_date)}</td>
+                      <td className="px-4 py-3.5 text-xs text-gray-500 align-top pt-4">{fmtDate(r.created_at)}</td>
+                      <td className="px-4 py-3.5 text-xs text-gray-500 align-top pt-4">{fmtDate(r.last_payment_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -209,10 +357,28 @@ export default function AffiliateReferralsPage() {
                     </div>
                     <StatusBadge status={r.referral_status} />
                   </div>
-                  <div className="mt-2 flex items-center gap-4 pl-12 text-xs text-gray-400">
-                    <span>{r.program ? r.program.replace('_', ' ') : '—'}</span>
-                    <span>·</span>
-                    <span>{fmtDate(r.created_at)}</span>
+                  <div className="mt-2 pl-12 space-y-2">
+                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                      <span>{r.program_type ? r.program_type.replace('_', ' ') : '—'}</span>
+                      <span>·</span>
+                      <span>{fmtDate(r.created_at)}</span>
+                    </div>
+                    <div>
+                      <DealTypeBadge
+                        dealType={r.deal_type || 'referral_only'}
+                        locked={r.deal_type_locked}
+                        approved={r.deal_type_approved}
+                      />
+                      <DealTypeSelector
+                        referralId={r.id}
+                        currentDealType={r.deal_type || 'referral_only'}
+                        locked={r.deal_type_locked}
+                        onUpdated={handleDealTypeUpdated}
+                      />
+                      {r.deal_type_locked && (
+                        <p className="text-[10px] text-gray-400 mt-1">Locked after payment</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

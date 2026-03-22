@@ -34,6 +34,9 @@ interface Referral {
   subscription_active: boolean
   created_at: string
   last_payment_date: string | null
+  deal_type: 'referral_only' | 'affiliate_closed'
+  deal_type_locked: boolean
+  deal_type_approved: boolean | null
 }
 
 interface Commission {
@@ -124,6 +127,7 @@ export default function AffiliateDetailPage() {
   const [statusValue, setStatusValue] = useState<string>('')
   const [statusLoading, setStatusLoading] = useState(false)
   const [freeAccessLoading, setFreeAccessLoading] = useState(false)
+  const [dealTypeApprovalLoading, setDealTypeApprovalLoading] = useState<Record<string, boolean>>({})
 
   const fetchAffiliate = useCallback(async () => {
     setLoading(true)
@@ -165,6 +169,23 @@ export default function AffiliateDetailPage() {
     const data = await res.json()
     if (data.affiliate) setAffiliate(data.affiliate)
     setStatusLoading(false)
+  }
+
+  async function approveDealType(referralId: string, approved: boolean) {
+    setDealTypeApprovalLoading(prev => ({ ...prev, [referralId]: true }))
+    try {
+      const res = await fetch(`/api/admin/affiliates/referrals/${referralId}/approve-deal-type`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved }),
+      })
+      if (res.ok) {
+        setReferrals(prev => prev.map(r =>
+          r.id === referralId ? { ...r, deal_type_approved: approved } : r
+        ))
+      }
+    } catch { /* no-op */ }
+    setDealTypeApprovalLoading(prev => ({ ...prev, [referralId]: false }))
   }
 
   async function toggleFreeAccess() {
@@ -336,7 +357,7 @@ export default function AffiliateDetailPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-100 bg-gray-50">
-                        {['Name', 'Email', 'Program', 'Status', 'Created', 'Last Payment'].map(h => (
+                        {['Name', 'Program', 'Deal Type', 'Status', 'Created', 'Last Payment'].map(h => (
                           <th key={h} className="text-left text-xs font-semibold text-gray-500 px-4 py-3 whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
@@ -344,20 +365,69 @@ export default function AffiliateDetailPage() {
                     <tbody className="divide-y divide-gray-50">
                       {referrals.length === 0 ? (
                         <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">No referrals yet</td></tr>
-                      ) : referrals.map(r => (
-                        <tr key={r.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium text-gray-900">{r.lead_name}</td>
-                          <td className="px-4 py-3 text-gray-500 text-xs">{r.lead_email}</td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-medium">
-                              {r.program_type?.replace('program_', 'Program ').toUpperCase() ?? '—'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3"><StatusBadge status={r.referral_status} /></td>
-                          <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.created_at)}</td>
-                          <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.last_payment_date)}</td>
-                        </tr>
-                      ))}
+                      ) : referrals.map(r => {
+                        const isApproving = dealTypeApprovalLoading[r.id]
+                        const dealType = r.deal_type || 'referral_only'
+                        const needsApproval = dealType === 'affiliate_closed' && r.deal_type_approved === null
+                        const isApproved = dealType === 'affiliate_closed' && r.deal_type_approved === true
+                        const isRejected = dealType === 'affiliate_closed' && r.deal_type_approved === false
+                        return (
+                          <tr key={r.id} className="hover:bg-gray-50 align-top">
+                            <td className="px-4 py-3">
+                              <p className="font-medium text-gray-900">{r.lead_name}</p>
+                              <p className="text-xs text-gray-400">{r.lead_email}</p>
+                            </td>
+                            <td className="px-4 py-3 align-top pt-3.5">
+                              <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-medium">
+                                {r.program_type?.replace('program_', 'Program ').toUpperCase() ?? '—'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 align-top">
+                              {dealType === 'affiliate_closed' ? (
+                                <div className="space-y-1.5">
+                                  <span className={`inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                                    isApproved ? 'bg-green-100 text-green-700' :
+                                    isRejected ? 'bg-red-100 text-red-600' :
+                                    'bg-purple-100 text-purple-700'
+                                  }`}>
+                                    {isApproved ? 'Closed · 30% ✓' : isRejected ? 'Closed · Rejected' : 'Closed · Pending'}
+                                  </span>
+                                  {(needsApproval || isRejected || isApproved) && (
+                                    <div className="flex gap-1">
+                                      {!isApproved && (
+                                        <button
+                                          onClick={() => approveDealType(r.id, true)}
+                                          disabled={isApproving}
+                                          className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                                        >
+                                          {isApproving ? '…' : '✓ Approve 30%'}
+                                        </button>
+                                      )}
+                                      {!isRejected && (
+                                        <button
+                                          onClick={() => approveDealType(r.id, false)}
+                                          disabled={isApproving}
+                                          className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
+                                        >
+                                          {isApproving ? '…' : '✗ Reject'}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                  {r.deal_type_locked && <p className="text-[10px] text-gray-400">Locked</p>}
+                                </div>
+                              ) : (
+                                <span className="inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-indigo-50 text-indigo-500">
+                                  Referral · 10%
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 align-top pt-3.5"><StatusBadge status={r.referral_status} /></td>
+                            <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap align-top pt-3.5">{fmtDate(r.created_at)}</td>
+                            <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap align-top pt-3.5">{fmtDate(r.last_payment_date)}</td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>

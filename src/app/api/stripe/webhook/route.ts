@@ -500,6 +500,9 @@ export async function POST(req: NextRequest) {
             const programType = referral.program_type || 'program_a'
             const isSetup = invPaid.metadata?.commission_type === 'setup'
             const commType = isSetup ? 'setup' : 'recurring'
+            const dealType = (referral.deal_type as 'referral_only' | 'affiliate_closed') || 'referral_only'
+            const dealTypeApproved = referral.deal_type_approved as boolean | null ?? null
+
             await createCommission({
               affiliateId: referral.affiliate_id,
               referralId: referral.id,
@@ -510,12 +513,16 @@ export async function POST(req: NextRequest) {
               commissionType: commType,
               grossAmountCents: invPaid.amount_paid,
               idempotencyKey: `inv_${invPaid.id}_${commType}`,
+              dealType,
+              dealTypeApproved,
             })
-            // Update referral status
+
+            // Lock deal_type after first payment — cannot be changed after this point
             await supabase.from('affiliate_referrals').update({
               referral_status: 'active',
               subscription_active: true,
               last_payment_at: new Date().toISOString(),
+              deal_type_locked: true,
             }).eq('id', referral.id)
           }
         } catch (e) { console.error('Affiliate commission error:', e) }

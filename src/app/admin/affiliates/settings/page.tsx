@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Loader2, Save, CheckCircle, ToggleLeft, ToggleRight, Settings, Gift } from 'lucide-react'
+import { ChevronLeft, Loader2, Save, CheckCircle, ToggleLeft, ToggleRight, Settings, Gift, Shield } from 'lucide-react'
 
 interface ProgramSettings {
   id: string
@@ -74,22 +74,48 @@ function ToggleRow({
   )
 }
 
+interface GlobalSettings {
+  require_approval_for_affiliate_closed: boolean
+}
+
 export default function AffiliateSettingsPage() {
   const [settings, setSettings] = useState<ProgramSettings[]>([])
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({ require_approval_for_affiliate_closed: false })
   const [loading, setLoading] = useState(true)
   const [saveLoading, setSaveLoading] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [globalSaving, setGlobalSaving] = useState(false)
+  const [globalSaved, setGlobalSaved] = useState(false)
 
   const fetchSettings = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/affiliates/settings')
-      const data = await res.json()
-      setSettings(data.settings ?? [])
+      const [progRes, globalRes] = await Promise.all([
+        fetch('/api/admin/affiliates/settings'),
+        fetch('/api/admin/affiliates/global-settings'),
+      ])
+      const progData = await progRes.json()
+      const globalData = await globalRes.json()
+      setSettings(progData.settings ?? [])
+      if (globalData.settings) setGlobalSettings(globalData.settings)
     } catch { /* no-op */ }
     setLoading(false)
   }, [])
+
+  async function saveGlobalSettings() {
+    setGlobalSaving(true)
+    try {
+      await fetch('/api/admin/affiliates/global-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(globalSettings),
+      })
+      setGlobalSaved(true)
+      setTimeout(() => setGlobalSaved(false), 2500)
+    } catch { /* no-op */ }
+    setGlobalSaving(false)
+  }
 
   useEffect(() => { fetchSettings() }, [fetchSettings])
 
@@ -261,6 +287,51 @@ export default function AffiliateSettingsPage() {
                   </div>
                 )
               })}
+            </div>
+
+            {/* Global Deal Type Settings */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+              <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
+                <Settings size={18} className="text-indigo-600" /> Deal Type Commission Rules
+              </h2>
+              <p className="text-xs text-gray-400 mb-4">
+                Controls how two-tier commissions (Referral 10% / Affiliate Closed 30%) are enforced globally.
+              </p>
+
+              {/* Rate Reference */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                  <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-1">Referral Only</p>
+                  <p className="font-bold text-gray-900 text-sm">10% Setup · 10% Recurring</p>
+                  <p className="text-xs text-gray-500 mt-1">SourcifyLending closes the deal</p>
+                </div>
+                <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
+                  <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Affiliate Closed</p>
+                  <p className="font-bold text-gray-900 text-sm">30% Setup · 30% Recurring</p>
+                  <p className="text-xs text-gray-500 mt-1">Affiliate handled full sales process</p>
+                </div>
+              </div>
+
+              <ToggleRow
+                label="Require Admin Approval for Affiliate-Closed Deals"
+                desc="When ON: affiliate_closed commissions are held at 10% until an admin approves the designation. When OFF: 30% is applied immediately."
+                enabled={globalSettings.require_approval_for_affiliate_closed}
+                onToggle={() => setGlobalSettings(g => ({ ...g, require_approval_for_affiliate_closed: !g.require_approval_for_affiliate_closed }))}
+              />
+
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  onClick={saveGlobalSettings}
+                  disabled={globalSaving}
+                  className={`flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl text-white transition-colors ${
+                    globalSaved ? 'bg-green-600' : 'bg-indigo-600 hover:bg-indigo-700'
+                  } disabled:opacity-60`}
+                >
+                  {globalSaving ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
+                   : globalSaved ? <><CheckCircle size={14} /> Saved!</>
+                   : <><Save size={14} /> Save Global Settings</>}
+                </button>
+              </div>
             </div>
 
             {/* Free Access Incentive Info */}
