@@ -495,7 +495,22 @@ export async function POST(req: NextRequest) {
       if (invPaid.customer && invPaid.status === 'paid' && invPaid.amount_paid > 0) {
         try {
           const referral = await getAffiliateByStripeCustomer(invPaid.customer as string)
-          if (referral && referral.affiliates) {
+          // getAffiliateByStripeCustomer already filters out self-referrals and flagged records.
+          // Additional guard: check the paying Stripe customer is not the affiliate themselves
+          // (catches cases where affiliate's own Stripe customer ID matches a referral record).
+          const payingCustomerId = invPaid.customer as string
+          let affiliateOwnCustomerId: string | null = null
+          if (referral?.affiliates?.user_id) {
+            const { data: affSub } = await supabase
+              .from('subscriptions')
+              .select('stripe_customer_id')
+              .eq('user_id', referral.affiliates.user_id)
+              .maybeSingle()
+            affiliateOwnCustomerId = affSub?.stripe_customer_id ?? null
+          }
+          const isSelfPayment = affiliateOwnCustomerId && affiliateOwnCustomerId === payingCustomerId
+
+          if (referral && referral.affiliates && !isSelfPayment) {
             // Determine commission type and program
             const programType = referral.program_type || 'program_a'
             const isSetup = invPaid.metadata?.commission_type === 'setup'

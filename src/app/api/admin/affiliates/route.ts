@@ -80,12 +80,31 @@ export async function POST(req: NextRequest) {
     if (found) userId = found.id
   }
 
+  // Rule 4: detect if this person is already an existing client
+  // (they have a subscription record tied to their user account)
+  let isExistingClient = false
+  if (userId) {
+    const { data: existingSub } = await supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (existingSub) isExistingClient = true
+  }
+
   const { data: affiliate, error } = await supabase
     .from('affiliates')
-    .insert({ name, email, referral_code: referralCode, user_id: userId, notes })
+    .insert({
+      name,
+      email,
+      referral_code: referralCode,
+      user_id: userId,
+      notes,
+      is_existing_client: isExistingClient,
+    })
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-  return NextResponse.json({ affiliate })
+  return NextResponse.json({ affiliate, is_existing_client: isExistingClient })
 }

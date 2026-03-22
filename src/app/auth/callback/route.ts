@@ -78,8 +78,19 @@ export async function GET(request: NextRequest) {
               .single()
 
             if (affiliate) {
-              // Anti-abuse: block self-referral
-              const isSelfReferral = affiliate.email === user.email
+              // ── Rule 1: Self-referral check ─────────────────────────────────
+              const isSelfReferral =
+                affiliate.email.toLowerCase() === user.email?.toLowerCase() ||
+                (affiliate as { user_id?: string }).user_id === user.id
+
+              // ── Rule 2: Retroactive attribution check ───────────────────────
+              // If the client's auth account existed BEFORE the affiliate account
+              // was created, this is a retroactive claim — block silently.
+              const clientCreatedAt  = user.created_at ? new Date(user.created_at).getTime() : Date.now()
+              const affiliateCreatedAt = affiliate.created_at ? new Date(affiliate.created_at).getTime() : 0
+              const isRetroactive = clientCreatedAt < affiliateCreatedAt
+
+              // ── Rule 3: Duplicate check ─────────────────────────────────────
               const { data: existingRef } = await serviceClient
                 .from('affiliate_referrals')
                 .select('id')
@@ -87,7 +98,7 @@ export async function GET(request: NextRequest) {
                 .eq('lead_email', user.email)
                 .maybeSingle()
 
-              if (!existingRef) {
+              if (!existingRef && !isRetroactive) {
                 await serviceClient.from('affiliate_referrals').insert({
                   affiliate_id: affiliate.id,
                   user_id: user.id,
@@ -95,10 +106,9 @@ export async function GET(request: NextRequest) {
                   lead_email: user.email,
                   referral_status: 'signed_up',
                   is_self_referral: isSelfReferral,
-                  is_flagged: isSelfReferral,
-                  flag_reason: isSelfReferral ? 'Self-referral detected' : null,
+                  is_flagged: isSelfReferral,   // self-referrals are flagged and blocked from commission
+                  flag_reason: isSelfReferral ? 'Self-referral detected at signup' : null,
                 })
-                // If self-referral, also create a flag
                 if (isSelfReferral) {
                   await serviceClient.from('affiliate_flags').insert({
                     affiliate_id: affiliate.id,
@@ -108,6 +118,8 @@ export async function GET(request: NextRequest) {
                   })
                 }
               }
+              // isRetroactive → silently ignore. No referral record created,
+              // no commission will ever fire. Client retains no affiliation.
             }
           }
         } catch (e) { /* fire-and-forget — don't break auth */ }

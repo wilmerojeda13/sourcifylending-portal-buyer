@@ -40,21 +40,89 @@ export async function getCommissionSettings(programType: string): Promise<Affili
   return data
 }
 
-/** Get affiliate by Stripe customer ID (via referral) */
+/** Get affiliate by Stripe customer ID (via referral).
+ *  Returns the referral + affiliate record needed for eligibility checks.
+ */
 export async function getAffiliateByStripeCustomer(stripeCustomerId: string) {
   const supabase = await createServiceClient()
   const { data: referral } = await supabase
     .from('affiliate_referrals')
-    .select('*, affiliates(*)')
+    .select('*, affiliates(id, user_id, email, created_at, status, is_demo)')
     .eq('stripe_customer_id', stripeCustomerId)
     .not('referral_status', 'in', '("refunded","chargeback")')
+    .eq('is_self_referral', false)    // never surface self-referrals for commission
+    .eq('is_flagged', false)          // never surface flagged referrals
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
   return referral
 }
 
-/** Count active paying referred clients for an affiliate */
+// ─── Commission Eligibility Guard ─────────────────────────────────────────────
+
+export interface CommissionEligibilityResult {
+  eligible: boolean
+  reason?: string
+}
+
+/**
+ * Central eligibility check before any commission is created.
+ * Returns { eligible: false, reason } if any rule is violated.
+ *
+ * Rules enforced:
+ *  1. No self-commission (affiliate user === client user, or email match)
+ *  2. No retroactive attribution (referral created before affiliate account)
+ *  3. Referral must not be flagged as self-referral
+ */
+export async function checkCommissionEligibility({
+  affiliateId,
+  affiliateUserId,
+  affiliateEmail,
+  affiliateCreatedAt,
+  clientUserId,
+  clientEmail,
+  referralCreatedAt,
+  referralIsSelfReferral,
+}: {
+  affiliateId: string
+  affiliateUserId: string | null
+  affiliateEmail: string
+  affiliateCreatedAt: string
+  clientUserId: string | null
+  clientEmail: string | null
+  referralCreatedAt: string
+  referralIsSelfReferral: boolean
+}): Promise<CommissionEligibilityResult> {
+
+  // Rule 1a: same user account
+  if (affiliateUserId && clientUserId && affiliateUserId === clientUserId) {
+    return { eligible: false, reason: 'self_commission_same_user' }
+  }
+
+  // Rule 1b: same email address
+  if (clientEmail && affiliateEmail.toLowerCase() === clientEmail.toLowerCase()) {
+    return { eligible: false, reason: 'self_commission_same_email' }
+  }
+
+  // Rule 1c: referral was already flagged as self-referral during signup
+  if (referralIsSelfReferral) {
+    return { eligible: false, reason: 'self_referral_flagged' }
+  }
+
+  // Rule 2: retroactive attribution — referral must be created AFTER affiliate account
+  const affiliateTs = new Date(affiliateCreatedAt).getTime()
+  const referralTs  = new Date(referralCreatedAt).getTime()
+  if (referralTs < affiliateTs) {
+    return { eligible: false, reason: 'retroactive_attribution' }
+  }
+
+  return { eligible: true }
+}
+
+/**
+ * Count active paying referred clients for an affiliate.
+ * Excludes self-referrals and flagged records (Rules 1 & 5).
+ */
 export async function countActiveReferrals(affiliateId: string): Promise<number> {
   const supabase = await createServiceClient()
   const { count } = await supabase
@@ -64,6 +132,7 @@ export async function countActiveReferrals(affiliateId: string): Promise<number>
     .eq('referral_status', 'active')
     .eq('subscription_active', true)
     .eq('is_flagged', false)
+    .eq('is_self_referral', false)   // Rule 5: affiliate's own account never counts
   return count ?? 0
 }
 
@@ -130,6 +199,10 @@ export async function runFreeAccessQualificationCheck() {
  *  - referral_only                          → 10% setup / 10% recurring
  *  - affiliate_closed + approved            → 30% setup / 30% recurring
  *  - affiliate_closed + pending approval    → 10% (stored as referral_only rate, deal_type still recorded)
+ *
+ *  Eligibility checks run before any commission is written:
+ *  - no self-commission (Rule 1)
+ *  - no retroactive attribution (Rule 2)
  */
 export async function createCommission({
   affiliateId,
@@ -154,9 +227,45 @@ export async function createCommission({
   grossAmountCents: number
   idempotencyKey: string
   dealType?: DealType
-  dealTypeApproved?: boolean | null   // null = not reviewed, true = approved, false = rejected
+  dealTypeApproved?: boolean | null
 }) {
   const supabase = await createServiceClient()
+
+  // ── Eligibility guard ───────────────────────────────────────────────────────
+  // Fetch affiliate + referral metadata needed for eligibility checks
+  const { data: affiliate } = await supabase
+    .from('affiliates')
+    .select('id, user_id, email, created_at')
+    .eq('id', affiliateId)
+    .single()
+
+  if (!affiliate) return null   // affiliate record must exist
+
+  if (referralId) {
+    const { data: referral } = await supabase
+      .from('affiliate_referrals')
+      .select('id, user_id, lead_email, created_at, is_self_referral')
+      .eq('id', referralId)
+      .single()
+
+    if (referral) {
+      const eligibility = await checkCommissionEligibility({
+        affiliateId,
+        affiliateUserId:    affiliate.user_id,
+        affiliateEmail:     affiliate.email,
+        affiliateCreatedAt: affiliate.created_at,
+        clientUserId:       referral.user_id,
+        clientEmail:        referral.lead_email,
+        referralCreatedAt:  referral.created_at,
+        referralIsSelfReferral: referral.is_self_referral ?? false,
+      })
+
+      if (!eligibility.eligible) {
+        console.log(`[commission-blocked] affiliate=${affiliateId} reason=${eligibility.reason} idempotency=${idempotencyKey}`)
+        return null
+      }
+    }
+  }
 
   // Get commission settings (for hold days, enabled flags, threshold)
   const settings = await getCommissionSettings(programType)
