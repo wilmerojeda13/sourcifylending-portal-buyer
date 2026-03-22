@@ -42,8 +42,9 @@ interface DashboardData {
   }
 }
 
-function fmt(n: number) {
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 })
+/** Commission amounts are stored in cents — divide by 100 before displaying */
+function fmt(cents: number) {
+  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 })
 }
 
 export default function AffiliateDashboardPage() {
