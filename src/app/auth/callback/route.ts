@@ -90,6 +90,23 @@ export async function GET(request: NextRequest) {
               const affiliateCreatedAt = affiliate.created_at ? new Date(affiliate.created_at).getTime() : 0
               const isRetroactive = clientCreatedAt < affiliateCreatedAt
 
+              // ── Get lead data for deal_type (if user came from an invite link) ──
+              const leadId = cookieStore.get('affiliate_lead')?.value
+              let leadDealType: string = 'referral_only'
+              let leadRecordId: string | null = null
+              if (leadId) {
+                const { data: leadRecord } = await serviceClient
+                  .from('affiliate_leads')
+                  .select('id, deal_type, email')
+                  .eq('id', leadId)
+                  .eq('affiliate_id', affiliate.id)
+                  .maybeSingle()
+                if (leadRecord) {
+                  leadRecordId = leadRecord.id
+                  leadDealType = leadRecord.deal_type || 'referral_only'
+                }
+              }
+
               // ── Rule 3: Duplicate check ─────────────────────────────────────
               const { data: existingRef } = await serviceClient
                 .from('affiliate_referrals')
@@ -99,16 +116,29 @@ export async function GET(request: NextRequest) {
                 .maybeSingle()
 
               if (!existingRef && !isRetroactive) {
-                await serviceClient.from('affiliate_referrals').insert({
+                const { data: newReferral } = await serviceClient.from('affiliate_referrals').insert({
                   affiliate_id: affiliate.id,
                   user_id: user.id,
                   lead_name: user.user_metadata?.full_name || user.email?.split('@')[0] || '',
                   lead_email: user.email,
                   referral_status: 'signed_up',
                   is_self_referral: isSelfReferral,
-                  is_flagged: isSelfReferral,   // self-referrals are flagged and blocked from commission
+                  is_flagged: isSelfReferral,
                   flag_reason: isSelfReferral ? 'Self-referral detected at signup' : null,
-                })
+                  deal_type: leadDealType,
+                }).select('id').single()
+
+                // ── Update affiliate_lead status to account_created ──────────
+                if (leadRecordId) {
+                  await serviceClient.from('affiliate_leads').update({
+                    user_id: user.id,
+                    referral_id: newReferral?.id ?? null,
+                    status: 'account_created',
+                    account_created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  }).eq('id', leadRecordId)
+                }
+
                 if (isSelfReferral) {
                   await serviceClient.from('affiliate_flags').insert({
                     affiliate_id: affiliate.id,

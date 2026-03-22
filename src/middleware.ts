@@ -52,6 +52,20 @@ export async function middleware(request: NextRequest) {
     }).catch(() => {})
   }
 
+  // Capture affiliate lead ID from ?lead= query param (set alongside ref)
+  const leadId = url.searchParams.get('lead')
+  if (leadId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(leadId)) {
+    const existingLead = request.cookies.get('affiliate_lead')
+    if (!existingLead) {
+      supabaseResponse.cookies.set('affiliate_lead', leadId, {
+        maxAge: 60 * 60 * 24 * 30,
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax',
+      })
+    }
+  }
+
   return supabaseResponse
 }
 

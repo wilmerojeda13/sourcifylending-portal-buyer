@@ -539,6 +539,21 @@ export async function POST(req: NextRequest) {
               last_payment_at: new Date().toISOString(),
               deal_type_locked: true,
             }).eq('id', referral.id)
+
+            // Update affiliate_leads status to active if a lead record exists for this user
+            if (referral.user_id) {
+              try {
+                await supabase.from('affiliate_leads')
+                  .update({
+                    status: 'active',
+                    converted_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('affiliate_id', referral.affiliate_id)
+                  .eq('user_id', referral.user_id)
+                  .in('status', ['account_created', 'invite_sent', 'lead_created'])
+              } catch (e) { console.error('Lead status update error:', e) }
+            }
           }
         } catch (e) { console.error('Affiliate commission error:', e) }
       }

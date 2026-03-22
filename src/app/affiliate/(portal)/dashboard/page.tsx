@@ -14,6 +14,8 @@ import {
   ChevronRight,
   AlertCircle,
   FlaskConical,
+  Loader2,
+  Banknote as BanknoteIcon,
 } from 'lucide-react'
 
 interface DashboardData {
@@ -330,6 +332,162 @@ export default function AffiliateDashboardPage() {
           <ChevronRight size={16} className="text-gray-400 group-hover:text-indigo-500 transition-colors" />
         </Link>
       </div>
+
+      {/* Payouts */}
+      <div>
+        <h2 className="text-base font-bold text-gray-900 mb-3">Payouts</h2>
+        <PayoutSection />
+      </div>
+    </div>
+  )
+}
+
+function PayoutSection() {
+  const [payoutData, setPayoutData] = useState<{
+    stripe_connect_status: string
+    balances: { pending_cents: number; available_cents: number; paid_cents: number }
+    minimum_payout_cents: number
+    next_payout_date: string
+    payouts: Array<{ id: string; amount_cents: number; status: string; paid_at: string | null; created_at: string }>
+  } | null>(null)
+  const [connectLoading, setConnectLoading] = useState(false)
+  const [loadingPayout, setLoadingPayout] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/affiliate/payouts')
+      .then(r => r.json())
+      .then(setPayoutData)
+      .catch(() => {})
+      .finally(() => setLoadingPayout(false))
+  }, [])
+
+  async function handleConnect() {
+    setConnectLoading(true)
+    try {
+      const res = await fetch('/api/affiliate/connect/onboard', { method: 'POST' })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+    } catch {}
+    setConnectLoading(false)
+  }
+
+  const fmtCents = (cents: number) =>
+    (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 })
+
+  const fmtDate = (s: string | null) => s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+
+  const isConnected = payoutData?.stripe_connect_status === 'active'
+  const isPending = payoutData?.stripe_connect_status === 'pending'
+  const nextPayout = payoutData?.next_payout_date ? new Date(payoutData.next_payout_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—'
+  const availableCents = payoutData?.balances.available_cents ?? 0
+  const meetsMinimum = availableCents >= (payoutData?.minimum_payout_cents ?? 10000)
+
+  if (loadingPayout) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="flex items-center gap-2 text-gray-400 text-sm">
+          <Loader2 size={14} className="animate-spin" /> Loading payout info…
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Stripe Connect Setup Banner */}
+      {!isConnected && (
+        <div className={`rounded-2xl border p-5 flex items-start justify-between gap-4 flex-wrap ${
+          isPending
+            ? 'bg-amber-50 border-amber-200'
+            : 'bg-indigo-50 border-indigo-200'
+        }`}>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <BanknoteIcon size={18} className={isPending ? 'text-amber-600' : 'text-indigo-600'} />
+              <span className={`font-bold text-sm ${isPending ? 'text-amber-900' : 'text-indigo-900'}`}>
+                {isPending ? 'Complete Your Payout Setup' : 'Connect Your Bank Account'}
+              </span>
+            </div>
+            <p className={`text-xs ${isPending ? 'text-amber-700' : 'text-indigo-700'}`}>
+              {isPending
+                ? 'Your Stripe account is set up but needs a few more details before payouts can be sent.'
+                : 'Connect your bank account to receive automatic monthly commission payouts.'}
+            </p>
+          </div>
+          <button
+            onClick={handleConnect}
+            disabled={connectLoading}
+            className={`flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap disabled:opacity-60 ${
+              isPending
+                ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+            }`}
+          >
+            {connectLoading ? <Loader2 size={14} className="animate-spin" /> : null}
+            {isPending ? 'Complete Setup' : 'Connect with Stripe'}
+          </button>
+        </div>
+      )}
+
+      {/* Balance Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          {
+            label: 'Available Balance',
+            value: fmtCents(availableCents),
+            sub: meetsMinimum && isConnected ? 'Will pay out on ' + nextPayout : availableCents > 0 ? `Min. $${(payoutData?.minimum_payout_cents ?? 10000) / 100} needed` : 'Nothing available yet',
+            color: meetsMinimum && isConnected ? 'text-green-600' : 'text-gray-900',
+          },
+          {
+            label: 'In Hold Period',
+            value: fmtCents(payoutData?.balances.pending_cents ?? 0),
+            sub: 'Released after 7 days',
+            color: 'text-amber-600',
+          },
+          {
+            label: 'Total Paid Out',
+            value: fmtCents(payoutData?.balances.paid_cents ?? 0),
+            sub: 'All time',
+            color: 'text-indigo-600',
+          },
+          {
+            label: 'Next Payout',
+            value: isConnected ? nextPayout : '—',
+            sub: isConnected ? (meetsMinimum ? 'You qualify ✓' : `Need ${fmtCents((payoutData?.minimum_payout_cents ?? 10000) - availableCents)} more`) : 'Connect to enable',
+            color: 'text-gray-900',
+          },
+        ].map(({ label, value, sub, color }) => (
+          <div key={label} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-4 py-4">
+            <div className={`text-lg font-bold ${color}`}>{value}</div>
+            <div className="text-xs text-gray-500 mt-0.5 font-medium">{label}</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">{sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Recent Payouts */}
+      {(payoutData?.payouts ?? []).length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100">
+            <span className="text-sm font-semibold text-gray-700">Recent Payouts</span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {payoutData!.payouts.slice(0, 5).map(p => (
+              <div key={p.id} className="px-5 py-3 flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-semibold text-gray-900">{fmtCents(p.amount_cents)}</div>
+                  <div className="text-xs text-gray-400">{fmtDate(p.paid_at ?? p.created_at)}</div>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                  p.status === 'paid' ? 'bg-green-100 text-green-700' :
+                  p.status === 'failed' ? 'bg-red-100 text-red-600' :
+                  'bg-amber-100 text-amber-700'
+                }`}>{p.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

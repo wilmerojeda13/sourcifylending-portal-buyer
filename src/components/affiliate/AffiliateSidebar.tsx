@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
   Users,
+  UserPlus,
   DollarSign,
   BookOpen,
   User,
@@ -18,6 +19,7 @@ import { useState } from 'react'
 
 const NAV_ITEMS = [
   { href: '/affiliate/dashboard',   label: 'Dashboard',   icon: LayoutDashboard },
+  { href: '/affiliate/leads',       label: 'Leads',       icon: UserPlus },
   { href: '/affiliate/referrals',   label: 'Referrals',   icon: Users },
   { href: '/affiliate/commissions', label: 'Commissions', icon: DollarSign },
   { href: '/affiliate/resources',   label: 'Resources',   icon: BookOpen },
@@ -149,7 +151,7 @@ export default function AffiliateSidebar({ affiliateName }: Props) {
 
       {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-20 px-1 py-1.5">
-        <div className="grid grid-cols-5 gap-0.5">
+        <div className="grid grid-cols-6 gap-0.5">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + '/')
             return (

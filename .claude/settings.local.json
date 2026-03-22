@@ -175,7 +175,8 @@
       "WebFetch(domain:www.earnifyfleet.com)",
       "Bash(vercel --version)",
       "Bash(grep -l \"memberships\\\\|funding_approvals\\\\|payment\\\\|invoice\\\\|billing\\\\|charge\" \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\supabase\\\\migrations\"/*.sql)",
-      "Bash(grep -A 30 \"CREATE TABLE.*memberships\" \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\supabase\\\\migrations\"/*.sql)"
+      "Bash(grep -A 30 \"CREATE TABLE.*memberships\" \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\supabase\\\\migrations\"/*.sql)",
+      "Bash(ls \"C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src/app/affiliate/\\(portal\\)/\")"
     ]
   }
 }
