@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, CheckCircle, Bot, BarChart2, Shield } from 'lucide-react'
+import { ArrowRight, CheckCircle, Bot, BarChart2, Shield, Users, DollarSign } from 'lucide-react'
 
 export default function HomePage() {
   return (
@@ -13,6 +13,9 @@ export default function HomePage() {
           <span className="font-bold text-gray-900">SourcifyLending</span>
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/partners" className="text-sm font-medium text-gray-500 hover:text-gray-900 px-3 py-2 hidden sm:inline">
+            Affiliates
+          </Link>
           <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">
             Sign In
           </Link>
@@ -133,6 +136,89 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── AFFILIATE CTA SECTION ── */}
+      <section className="bg-gray-50 py-16 px-6 border-t border-gray-100">
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="grid grid-cols-1 md:grid-cols-2">
+              {/* Left — copy */}
+              <div className="p-8 sm:p-10 flex flex-col justify-center">
+                <span className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold mb-5 w-fit">
+                  <Users size={13} />
+                  Affiliate Program
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 leading-snug">
+                  Refer Clients.<br />Earn Recurring Commissions.
+                </h2>
+                <p className="text-gray-500 text-sm leading-relaxed mb-6">
+                  Help business owners discover SourcifyLending and earn 30% of setup fees plus
+                  20% of every monthly payment they make — for as long as they stay active.
+                </p>
+                <ul className="space-y-2 mb-8">
+                  {[
+                    '30% commission on setup fees',
+                    '20% recurring monthly commission',
+                    'Real-time referral and earnings tracking',
+                    'Unlock free Program B access at 5 active clients',
+                  ].map(item => (
+                    <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
+                      <CheckCircle size={14} className="text-green-500 shrink-0" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link href="/partners" className="btn-primary text-sm px-6 py-3">
+                    Become an Affiliate <ArrowRight size={16} />
+                  </Link>
+                  <Link href="/partners#how-it-works" className="btn-secondary text-sm px-6 py-3">
+                    Learn More
+                  </Link>
+                </div>
+              </div>
+
+              {/* Right — stats */}
+              <div className="bg-green-600 p-8 sm:p-10 flex flex-col justify-center gap-6">
+                {[
+                  {
+                    icon: DollarSign,
+                    label: 'Program A referral — Year 1',
+                    value: '$1,407+',
+                    sub: '30% setup + 20% recurring',
+                  },
+                  {
+                    icon: DollarSign,
+                    label: 'Program B referral — Year 1',
+                    value: '$777+',
+                    sub: '30% setup + 20% recurring',
+                  },
+                  {
+                    icon: Users,
+                    label: 'Free Program B access after',
+                    value: '5 active clients',
+                    sub: 'Maintained for 14 consecutive days',
+                  },
+                ].map(({ icon: Icon, label, value, sub }) => (
+                  <div key={label} className="flex items-start gap-4">
+                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                      <Icon size={18} className="text-white" />
+                    </div>
+                    <div>
+                      <p className="text-green-200 text-xs mb-0.5">{label}</p>
+                      <p className="text-white font-bold text-lg leading-tight">{value}</p>
+                      <p className="text-green-300 text-xs">{sub}</p>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-green-300 text-xs mt-2">
+                  Estimates based on a single active referral per program. Actual earnings vary. No income guaranteed.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="bg-green-600 py-14 px-6 text-center">
         <div className="max-w-2xl mx-auto">
@@ -150,8 +236,20 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-100 py-8 px-6 text-center text-sm text-gray-400">
-        <p>© 2024 SourcifyLending. Results are not guaranteed. This platform does not promise approvals, specific credit limits, or funding outcomes.</p>
+      <footer className="border-t border-gray-100 py-8 px-6">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-sm text-gray-400">
+            © {new Date().getFullYear()} SourcifyLending. Results are not guaranteed. This platform does not promise approvals, specific credit limits, or funding outcomes.
+          </p>
+          <div className="flex items-center gap-5 text-sm text-gray-400">
+            <Link href="/analyzer" className="hover:text-gray-600 transition-colors">Free Analyzer</Link>
+            <Link href="/login" className="hover:text-gray-600 transition-colors">Client Login</Link>
+            <Link href="/partners" className="hover:text-gray-600 transition-colors font-medium text-green-600">
+              Become an Affiliate
+            </Link>
+            <Link href="/affiliate/login" className="hover:text-gray-600 transition-colors">Affiliate Login</Link>
+          </div>
+        </div>
       </footer>
     </div>
   )

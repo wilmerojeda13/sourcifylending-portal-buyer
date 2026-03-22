@@ -1,0 +1,566 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import {
+  ArrowRight, CheckCircle, DollarSign, Users, TrendingUp,
+  Shield, Star, ChevronDown, ChevronUp, Loader2,
+} from 'lucide-react'
+
+const MARKETING_CHANNEL_OPTIONS = [
+  'Social Media',
+  'Email Newsletter',
+  'Paid Ads',
+  'Business Network',
+  'YouTube / Podcast',
+  'Website / Blog',
+  'Other',
+]
+
+export default function PartnersPage() {
+  const [showForm, setShowForm] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    company_name: '',
+    website_or_social: '',
+    promotion_plan: '',
+    referral_experience: '',
+    monthly_referral_estimate: '',
+    marketing_channels: [] as string[],
+    agreed_to_terms: false,
+  })
+
+  const toggleChannel = (ch: string) => {
+    setForm(f => ({
+      ...f,
+      marketing_channels: f.marketing_channels.includes(ch)
+        ? f.marketing_channels.filter(c => c !== ch)
+        : [...f.marketing_channels, ch],
+    }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/affiliate/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          referral_experience: form.referral_experience === 'yes',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong. Please try again.')
+      } else {
+        setSuccess(true)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    } catch {
+      setError('Network error. Please check your connection and try again.')
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+
+      {/* Nav */}
+      <header className="border-b border-gray-100 px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-sm">SL</span>
+          </div>
+          <span className="font-bold text-gray-900">SourcifyLending</span>
+        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/affiliate/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">
+            Affiliate Login
+          </Link>
+          <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2 hidden sm:inline">
+            Sign In
+          </Link>
+          <Link href="/analyzer" className="btn-primary text-sm px-4 py-2.5">
+            Free Analyzer
+          </Link>
+        </div>
+      </header>
+
+      {/* Success state */}
+      {success ? (
+        <section className="max-w-2xl mx-auto px-6 py-24 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <CheckCircle size={32} className="text-green-600" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Application Submitted!</h1>
+          <p className="text-gray-500 text-lg mb-8 leading-relaxed">
+            Thank you for your interest in the SourcifyLending Affiliate Program. Our team will review your
+            application and follow up within <strong className="text-gray-700">2 business days</strong>.
+          </p>
+          <div className="bg-green-50 border border-green-100 rounded-2xl p-6 text-left mb-8">
+            <h3 className="font-bold text-green-900 mb-3 text-sm">What happens next</h3>
+            <ul className="space-y-2 text-sm text-green-800">
+              <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> Our team reviews your application</li>
+              <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> If approved, you'll receive login credentials for your affiliate portal</li>
+              <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> You get your unique referral link and start earning</li>
+            </ul>
+          </div>
+          <Link href="/" className="btn-secondary text-sm px-6 py-3 inline-flex items-center gap-2">
+            Back to Home
+          </Link>
+        </section>
+      ) : (
+        <>
+          {/* Hero */}
+          <section className="max-w-4xl mx-auto px-6 pt-16 pb-14 text-center">
+            <div className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
+              <Star size={14} />
+              SourcifyLending Affiliate Program
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6">
+              Refer Clients.<br />
+              <span className="text-green-600">Earn Recurring Commissions.</span>
+            </h1>
+            <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10">
+              Help business owners build real business credit and access funding. Earn 30% on setup fees
+              and 20% on every monthly payment — as long as your client stays active.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => { setShowForm(true); setTimeout(() => document.getElementById('apply-form')?.scrollIntoView({ behavior: 'smooth' }), 50) }}
+                className="btn-primary text-base px-8 py-4"
+              >
+                Apply Now <ArrowRight size={18} />
+              </button>
+              <a href="#how-it-works" className="btn-secondary text-base px-8 py-4">
+                Learn More
+              </a>
+            </div>
+          </section>
+
+          {/* Stats strip */}
+          <section className="bg-green-600 py-10 px-6">
+            <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+              {[
+                { value: '30%', label: 'Setup fee commission' },
+                { value: '20%', label: 'Recurring monthly commission' },
+                { value: '5 clients', label: 'Unlocks free Program B access' },
+              ].map(s => (
+                <div key={s.label}>
+                  <p className="text-3xl font-bold text-white mb-1">{s.value}</p>
+                  <p className="text-green-200 text-sm">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* How it works */}
+          <section id="how-it-works" className="bg-gray-50 py-16 px-6">
+            <div className="max-w-5xl mx-auto">
+              <h2 className="text-2xl font-bold text-gray-900 text-center mb-3">How It Works</h2>
+              <p className="text-gray-500 text-center mb-12">Three simple steps. Zero closing required from you.</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  {
+                    step: '01',
+                    icon: Users,
+                    title: 'Share Your Link',
+                    desc: 'You get a unique referral link. Share it with business owners in your network, on social media, or through your content.',
+                    color: 'bg-green-100 text-green-600',
+                  },
+                  {
+                    step: '02',
+                    icon: TrendingUp,
+                    title: 'We Close & Onboard',
+                    desc: 'SourcifyLending handles the sales call, enrollment, program assignment, and all fulfillment. You refer — we do the rest.',
+                    color: 'bg-green-100 text-green-600',
+                  },
+                  {
+                    step: '03',
+                    icon: DollarSign,
+                    title: 'You Earn Commissions',
+                    desc: 'Earn 30% of setup fees when they enroll and 20% of every monthly payment as long as they stay active.',
+                    color: 'bg-green-100 text-green-600',
+                  },
+                ].map(({ step, icon: Icon, title, desc, color }) => (
+                  <div key={step} className="card relative">
+                    <span className="absolute top-5 right-5 text-3xl font-black text-gray-100">{step}</span>
+                    <div className={`w-12 h-12 ${color} rounded-2xl flex items-center justify-center mb-4`}>
+                      <Icon size={22} />
+                    </div>
+                    <h3 className="font-bold text-gray-900 mb-2">{title}</h3>
+                    <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Commission breakdown */}
+          <section className="py-16 px-6 max-w-5xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-900 text-center mb-3">Commission Structure</h2>
+            <p className="text-gray-500 text-center mb-10">Earned on collected payments only. No speculative commissions.</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {[
+                {
+                  badge: 'Program A',
+                  setup: '$450',
+                  monthly: '$79.80/mo',
+                  setupNote: '30% of $1,500 setup fee',
+                  monthlyNote: '20% of $399/month',
+                  year1: '$1,407',
+                  color: 'border-green-200 bg-green-50/40',
+                  badgeColor: 'bg-green-100 text-green-700',
+                },
+                {
+                  badge: 'Program B',
+                  setup: '$299',
+                  monthly: '$39.80/mo',
+                  setupNote: '30% of $997 setup fee',
+                  monthlyNote: '20% of $199/month',
+                  year1: '$777',
+                  color: 'border-emerald-200 bg-emerald-50/40',
+                  badgeColor: 'bg-emerald-100 text-emerald-700',
+                },
+                {
+                  badge: 'Program C',
+                  setup: '—',
+                  monthly: '$19.40/mo',
+                  setupNote: 'No setup fee',
+                  monthlyNote: '20% of $97/month',
+                  year1: '$233',
+                  color: 'border-blue-200 bg-blue-50/40',
+                  badgeColor: 'bg-blue-100 text-blue-700',
+                },
+              ].map(({ badge, setup, monthly, setupNote, monthlyNote, year1, color, badgeColor }) => (
+                <div key={badge} className={`card border-2 ${color}`}>
+                  <span className={`badge ${badgeColor} mb-4`}>{badge}</span>
+                  <div className="space-y-3 mb-4">
+                    <div>
+                      <p className="text-2xl font-bold text-gray-900">{setup}</p>
+                      <p className="text-xs text-gray-400">Setup commission · {setupNote}</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-gray-900">{monthly}</p>
+                      <p className="text-xs text-gray-400">Recurring commission · {monthlyNote}</p>
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-100 pt-3">
+                    <p className="text-xs text-gray-500">Year 1 estimate</p>
+                    <p className="text-lg font-bold text-green-600">{year1}+</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-center text-xs text-gray-400 mt-6">
+              Estimates based on 1 active referral per program for 12 months. Actual earnings vary. No income is guaranteed.
+            </p>
+          </section>
+
+          {/* Free access incentive */}
+          <section className="bg-gray-50 py-16 px-6">
+            <div className="max-w-3xl mx-auto text-center">
+              <div className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
+                <Star size={14} />
+                Performance Incentive
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Unlock Free Program B Access</h2>
+              <p className="text-gray-500 mb-10 text-base leading-relaxed">
+                Maintain 5 active paying referred clients for 14 consecutive days and earn complimentary access
+                to Program B — the Business Credit Builder — at no cost. Access is automatically unlocked and
+                automatically revoked if you fall below the threshold.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                {[
+                  { number: '5', label: 'Active paying referrals required', icon: Users },
+                  { number: '14', label: 'Consecutive days to qualify', icon: TrendingUp },
+                  { number: 'Free', label: 'Program B access unlocked', icon: Star },
+                ].map(({ number, label, icon: Icon }) => (
+                  <div key={label} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                    <p className="text-3xl font-bold text-green-600 mb-1">{number}</p>
+                    <p className="text-sm text-gray-500">{label}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-6">
+                Complimentary access applies to Program B only. Non-transferable. No cash value.
+                Access locks immediately if you fall below 5 active paying clients.
+              </p>
+            </div>
+          </section>
+
+          {/* Who it's for */}
+          <section className="py-16 px-6 max-w-5xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-900 text-center mb-10">Who This Is For</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { title: 'Business Coaches', desc: 'You work with small business owners who need credit solutions.' },
+                { title: 'Financial Educators', desc: 'Your audience is learning about business finance and credit.' },
+                { title: 'Content Creators', desc: 'You have an audience of entrepreneurs on social or YouTube.' },
+                { title: 'Networkers & Brokers', desc: 'You have relationships with business owners who need capital.' },
+              ].map(({ title, desc }) => (
+                <div key={title} className="card">
+                  <div className="w-8 h-8 bg-green-100 rounded-xl flex items-center justify-center mb-3">
+                    <CheckCircle size={16} className="text-green-600" />
+                  </div>
+                  <h3 className="font-bold text-gray-900 text-sm mb-1">{title}</h3>
+                  <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Application form */}
+          <section id="apply-form" className="bg-gray-50 py-16 px-6">
+            <div className="max-w-2xl mx-auto">
+              <div className="text-center mb-10">
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">Apply to Become an Affiliate</h2>
+                <p className="text-gray-500">
+                  All applications are reviewed manually. We'll follow up within 2 business days.
+                </p>
+              </div>
+
+              {/* Toggle form visibility on mobile */}
+              {!showForm && (
+                <div className="text-center">
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className="btn-primary text-base px-10 py-4"
+                  >
+                    Open Application <ArrowRight size={18} />
+                  </button>
+                </div>
+              )}
+
+              {showForm && (
+                <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 space-y-5">
+
+                  {/* Name + Email */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        required
+                        value={form.name}
+                        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="Jane Smith"
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address <span className="text-red-500">*</span></label>
+                      <input
+                        type="email"
+                        required
+                        value={form.email}
+                        onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                        placeholder="jane@example.com"
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Phone + Company */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone</label>
+                      <input
+                        type="tel"
+                        value={form.phone}
+                        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                        placeholder="(555) 000-0000"
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Company / Brand Name</label>
+                      <input
+                        type="text"
+                        value={form.company_name}
+                        onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
+                        placeholder="Acme LLC (optional)"
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Website */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Website or Social Profile</label>
+                    <input
+                      type="url"
+                      value={form.website_or_social}
+                      onChange={e => setForm(f => ({ ...f, website_or_social: e.target.value }))}
+                      placeholder="https://yoursite.com or @yourhandle"
+                      className="input-field"
+                    />
+                  </div>
+
+                  {/* Marketing channels */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">How do you plan to promote? (select all that apply)</label>
+                    <div className="flex flex-wrap gap-2">
+                      {MARKETING_CHANNEL_OPTIONS.map(ch => (
+                        <button
+                          key={ch}
+                          type="button"
+                          onClick={() => toggleChannel(ch)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                            form.marketing_channels.includes(ch)
+                              ? 'bg-green-600 text-white border-green-600'
+                              : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'
+                          }`}
+                        >
+                          {ch}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Monthly estimate */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Estimated monthly referral volume</label>
+                    <select
+                      value={form.monthly_referral_estimate}
+                      onChange={e => setForm(f => ({ ...f, monthly_referral_estimate: e.target.value }))}
+                      className="input-field"
+                    >
+                      <option value="">Select an estimate</option>
+                      <option value="1-3">1–3 per month</option>
+                      <option value="4-10">4–10 per month</option>
+                      <option value="11-25">11–25 per month</option>
+                      <option value="25+">25+ per month</option>
+                    </select>
+                  </div>
+
+                  {/* Prior experience */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Have you referred business funding or credit services before? <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-4">
+                      {['yes', 'no'].map(v => (
+                        <label key={v} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="referral_experience"
+                            value={v}
+                            checked={form.referral_experience === v}
+                            onChange={() => setForm(f => ({ ...f, referral_experience: v }))}
+                            className="accent-green-600"
+                            required
+                          />
+                          <span className="text-sm text-gray-700 capitalize">{v}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Promotion plan */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      How do you plan to promote SourcifyLending? <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      required
+                      rows={4}
+                      value={form.promotion_plan}
+                      onChange={e => setForm(f => ({ ...f, promotion_plan: e.target.value }))}
+                      placeholder="Describe your audience, content strategy, or network. How would you introduce SourcifyLending to business owners?"
+                      className="input-field resize-none"
+                    />
+                  </div>
+
+                  {/* Terms */}
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={form.agreed_to_terms}
+                        onChange={e => setForm(f => ({ ...f, agreed_to_terms: e.target.checked }))}
+                        className="mt-0.5 accent-green-600"
+                      />
+                      <span className="text-sm text-gray-600 leading-relaxed">
+                        I agree to the SourcifyLending Affiliate Program terms. I understand that affiliates may not
+                        promise approvals, guarantee funding amounts, or misrepresent SourcifyLending's services.
+                        I will use only approved marketing language. SourcifyLending may suspend or terminate
+                        affiliate access at any time for violations.
+                        <span className="text-red-500 ml-1">*</span>
+                      </span>
+                    </label>
+                  </div>
+
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="btn-primary w-full text-base py-4 disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <><Loader2 size={18} className="animate-spin" /> Submitting…</>
+                    ) : (
+                      <>Submit Application <ArrowRight size={18} /></>
+                    )}
+                  </button>
+
+                  <p className="text-center text-xs text-gray-400">
+                    We review all applications manually and respond within 2 business days.
+                  </p>
+                </form>
+              )}
+            </div>
+          </section>
+
+          {/* Compliance + CTA footer strip */}
+          <section className="bg-green-600 py-14 px-6 text-center">
+            <div className="max-w-2xl mx-auto">
+              <Shield size={36} className="text-green-200 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-white mb-3">Ready to Get Started?</h2>
+              <p className="text-green-200 mb-8">
+                Join affiliates already earning recurring commissions by helping business owners access credit.
+              </p>
+              <button
+                onClick={() => { setShowForm(true); document.getElementById('apply-form')?.scrollIntoView({ behavior: 'smooth' }) }}
+                className="inline-flex items-center gap-2 bg-white text-green-600 font-bold px-8 py-4 rounded-xl hover:bg-green-50 transition-colors text-base"
+              >
+                Apply Now <ArrowRight size={18} />
+              </button>
+            </div>
+          </section>
+
+          {/* Footer */}
+          <footer className="border-t border-gray-100 py-8 px-6">
+            <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-gray-400">
+                © {new Date().getFullYear()} SourcifyLending. Affiliate earnings are not guaranteed. Commissions are
+                earned on successfully collected payments only.
+              </p>
+              <div className="flex items-center gap-4 text-sm text-gray-400">
+                <Link href="/" className="hover:text-gray-600">Home</Link>
+                <Link href="/analyzer" className="hover:text-gray-600">Free Analyzer</Link>
+                <Link href="/affiliate/login" className="hover:text-gray-600">Affiliate Login</Link>
+                <Link href="/login" className="hover:text-gray-600">Client Login</Link>
+              </div>
+            </div>
+          </footer>
+        </>
+      )}
+    </div>
+  )
+}
