@@ -608,7 +608,6 @@ function RecommendedCard({
   isActive: boolean
   onApply?: (opp: AccountOpportunity) => void
 }) {
-  const applyUrl = safeUrl(opp.apply_url)
   const learnMoreUrl = safeUrl(opp.learn_more_url)
   const prob = opp.approval_probability ?? (opp.pg_required === 'no' ? 'high' : 'medium')
   const rankIcon = ['🥇', '🥈', '🥉'][rank - 1] ?? `#${rank}`
@@ -706,15 +705,12 @@ function RecommendedCard({
               Learn More <ExternalLink size={10} />
             </a>
           )}
-          {applyUrl ? (
+          {opp.apply_url ? (
             <a
-              href={applyUrl}
+              href={`/api/opportunities/redirect?id=${opp.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => {
-                trackEvent('application_attempted', { opportunity_name: opp.name, stage: opp.stage, in_sequence: true })
-                onApply?.(opp)
-              }}
+              onClick={() => onApply?.(opp)}
               className="flex-1 inline-flex items-center justify-center gap-1 text-xs bg-green-600 text-white px-3 py-2 rounded-xl hover:bg-green-700 transition-colors font-semibold"
             >
               Apply Now <ExternalLink size={10} />
@@ -793,8 +789,6 @@ function WarningModal({
   onClose: () => void
   onApplyAway?: (opp: AccountOpportunity) => void
 }) {
-  const applyUrl = safeUrl(opp.apply_url)
-
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
@@ -845,13 +839,12 @@ function WarningModal({
           >
             ← Stay in Sequence
           </button>
-          {applyUrl && (
+          {opp.apply_url && (
             <a
-              href={applyUrl}
+              href={`/api/opportunities/redirect?id=${opp.id}`}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => {
-                trackEvent('application_attempted', { opportunity_name: opp.name, stage: opp.stage, in_sequence: false, out_of_sequence: true })
                 onApplyAway?.(opp)
                 onClose()
               }}
@@ -889,7 +882,6 @@ function OpportunityCard({
   const isRecommended = status === 'recommended'
   const blurred = !isActive
   const learnMoreUrl = safeUrl(opp.learn_more_url)
-  const applyUrl = safeUrl(opp.apply_url)
 
   return (
     <div className={`bg-white rounded-2xl border p-5 space-y-3 transition-all ${
@@ -946,7 +938,7 @@ function OpportunityCard({
         </div>
       )}
 
-      {!blurred && (learnMoreUrl || applyUrl) && (
+      {!blurred && (learnMoreUrl || opp.apply_url) && (
         <div className="flex gap-2 pt-1">
           {learnMoreUrl && (
             <a href={learnMoreUrl} target="_blank" rel="noopener noreferrer"
@@ -954,7 +946,7 @@ function OpportunityCard({
               Learn More <ExternalLink size={10} />
             </a>
           )}
-          {applyUrl && (
+          {opp.apply_url && (
             isLocked && onLockedApply ? (
               <button
                 onClick={onLockedApply}
@@ -964,13 +956,10 @@ function OpportunityCard({
               </button>
             ) : (
               <a
-                href={applyUrl}
+                href={`/api/opportunities/redirect?id=${opp.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => {
-                  trackEvent('application_attempted', { opportunity_name: opp.name, stage: opp.stage })
-                  onApply?.(opp)
-                }}
+                onClick={() => onApply?.(opp)}
                 className="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
               >
                 Apply Now <ExternalLink size={10} />
@@ -980,7 +969,7 @@ function OpportunityCard({
         </div>
       )}
 
-      {!blurred && !learnMoreUrl && !applyUrl && isRecommended && (
+      {!blurred && !learnMoreUrl && !opp.apply_url && isRecommended && (
         <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
           <AlertCircle size={12} /> Contact your advisor for application guidance
         </div>
