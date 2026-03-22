@@ -150,15 +150,30 @@ export default function HomePage() {
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 leading-snug">
                   Refer Clients.<br />Earn Recurring Commissions.
                 </h2>
-                <p className="text-gray-500 text-sm leading-relaxed mb-6">
-                  Help business owners discover SourcifyLending and earn 30% of setup fees plus
-                  20% of every monthly payment they make — for as long as they stay active.
+                <p className="text-gray-500 text-sm leading-relaxed mb-5">
+                  Two ways to earn — whether you simply refer someone or personally close the deal.
+                  Commissions are recurring for as long as your client stays active.
                 </p>
+
+                {/* Two-tier commission cards */}
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Referral Only</p>
+                    <p className="text-xl font-bold text-gray-900">10%</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Setup + recurring</p>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                    <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">I Closed the Deal</p>
+                    <p className="text-xl font-bold text-green-700">30%</p>
+                    <p className="text-xs text-green-600 mt-0.5">Setup + recurring</p>
+                  </div>
+                </div>
+
                 <ul className="space-y-2 mb-8">
                   {[
-                    '30% commission on setup fees',
-                    '20% recurring monthly commission',
-                    'Real-time referral and earnings tracking',
+                    'Commissions paid monthly via direct deposit',
+                    'Track every referral, invite, and conversion',
+                    'Add prospects directly from your affiliate portal',
                     'Unlock free Program B access at 5 active clients',
                   ].map(item => (
                     <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
@@ -177,20 +192,20 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Right — stats */}
+              {/* Right — earnings examples */}
               <div className="bg-green-600 p-8 sm:p-10 flex flex-col justify-center gap-6">
                 {[
                   {
                     icon: DollarSign,
-                    label: 'Program A referral — Year 1',
-                    value: '$1,407+',
-                    sub: '30% setup + 20% recurring',
+                    label: 'Program A — Referral tier (10%)',
+                    value: '$389+ / yr',
+                    sub: 'Per active client referred',
                   },
                   {
                     icon: DollarSign,
-                    label: 'Program B referral — Year 1',
-                    value: '$777+',
-                    sub: '30% setup + 20% recurring',
+                    label: 'Program A — Closed deal tier (30%)',
+                    value: '$1,166+ / yr',
+                    sub: 'Per active client you closed',
                   },
                   {
                     icon: Users,
@@ -211,7 +226,7 @@ export default function HomePage() {
                   </div>
                 ))}
                 <p className="text-green-300 text-xs mt-2">
-                  Estimates based on a single active referral per program. Actual earnings vary. No income guaranteed.
+                  Estimates based on Program A pricing ($1,500 setup / $199/mo). Actual earnings vary. No income guaranteed.
                 </p>
               </div>
             </div>
