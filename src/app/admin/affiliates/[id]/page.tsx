@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   ChevronLeft, Loader2, CheckCircle, XCircle, AlertTriangle,
   Users, TrendingUp, DollarSign, Shield, Edit2, Save, X,
-  ToggleLeft, ToggleRight, Flag
+  ToggleLeft, ToggleRight, Flag, FlaskConical
 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -21,6 +21,7 @@ interface Affiliate {
   has_free_program_b_access: boolean
   qualification_start_date: string | null
   free_access_unlock_date: string | null
+  is_demo: boolean
   created_at: string
   tier?: string
 }
@@ -238,6 +239,16 @@ export default function AffiliateDetailPage() {
           <span className="text-gray-900 font-medium">{affiliate.name}</span>
         </div>
 
+        {/* Demo warning banner */}
+        {affiliate.is_demo && (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 text-sm text-amber-800">
+            <FlaskConical size={16} className="shrink-0 text-amber-600" />
+            <div>
+              <span className="font-bold">Demo Account</span> — This affiliate&apos;s commissions and referrals are synthetic test data. They are <span className="font-bold">excluded from all aggregate stats</span> on the Affiliates page.
+            </div>
+          </div>
+        )}
+
         {/* Header Card */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -249,6 +260,11 @@ export default function AffiliateDetailPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl font-bold text-gray-900">{affiliate.name}</h1>
                   <StatusBadge status={affiliate.status} />
+                  {affiliate.is_demo && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-amber-200 text-amber-800">
+                      <FlaskConical size={10} /> Demo Account
+                    </span>
+                  )}
                   {affiliate.has_free_program_b_access && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-emerald-100 text-emerald-700">
                       Free Program B

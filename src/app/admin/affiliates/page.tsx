@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Users, Plus, Search, Filter, Download, RefreshCw, ChevronLeft,
-  Loader2, CheckCircle, XCircle, AlertCircle, ArrowRight, ExternalLink
+  Loader2, CheckCircle, XCircle, AlertCircle, ArrowRight, ExternalLink, FlaskConical
 } from 'lucide-react'
 import ResetDemoAffiliateButton from './ResetDemoAffiliateButton'
 
@@ -19,6 +19,7 @@ interface Affiliate {
   total_earned: number
   pending_payout: number
   has_free_program_b_access: boolean
+  is_demo: boolean
   created_at: string
 }
 
@@ -60,6 +61,7 @@ export default function AffiliatesPage() {
   const [freeAccessLoading, setFreeAccessLoading] = useState(false)
   const [freeAccessResult, setFreeAccessResult] = useState<string | null>(null)
   const [exportLoading, setExportLoading] = useState(false)
+  const [showDemo, setShowDemo] = useState(true)
 
   const fetchAffiliates = useCallback(async () => {
     setLoading(true)
@@ -79,10 +81,14 @@ export default function AffiliatesPage() {
 
   useEffect(() => { fetchAffiliates() }, [fetchAffiliates])
 
-  // Derived stats
-  const totalActive = affiliates.filter(a => a.status === 'active').length
-  const totalSuspended = affiliates.filter(a => a.status === 'suspended').length
-  const totalCommissions = affiliates.reduce((s, a) => s + a.total_earned, 0)
+  // Derived stats — always exclude demo from real numbers
+  const realAffiliates = affiliates.filter(a => !a.is_demo)
+  const totalActive = realAffiliates.filter(a => a.status === 'active').length
+  const totalSuspended = realAffiliates.filter(a => a.status === 'suspended').length
+  const totalCommissions = realAffiliates.reduce((s, a) => s + a.total_earned, 0)
+
+  // What's shown in the table (respects showDemo toggle)
+  const visibleAffiliates = showDemo ? affiliates : realAffiliates
 
   async function handleAddAffiliate() {
     if (!addName.trim() || !addEmail.trim()) { setAddError('Name and email are required.'); return }
@@ -168,6 +174,17 @@ export default function AffiliatesPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button
+              onClick={() => setShowDemo(s => !s)}
+              className={`flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-xl border transition-all ${
+                showDemo
+                  ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+                  : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <FlaskConical size={14} />
+              {showDemo ? 'Showing Demo' : 'Demo Hidden'}
+            </button>
+            <button
               onClick={handleFreeAccessCheck}
               disabled={freeAccessLoading}
               className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-3 py-2 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all disabled:opacity-60"
@@ -221,18 +238,19 @@ export default function AffiliatesPage() {
           ))}
         </div>
 
-        {/* Stats Row */}
+        {/* Stats Row — demo excluded from all figures */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total Affiliates', value: total, color: 'text-gray-900', icon: Users },
-            { label: 'Active', value: totalActive, color: 'text-green-600', icon: CheckCircle },
-            { label: 'Suspended', value: totalSuspended, color: 'text-red-500', icon: XCircle },
-            { label: 'Total Commissions', value: fmtCurrency(totalCommissions), color: 'text-indigo-600', icon: AlertCircle },
-          ].map(({ label, value, color, icon: Icon }) => (
+            { label: 'Total Affiliates', value: realAffiliates.length, sub: 'excl. demo', color: 'text-gray-900', icon: Users },
+            { label: 'Active', value: totalActive, sub: 'real accounts', color: 'text-green-600', icon: CheckCircle },
+            { label: 'Suspended', value: totalSuspended, sub: 'real accounts', color: 'text-red-500', icon: XCircle },
+            { label: 'Total Commissions', value: fmtCurrency(totalCommissions), sub: 'excl. demo', color: 'text-indigo-600', icon: AlertCircle },
+          ].map(({ label, value, sub, color, icon: Icon }) => (
             <div key={label} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-4 py-4 text-center">
               <Icon size={18} className={`mx-auto mb-1.5 ${color}`} />
               <div className={`text-xl font-bold ${color}`}>{value}</div>
               <div className="text-xs text-gray-400 mt-0.5">{label}</div>
+              <div className="text-[10px] text-gray-300 mt-0.5">{sub}</div>
             </div>
           ))}
         </div>
@@ -274,7 +292,12 @@ export default function AffiliatesPage() {
         {/* Table */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-700">{total} affiliate{total !== 1 ? 's' : ''}</span>
+            <span className="text-sm font-semibold text-gray-700">
+              {visibleAffiliates.length} affiliate{visibleAffiliates.length !== 1 ? 's' : ''}
+              {!showDemo && affiliates.some(a => a.is_demo) && (
+                <span className="ml-2 text-xs text-gray-400 font-normal">(demo hidden)</span>
+              )}
+            </span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -300,14 +323,21 @@ export default function AffiliatesPage() {
                       No affiliates found
                     </td>
                   </tr>
-                ) : affiliates.map(aff => (
+                ) : visibleAffiliates.map(aff => (
                   <tr
                     key={aff.id}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    className={`cursor-pointer transition-colors ${aff.is_demo ? 'bg-amber-50/40 hover:bg-amber-50' : 'hover:bg-gray-50'}`}
                     onClick={() => router.push(`/admin/affiliates/${aff.id}`)}
                   >
                     <td className="px-4 py-3">
-                      <span className="font-semibold text-gray-900">{aff.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-semibold ${aff.is_demo ? 'text-amber-900' : 'text-gray-900'}`}>{aff.name}</span>
+                        {aff.is_demo && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800 uppercase tracking-wide">
+                            <FlaskConical size={9} /> Demo
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-gray-500 truncate max-w-[180px]">{aff.email}</td>
                     <td className="px-4 py-3">
