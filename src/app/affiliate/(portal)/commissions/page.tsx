@@ -8,7 +8,7 @@ type CommissionType = 'setup' | 'recurring'
 interface Commission {
   id: string
   commission_amount: number
-  commission_rate: number
+  commission_rate: number | null
   gross_amount: number
   status: CommissionStatus
   commission_type: CommissionType
@@ -29,8 +29,9 @@ interface CommissionsData {
   limit: number
 }
 
-function fmt(n: number) {
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 })
+// Amounts in DB are stored in cents — divide by 100 before display
+function fmt(cents: number) {
+  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 })
 }
 
 function fmtDate(iso: string | null) {
@@ -38,8 +39,11 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function fmtPct(n: number) {
-  return `${(n * 100).toFixed(0)}%`
+// commission_rate is stored as a decimal (0.10, 0.30) — multiply by 100 to display as %
+// Guard against null/undefined/NaN coming from the API
+function fmtPct(n: number | null | undefined) {
+  if (n == null || isNaN(Number(n))) return '—'
+  return `${(Number(n) * 100).toFixed(0)}%`
 }
 
 const STATUS_CONFIG: Record<CommissionStatus, { label: string; color: string }> = {
