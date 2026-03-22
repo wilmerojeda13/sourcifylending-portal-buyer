@@ -23,8 +23,8 @@ interface Affiliate {
   created_at: string
 }
 
-function fmtCurrency(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+function fmtCurrency(cents: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
 }
 
 function fmtDate(s: string) {

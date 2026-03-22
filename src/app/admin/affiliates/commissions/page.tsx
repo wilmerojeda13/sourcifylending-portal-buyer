@@ -24,8 +24,8 @@ interface Commission {
   affiliate_referrals?: { lead_name: string; lead_email: string } | null
 }
 
-function fmtCurrency(n: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+function fmtCurrency(cents: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
 }
 
 function fmtDate(s: string | null) {
