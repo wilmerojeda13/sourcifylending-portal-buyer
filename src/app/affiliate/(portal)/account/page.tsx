@@ -1,6 +1,11 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { Copy, CheckCheck, Mail, AlertCircle, User, Calendar, Tag, TrendingUp } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import {
+  Copy, CheckCheck, Mail, AlertCircle, User, Calendar, Tag,
+  TrendingUp, Zap, CheckCircle, Clock, ExternalLink, RefreshCw,
+  DollarSign, AlertTriangle,
+} from 'lucide-react'
 
 interface Affiliate {
   id: string
@@ -14,12 +19,47 @@ interface Affiliate {
   created_at: string
 }
 
+interface StripeStatus {
+  status: 'not_connected' | 'pending' | 'active' | 'restricted'
+  stripe_account_id: string | null
+  payouts_enabled?: boolean
+  details_submitted?: boolean
+  requirements?: { currently_due?: string[]; errors?: { reason: string }[] }
+}
+
+interface PayoutData {
+  stripe_connect_status: string
+  balances: {
+    pending_cents: number
+    available_cents: number
+    paid_cents: number
+  }
+  minimum_payout_cents: number
+  next_payout_date: string
+  payouts: {
+    id: string
+    amount_cents: number
+    status: string
+    paid_at: string | null
+    created_at: string
+    stripe_transfer_id: string | null
+  }[]
+}
+
 function fmt(n: number) {
   return `${(n * 100).toFixed(0)}%`
 }
 
+function fmtCents(cents: number) {
+  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+}
+
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+function fmtDateShort(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -28,6 +68,295 @@ const STATUS_COLORS: Record<string, string> = {
   suspended: 'bg-red-100 text-red-600',
 }
 
+// ─── Stripe Connect Status Card ───────────────────────────────────────────────
+function StripeConnectSection() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [stripeStatus, setStripeStatus] = useState<StripeStatus | null>(null)
+  const [payoutData, setPayoutData] = useState<PayoutData | null>(null)
+  const [loadingStatus, setLoadingStatus] = useState(true)
+  const [connecting, setConnecting] = useState(false)
+  const [flashSuccess, setFlashSuccess] = useState(false)
+  const [flashRefresh, setFlashRefresh] = useState(false)
+
+  const loadStatus = useCallback(async () => {
+    setLoadingStatus(true)
+    try {
+      const [statusRes, payoutRes] = await Promise.all([
+        fetch('/api/affiliate/connect/status'),
+        fetch('/api/affiliate/payouts'),
+      ])
+      const statusData = await statusRes.json()
+      const payoutJson = await payoutRes.json()
+      if (!statusData.error) setStripeStatus(statusData)
+      if (!payoutJson.error) setPayoutData(payoutJson)
+    } finally {
+      setLoadingStatus(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadStatus()
+  }, [loadStatus])
+
+  // Handle return from Stripe onboarding
+  useEffect(() => {
+    const connect = searchParams.get('connect')
+    if (connect === 'success') {
+      setFlashSuccess(true)
+      loadStatus()
+      router.replace('/affiliate/account', { scroll: false })
+    } else if (connect === 'refresh') {
+      setFlashRefresh(true)
+      router.replace('/affiliate/account', { scroll: false })
+    }
+  }, [searchParams, loadStatus, router])
+
+  const handleConnect = async () => {
+    setConnecting(true)
+    try {
+      const res = await fetch('/api/affiliate/connect/onboard', { method: 'POST' })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert(data.error || 'Failed to start Stripe onboarding. Please try again.')
+      }
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  if (loadingStatus) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="h-5 w-40 bg-gray-100 rounded-full animate-pulse mb-4" />
+        <div className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+      </div>
+    )
+  }
+
+  const status = stripeStatus?.status ?? 'not_connected'
+
+  return (
+    <div className="space-y-4">
+
+      {/* Success flash */}
+      {flashSuccess && (
+        <div className="flex items-start gap-3 bg-green-50 border border-green-200 rounded-2xl px-5 py-4">
+          <CheckCircle size={18} className="text-green-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-green-800">Stripe account connected!</p>
+            <p className="text-xs text-green-600 mt-0.5">
+              Your account is being verified. Payouts will activate once Stripe confirms your details.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Refresh flash */}
+      {flashRefresh && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
+          <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">Onboarding session expired</p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              Your Stripe session timed out. Click the button below to restart.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Connect card */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+              <Zap size={18} className="text-indigo-600" />
+            </div>
+            <div>
+              <p className="font-bold text-gray-900 text-sm">Stripe Payout Account</p>
+              <p className="text-xs text-gray-500 mt-0.5">Required to receive commission payouts</p>
+            </div>
+          </div>
+
+          {/* Status badge */}
+          {status === 'active' && (
+            <span className="shrink-0 flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 bg-green-100 text-green-700 rounded-full uppercase">
+              <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+              Active
+            </span>
+          )}
+          {status === 'pending' && (
+            <span className="shrink-0 flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full uppercase">
+              <Clock size={10} />
+              Pending
+            </span>
+          )}
+          {status === 'not_connected' && (
+            <span className="shrink-0 flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full uppercase">
+              Not Connected
+            </span>
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5">
+
+          {/* NOT CONNECTED */}
+          {status === 'not_connected' && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex-1">
+                <p className="text-sm text-gray-700 font-medium mb-1">Connect your bank to receive payouts</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  We use Stripe Connect to send your commission payments directly to your bank account.
+                  Setup takes about 5 minutes and your information is securely handled by Stripe.
+                </p>
+              </div>
+              <button
+                onClick={handleConnect}
+                disabled={connecting}
+                className="shrink-0 flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {connecting ? (
+                  <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
+                ) : (
+                  <><Zap size={15} /> Connect with Stripe</>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* PENDING */}
+          {status === 'pending' && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 bg-amber-50 rounded-xl p-4">
+                <Clock size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">Verification in progress</p>
+                  <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                    {stripeStatus?.details_submitted
+                      ? 'Your details have been submitted. Stripe is reviewing your account — this usually takes 1–2 business days.'
+                      : 'Your Stripe account was created but onboarding isn\'t complete. Click below to finish setting it up.'}
+                  </p>
+                </div>
+              </div>
+              {!stripeStatus?.details_submitted && (
+                <button
+                  onClick={handleConnect}
+                  disabled={connecting}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                >
+                  {connecting ? (
+                    <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
+                  ) : (
+                    <><ExternalLink size={15} /> Complete Stripe Setup</>
+                  )}
+                </button>
+              )}
+              {stripeStatus?.requirements?.currently_due && stripeStatus.requirements.currently_due.length > 0 && (
+                <div className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  <p className="font-semibold mb-1">Still required by Stripe:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {stripeStatus.requirements.currently_due.slice(0, 5).map((req) => (
+                      <li key={req}>{req.replace(/_/g, ' ')}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ACTIVE */}
+          {status === 'active' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 bg-green-50 rounded-xl p-4">
+                <CheckCircle size={16} className="text-green-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-green-800">Payouts enabled</p>
+                  <p className="text-xs text-green-700 mt-0.5">
+                    Your Stripe account is active. Commissions are paid out automatically on the 1st of each month.
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400">
+                Account ID: <span className="font-mono">{stripeStatus?.stripe_account_id}</span>
+              </p>
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      {/* Payout balance — only show if connected */}
+      {status !== 'not_connected' && payoutData && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <DollarSign size={17} className="text-indigo-600" />
+            Payout Balance
+          </h2>
+
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            {[
+              { label: 'Holding (7-day)', value: fmtCents(payoutData.balances.pending_cents), color: 'text-gray-600' },
+              { label: 'Available', value: fmtCents(payoutData.balances.available_cents), color: 'text-indigo-600' },
+              { label: 'Total Paid', value: fmtCents(payoutData.balances.paid_cents), color: 'text-green-600' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-gray-50 rounded-xl px-3 py-3 text-center">
+                <p className={`text-base font-bold ${color}`}>{value}</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
+            <span>Next payout: <strong className="text-gray-700">{fmtDateShort(payoutData.next_payout_date)}</strong></span>
+            <span>Min payout: <strong className="text-gray-700">{fmtCents(payoutData.minimum_payout_cents)}</strong></span>
+          </div>
+
+          {/* Recent payouts */}
+          {payoutData.payouts.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Recent Payouts</p>
+              <div className="divide-y divide-gray-50">
+                {payoutData.payouts.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between py-2.5 text-sm">
+                    <div>
+                      <p className="font-semibold text-gray-900">{fmtCents(p.amount_cents)}</p>
+                      <p className="text-xs text-gray-400">{fmtDateShort(p.paid_at ?? p.created_at)}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                        p.status === 'paid' ? 'bg-green-100 text-green-700' :
+                        p.status === 'failed' ? 'bg-red-100 text-red-600' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {p.status}
+                      </span>
+                      {p.stripe_transfer_id && (
+                        <a
+                          href={`https://dashboard.stripe.com/transfers/${p.stripe_transfer_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-400 hover:text-indigo-600 transition-colors"
+                        >
+                          <ExternalLink size={12} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AffiliateAccountPage() {
   const [affiliate, setAffiliate] = useState<Affiliate | null>(null)
   const [loading, setLoading] = useState(true)
@@ -95,12 +424,11 @@ export default function AffiliateAccountPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">My Account</h1>
-        <p className="text-sm text-gray-500 mt-1">Your affiliate profile and referral details.</p>
+        <p className="text-sm text-gray-500 mt-1">Your affiliate profile, payout setup, and referral details.</p>
       </div>
 
       {/* Profile card */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        {/* Avatar strip */}
         <div className="h-2 bg-indigo-600" />
         <div className="px-6 py-6">
           <div className="flex items-center gap-4 mb-6">
@@ -118,7 +446,6 @@ export default function AffiliateAccountPage() {
             </span>
           </div>
 
-          {/* Details grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-gray-50 rounded-xl px-4 py-3.5 flex items-start gap-3">
               <User size={15} className="text-gray-400 mt-0.5 shrink-0" />
@@ -142,10 +469,7 @@ export default function AffiliateAccountPage() {
                 <p className="text-xs text-gray-400 mb-0.5">Referral Code</p>
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-bold font-mono text-indigo-600">{affiliate.referral_code}</p>
-                  <button
-                    onClick={copyCode}
-                    className="text-gray-400 hover:text-indigo-600 transition-colors"
-                  >
+                  <button onClick={copyCode} className="text-gray-400 hover:text-indigo-600 transition-colors">
                     {copiedCode ? <CheckCheck size={14} className="text-green-500" /> : <Copy size={14} />}
                   </button>
                 </div>
@@ -171,16 +495,13 @@ export default function AffiliateAccountPage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3.5">
-            <p className="text-xs text-indigo-600 font-semibold uppercase tracking-wide mb-1">Commission Rate</p>
+            <p className="text-xs text-indigo-600 font-semibold uppercase tracking-wide mb-1">Base Rate</p>
             <p className="text-2xl font-bold text-indigo-700">{fmt(affiliate.commission_rate)}</p>
-            <p className="text-xs text-indigo-500 mt-0.5">Per eligible payment</p>
+            <p className="text-xs text-indigo-500 mt-0.5">Referral-only tier</p>
           </div>
-
           <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
-            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-1">Commission Tier</p>
-            <p className="text-sm font-bold text-gray-900 capitalize">
-              {affiliate.commission_tier || 'Standard'}
-            </p>
+            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-1">Closed-Deal Tier</p>
+            <p className="text-2xl font-bold text-gray-900">30%</p>
             {affiliate.has_free_program_b_access && (
               <span className="inline-flex items-center mt-1.5 text-[10px] font-bold px-2 py-0.5 bg-green-100 text-green-700 rounded-full uppercase">
                 Program B Access Unlocked
@@ -189,6 +510,9 @@ export default function AffiliateAccountPage() {
           </div>
         </div>
       </div>
+
+      {/* Stripe Connect + Payout Balance */}
+      <StripeConnectSection />
 
       {/* Referral link */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -202,21 +526,15 @@ export default function AffiliateAccountPage() {
             className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors shrink-0"
           >
             {copiedLink ? (
-              <>
-                <CheckCheck size={15} />
-                Copied!
-              </>
+              <><CheckCheck size={15} /> Copied!</>
             ) : (
-              <>
-                <Copy size={15} />
-                Copy
-              </>
+              <><Copy size={15} /> Copy</>
             )}
           </button>
         </div>
       </div>
 
-      {/* Read-only notice + support */}
+      {/* Support */}
       <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 flex items-start gap-4">
         <div className="flex-1">
           <p className="text-xs font-semibold text-gray-700 mb-1">Need to update your information?</p>
