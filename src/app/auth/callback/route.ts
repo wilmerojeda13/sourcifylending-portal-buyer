@@ -160,12 +160,13 @@ export async function GET(request: NextRequest) {
           .eq('id', user.id)
           .maybeSingle()
 
-        if (!existing) {
-          const fullName = user.user_metadata?.full_name
-            || user.user_metadata?.name
-            || user.email?.split('@')[0]
-            || ''
+        const fullName = user.user_metadata?.full_name
+          || user.user_metadata?.name
+          || user.email?.split('@')[0]
+          || ''
 
+        if (!existing) {
+          // New Google OAuth user — create profile
           await supabase.from('profiles').insert({
             id: user.id,
             email: user.email ?? '',
@@ -178,13 +179,21 @@ export async function GET(request: NextRequest) {
             updated_at: new Date().toISOString(),
           })
 
-          // Fire-and-forget: activity log + admin signup notification
           supabase.from('activity_logs').insert({
             user_id: user.id,
             event_type: 'signup',
             event_data: { email: user.email, source: 'google_oauth' },
             created_at: new Date().toISOString(),
           }).then(() => {})
+        }
+
+        // Send admin notification for any new account (email/password or OAuth).
+        // Guard: user.created_at within the last 60 min = fresh signup confirming email.
+        const accountAgeMs = user.created_at
+          ? Date.now() - new Date(user.created_at).getTime()
+          : Infinity
+        if (accountAgeMs < 60 * 60 * 1000) {
+          const source = existing ? 'email_password' : 'google_oauth'
           sendNewSignupNotification(user.email ?? '', fullName)
           logPortalEvent({
             userId: user.id,
@@ -193,7 +202,7 @@ export async function GET(request: NextRequest) {
             severity: 'success',
             title: 'New account created',
             message: user.email,
-            metadata: { source: 'google_oauth', full_name: fullName },
+            metadata: { source, full_name: fullName },
           })
         }
       }
