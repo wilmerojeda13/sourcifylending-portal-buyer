@@ -74,7 +74,15 @@ function AcceptInviteInner() {
     try {
       const { error: authErr } = mode === 'login'
         ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password })
+        : await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              // Send the user back to THIS invite link after email confirmation
+              // so acceptInvite() fires automatically when they return
+              emailRedirectTo: `${window.location.origin}/accept-invite?token=${token}`,
+            },
+          })
 
       if (authErr) {
         setError(authErr.message)
@@ -82,7 +90,7 @@ function AcceptInviteInner() {
         return
       }
       if (mode === 'signup') {
-        toast.success('Account created! Check your email to confirm, then come back to this link.')
+        toast.success('Account created! Check your email for a confirmation link — it will bring you straight back here to complete setup.')
         setLoginLoading(false)
         return
       }

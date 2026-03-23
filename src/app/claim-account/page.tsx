@@ -61,7 +61,7 @@ export default async function ClaimAccountPage({ searchParams }: PageProps) {
         title="Invalid Link"
         message="This invite link is expired or invalid. Please contact SourcifyLending support for a new invite."
         linkLabel="Contact Support →"
-        linkHref="/support"
+        linkHref="mailto:support@sourcifylending.com"
       />
     )
   }
@@ -83,7 +83,7 @@ export default async function ClaimAccountPage({ searchParams }: PageProps) {
         title="Link Expired"
         message="This invite link has expired (links are valid for 72 hours). Please contact SourcifyLending to get a new invite."
         linkLabel="Contact Support →"
-        linkHref="/support"
+        linkHref="mailto:support@sourcifylending.com"
       />
     )
   }
