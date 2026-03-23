@@ -7,11 +7,9 @@ import SupportInboxClient from './SupportInboxClient'
 
 export default async function SupportPage() {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!session) redirect('/login')
-
-  const user = session.user
+  if (!user) redirect('/login')
 
   const [{ data: profile }, messagesResult, { data: notifs }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),

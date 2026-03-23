@@ -59,6 +59,7 @@ export default function SignupPage() {
         email: form.email,
         business_name: form.business_name,
         subscription_status: 'inactive',
+        account_state: 'prospect',
         progress_percentage: 0,
         nsf_flag: false,
       })

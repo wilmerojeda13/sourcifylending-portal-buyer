@@ -394,12 +394,15 @@ export async function POST(req: NextRequest) {
       await logActivity(userId, 'subscription_canceled', { subscription_id: sub.id })
 
       // Update referral status when subscription is canceled
-      const deletedSub = event.data.object as Stripe.Subscription
-      if (deletedSub.customer) {
+      // sub.customer can be a string ID or an expanded Stripe.Customer object — extract safely
+      const canceledCustomerId = typeof sub.customer === 'string'
+        ? sub.customer
+        : (sub.customer as Stripe.Customer | null)?.id ?? null
+      if (canceledCustomerId) {
         try {
           await supabase.from('affiliate_referrals')
             .update({ referral_status: 'canceled', subscription_active: false })
-            .eq('stripe_customer_id', deletedSub.customer as string)
+            .eq('stripe_customer_id', canceledCustomerId)
         } catch (e) { console.error('Referral update error:', e) }
       }
 

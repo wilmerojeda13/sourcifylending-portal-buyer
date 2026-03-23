@@ -10,11 +10,9 @@ import type { AccountOpportunity } from '@/types'
 
 export default async function OpportunitiesPage() {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!session) redirect('/login')
-
-  const user = session.user
+  if (!user) redirect('/login')
 
   const { data: profile } = await supabase
     .from('profiles')

@@ -33,26 +33,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // ── Fetch opportunity (service client bypasses RLS, but we filter by account) ──
+  // ── Fetch opportunity — account_opportunities is a global shared table;
+  //    RLS already gates reads to authenticated users (is_active = true).
+  //    No per-account filtering needed — just look up by ID.
   const supabase = await createServiceClient()
 
-  // First get the user's account ID
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('account_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile?.account_id) {
-    return new NextResponse('Account not found', { status: 404 })
-  }
-
-  // Fetch the opportunity — must belong to the user's account
   const { data: opp, error } = await supabase
     .from('account_opportunities')
     .select('id, name, program, stage, apply_url, is_active')
     .eq('id', id)
-    .eq('account_id', profile.account_id)
+    .eq('is_active', true)
     .single()
 
   if (error || !opp) {

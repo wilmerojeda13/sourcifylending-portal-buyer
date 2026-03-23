@@ -7,10 +7,9 @@ import FundingResultsClient from './FundingResultsClient'
 
 export default async function FundingResultsPage() {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!session) redirect('/login')
-  const user = session.user
+  if (!user) redirect('/login')
 
   const [{ data: profile }, { data: approvals }, { data: notifs }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),

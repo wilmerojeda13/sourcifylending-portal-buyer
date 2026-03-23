@@ -79,6 +79,26 @@ export async function POST(req: NextRequest) {
       await supabase.from('subscriptions').insert({ ...subPayload, created_at: new Date().toISOString() })
     }
 
+    // Keep memberships table in sync so billing page shows the correct active membership card
+    if (program) {
+      if (deactivate) {
+        await supabase.from('memberships').update({
+          status: 'canceled',
+          ended_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq('user_id', user_id).eq('program_code', program)
+      } else {
+        await supabase.from('memberships').upsert({
+          user_id,
+          program_code: program,
+          status: 'active',
+          stripe_subscription_id: subPayload.stripe_subscription_id ?? `admin_${user_id}`,
+          started_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,program_code' })
+      }
+    }
+
     await logActivity(user_id, deactivate ? 'subscription_canceled' : 'subscription_reactivated', {
       admin_action: true,
       admin_email: user.email,

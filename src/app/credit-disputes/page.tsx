@@ -7,10 +7,9 @@ import CreditDisputesClient from './CreditDisputesClient'
 
 export default async function CreditDisputesPage() {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!session) redirect('/login')
-  const user = session.user
+  if (!user) redirect('/login')
 
   const [{ data: profile }, { data: disputes }, { data: notifs }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),

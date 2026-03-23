@@ -288,7 +288,7 @@ export default function EnrollPage() {
           {submitting ? (
             <><Loader2 size={18} className="animate-spin" /> Recording acceptance &amp; redirecting…</>
           ) : (
-            'Accept Agreement &amp; Proceed to Payment'
+            'Accept Agreement & Proceed to Payment'
           )}
         </button>
 
