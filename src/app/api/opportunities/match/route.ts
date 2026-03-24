@@ -75,13 +75,20 @@ export async function GET() {
     const userStageIdx = B_STAGES.indexOf(currentStageLabel)
 
     // ── Step 2: Filter opportunities by stage ─────────────────────────────────
-    const currentStageOpps = allOpps.filter(o => o.stage === currentStageLabel)
-    const futureOpps = allOpps.filter(o => B_STAGES.indexOf(o.stage) > userStageIdx)
-    const completedStageOpps = allOpps.filter(o => B_STAGES.indexOf(o.stage) < userStageIdx)
+    // Exclude monitoring category — those are setup tasks shown in Progress, not apply-for opportunities
+    const applyableOpps = allOpps.filter(o => o.category !== 'monitoring')
+
+    const currentStageOpps = applyableOpps.filter(o => o.stage === currentStageLabel)
+    // If current stage has no applyable items (e.g. still in Foundation), show Store Credit items
+    const effectiveCurrentOpps = currentStageOpps.length > 0
+      ? currentStageOpps
+      : applyableOpps.filter(o => o.stage === 'Store Credit')
+    const futureOpps = applyableOpps.filter(o => B_STAGES.indexOf(o.stage) > userStageIdx)
+    const completedStageOpps = applyableOpps.filter(o => B_STAGES.indexOf(o.stage) < userStageIdx)
 
     // ── Step 3: Eligibility filter + ranking ──────────────────────────────────
     // No-PG accounts first (higher approval probability), then PG
-    const noPgFirst = [...currentStageOpps].sort((a, b) => rankScore(b) - rankScore(a))
+    const noPgFirst = [...effectiveCurrentOpps].sort((a, b) => rankScore(b) - rankScore(a))
 
     // ── Step 4: Select top 3 ─────────────────────────────────────────────────
     const top3 = noPgFirst.slice(0, 3)

@@ -221,20 +221,29 @@ export default function OpportunitiesClient({
   }, [assignedProgram])
 
   // Local fallbacks (immediate, no AI) for Program B
+  // Exclude monitoring category — those are setup tasks, not apply-for opportunities
+  const applyableOpps = useMemo(() =>
+    opportunities.filter(o => o.category !== 'monitoring'),
+  [opportunities])
+
   const localRecommended = useMemo(() => {
     if (!currentStage) return []
-    const stageOpps = opportunities.filter(o => o.stage === currentStage)
-    return [...stageOpps]
+    const stageOpps = applyableOpps.filter(o => o.stage === currentStage)
+    // If current stage has no applyable items (e.g. still in Foundation), show Store Credit items next
+    const fallback = stageOpps.length === 0
+      ? applyableOpps.filter(o => o.stage === 'Store Credit')
+      : stageOpps
+    return [...fallback]
       .sort((a, b) => rankScore(b) - rankScore(a))
       .slice(0, 3)
       .map(o => ({ ...o, ai_reasoning: null as string | null, approval_probability: 'high' as const }))
-  }, [opportunities, currentStage])
+  }, [applyableOpps, currentStage])
 
   const localLocked = useMemo(() => {
     if (!currentStage) return []
     const userIdx = B_STAGES.indexOf(currentStage)
-    return opportunities.filter(o => B_STAGES.indexOf(o.stage) > userIdx)
-  }, [opportunities, currentStage])
+    return applyableOpps.filter(o => B_STAGES.indexOf(o.stage) > userIdx)
+  }, [applyableOpps, currentStage])
 
   const recommended = matchData?.recommended ?? localRecommended
   const locked = matchData?.locked ?? localLocked
