@@ -204,6 +204,10 @@ export async function GET(request: NextRequest) {
             message: user.email,
             metadata: { source, full_name: fullName },
           })
+          // Trigger Onboarding Agent for new signups (fire and forget)
+          import('@/modules/agents/onboarding-agent').then(({ runOnboardingAgent }) => {
+            runOnboardingAgent(user.id).catch(err => console.error('[OnboardingAgent trigger]', err))
+          })
         }
       }
 

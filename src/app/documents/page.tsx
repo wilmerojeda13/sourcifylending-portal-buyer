@@ -415,6 +415,13 @@ export default function DocumentsPage() {
         } else if (data.tasks_completed?.length > 0) {
           toast.success(`✓ ${data.tasks_completed.length} task(s) automatically completed!`, { duration: 5000 })
         }
+
+        // Fire Document Agent (fire-and-forget)
+        fetch('/api/agents/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agent: 'document', documentId: docId }),
+        }).catch(() => {})
       } catch {
         // silent — analysis is non-blocking
       } finally {

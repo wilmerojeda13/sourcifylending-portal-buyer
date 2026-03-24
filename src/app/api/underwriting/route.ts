@@ -285,6 +285,11 @@ ${scoreResult.estimated_funding_range ? `Estimated funding range: ${scoreResult.
       nextDueAt: nextDueIso,
     }).catch(err => console.error('[Underwriting] Email failed:', err))
 
+    // Trigger Roadmap Agent after underwriting completes (fire and forget)
+    import('@/modules/agents/roadmap-agent').then(({ runRoadmapAgent }) => {
+      runRoadmapAgent(user.id).catch(err => console.error('[RoadmapAgent trigger]', err))
+    })
+
     return NextResponse.json({
       success: true,
       review_number: reviewNumber,
