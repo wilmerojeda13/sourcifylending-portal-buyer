@@ -534,3 +534,208 @@ export interface AICreditPurchaseTransaction {
   created_at: string
   updated_at: string
 }
+
+// ─── Voice Agent Module ────────────────────────────────────────────────────────
+
+export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed' | 'archived'
+export type LeadSource = 'purchased' | 'facebook' | 'inbound' | 'other'
+export type ValidationStatus = 'pending' | 'valid' | 'invalid' | 'skipped'
+export type VoiceLineType = 'mobile' | 'landline' | 'voip' | 'unknown'
+export type PriorityTier = 1 | 2 | 3
+export type CallStatus = 'initiated' | 'ringing' | 'in-progress' | 'completed' | 'failed' | 'no-answer' | 'busy' | 'canceled'
+export type CallDisposition =
+  | 'decision_maker' | 'gatekeeper' | 'voicemail' | 'no_answer'
+  | 'bad_number' | 'wrong_number' | 'business_closed' | 'personal_line'
+  | 'not_interested' | 'do_not_call' | 'send_link' | 'callback_requested'
+  | 'interested' | 'transferred_live'
+
+export interface VoiceCampaign {
+  id: string
+  name: string
+  status: CampaignStatus
+  description: string | null
+  lead_source_filter: string | null
+  script_template: string | null
+  max_attempts_tier1: number
+  max_attempts_tier2: number
+  max_attempts_tier3: number
+  max_call_duration_seconds: number
+  quiet_hours_start: string
+  quiet_hours_end: string
+  timezone: string
+  b2b_mode: boolean
+  caller_id: string | null
+  transfer_number: string | null
+  analyzer_url: string | null
+  total_leads: number
+  total_calls: number
+  total_connects: number
+  total_qualified: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface VoiceLead {
+  id: string
+  campaign_id: string | null
+  first_name: string | null
+  last_name: string | null
+  business_name: string | null
+  owner_name: string | null
+  email: string | null
+  phone_raw: string | null
+  phone_e164: string | null
+  phone_validated: boolean
+  line_type: VoiceLineType
+  validation_status: ValidationStatus
+  lead_source: LeadSource
+  lead_age_days: number | null
+  geography: string | null
+  duplicate_group_id: string | null
+  is_duplicate: boolean
+  lead_quality_score: number
+  lead_priority_tier: PriorityTier
+  last_disposition: CallDisposition | null
+  call_attempt_count: number
+  last_called_at: string | null
+  analyzer_link_sent: boolean
+  callback_requested: boolean
+  transferred_live: boolean
+  do_not_call: boolean
+  opted_out_at: string | null
+  notes: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
+  updated_at: string
+}
+
+export interface VoiceCall {
+  id: string
+  campaign_id: string | null
+  lead_id: string | null
+  twilio_call_sid: string | null
+  status: CallStatus
+  direction: string
+  from_number: string | null
+  to_number: string | null
+  duration_seconds: number | null
+  disposition: CallDisposition | null
+  recording_url: string | null
+  transcription: string | null
+  summary: string | null
+  sentiment_score: number | null
+  started_at: string | null
+  ended_at: string | null
+  created_at: string
+}
+
+export interface VoiceCallEvent {
+  id: string
+  call_id: string
+  event_type: string
+  event_data: Record<string, unknown> | null
+  timestamp: string
+}
+
+export interface VoiceDisposition {
+  id: CallDisposition
+  label: string
+  category: 'positive' | 'negative' | 'neutral'
+  score_delta: number
+  auto_suppress: boolean
+  auto_stop: boolean
+}
+
+export interface VoiceSuppression {
+  id: string
+  phone_e164: string
+  reason: string
+  source: string | null
+  added_at: string
+  added_by: string | null
+}
+
+export interface VoiceFollowup {
+  id: string
+  lead_id: string
+  call_id: string | null
+  type: 'sms' | 'email'
+  status: 'pending' | 'sent' | 'failed'
+  recipient: string | null
+  message: string | null
+  sent_at: string | null
+  error_message: string | null
+  created_at: string
+}
+
+export interface VoiceAgentSettings {
+  id: string
+  twilio_account_sid: string | null
+  twilio_caller_id: string | null
+  transfer_number: string | null
+  voice_server_ws_url: string | null
+  analyzer_url: string | null
+  sms_template: string | null
+  email_template: string | null
+  email_subject: string | null
+  scoring_weights: Record<string, number> | null
+  retry_rules: Record<string, unknown> | null
+  quiet_hours_start: string
+  quiet_hours_end: string
+  timezone: string
+  recording_disclosure: boolean
+  max_concurrent_calls: number
+  b2b_mode_only: boolean
+  updated_at: string
+}
+
+export interface VoicePromptVersion {
+  id: string
+  name: string
+  version: number
+  is_active: boolean
+  system_prompt: string
+  opening_purchased: string | null
+  opening_facebook: string | null
+  opening_inbound: string | null
+  opening_other: string | null
+  objection_not_interested: string | null
+  objection_busy: string | null
+  objection_send_info: string | null
+  objection_already_funded: string | null
+  objection_working_with_someone: string | null
+  objection_what_is_this: string | null
+  objection_is_this_loan: string | null
+  objection_remove_me: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface VoiceLeadScore {
+  id: string
+  lead_id: string
+  score_before: number
+  score_after: number
+  delta: number
+  reason: string | null
+  scored_at: string
+}
+
+export interface VoiceAnalytics {
+  total_campaigns: number
+  total_leads: number
+  total_calls: number
+  total_connects: number
+  total_qualified: number
+  total_transfers: number
+  total_link_sends: number
+  total_opt_outs: number
+  connect_rate: number
+  qualification_rate: number
+  best_source: string | null
+  worst_source: string | null
+  calls_by_disposition: Record<string, number>
+  calls_by_source: Record<string, number>
+  daily_calls: Array<{ date: string; count: number; connects: number }>
+}
