@@ -18,7 +18,7 @@ import { readFileSync } from 'fs'
 // Env vars provided by host (Render, Railway, etc.)
 
 // ─── Config ────────────────────────────────────────────────────
-const PORT             = parseInt(process.env.VOICE_SERVER_PORT  ?? '3002')
+const PORT             = parseInt(process.env.PORT ?? process.env.VOICE_SERVER_PORT ?? '3002')
 const GEMINI_API_KEY   = process.env.GEMINI_API_KEY             ?? ''
 const SUPABASE_URL     = process.env.NEXT_PUBLIC_SUPABASE_URL   ?? ''
 const SUPABASE_KEY     = process.env.SUPABASE_SERVICE_ROLE_KEY  ?? ''
