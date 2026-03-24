@@ -1,6 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { ScrollText, Download } from 'lucide-react'
+import { Suspense } from 'react'
+import { ScrollText } from 'lucide-react'
+import LogsFilterBar from './LogsFilterBar'
 
 const DISP_COLOR: Record<string, string> = {
   transferred_live: 'bg-green-100 text-green-700', send_link: 'bg-blue-100 text-blue-700',
@@ -51,6 +53,7 @@ export default async function CallLogsPage({ searchParams }: Props) {
   }
 
   return (
+
     <div className="p-6 space-y-5 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
@@ -60,22 +63,9 @@ export default async function CallLogsPage({ searchParams }: Props) {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-wrap gap-3">
-        <select defaultValue={searchParams.campaign_id ?? ''} onChange={e => { window.location.href = buildUrl({ campaign_id: e.target.value, page: '1' }) }} className="input-field w-44 py-2 text-sm">
-          <option value="">All Campaigns</option>
-          {(campaigns ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select defaultValue={searchParams.disposition ?? ''} onChange={e => { window.location.href = buildUrl({ disposition: e.target.value, page: '1' }) }} className="input-field w-48 py-2 text-sm">
-          <option value="">All Dispositions</option>
-          {['transferred_live','send_link','callback_requested','interested','decision_maker','not_interested','voicemail','no_answer','do_not_call','bad_number','wrong_number','gatekeeper','business_closed','personal_line'].map(d => (
-            <option key={d} value={d}>{d.replace(/_/g, ' ')}</option>
-          ))}
-        </select>
-        <select defaultValue={searchParams.status ?? ''} onChange={e => { window.location.href = buildUrl({ status: e.target.value, page: '1' }) }} className="input-field w-36 py-2 text-sm">
-          <option value="">All Statuses</option>
-          {['completed','failed','no-answer','busy','canceled'].map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </div>
+      <Suspense fallback={<div className="h-16 bg-white rounded-2xl border border-gray-200 animate-pulse" />}>
+        <LogsFilterBar campaigns={campaigns ?? []} />
+      </Suspense>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         {list.length === 0 ? (
