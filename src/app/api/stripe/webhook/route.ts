@@ -75,10 +75,15 @@ async function activateUser(
     updated_at: new Date().toISOString(),
   }).eq('id', userId)
 
-  // 4. Generate tasks if none exist yet
+  // 4. Generate tasks — replace if they exist but don't match the purchased program
   const { data: existing } = await supabase
-    .from('tasks').select('task_id').eq('user_id', userId).limit(1)
-  if (!existing || existing.length === 0) {
+    .from('tasks').select('task_id, program').eq('user_id', userId).limit(1)
+  const existingProgram = existing?.[0]?.program
+  const needsGeneration = !existing || existing.length === 0 || existingProgram !== program
+  if (needsGeneration) {
+    if (existing && existing.length > 0) {
+      await supabase.from('tasks').delete().eq('user_id', userId)
+    }
     const tasks = generateTasksForUser(userId, program)
     for (const task of tasks) {
       await supabase.from('tasks').insert({ ...task, created_at: new Date().toISOString() })

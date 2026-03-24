@@ -22,19 +22,27 @@ export async function POST() {
       return NextResponse.json({ error: 'No program assigned' }, { status: 400 })
     }
 
-    // Check if tasks already exist — don't regenerate if they do
+    const assignedProgram = profile.assigned_program as ProgramId
+
+    // Check if tasks exist AND match the assigned program
     const { data: existingTasks } = await supabase
       .from('tasks')
-      .select('task_id')
+      .select('task_id, program')
       .eq('user_id', user.id)
       .limit(1)
 
     if (existingTasks && existingTasks.length > 0) {
-      return NextResponse.json({ message: 'Tasks already exist', generated: false })
+      const existingProgram = existingTasks[0].program
+      if (existingProgram === assignedProgram) {
+        // Tasks already exist and match — nothing to do
+        return NextResponse.json({ message: 'Tasks already exist', generated: false })
+      }
+      // Mismatch: delete all stale tasks so correct ones can be generated
+      await supabase.from('tasks').delete().eq('user_id', user.id)
     }
 
     // Generate tasks from static program templates (guaranteed program-correct)
-    const taskRows = generateTasksForUser(user.id, profile.assigned_program as ProgramId)
+    const taskRows = generateTasksForUser(user.id, assignedProgram)
 
     const { data: insertedTasks, error: insertError } = await supabase
       .from('tasks')

@@ -19,8 +19,16 @@ export async function runRoadmapAgent(userId: string): Promise<{ actionsCount: n
 
   let actionsCount = 0
 
-  // 1. Generate roadmap if it doesn't exist yet
-  if (!ctx.hasGeneratedRoadmap) {
+  // 1. Generate roadmap if it doesn't exist, or if existing tasks are for the wrong program
+  const { data: existingTaskSample } = await supabase
+    .from('tasks').select('task_id, program').eq('user_id', userId).limit(1)
+  const existingProgram = existingTaskSample?.[0]?.program
+  const hasMismatch = existingProgram && existingProgram !== ctx.assignedProgram
+  if (hasMismatch) {
+    await supabase.from('tasks').delete().eq('user_id', userId)
+  }
+
+  if (!ctx.hasGeneratedRoadmap || hasMismatch) {
     const taskRows = generateTasksForUser(userId, ctx.assignedProgram as ProgramId)
     const { error } = await supabase.from('tasks').insert(taskRows)
 
