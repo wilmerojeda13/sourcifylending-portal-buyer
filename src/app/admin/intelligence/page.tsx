@@ -18,6 +18,7 @@ export default async function IntelligencePage() {
     { data: performance },
     { data: recentOutcomes },
     { data: eventCounts },
+    { data: agentLogs },
   ] = await Promise.all([
     supabase
       .from('opportunity_performance')
@@ -32,6 +33,11 @@ export default async function IntelligencePage() {
       .from('portal_events')
       .select('action_type')
       .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString()),
+    supabase
+      .from('agent_actions')
+      .select('id, user_id, agent_name, action_type, title, status, auto_fixed, needs_review, created_at, profiles(full_name, email)')
+      .order('created_at', { ascending: false })
+      .limit(100),
   ])
 
   // Aggregate event counts
@@ -63,6 +69,7 @@ export default async function IntelligencePage() {
           recentOutcomes={recentOutcomes ?? []}
           actionCounts={actionCounts}
           byProgram={byProgram}
+          agentLogs={agentLogs ?? []}
         />
       </div>
     </div>

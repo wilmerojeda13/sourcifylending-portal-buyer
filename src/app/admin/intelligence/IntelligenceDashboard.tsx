@@ -1,6 +1,6 @@
 'use client'
 
-import { TrendingUp, TrendingDown, Minus, CheckCircle, XCircle, Clock, BarChart3, Activity } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, CheckCircle, XCircle, Clock, BarChart3, Activity, Bot, AlertTriangle, Wrench } from 'lucide-react'
 
 interface PerformanceRow {
   opportunity_id: string
@@ -22,11 +22,25 @@ interface OutcomeRow {
   created_at: string
 }
 
+interface AgentLogRow {
+  id: string
+  user_id: string
+  agent_name: string
+  action_type: string
+  title: string
+  status: string
+  auto_fixed: boolean
+  needs_review: boolean
+  created_at: string
+  profiles: { full_name: string | null; email: string | null } | null
+}
+
 interface Props {
   performance: PerformanceRow[]
   recentOutcomes: OutcomeRow[]
   actionCounts: Record<string, number>
   byProgram: Record<string, { approved: number; denied: number; pending: number; not_applied: number }>
+  agentLogs: AgentLogRow[]
 }
 
 const TAG_CONFIG = {
@@ -42,7 +56,17 @@ const PROGRAM_LABELS: Record<string, string> = {
   program_c: 'Program C',
 }
 
-export default function IntelligenceDashboard({ performance, recentOutcomes, actionCounts, byProgram }: Props) {
+const AGENT_COLORS: Record<string, string> = {
+  onboarding: 'bg-blue-100 text-blue-700',
+  document:   'bg-purple-100 text-purple-700',
+  roadmap:    'bg-green-100 text-green-700',
+  opportunity:'bg-amber-100 text-amber-700',
+  billing:    'bg-rose-100 text-rose-700',
+  support:    'bg-indigo-100 text-indigo-700',
+  health:     'bg-gray-100 text-gray-600',
+}
+
+export default function IntelligenceDashboard({ performance, recentOutcomes, actionCounts, byProgram, agentLogs }: Props) {
   const totalEvents = Object.values(actionCounts).reduce((a, b) => a + b, 0)
   const totalOutcomes = recentOutcomes.length
   const totalApproved = recentOutcomes.filter(o => o.outcome === 'approved').length
@@ -171,6 +195,46 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
                 </div>
               )
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Agent Logs */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Bot size={18} className="text-indigo-500" />
+          <h2 className="font-bold text-gray-900">Agent Activity Log</h2>
+          <span className="ml-auto text-xs text-gray-400">{agentLogs.length} recent actions</span>
+        </div>
+        {agentLogs.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">No agent actions yet. Run the DB migration to enable agent logging.</p>
+        ) : (
+          <div className="space-y-1.5 max-h-96 overflow-y-auto">
+            {agentLogs.map(log => (
+              <div key={log.id} className={`flex items-start gap-3 px-3 py-2.5 rounded-xl text-xs ${log.needs_review ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}>
+                {log.needs_review ? (
+                  <AlertTriangle size={13} className="text-amber-500 shrink-0 mt-0.5" />
+                ) : log.auto_fixed ? (
+                  <Wrench size={13} className="text-green-500 shrink-0 mt-0.5" />
+                ) : (
+                  <Bot size={13} className="text-indigo-400 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-800 truncate">{log.title}</p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${AGENT_COLORS[log.agent_name] ?? 'bg-gray-100 text-gray-500'}`}>
+                      {log.agent_name}
+                    </span>
+                    {log.auto_fixed && <span className="text-[10px] text-green-600 font-medium">auto-fixed</span>}
+                    {log.needs_review && <span className="text-[10px] text-amber-600 font-medium">needs review</span>}
+                    <span className="text-[10px] text-gray-400">
+                      {log.profiles?.full_name ?? log.profiles?.email ?? log.user_id.slice(0, 8)}
+                    </span>
+                    <span className="text-[10px] text-gray-300 ml-auto">{new Date(log.created_at).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -7,6 +7,8 @@ import PortalLayout from '@/components/layout/PortalLayout'
 import ProspectDashboard from '@/app/dashboard/ProspectDashboard'
 import GenerateRoadmapButton from '@/components/dashboard/GenerateRoadmapButton'
 import UnderwritingGateBanner from '@/components/dashboard/UnderwritingGateBanner'
+import dynamic from 'next/dynamic'
+const AIActivityFeed = dynamic(() => import('@/components/dashboard/AIActivityFeed'), { ssr: false })
 import PaymentAlertBanner, { type PaymentAlert } from '@/components/dashboard/PaymentAlertBanner'
 import { getProgramShortLabel, getReadinessColor, formatDate } from '@/lib/utils'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -506,6 +508,11 @@ export default async function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* AI Activity Feed */}
+      <div className="mt-5">
+        <AIActivityFeed />
+      </div>
 
       {/* Documents Summary */}
       {docs && docs.length > 0 && (
