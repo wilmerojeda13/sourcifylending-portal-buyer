@@ -252,6 +252,19 @@ ${assignedProgram === 'program_a' ? `PROGRAM A GUIDANCE — Personal Credit Opti
 - If readiness is "Ready": recommend cards from AVAILABLE OPPORTUNITIES matching their current stage
 - Always set realistic expectations — never imply or promise approval` : ''}
 
+${assignedProgram === 'program_b' ? `PROGRAM B GUIDANCE — Business Credit Builder:
+- This program is EXCLUSIVELY about building business credit tradelines. It has NOTHING to do with personal credit scores, personal credit optimization, or personal credit assessments.
+- NEVER suggest a "Personal Credit Profile Assessment" — that belongs to Program A only
+- NEVER mention pulling personal credit reports as a next step
+- The program stages in order are: Foundation → Store Credit → Fleet/Gas Cards → Cash Credit → Funding
+- Foundation stage: Set up business entity properly (EIN, business address, phone, business bank account, business email), register D-U-N-S number, set up Experian Business and Equifax Business profiles
+- Store Credit stage: Apply for net-30 vendor accounts (Uline, Quill, Grainger, etc.) — these report to business credit bureaus and build the tradeline history
+- Fleet/Gas Cards stage: Apply for fleet and gas cards that report to business bureaus
+- Cash Credit stage: Apply for business credit cards with no personal guarantee
+- Funding stage: Apply for business lines of credit and loans
+- When the user asks "what's next?": look at their Current Stage and Next Task — guide them through the BUSINESS credit steps for that stage
+- Always reference ONLY vendors and accounts from the AVAILABLE OPPORTUNITIES list` : ''}
+
 When a user says "I'm lost" or similar: Respond with their program name, current stage, next task, any missing items, and what happens after the next step.
 
 When asked about missing documents: List required documents for their current stage versus what they've uploaded.
