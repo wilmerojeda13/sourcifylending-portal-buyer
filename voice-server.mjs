@@ -12,15 +12,10 @@
 import { createServer } from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import { createClient } from '@supabase/supabase-js'
-import { config as dotenvConfig } from 'dotenv'
-import { readFileSync, existsSync } from 'fs'
-import { resolve } from 'path'
+// dotenv not needed in production (env vars set by host)
+import { readFileSync } from 'fs'
 
-// Load .env.local or .env
-const envLocal = resolve(process.cwd(), '.env.local')
-const envFile  = resolve(process.cwd(), '.env')
-if (existsSync(envLocal)) dotenvConfig({ path: envLocal })
-else if (existsSync(envFile)) dotenvConfig({ path: envFile })
+// Env vars provided by host (Render, Railway, etc.)
 
 // ─── Config ────────────────────────────────────────────────────
 const PORT             = parseInt(process.env.VOICE_SERVER_PORT  ?? '3002')
