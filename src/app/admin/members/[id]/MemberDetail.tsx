@@ -198,6 +198,83 @@ export default function MemberDetail({
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteCopied, setInviteCopied] = useState(false)
 
+  // ── Account Info edit ──
+  const [infoForm, setInfoForm] = useState({
+    full_name:     profile.full_name ?? '',
+    email:         profile.email ?? '',
+    phone:         (profile as UserProfile & { phone?: string }).phone ?? '',
+    business_name: profile.business_name ?? '',
+    business_age:  profile.business_age ?? '',
+    entity_type:   profile.entity_type ?? '',
+    industry:      profile.industry ?? '',
+    account_state: profile.account_state ?? 'prospect',
+    nsf_flag:      profile.nsf_flag ?? false,
+  })
+  const [savingInfo, setSavingInfo] = useState(false)
+
+  async function saveAccountInfo() {
+    setSavingInfo(true)
+    try {
+      const res = await fetch('/api/admin/member', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: profile.id, ...infoForm }),
+      })
+      if (!res.ok) {
+        const d = await res.json()
+        throw new Error(d.error ?? 'Save failed')
+      }
+      toast.success('Account info saved')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save')
+    } finally {
+      setSavingInfo(false)
+    }
+  }
+
+  // ── Password controls ──
+  const [newPassword, setNewPassword] = useState('')
+  const [settingPassword, setSettingPassword] = useState(false)
+  const [sendingReset, setSendingReset] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+
+  async function forceSetPassword() {
+    if (newPassword.length < 8) { toast.error('Password must be at least 8 characters'); return }
+    setSettingPassword(true)
+    try {
+      const res = await fetch('/api/admin/member/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: profile.id, new_password: newPassword }),
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
+      toast.success('Password updated')
+      setNewPassword('')
+      setShowPasswordModal(false)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed')
+    } finally {
+      setSettingPassword(false)
+    }
+  }
+
+  async function sendPasswordReset() {
+    setSendingReset(true)
+    try {
+      const res = await fetch('/api/admin/member/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: profile.id, send_reset: true }),
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
+      toast.success('Password reset email sent')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed')
+    } finally {
+      setSendingReset(false)
+    }
+  }
+
   // ── AI Controls ──
   const [aiForm, setAiForm] = useState({
     ai_suspended: profile.ai_suspended ?? false,
@@ -912,6 +989,185 @@ export default function MemberDetail({
                     )}
                   </div>
                 </div>
+
+                {/* ── Account Info Edit ── */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <User size={18} className="text-green-600" /> Account Info
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Full Name</label>
+                      <input
+                        type="text"
+                        value={infoForm.full_name}
+                        onChange={(e) => setInfoForm((p) => ({ ...p, full_name: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Email Address</label>
+                      <input
+                        type="email"
+                        value={infoForm.email}
+                        onChange={(e) => setInfoForm((p) => ({ ...p, email: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                      <p className="text-xs text-amber-600 mt-1">⚠ Changing email updates login credentials</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Phone Number</label>
+                      <input
+                        type="tel"
+                        value={infoForm.phone}
+                        onChange={(e) => setInfoForm((p) => ({ ...p, phone: e.target.value }))}
+                        placeholder="(555) 000-0000"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Business Name</label>
+                      <input
+                        type="text"
+                        value={infoForm.business_name}
+                        onChange={(e) => setInfoForm((p) => ({ ...p, business_name: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Entity Type</label>
+                      <select
+                        value={infoForm.entity_type}
+                        onChange={(e) => setInfoForm((p) => ({ ...p, entity_type: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="">— None —</option>
+                        {['LLC', 'S-Corp', 'C-Corp', 'Sole Proprietor', 'Partnership', 'Non-Profit'].map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Business Age</label>
+                      <select
+                        value={infoForm.business_age}
+                        onChange={(e) => setInfoForm((p) => ({ ...p, business_age: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="">— None —</option>
+                        {['Under 6 months', '6–12 months', '1–2 years', '2–5 years', '5+ years'].map((a) => (
+                          <option key={a} value={a}>{a}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Industry</label>
+                      <input
+                        type="text"
+                        value={infoForm.industry}
+                        onChange={(e) => setInfoForm((p) => ({ ...p, industry: e.target.value }))}
+                        placeholder="e.g. Transportation, Retail…"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Account State</label>
+                      <select
+                        value={infoForm.account_state}
+                        onChange={(e) => setInfoForm((p) => ({ ...p, account_state: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="prospect">Prospect</option>
+                        <option value="active_member">Active Member</option>
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={infoForm.nsf_flag}
+                          onChange={(e) => setInfoForm((p) => ({ ...p, nsf_flag: e.target.checked }))}
+                          className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">
+                          NSF Flag <span className="text-xs text-gray-400 font-normal">(Non-Sufficient Funds — blocks certain credit applications)</span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100">
+                    <button
+                      onClick={saveAccountInfo}
+                      disabled={savingInfo}
+                      className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
+                    >
+                      {savingInfo ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                      Save Account Info
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Security & Access ── */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <Shield size={18} className="text-green-600" /> Security &amp; Password
+                  </h2>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => setShowPasswordModal(true)}
+                      className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+                    >
+                      <Lock size={14} /> Set New Password
+                    </button>
+                    <button
+                      onClick={sendPasswordReset}
+                      disabled={sendingReset}
+                      className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-sm font-semibold px-4 py-2 rounded-xl disabled:opacity-50 transition-colors"
+                    >
+                      {sendingReset ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                      Send Password Reset Email
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3">
+                    &quot;Set New Password&quot; forces a new password immediately. &quot;Send Reset Email&quot; emails the client a link to reset their own password.
+                  </p>
+                </div>
+
+                {/* ── Set Password Modal ── */}
+                {showPasswordModal && (
+                  <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+                      <h2 className="text-lg font-bold text-gray-900 mb-1">Set New Password</h2>
+                      <p className="text-sm text-gray-500 mb-4">
+                        This immediately updates <strong>{profile.full_name}</strong>&apos;s login password. They will need to use this new password next time they sign in.
+                      </p>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Minimum 8 characters"
+                        minLength={8}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setShowPasswordModal(false); setNewPassword('') }}
+                          className="flex-1 text-sm px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={forceSetPassword}
+                          disabled={settingPassword || newPassword.length < 8}
+                          className="flex-1 text-sm px-4 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
+                        >
+                          {settingPassword ? <Loader2 size={14} className="animate-spin" /> : null}
+                          Set Password
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Tasks */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">

@@ -70,24 +70,53 @@ export async function PATCH(req: NextRequest) {
 
     const body = await req.json() as {
       user_id: string
+      // Identity
+      full_name?: string
+      email?: string
+      phone?: string
+      // Business
+      business_name?: string
+      business_age?: string | null
+      entity_type?: string | null
+      industry?: string | null
+      // Program / subscription
       subscription_status?: SubscriptionStatus
       assigned_program?: ProgramId | null
       current_stage?: string | null
       readiness_status?: ReadinessStatus | null
       progress_percentage?: number
+      account_state?: string
+      nsf_flag?: boolean
       portal_blocked?: boolean
       admin_notes?: string | null
     }
 
-    const { user_id, ...fields } = body
+    const { user_id, email, ...fields } = body
     if (!user_id) return NextResponse.json({ error: 'user_id required' }, { status: 400 })
 
+    // Handle email change — must update Supabase Auth AND profiles
+    if (email !== undefined) {
+      const { error: authEmailErr } = await supabase.auth.admin.updateUserById(user_id, { email })
+      if (authEmailErr) {
+        return NextResponse.json({ error: `Email update failed: ${authEmailErr.message}` }, { status: 400 })
+      }
+    }
+
     const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    if (email !== undefined) update.email = email
+    if (fields.full_name !== undefined) update.full_name = fields.full_name
+    if (fields.phone !== undefined) update.phone = fields.phone
+    if (fields.business_name !== undefined) update.business_name = fields.business_name
+    if (fields.business_age !== undefined) update.business_age = fields.business_age
+    if (fields.entity_type !== undefined) update.entity_type = fields.entity_type
+    if (fields.industry !== undefined) update.industry = fields.industry
     if (fields.subscription_status !== undefined) update.subscription_status = fields.subscription_status
     if (fields.assigned_program !== undefined) update.assigned_program = fields.assigned_program
     if (fields.current_stage !== undefined) update.current_stage = fields.current_stage
     if (fields.readiness_status !== undefined) update.readiness_status = fields.readiness_status
     if (fields.progress_percentage !== undefined) update.progress_percentage = fields.progress_percentage
+    if (fields.account_state !== undefined) update.account_state = fields.account_state
+    if (fields.nsf_flag !== undefined) update.nsf_flag = fields.nsf_flag
     if (fields.portal_blocked !== undefined) update.portal_blocked = fields.portal_blocked
     if (fields.admin_notes !== undefined) update.admin_notes = fields.admin_notes
 
