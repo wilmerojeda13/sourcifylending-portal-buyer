@@ -5,6 +5,7 @@ import { generateTasksForUser } from '@/lib/task-templates'
 import { logActivity } from '@/lib/activity'
 import { logPortalEvent } from '@/lib/portal-events'
 import { getAffiliateByStripeCustomer, createCommission, reverseCommissions } from '@/lib/affiliates'
+import { sendChargeConfirmationEmail } from '@/lib/email'
 import type { ProgramId } from '@/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
@@ -474,7 +475,7 @@ export async function POST(req: NextRequest) {
       if (sub) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, business_name, assigned_program')
+          .select('full_name, business_name, assigned_program, email')
           .eq('id', sub.user_id)
           .maybeSingle()
 
@@ -495,6 +496,29 @@ export async function POST(req: NextRequest) {
             notes: `Stripe invoice paid: ${invoice.id}`,
             logged_by: 'stripe_webhook',
           })
+
+          // Send charge confirmation email — pull recent agent actions as deliverables
+          const toEmail = profile?.email || (invoice.customer_email as string | null) || null
+          if (toEmail) {
+            const { data: recentActions } = await supabase
+              .from('agent_actions')
+              .select('title, description')
+              .eq('user_id', sub.user_id)
+              .eq('visible_to_user', true)
+              .order('created_at', { ascending: false })
+              .limit(5)
+
+            const programLabel = PROGRAM_NAMES[profile?.assigned_program as ProgramId] ?? profile?.assigned_program ?? 'Membership'
+            sendChargeConfirmationEmail({
+              toEmail,
+              toName: profile?.full_name || profile?.business_name || 'Member',
+              amountPaid,
+              programLabel,
+              invoiceId: invoice.id,
+              billingDate: new Date().toISOString(),
+              deliverables: recentActions?.map(a => ({ title: a.title, description: a.description ?? undefined })) ?? [],
+            }).catch(err => console.error('[ChargeConfirmation] Email error:', err))
+          }
         }
       }
 

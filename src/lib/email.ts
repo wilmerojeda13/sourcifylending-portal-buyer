@@ -705,3 +705,233 @@ export async function sendPaymentReminderEmail({
     return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
+
+// ─── Welcome Agreement Confirmation Email ─────────────────────────────────────
+export async function sendWelcomeAgreementConfirmation({
+  toEmail,
+  toName,
+  signedName,
+  agreementVersion,
+  programLabel,
+  signedAt,
+  ipAddress,
+}: {
+  toEmail: string
+  toName: string
+  signedName: string
+  agreementVersion: string
+  programLabel: string
+  signedAt: string
+  ipAddress: string
+}): Promise<{ success: boolean; error?: string }> {
+  if (!process.env.RESEND_API_KEY) return { success: false, error: 'Email not configured' }
+
+  const firstName = toName.split(' ')[0] || 'there'
+  const formattedDate = new Date(signedAt).toLocaleString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+  })
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:'Helvetica Neue',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+      <tr><td style="background:#1d4ed8;padding:32px 40px;text-align:center;">
+        <p style="margin:0;color:#bfdbfe;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">SourcifyLending</p>
+        <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">Service Agreement Signed</h1>
+      </td></tr>
+      <tr><td style="padding:32px 40px;">
+        <p style="margin:0 0 16px;color:#374151;font-size:15px;">Hi ${firstName},</p>
+        <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+          This email confirms that you have signed the SourcifyLending Service Agreement for your <strong>${programLabel}</strong> portal access. Your electronic signature has been securely recorded.
+        </p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;margin:0 0 24px;">
+          <tr><td style="padding:20px 24px;">
+            <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:0.5px;">Agreement Details</p>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding:4px 0;color:#6b7280;font-size:13px;width:40%;">Signed Name</td>
+                <td style="padding:4px 0;color:#111827;font-size:13px;font-weight:600;">${signedName}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px 0;color:#6b7280;font-size:13px;">Agreement Version</td>
+                <td style="padding:4px 0;color:#111827;font-size:13px;font-weight:600;">${agreementVersion}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px 0;color:#6b7280;font-size:13px;">Date &amp; Time</td>
+                <td style="padding:4px 0;color:#111827;font-size:13px;font-weight:600;">${formattedDate}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px 0;color:#6b7280;font-size:13px;">IP Address</td>
+                <td style="padding:4px 0;color:#111827;font-size:13px;font-weight:600;">${ipAddress}</td>
+              </tr>
+              <tr>
+                <td style="padding:4px 0;color:#6b7280;font-size:13px;">Program</td>
+                <td style="padding:4px 0;color:#111827;font-size:13px;font-weight:600;">${programLabel}</td>
+              </tr>
+            </table>
+          </td></tr>
+        </table>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;margin:0 0 24px;">
+          <tr><td style="padding:16px 20px;">
+            <p style="margin:0;font-size:13px;color:#991b1b;font-weight:600;">No-Refund Policy Acknowledged</p>
+            <p style="margin:6px 0 0;font-size:13px;color:#b91c1c;line-height:1.5;">
+              By signing this agreement, you confirmed that all payments are non-refundable once portal access is granted, and that you agree to contact SourcifyLending directly at support@sourcifylending.com before initiating any dispute.
+            </p>
+          </td></tr>
+        </table>
+
+        <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">
+          Keep this email for your records. If you have any questions about your agreement or services, contact us at <a href="mailto:support@sourcifylending.com" style="color:#1d4ed8;">support@sourcifylending.com</a>.
+        </p>
+      </td></tr>
+      <tr><td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+        <p style="margin:0;color:#9ca3af;font-size:12px;">© ${new Date().getFullYear()} SourcifyLending · All rights reserved</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: toEmail,
+      subject: 'Service Agreement Signed — SourcifyLending',
+      html,
+    })
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+// ─── Charge Confirmation Email ─────────────────────────────────────────────────
+export async function sendChargeConfirmationEmail({
+  toEmail,
+  toName,
+  amountPaid,
+  programLabel,
+  invoiceId,
+  billingDate,
+  deliverables,
+}: {
+  toEmail: string
+  toName: string
+  amountPaid: number
+  programLabel: string
+  invoiceId: string
+  billingDate: string
+  deliverables: Array<{ title: string; description?: string }>
+}): Promise<{ success: boolean; error?: string }> {
+  if (!process.env.RESEND_API_KEY) return { success: false, error: 'Email not configured' }
+
+  const firstName = toName.split(' ')[0] || 'there'
+  const formattedDate = new Date(billingDate).toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric',
+  })
+  const formattedAmount = `$${amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+
+  const deliverableRows = deliverables.length > 0
+    ? deliverables.map(d => `
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;">
+            <p style="margin:0;font-size:13px;font-weight:600;color:#111827;">✓ ${d.title}</p>
+            ${d.description ? `<p style="margin:2px 0 0;font-size:12px;color:#6b7280;">${d.description}</p>` : ''}
+          </td>
+        </tr>`).join('')
+    : `<tr><td style="padding:8px 0;color:#6b7280;font-size:13px;">Portal access, AI guidance, and progress tracking services — available 24/7 in your dashboard.</td></tr>`
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:'Helvetica Neue',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+      <tr><td style="background:#15803d;padding:32px 40px;text-align:center;">
+        <p style="margin:0;color:#bbf7d0;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">SourcifyLending</p>
+        <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">Payment Confirmation</h1>
+        <p style="margin:8px 0 0;color:#bbf7d0;font-size:28px;font-weight:800;">${formattedAmount}</p>
+      </td></tr>
+      <tr><td style="padding:32px 40px;">
+        <p style="margin:0 0 16px;color:#374151;font-size:15px;">Hi ${firstName},</p>
+        <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+          Your payment of <strong>${formattedAmount}</strong> for your <strong>${programLabel}</strong> membership has been processed successfully on ${formattedDate}.
+        </p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;margin:0 0 24px;">
+          <tr><td style="padding:20px 24px;">
+            <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;">Payment Details</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+              <tr>
+                <td style="padding:3px 0;color:#6b7280;font-size:13px;width:40%;">Amount Charged</td>
+                <td style="padding:3px 0;color:#111827;font-size:13px;font-weight:700;">${formattedAmount}</td>
+              </tr>
+              <tr>
+                <td style="padding:3px 0;color:#6b7280;font-size:13px;">Date</td>
+                <td style="padding:3px 0;color:#111827;font-size:13px;font-weight:600;">${formattedDate}</td>
+              </tr>
+              <tr>
+                <td style="padding:3px 0;color:#6b7280;font-size:13px;">Program</td>
+                <td style="padding:3px 0;color:#111827;font-size:13px;font-weight:600;">${programLabel}</td>
+              </tr>
+              <tr>
+                <td style="padding:3px 0;color:#6b7280;font-size:13px;">Invoice ID</td>
+                <td style="padding:3px 0;color:#111827;font-size:12px;font-family:monospace;">${invoiceId}</td>
+              </tr>
+            </table>
+          </td></tr>
+        </table>
+
+        <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#111827;">Services Delivered This Period</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+          ${deliverableRows}
+        </table>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:12px;margin:0 0 24px;">
+          <tr><td style="padding:14px 18px;">
+            <p style="margin:0;font-size:12px;color:#92400e;line-height:1.5;">
+              <strong>Per your signed service agreement</strong>, all payments are non-refundable once portal access is granted. If you have questions about your service, contact us at <a href="mailto:support@sourcifylending.com" style="color:#92400e;">support@sourcifylending.com</a> before initiating any dispute.
+            </p>
+          </td></tr>
+        </table>
+
+        <div style="text-align:center;">
+          <a href="${SITE_URL}/dashboard" style="display:inline-block;background:#15803d;color:#ffffff;font-weight:700;font-size:14px;padding:14px 32px;border-radius:10px;text-decoration:none;">
+            Go to My Dashboard →
+          </a>
+        </div>
+      </td></tr>
+      <tr><td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+        <p style="margin:0;color:#9ca3af;font-size:12px;">© ${new Date().getFullYear()} SourcifyLending · All rights reserved</p>
+        <p style="margin:4px 0 0;color:#9ca3af;font-size:11px;">This is a payment receipt. Please keep it for your records.</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: toEmail,
+      subject: `Payment Confirmed — ${formattedAmount} · SourcifyLending`,
+      html,
+    })
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}

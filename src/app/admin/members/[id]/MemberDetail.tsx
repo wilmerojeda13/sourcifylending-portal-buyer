@@ -101,6 +101,10 @@ export default function MemberDetail({
   const [canceling, setCanceling] = useState(false)
   const [blocking, setBlocking] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [grantingAccess, setGrantingAccess] = useState(false)
+  const [accessGranted, setAccessGranted] = useState(
+    !!(profile as UserProfile & { access_granted_at?: string }).access_granted_at
+  )
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('')
   const [showActivityLog, setShowActivityLog] = useState(false)
@@ -257,6 +261,29 @@ export default function MemberDetail({
     } catch {
       toast.error('Failed to delete account')
       setDeleting(false)
+    }
+  }
+
+  async function grantPortalAccess() {
+    if (!confirm(`Grant portal access to ${profile.full_name || profile.email}? This will be logged with your admin name and timestamp.`)) return
+    setGrantingAccess(true)
+    try {
+      const res = await fetch('/api/admin/grant-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: profile.id,
+          program: form.assigned_program || null,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      setAccessGranted(true)
+      setForm(prev => ({ ...prev, subscription_status: 'active' }))
+      toast.success('Portal access granted — logged with your admin name and timestamp')
+    } catch {
+      toast.error('Failed to grant access')
+    } finally {
+      setGrantingAccess(false)
     }
   }
 
@@ -626,6 +653,20 @@ export default function MemberDetail({
             >
               {blocking ? <Loader2 size={12} className="animate-spin" /> : form.portal_blocked ? <ShieldOff size={12} /> : <Shield size={12} />}
               {form.portal_blocked ? 'Unblock Portal' : 'Block Portal'}
+            </button>
+            {/* Grant Portal Access — Scenario 2: admin activates after external payment */}
+            <button
+              onClick={grantPortalAccess}
+              disabled={grantingAccess || accessGranted}
+              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors ${
+                accessGranted
+                  ? 'border-green-300 text-green-700 bg-green-50 cursor-default'
+                  : 'border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'
+              }`}
+              title={accessGranted ? 'Access already granted — logged with admin name + timestamp' : 'Grant portal access after external payment — logs your name and timestamp'}
+            >
+              {grantingAccess ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+              {accessGranted ? 'Access Granted ✓' : 'Grant Portal Access'}
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}

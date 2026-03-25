@@ -9,6 +9,7 @@ import GenerateRoadmapButton from '@/components/dashboard/GenerateRoadmapButton'
 import UnderwritingGateBanner from '@/components/dashboard/UnderwritingGateBanner'
 import dynamicImport from 'next/dynamic'
 const AIActivityFeed = dynamicImport(() => import('@/components/dashboard/AIActivityFeed'), { ssr: false })
+const WelcomeGateWrapper = dynamicImport(() => import('@/components/dashboard/WelcomeGateWrapper'), { ssr: false })
 import PaymentAlertBanner, { type PaymentAlert } from '@/components/dashboard/PaymentAlertBanner'
 import { getProgramShortLabel, getReadinessColor, formatDate } from '@/lib/utils'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -202,6 +203,12 @@ export default async function DashboardPage() {
     }
   }
 
+  // ── Welcome Gate — show once to all non-demo active members who haven't signed ─
+  const needsWelcomeGate =
+    !profile?.is_demo &&
+    profile?.account_state === 'active_member' &&
+    !profile?.welcome_agreement_signed_at
+
   return (
     <PortalLayout
       userName={profile?.full_name || user.email || 'Client'}
@@ -215,6 +222,15 @@ export default async function DashboardPage() {
       uwNextDueAt={profile?.underwriting_next_due_at ?? null}
       demoSecondaryProgram={profile?.demo_secondary_program ?? null}
     >
+      {/* Welcome Gate — first-login service agreement (chargeback protection) */}
+      {needsWelcomeGate && (
+        <WelcomeGateWrapper
+          show={true}
+          programLabel={getProgramShortLabel(profile?.assigned_program)}
+          userName={profile?.full_name || user.email || 'Client'}
+        />
+      )}
+
       {/* Subscription Locked Banner */}
       {!isActive && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
