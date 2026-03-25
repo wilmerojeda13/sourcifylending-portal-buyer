@@ -22,6 +22,7 @@ export default async function AdminMemberDetailPage({ params }: { params: Promis
     { data: activityLogs },
     { data: contactNotes },
     { data: tickets },
+    { data: memberships },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', id).single(),
     supabase.from('subscriptions').select('*').eq('user_id', id).single(),
@@ -30,7 +31,11 @@ export default async function AdminMemberDetailPage({ params }: { params: Promis
     supabase.from('activity_logs').select('*').eq('user_id', id).order('created_at', { ascending: false }).limit(25),
     supabase.from('contact_notes').select('*').eq('user_id', id).order('pinned', { ascending: false }).order('created_at', { ascending: false }),
     supabase.from('tickets').select('*').eq('user_id', id).order('created_at', { ascending: false }),
+    supabase.from('memberships').select('program_code').eq('user_id', id).eq('status', 'active'),
   ])
+
+  // Attach active_programs to profile so MemberDetail can initialize checkbox state
+  const activePrograms = (memberships ?? []).map((m: { program_code: string }) => m.program_code)
 
   if (!profile) {
     return (
@@ -45,7 +50,7 @@ export default async function AdminMemberDetailPage({ params }: { params: Promis
 
   return (
     <MemberDetail
-      profile={profile}
+      profile={{ ...profile, active_programs: activePrograms }}
       subscription={subscription ?? null}
       tasks={tasks ?? []}
       documents={documents ?? []}

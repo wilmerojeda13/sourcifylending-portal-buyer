@@ -97,6 +97,50 @@ export default function MemberDetail({
     admin_notes: profile.admin_notes ?? '',
     portal_blocked: profile.portal_blocked ?? false,
   })
+
+  // ── Multi-program memberships ──
+  const ALL_PROGRAMS: { code: ProgramId; label: string; color: string }[] = [
+    { code: 'program_a', label: 'Program A — Personal Credit', color: 'blue' },
+    { code: 'program_b', label: 'Program B — Business Credit', color: 'purple' },
+    { code: 'program_c', label: 'Program C — Monitoring', color: 'green' },
+  ]
+  const [activePrograms, setActivePrograms] = useState<string[]>(
+    (profile as UserProfile & { active_programs?: string[] }).active_programs ??
+    (profile.assigned_program ? [profile.assigned_program] : [])
+  )
+  const [togglingProgram, setTogglingProgram] = useState<string | null>(null)
+
+  async function toggleProgram(programCode: ProgramId) {
+    const isActive = activePrograms.includes(programCode)
+    setTogglingProgram(programCode)
+    try {
+      if (isActive) {
+        // Remove
+        const res = await fetch('/api/admin/memberships', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: profile.id, program_code: programCode }),
+        })
+        if (!res.ok) throw new Error('Failed')
+        setActivePrograms((prev) => prev.filter((p) => p !== programCode))
+        toast.success(`${programCode} removed`)
+      } else {
+        // Add
+        const res = await fetch('/api/admin/memberships', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: profile.id, program_code: programCode }),
+        })
+        if (!res.ok) throw new Error('Failed')
+        setActivePrograms((prev) => [...prev, programCode])
+        toast.success(`${programCode} added`)
+      }
+    } catch {
+      toast.error('Failed to update program')
+    } finally {
+      setTogglingProgram(null)
+    }
+  }
   const [saving, setSaving] = useState(false)
   const [canceling, setCanceling] = useState(false)
   const [blocking, setBlocking] = useState(false)
@@ -763,14 +807,44 @@ export default function MemberDetail({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Assigned Program</label>
-                      <select
-                        value={form.assigned_program}
-                        onChange={(e) => setForm((p) => ({ ...p, assigned_program: e.target.value as ProgramId | '' }))}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                      >
-                        {PROGRAM_OPTIONS.map((p) => <option key={p} value={p}>{p ? getProgramShortLabel(p) : '— None —'}</option>)}
-                      </select>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Programs Enrolled</label>
+                      <div className="space-y-2">
+                        {ALL_PROGRAMS.map(({ code, label, color }) => {
+                          const isActive = activePrograms.includes(code)
+                          const isToggling = togglingProgram === code
+                          const colorMap: Record<string, string> = {
+                            blue: isActive ? 'bg-blue-50 border-blue-300 text-blue-800' : 'bg-white border-gray-200 text-gray-500',
+                            purple: isActive ? 'bg-purple-50 border-purple-300 text-purple-800' : 'bg-white border-gray-200 text-gray-500',
+                            green: isActive ? 'bg-green-50 border-green-300 text-green-800' : 'bg-white border-gray-200 text-gray-500',
+                          }
+                          return (
+                            <button
+                              key={code}
+                              type="button"
+                              onClick={() => toggleProgram(code)}
+                              disabled={isToggling}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50 ${colorMap[color]}`}
+                            >
+                              <span className="flex items-center gap-2">
+                                {isToggling ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <span className={`w-3.5 h-3.5 rounded-sm border-2 flex items-center justify-center ${isActive ? 'bg-current border-current' : 'border-gray-400'}`}>
+                                    {isActive && <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1 4l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+                                  </span>
+                                )}
+                                {label}
+                              </span>
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/60' : 'bg-gray-100 text-gray-400'}`}>
+                                {isActive ? 'Active' : 'Add'}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {activePrograms.length === 0 && (
+                        <p className="text-xs text-amber-600 mt-1.5">⚠ No programs assigned — client cannot access portal content</p>
+                      )}
                     </div>
 
                     <div>
