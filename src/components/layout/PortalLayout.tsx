@@ -74,11 +74,11 @@ export default function PortalLayout({
   const [mobileOpen, setMobileOpen] = useState(false)
   const supabase = createClient()
 
-  // Resolve the full set of enrolled programs for nav rendering
-  // allPrograms from server takes priority; falls back to assignedProgram
+  // Nav items are based on the ACTIVE program only (assignedProgram)
+  // allPrograms is only used to decide whether to show the program switcher
   const enrolledPrograms = allPrograms ?? (assignedProgram ? [assignedProgram] : [])
-  const hasA = enrolledPrograms.includes('program_a')
-  const hasB = enrolledPrograms.includes('program_b')
+  const hasA = assignedProgram === 'program_a'
+  const hasB = assignedProgram === 'program_b'
   const isMultiProgram = enrolledPrograms.filter(p => p !== 'program_c').length > 1
 
   // ── Program-aware sidebar nav ──────────────────────────────────────────────
@@ -216,11 +216,7 @@ export default function PortalLayout({
           </div>
           <div>
             <p className="font-bold text-gray-900 text-sm leading-tight">SourcifyLending</p>
-            <p className="text-xs text-gray-400 truncate max-w-[140px]">
-            {isMultiProgram
-              ? enrolledPrograms.filter(p => p !== 'program_c').map(p => p === 'program_a' ? 'Prog A' : p === 'program_b' ? 'Prog B' : p).join(' + ')
-              : (programLabel || 'Client Portal')}
-          </p>
+            <p className="text-xs text-gray-400 truncate max-w-[140px]">{programLabel || 'Client Portal'}</p>
           </div>
         </div>
       </div>
