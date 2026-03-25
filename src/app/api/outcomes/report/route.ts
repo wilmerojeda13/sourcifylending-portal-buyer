@@ -43,6 +43,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: outcomeError.message }, { status: 500 })
     }
 
+    // Also persist to opportunity_user_status so the UI can hide completed opportunities
+    if (opportunity_id && outcome !== 'not_applied') {
+      const statusMap: Record<string, string> = {
+        approved: 'approved',
+        denied:   'denied',
+        pending:  'applied',
+      }
+      const mappedStatus = statusMap[outcome]
+      if (mappedStatus) {
+        await supabase
+          .from('opportunity_user_status')
+          .upsert(
+            { user_id: user.id, opportunity_id, status: mappedStatus, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id,opportunity_id' }
+          )
+      }
+    }
+
     // Also track as an event
     await supabase.from('portal_events').insert({
       user_id: user.id,

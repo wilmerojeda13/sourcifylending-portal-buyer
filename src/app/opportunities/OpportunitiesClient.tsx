@@ -5,7 +5,7 @@ import type { AccountOpportunity, OpportunityCategory } from '@/types'
 import {
   ExternalLink, Lock, CheckCircle, Clock, AlertCircle, Sparkles,
   Brain, ChevronDown, ChevronUp, AlertTriangle, X, ArrowRight,
-  Shield, TrendingUp, Star,
+  Shield, TrendingUp, Star, CheckCheck, XCircle, RotateCcw,
 } from 'lucide-react'
 import OutcomeFeedbackModal from '@/components/OutcomeFeedbackModal'
 
@@ -27,6 +27,7 @@ interface Props {
   assignedProgram: string | null
   isActive: boolean
   userIndustry?: string | null
+  userStatuses?: Record<string, string>   // opportunityId → 'applied' | 'approved' | 'denied' | 'pending'
 }
 
 // ─── Stage Metadata ───────────────────────────────────────────────────────────
@@ -169,10 +170,180 @@ function getOpportunityStatus(opp: AccountOpportunity, currentStage: string | nu
 
 function rankScore(opp: AccountOpportunity): number {
   let score = opp.priority_score ?? 50
-  if (opp.pg_required === 'no' || opp.pg_required === 'n/a') score += 15
+  if (opp.pg_required === 'no') score += 15
   if (opp.reports_to?.includes('Dun & Bradstreet')) score += 8
   score += (opp.reports_to?.split(',').length ?? 1) * 3
   return score
+}
+
+// ─── StatusBadge ──────────────────────────────────────────────────────────────
+function StatusBadge({ status }: { status: string }) {
+  if (status === 'approved') return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">
+      <CheckCheck size={9} /> Approved
+    </span>
+  )
+  if (status === 'applied' || status === 'pending') return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">
+      <Clock size={9} /> Applied
+    </span>
+  )
+  if (status === 'denied') return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full border border-red-200">
+      <XCircle size={9} /> Denied
+    </span>
+  )
+  return null
+}
+
+// ─── MarkResultRow ────────────────────────────────────────────────────────────
+// Shown on each active card so the user can record what happened
+function MarkResultRow({
+  oppId,
+  currentStatus,
+  onMark,
+  onClear,
+}: {
+  oppId: string
+  currentStatus: string | null
+  onMark: (oppId: string, status: string) => void
+  onClear: (oppId: string) => void
+}) {
+  if (currentStatus === 'approved') {
+    return (
+      <div className="flex items-center gap-2 pt-1">
+        <StatusBadge status="approved" />
+        <button
+          onClick={() => onClear(oppId)}
+          className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors"
+          title="Undo"
+        >
+          <RotateCcw size={9} /> Undo
+        </button>
+      </div>
+    )
+  }
+  if (currentStatus === 'applied' || currentStatus === 'pending') {
+    return (
+      <div className="flex items-center gap-2 pt-1">
+        <StatusBadge status="applied" />
+        <button
+          onClick={() => onMark(oppId, 'approved')}
+          className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
+        >
+          ✓ Got Approved
+        </button>
+        <button
+          onClick={() => onClear(oppId)}
+          className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors"
+        >
+          <RotateCcw size={9} />
+        </button>
+      </div>
+    )
+  }
+  if (currentStatus === 'denied') {
+    return (
+      <div className="flex items-center gap-2 pt-1">
+        <StatusBadge status="denied" />
+        <button
+          onClick={() => onClear(oppId)}
+          className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors"
+        >
+          <RotateCcw size={9} /> Reset
+        </button>
+      </div>
+    )
+  }
+  // No status yet — show mark buttons
+  return (
+    <div className="flex items-center gap-1 pt-1 flex-wrap">
+      <span className="text-[10px] text-gray-400 mr-0.5">Mark result:</span>
+      <button
+        onClick={() => onMark(oppId, 'approved')}
+        className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-lg border border-green-200 hover:bg-green-100 transition-colors font-medium"
+      >
+        ✓ Approved
+      </button>
+      <button
+        onClick={() => onMark(oppId, 'applied')}
+        className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors font-medium"
+      >
+        ⏳ Applied
+      </button>
+      <button
+        onClick={() => onMark(oppId, 'denied')}
+        className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-lg border border-red-200 hover:bg-red-100 transition-colors font-medium"
+      >
+        ✗ Denied
+      </button>
+    </div>
+  )
+}
+
+// ─── CompletedSection ─────────────────────────────────────────────────────────
+function CompletedSection({
+  opps,
+  localStatuses,
+  onClear,
+}: {
+  opps: AccountOpportunity[]
+  localStatuses: Record<string, string>
+  onClear: (oppId: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  if (opps.length === 0) return null
+
+  return (
+    <div className="border-t border-gray-100 pt-5">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors w-full text-left"
+      >
+        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        <CheckCheck size={15} className="text-green-500" />
+        Completed Opportunities
+        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold ml-1">
+          {opps.length}
+        </span>
+        <span className="text-xs text-gray-400 font-normal ml-auto">
+          {open ? 'Hide' : 'Show'}
+        </span>
+      </button>
+
+      {open && (
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          {opps.map(opp => {
+            const status = localStatuses[opp.id]
+            return (
+              <div
+                key={opp.id}
+                className="bg-gray-50 rounded-xl border border-gray-200 p-4 flex items-start justify-between gap-3 opacity-75"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <StatusBadge status={status} />
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[opp.category]}`}>
+                      {CATEGORY_LABELS[opp.category]}
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-600 leading-snug">{opp.name}</p>
+                  {opp.terms && <p className="text-xs text-gray-400 mt-0.5">{opp.terms}</p>}
+                </div>
+                <button
+                  onClick={() => onClear(opp.id)}
+                  className="shrink-0 text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors whitespace-nowrap"
+                  title="Move back to active"
+                >
+                  <RotateCcw size={10} /> Undo
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -182,7 +353,33 @@ export default function OpportunitiesClient({
   assignedProgram,
   isActive,
   userIndustry,
+  userStatuses = {},
 }: Props) {
+  // Local status state — initialised from server, updated optimistically
+  const [localStatuses, setLocalStatuses] = useState<Record<string, string>>(userStatuses)
+
+  const markStatus = useCallback(async (oppId: string, status: string) => {
+    setLocalStatuses(prev => ({ ...prev, [oppId]: status }))
+    fetch('/api/opportunities/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ opportunity_id: oppId, status }),
+    }).catch(() => {})
+  }, [])
+
+  const clearStatus = useCallback(async (oppId: string) => {
+    setLocalStatuses(prev => {
+      const next = { ...prev }
+      delete next[oppId]
+      return next
+    })
+    fetch('/api/opportunities/status', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ opportunity_id: oppId }),
+    }).catch(() => {})
+  }, [])
+
   const [matchData, setMatchData] = useState<MatchResult | null>(null)
   const [matchLoading, setMatchLoading] = useState(assignedProgram === 'program_b')
   const [warnOpportunity, setWarnOpportunity] = useState<AccountOpportunity | null>(null)
@@ -192,9 +389,15 @@ export default function OpportunitiesClient({
   const [filterPG, setFilterPG] = useState<'all' | 'yes' | 'no' | 'varies'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'recommended' | 'future'>('all')
 
+  // When the feedback modal is submitted, sync status locally
+  const handleFeedbackSubmitted = useCallback((opp: AccountOpportunity, outcome: string) => {
+    const map: Record<string, string> = { approved: 'approved', denied: 'denied', pending: 'applied' }
+    if (map[outcome]) markStatus(opp.id, map[outcome])
+    setFeedbackOpportunity(null)
+  }, [markStatus])
+
   // Fire outcome feedback modal ~3s after clicking Apply
   const handleApply = useCallback((opp: AccountOpportunity) => {
-    // Fire to new intelligence events endpoint (fire-and-forget)
     fetch('/api/events/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -206,7 +409,6 @@ export default function OpportunitiesClient({
         program: opp.program,
       }),
     }).catch(() => {})
-    // Show "Did you get approved?" modal after 3 seconds
     setTimeout(() => setFeedbackOpportunity(opp), 3000)
   }, [])
 
@@ -220,8 +422,7 @@ export default function OpportunitiesClient({
       .finally(() => setMatchLoading(false))
   }, [assignedProgram])
 
-  // Local fallbacks (immediate, no AI) for Program B
-  // Exclude monitoring category — those are setup tasks, not apply-for opportunities
+  // Exclude monitoring category for apply-able opps
   const applyableOpps = useMemo(() =>
     opportunities.filter(o => o.category !== 'monitoring'),
   [opportunities])
@@ -229,7 +430,6 @@ export default function OpportunitiesClient({
   const localRecommended = useMemo(() => {
     if (!currentStage) return []
     const stageOpps = applyableOpps.filter(o => o.stage === currentStage)
-    // If current stage has no applyable items (e.g. still in Foundation), show Store Credit items next
     const fallback = stageOpps.length === 0
       ? applyableOpps.filter(o => o.stage === 'Store Credit')
       : stageOpps
@@ -254,6 +454,10 @@ export default function OpportunitiesClient({
     const stage = currentStage ?? 'Foundation'
     const stageMeta = STAGE_META[stage]
     const userStageIdx = B_STAGES.indexOf(stage)
+
+    // Active = not approved; Completed = approved
+    const activeRecommended = recommended.filter(o => localStatuses[o.id] !== 'approved')
+    const completedOpps = opportunities.filter(o => localStatuses[o.id] === 'approved')
 
     return (
       <div className="space-y-6">
@@ -362,17 +566,27 @@ export default function OpportunitiesClient({
                 </div>
               ))}
             </div>
-          ) : recommended.length > 0 ? (
+          ) : activeRecommended.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {recommended.map((opp, idx) => (
+              {activeRecommended.map((opp, idx) => (
                 <RecommendedCard
                   key={opp.id}
                   opp={opp}
                   rank={idx + 1}
                   isActive={isActive}
+                  currentStatus={localStatuses[opp.id] ?? null}
                   onApply={handleApply}
+                  onMarkStatus={markStatus}
+                  onClearStatus={clearStatus}
                 />
               ))}
+            </div>
+          ) : recommended.length > 0 && activeRecommended.length === 0 ? (
+            // All recommended are approved — show a congrats banner
+            <div className="text-center py-8 bg-green-50 border border-green-200 rounded-2xl">
+              <CheckCheck size={28} className="mx-auto mb-2 text-green-500" />
+              <p className="text-sm font-bold text-green-800">All current-stage accounts completed!</p>
+              <p className="text-xs text-green-600 mt-1">Great work. Your advisor will advance your stage when tradelines report.</p>
             </div>
           ) : (
             <div className="text-center py-10 text-gray-400 text-sm bg-white rounded-2xl border border-gray-200">
@@ -466,8 +680,11 @@ export default function OpportunitiesClient({
                         status={isLocked ? 'future' : 'recommended'}
                         isActive={isActive}
                         isLocked={isLocked}
+                        currentStatus={localStatuses[opp.id] ?? null}
                         onLockedApply={isLocked ? () => setWarnOpportunity(opp) : undefined}
                         onApply={!isLocked ? handleApply : undefined}
+                        onMarkStatus={markStatus}
+                        onClearStatus={clearStatus}
                       />
                     )
                   })}
@@ -475,6 +692,13 @@ export default function OpportunitiesClient({
             </div>
           )}
         </div>
+
+        {/* ── Section 4: Completed Opportunities ── */}
+        <CompletedSection
+          opps={completedOpps}
+          localStatuses={localStatuses}
+          onClear={clearStatus}
+        />
 
         {/* ── Out-of-Sequence Warning Modal ── */}
         {warnOpportunity && (
@@ -494,7 +718,7 @@ export default function OpportunitiesClient({
             program={feedbackOpportunity.program ?? assignedProgram ?? undefined}
             stage={feedbackOpportunity.stage ?? undefined}
             onClose={() => setFeedbackOpportunity(null)}
-            onSubmitted={() => setFeedbackOpportunity(null)}
+            onSubmitted={(outcome) => handleFeedbackSubmitted(feedbackOpportunity, outcome)}
           />
         )}
       </div>
@@ -508,15 +732,19 @@ export default function OpportunitiesClient({
       status: getOpportunityStatus(opp, currentStage),
     })), [opportunities, currentStage])
 
-  const filtered = enriched.filter(opp => {
+  // Separate active from completed (approved)
+  const activeEnriched = enriched.filter(o => localStatuses[o.id] !== 'approved')
+  const completedEnrichedOpps = enriched.filter(o => localStatuses[o.id] === 'approved')
+
+  const filtered = activeEnriched.filter(opp => {
     if (filterCategory && opp.category !== filterCategory) return false
     if (filterPG !== 'all' && opp.pg_required !== filterPG) return false
     if (filterStatus !== 'all' && opp.status !== filterStatus) return false
     return true
   })
 
-  const recommendedCount = enriched.filter(o => o.status === 'recommended').length
-  const futureCount = enriched.filter(o => o.status === 'future').length
+  const recommendedCount = activeEnriched.filter(o => o.status === 'recommended').length
+  const futureCount = activeEnriched.filter(o => o.status === 'future').length
 
   return (
     <div className="space-y-5">
@@ -547,6 +775,12 @@ export default function OpportunitiesClient({
           <div className="text-lg font-bold text-gray-600">{futureCount}</div>
           <div className="text-xs text-gray-500">Future Stage</div>
         </div>
+        {completedEnrichedOpps.length > 0 && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-center">
+            <div className="text-lg font-bold text-emerald-700">{completedEnrichedOpps.length}</div>
+            <div className="text-xs text-emerald-600">Completed</div>
+          </div>
+        )}
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 text-center">
           <div className="text-lg font-bold text-blue-700">{opportunities.length}</div>
           <div className="text-xs text-blue-600">Total Available</div>
@@ -579,7 +813,10 @@ export default function OpportunitiesClient({
             opp={opp}
             status={opp.status as 'recommended' | 'future'}
             isActive={isActive}
+            currentStatus={localStatuses[opp.id] ?? null}
             onApply={handleApply}
+            onMarkStatus={markStatus}
+            onClearStatus={clearStatus}
           />
         ))}
       </div>
@@ -590,6 +827,13 @@ export default function OpportunitiesClient({
         </div>
       )}
 
+      {/* ── Completed Opportunities ── */}
+      <CompletedSection
+        opps={completedEnrichedOpps}
+        localStatuses={localStatuses}
+        onClear={clearStatus}
+      />
+
       {/* ── Outcome Feedback Modal ── */}
       {feedbackOpportunity && (
         <OutcomeFeedbackModal
@@ -598,7 +842,7 @@ export default function OpportunitiesClient({
           program={feedbackOpportunity.program ?? assignedProgram ?? undefined}
           stage={feedbackOpportunity.stage ?? undefined}
           onClose={() => setFeedbackOpportunity(null)}
-          onSubmitted={() => setFeedbackOpportunity(null)}
+          onSubmitted={(outcome) => handleFeedbackSubmitted(feedbackOpportunity, outcome)}
         />
       )}
     </div>
@@ -610,19 +854,30 @@ function RecommendedCard({
   opp,
   rank,
   isActive,
+  currentStatus,
   onApply,
+  onMarkStatus,
+  onClearStatus,
 }: {
   opp: AccountOpportunity & { ai_reasoning: string | null; approval_probability?: 'high' | 'medium' | 'low' }
   rank: number
   isActive: boolean
+  currentStatus: string | null
   onApply?: (opp: AccountOpportunity) => void
+  onMarkStatus: (oppId: string, status: string) => void
+  onClearStatus: (oppId: string) => void
 }) {
   const learnMoreUrl = safeUrl(opp.learn_more_url)
   const prob = opp.approval_probability ?? (opp.pg_required === 'no' ? 'high' : 'medium')
   const rankIcon = ['🥇', '🥈', '🥉'][rank - 1] ?? `#${rank}`
+  const isApproved = currentStatus === 'approved'
 
   return (
-    <div className="bg-white rounded-2xl border border-green-200 shadow-sm ring-1 ring-green-100 p-5 flex flex-col space-y-3">
+    <div className={`bg-white rounded-2xl border shadow-sm ring-1 p-5 flex flex-col space-y-3 transition-all ${
+      isApproved
+        ? 'border-green-300 ring-green-200 opacity-60'
+        : 'border-green-200 ring-green-100'
+    }`}>
       {/* Rank + Category */}
       <div className="flex items-start gap-3">
         <div className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-base ${
@@ -634,9 +889,12 @@ function RecommendedCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span className="text-[10px] font-bold bg-green-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wide">
-              #{rank} Pick
-            </span>
+            {!isApproved && (
+              <span className="text-[10px] font-bold bg-green-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wide">
+                #{rank} Pick
+              </span>
+            )}
+            {currentStatus && <StatusBadge status={currentStatus} />}
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[opp.category]}`}>
               {CATEGORY_LABELS[opp.category]}
             </span>
@@ -646,26 +904,28 @@ function RecommendedCard({
       </div>
 
       {/* Approval probability + PG badge */}
-      <div className="flex gap-2 flex-wrap">
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-          prob === 'high' ? 'bg-green-100 text-green-700' :
-          prob === 'medium' ? 'bg-amber-100 text-amber-700' :
-          'bg-red-100 text-red-600'
-        }`}>
-          <TrendingUp size={9} />
-          {prob === 'high' ? 'High' : prob === 'medium' ? 'Medium' : 'Lower'} Approval Odds
-        </span>
-        {(opp.pg_required === 'no' || opp.pg_required === 'n/a') && (
-          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-            <Shield size={9} /> No PG
+      {!isApproved && (
+        <div className="flex gap-2 flex-wrap">
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+            prob === 'high' ? 'bg-green-100 text-green-700' :
+            prob === 'medium' ? 'bg-amber-100 text-amber-700' :
+            'bg-red-100 text-red-600'
+          }`}>
+            <TrendingUp size={9} />
+            {prob === 'high' ? 'High' : prob === 'medium' ? 'Medium' : 'Lower'} Approval Odds
           </span>
-        )}
-        {opp.pg_required === 'yes' && (
-          <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-            PG Required
-          </span>
-        )}
-      </div>
+          {opp.pg_required === 'no' && (
+            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Shield size={9} /> No PG
+            </span>
+          )}
+          {opp.pg_required === 'yes' && (
+            <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+              PG Required
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Terms */}
       {opp.terms && (
@@ -675,14 +935,14 @@ function RecommendedCard({
       )}
 
       {/* AI Reasoning or fallback description */}
-      {opp.ai_reasoning ? (
+      {!isApproved && (opp.ai_reasoning ? (
         <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 flex items-start gap-2">
           <Brain size={13} className="text-blue-500 shrink-0 mt-0.5" />
           <p className="text-xs text-blue-800 leading-relaxed">{opp.ai_reasoning}</p>
         </div>
       ) : opp.description ? (
         <p className="text-xs text-gray-600 leading-relaxed">{opp.description}</p>
-      ) : null}
+      ) : null)}
 
       {/* Bureau reporting */}
       {opp.reports_to && (
@@ -694,40 +954,59 @@ function RecommendedCard({
         </div>
       )}
 
-      {/* Spacer */}
       <div className="flex-1" />
 
       {/* Action buttons */}
-      {!isActive ? (
+      {isApproved ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-green-700 font-semibold flex items-center gap-1.5">
+            <CheckCheck size={14} /> You got this one!
+          </span>
+          <button
+            onClick={() => onClearStatus(opp.id)}
+            className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors"
+          >
+            <RotateCcw size={9} /> Undo
+          </button>
+        </div>
+      ) : !isActive ? (
         <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
           <Lock size={12} /> Reactivate membership to apply
         </div>
       ) : (
-        <div className="flex gap-2">
-          {learnMoreUrl && (
-            <a
-              href={learnMoreUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 inline-flex items-center justify-center gap-1 text-xs text-gray-600 border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors"
-            >
-              Learn More <ExternalLink size={10} />
-            </a>
-          )}
-          {opp.apply_url ? (
-            <a
-              href={`/api/opportunities/redirect?id=${opp.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => onApply?.(opp)}
-              className="flex-1 inline-flex items-center justify-center gap-1 text-xs bg-green-600 text-white px-3 py-2 rounded-xl hover:bg-green-700 transition-colors font-semibold"
-            >
-              Apply Now <ExternalLink size={10} />
-            </a>
-          ) : (
-            <div className="flex-1 text-xs text-gray-400 text-center py-2">Contact advisor</div>
-          )}
-        </div>
+        <>
+          <div className="flex gap-2">
+            {learnMoreUrl && (
+              <a
+                href={learnMoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 inline-flex items-center justify-center gap-1 text-xs text-gray-600 border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Learn More <ExternalLink size={10} />
+              </a>
+            )}
+            {opp.apply_url ? (
+              <a
+                href={`/api/opportunities/redirect?id=${opp.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => onApply?.(opp)}
+                className="flex-1 inline-flex items-center justify-center gap-1 text-xs bg-green-600 text-white px-3 py-2 rounded-xl hover:bg-green-700 transition-colors font-semibold"
+              >
+                Apply Now <ExternalLink size={10} />
+              </a>
+            ) : (
+              <div className="flex-1 text-xs text-gray-400 text-center py-2">Contact advisor</div>
+            )}
+          </div>
+          <MarkResultRow
+            oppId={opp.id}
+            currentStatus={currentStatus}
+            onMark={onMarkStatus}
+            onClear={onClearStatus}
+          />
+        </>
       )}
     </div>
   )
@@ -745,7 +1024,6 @@ function LockedCard({
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-2">
-      {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -764,18 +1042,15 @@ function LockedCard({
         <p className="text-xs text-gray-400">{opp.terms}</p>
       )}
 
-      {/* Blurred description */}
       <p className="text-xs text-gray-400 blur-sm select-none leading-relaxed line-clamp-2">
         {opp.description ?? 'Complete your current stage to unlock application details and guidance for this account.'}
       </p>
 
-      {/* Unlock message */}
       <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
         <Lock size={10} className="shrink-0" />
         Complete <strong className="text-gray-600 mx-1">{currentStage}</strong> to unlock
       </div>
 
-      {/* Intercepted apply button */}
       <button
         onClick={onApplyAttempt}
         className="w-full text-xs text-gray-400 border border-gray-200 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
@@ -804,7 +1079,6 @@ function WarningModal({
         className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-start gap-3 mb-4">
           <div className="w-10 h-10 bg-amber-100 rounded-2xl flex items-center justify-center shrink-0">
             <AlertTriangle size={20} className="text-amber-600" />
@@ -818,13 +1092,11 @@ function WarningModal({
           </button>
         </div>
 
-        {/* Context */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 text-xs text-amber-800 leading-relaxed">
           You&apos;re in <strong>{currentStage}</strong> stage.{' '}
           <strong>{opp.name}</strong> is a <strong>{opp.stage}</strong> stage account.
         </div>
 
-        {/* Risk list */}
         <p className="text-xs font-semibold text-gray-700 mb-2">Applying before completing your current stage may cause:</p>
         <ul className="space-y-1.5 mb-5">
           {[
@@ -840,7 +1112,6 @@ function WarningModal({
           ))}
         </ul>
 
-        {/* Actions */}
         <div className="flex gap-2">
           <button
             onClick={onClose}
@@ -878,28 +1149,41 @@ function OpportunityCard({
   status,
   isActive,
   isLocked = false,
+  currentStatus,
   onLockedApply,
   onApply,
+  onMarkStatus,
+  onClearStatus,
 }: {
   opp: AccountOpportunity
   status: 'recommended' | 'future'
   isActive: boolean
   isLocked?: boolean
+  currentStatus: string | null
   onLockedApply?: () => void
   onApply?: (opp: AccountOpportunity) => void
+  onMarkStatus: (oppId: string, status: string) => void
+  onClearStatus: (oppId: string) => void
 }) {
   const isRecommended = status === 'recommended'
   const blurred = !isActive
   const learnMoreUrl = safeUrl(opp.learn_more_url)
+  const isApproved = currentStatus === 'approved'
 
   return (
     <div className={`bg-white rounded-2xl border p-5 space-y-3 transition-all ${
-      isRecommended ? 'border-green-200 shadow-sm ring-1 ring-green-100' : 'border-gray-200'
+      isApproved
+        ? 'border-green-200 opacity-60 bg-green-50/30'
+        : isRecommended
+          ? 'border-green-200 shadow-sm ring-1 ring-green-100'
+          : 'border-gray-200'
     }`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            {isRecommended ? (
+            {isApproved ? (
+              <StatusBadge status="approved" />
+            ) : isRecommended ? (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wide">
                 <CheckCircle size={10} /> Recommended Now
               </span>
@@ -908,6 +1192,7 @@ function OpportunityCard({
                 <Clock size={10} /> Future Stage
               </span>
             )}
+            {currentStatus && currentStatus !== 'approved' && <StatusBadge status={currentStatus} />}
             {opp.pg_required === 'no' && (
               <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase">No PG</span>
             )}
@@ -947,42 +1232,62 @@ function OpportunityCard({
         </div>
       )}
 
-      {!blurred && (learnMoreUrl || opp.apply_url) && (
-        <div className="flex gap-2 pt-1">
-          {learnMoreUrl && (
-            <a href={learnMoreUrl} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
-              Learn More <ExternalLink size={10} />
-            </a>
-          )}
-          {opp.apply_url && (
-            isLocked && onLockedApply ? (
-              <button
-                onClick={onLockedApply}
-                className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors"
-              >
-                <Lock size={10} /> Apply (Locked)
-              </button>
-            ) : (
-              <a
-                href={`/api/opportunities/redirect?id=${opp.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => onApply?.(opp)}
-                className="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                Apply Now <ExternalLink size={10} />
-              </a>
-            )
-          )}
+      {isApproved ? (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <span className="text-xs text-green-700 font-semibold flex items-center gap-1.5">
+            <CheckCheck size={13} /> Opportunity completed
+          </span>
+          <button
+            onClick={() => onClearStatus(opp.id)}
+            className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors"
+          >
+            <RotateCcw size={9} /> Undo
+          </button>
         </div>
-      )}
-
-      {!blurred && !learnMoreUrl && !opp.apply_url && isRecommended && (
+      ) : !blurred && (learnMoreUrl || opp.apply_url) ? (
+        <>
+          <div className="flex gap-2 pt-1">
+            {learnMoreUrl && (
+              <a href={learnMoreUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+                Learn More <ExternalLink size={10} />
+              </a>
+            )}
+            {opp.apply_url && (
+              isLocked && onLockedApply ? (
+                <button
+                  onClick={onLockedApply}
+                  className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors"
+                >
+                  <Lock size={10} /> Apply (Locked)
+                </button>
+              ) : (
+                <a
+                  href={`/api/opportunities/redirect?id=${opp.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => onApply?.(opp)}
+                  className="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Apply Now <ExternalLink size={10} />
+                </a>
+              )
+            )}
+          </div>
+          {isActive && !isLocked && (
+            <MarkResultRow
+              oppId={opp.id}
+              currentStatus={currentStatus}
+              onMark={onMarkStatus}
+              onClear={onClearStatus}
+            />
+          )}
+        </>
+      ) : !blurred && !learnMoreUrl && !opp.apply_url && isRecommended ? (
         <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
           <AlertCircle size={12} /> Contact your advisor for application guidance
         </div>
-      )}
+      ) : null}
 
       <p className="text-[10px] text-gray-300 pt-0.5">Stage: {opp.stage}</p>
     </div>

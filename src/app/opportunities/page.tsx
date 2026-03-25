@@ -58,7 +58,7 @@ export default async function OpportunitiesPage() {
     )
   }
 
-  const [{ data: notifications }, { data: opportunities }] = await Promise.all([
+  const [{ data: notifications }, { data: opportunities }, { data: rawStatuses }] = await Promise.all([
     supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
     supabase
       .from('account_opportunities')
@@ -66,7 +66,16 @@ export default async function OpportunitiesPage() {
       .in('program', [profile?.assigned_program ?? 'program_a', 'all'])
       .eq('is_active', true)
       .order('priority_score', { ascending: false }),
+    supabase
+      .from('opportunity_user_status')
+      .select('opportunity_id, status')
+      .eq('user_id', user.id),
   ])
+
+  // Build a map of opportunityId → status for fast lookup in the client
+  const userStatuses: Record<string, string> = Object.fromEntries(
+    (rawStatuses ?? []).map(s => [s.opportunity_id, s.status])
+  )
 
   const isActive =
     profile?.subscription_status === 'active' ||
@@ -98,6 +107,7 @@ export default async function OpportunitiesPage() {
         assignedProgram={profile?.assigned_program ?? null}
         isActive={isActive}
         userIndustry={profile?.industry ?? null}
+        userStatuses={userStatuses}
       />
 
       {/* Legal disclaimer */}
