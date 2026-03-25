@@ -45,22 +45,25 @@ export default async function UnderwritingPage() {
     program: profile.assigned_program,
   }).catch(() => {})
 
-  const notifCount = await supabase
-    .from('notifications')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('read', false)
+  const [notifCountResult, membershipsResult] = await Promise.all([
+    supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false),
+    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
+  ])
+
+  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile.assigned_program ? [profile.assigned_program] : [])
 
   return (
     <PortalLayout
       userName={profile.full_name || user.email || 'Client'}
       programLabel={getProgramShortLabel(profile.assigned_program)}
-      notificationCount={notifCount.count ?? 0}
+      notificationCount={notifCountResult.count ?? 0}
       assignedProgram={profile.assigned_program}
       portalBlocked={profile.portal_blocked}
       isDemo={profile.is_demo}
       isAdmin={profile.is_admin}
       accountState="active_member"
+      allPrograms={activePrograms}
     >
       <UnderwritingClient profile={profile as UserProfile} />
     </PortalLayout>

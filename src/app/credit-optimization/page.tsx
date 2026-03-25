@@ -16,11 +16,16 @@ export default async function CreditOptimizationPage() {
     { data: profile },
     { data: notifications },
     { data: tasks },
+    membershipsResult,
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
     supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
+    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
   ])
+
+  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   // Redirect non-Program-A users
   if (profile?.assigned_program && profile.assigned_program !== 'program_a') {
@@ -39,6 +44,7 @@ export default async function CreditOptimizationPage() {
       programLabel={getProgramShortLabel(profile?.assigned_program)}
       notificationCount={notifications?.length || 0}
       assignedProgram={profile?.assigned_program}
+      allPrograms={activePrograms}
     >
       <div className="mb-6">
         <h1 className="page-title">Personal Credit Optimization</h1>

@@ -146,18 +146,24 @@ function AIUsageInner() {
   const [loading, setLoading] = useState(true)
   const [buying, setBuying] = useState<string | null>(null)
   const [buyError, setBuyError] = useState<string | null>(null)
+  const [activePrograms, setActivePrograms] = useState<string[]>([])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
 
-    const [profileRes, usageRes] = await Promise.all([
+    const [profileRes, usageRes, membershipsResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       fetch('/api/ai-usage'),
+      supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
     ])
 
-    if (profileRes.data) setProfile(profileRes.data)
+    if (profileRes.data) {
+      setProfile(profileRes.data)
+      const mPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+      setActivePrograms(mPrograms.length > 0 ? mPrograms : (profileRes.data?.assigned_program ? [profileRes.data.assigned_program] : []))
+    }
     if (usageRes.ok) {
       const data = await usageRes.json()
       setUsageData(data)
@@ -244,6 +250,7 @@ function AIUsageInner() {
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
+      allPrograms={activePrograms}
     >
       <div className="max-w-2xl mx-auto space-y-6">
 

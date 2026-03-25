@@ -11,10 +11,14 @@ export default async function SettingsPage() {
 
   if (!user) redirect('/login')
 
-  const [{ data: profile }, { data: notifs }] = await Promise.all([
+  const [{ data: profile }, { data: notifs }, membershipsResult] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
+    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
   ])
+
+  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   return (
     <PortalLayout
@@ -27,6 +31,7 @@ export default async function SettingsPage() {
       isAdmin={profile?.is_admin ?? false}
       isDelegate={(profile as Record<string, unknown>)?.is_delegate as boolean ?? false}
       accountState={profile?.account_state ?? 'active_member'}
+      allPrograms={activePrograms}
     >
       <SettingsClient
         initialProfile={{

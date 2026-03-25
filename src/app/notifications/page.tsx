@@ -42,18 +42,19 @@ export default async function NotificationsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  const [{ data: profile }, { data: notifications }, membershipsResult] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50),
+    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
+  ])
 
-  const { data: notifications } = await supabase
-    .from('notifications')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(50)
+  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   const unreadCount = (notifications ?? []).filter((n) => !n.read).length
 
@@ -81,6 +82,7 @@ export default async function NotificationsPage() {
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
       accountState={profile?.account_state === 'prospect' ? 'prospect' : 'active_member'}
+      allPrograms={activePrograms}
     >
       <div className="max-w-2xl mx-auto space-y-5">
         {/* Header */}

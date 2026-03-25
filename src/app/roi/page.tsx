@@ -9,13 +9,15 @@ export default async function ROIPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, assigned_program, portal_blocked, is_demo, is_admin, account_state')
-    .eq('id', user.id)
-    .single()
+  const [{ data: profile }, membershipsResult] = await Promise.all([
+    supabase.from('profiles').select('full_name, assigned_program, portal_blocked, is_demo, is_admin, account_state').eq('id', user.id).single(),
+    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
+  ])
 
   if (!profile) redirect('/login')
+
+  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile.assigned_program ? [profile.assigned_program] : [])
 
   return (
     <PortalLayout
@@ -25,6 +27,7 @@ export default async function ROIPage() {
       portalBlocked={profile.portal_blocked}
       isDemo={profile.is_demo}
       isAdmin={profile.is_admin}
+      allPrograms={activePrograms}
     >
       <ROITrackerClient />
     </PortalLayout>

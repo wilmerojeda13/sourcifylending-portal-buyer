@@ -43,6 +43,7 @@ function ProgressPage() {
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState('')
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(false)
+  const [activePrograms, setActivePrograms] = useState<string[]>([])
 
   // Auto-scroll to target task once tasks are loaded
   useEffect(() => {
@@ -61,9 +62,10 @@ function ProgressPage() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const [{ data: p }, { data: t }] = await Promise.all([
+      const [{ data: p }, { data: t }, membershipsResult] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
         supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
+        supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
       ])
       // ── Underwriting gate — redirect if never reviewed or review expired ────
       const uwNextDue = p?.underwriting_next_due_at
@@ -80,6 +82,8 @@ function ProgressPage() {
       setProfile(p)
       setTasks(t || [])
       setIsActive(p?.subscription_status === 'active' || p?.subscription_status === 'trialing')
+      const mPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+      setActivePrograms(mPrograms.length > 0 ? mPrograms : (p?.assigned_program ? [p.assigned_program] : []))
       setLoading(false)
     }
     init()
@@ -154,6 +158,7 @@ function ProgressPage() {
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
+      allPrograms={activePrograms}
     >
       {/* Header */}
       <div className="mb-6">

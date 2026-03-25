@@ -139,6 +139,9 @@ export default function BillingPage() {
   const canManageBilling = isActive && !!stripeCustomerId
   const availableAddOns = getAvailableAddOns(memberships)
 
+  const allPrograms = memberships.map((m) => m.program_code).filter(Boolean)
+  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
+
   const handlePortal = async () => {
     setPortalLoading(true)
     try {
@@ -215,6 +218,7 @@ export default function BillingPage() {
         isDemo={profile?.is_demo}
         isAdmin={profile?.is_admin}
         isDelegate={true}
+        allPrograms={activePrograms}
       >
         <div className="flex flex-col items-center justify-center py-16 text-center px-4">
           <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
@@ -239,6 +243,7 @@ export default function BillingPage() {
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
+      allPrograms={activePrograms}
     >
       <div className="mb-6">
         <h1 className="page-title flex items-center gap-2">

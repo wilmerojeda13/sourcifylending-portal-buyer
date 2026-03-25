@@ -11,7 +11,7 @@ export default async function SupportPage() {
 
   if (!user) redirect('/login')
 
-  const [{ data: profile }, messagesResult, { data: notifs }] = await Promise.all([
+  const [{ data: profile }, messagesResult, { data: notifs }, membershipsResult] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase
       .from('support_messages')
@@ -23,7 +23,11 @@ export default async function SupportPage() {
       .select('id')
       .eq('user_id', user.id)
       .eq('read', false),
+    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
   ])
+
+  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   // Gracefully handle case where support_messages table hasn't been migrated yet
   const messages = messagesResult.error ? [] : (messagesResult.data ?? [])
@@ -38,6 +42,7 @@ export default async function SupportPage() {
       isDemo={profile?.is_demo ?? false}
       isAdmin={profile?.is_admin ?? false}
       accountState={profile?.account_state ?? 'active_member'}
+      allPrograms={activePrograms}
     >
       <SupportInboxClient
         initialMessages={messages}

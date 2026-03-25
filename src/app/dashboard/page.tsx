@@ -48,6 +48,7 @@ export default async function DashboardPage() {
         isDemo={profile.is_demo}
         isAdmin={profile.is_admin}
         accountState="prospect"
+        allPrograms={profile.assigned_program ? [profile.assigned_program] : []}
       >
         <ProspectDashboard profile={profile as UserProfile} />
       </PortalLayout>
@@ -63,11 +64,12 @@ export default async function DashboardPage() {
     (!uwNextDue || new Date(uwNextDue) < new Date())
 
   if (needsUnderwriting) {
-    const { data: uwNotifs } = await supabase
-      .from('notifications')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('read', false)
+    const [{ data: uwNotifs }, uwMembershipsResult] = await Promise.all([
+      supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
+      supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
+    ])
+    const uwAllPrograms = (uwMembershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+    const uwActivePrograms = uwAllPrograms.length > 0 ? uwAllPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
     return (
       <PortalLayout
         userName={profile?.full_name || user.email || 'Client'}
@@ -79,6 +81,7 @@ export default async function DashboardPage() {
         isAdmin={profile?.is_admin}
         accountState="active_member"
         demoSecondaryProgram={profile?.demo_secondary_program ?? null}
+        allPrograms={uwActivePrograms}
       >
         <UnderwritingGateBanner
           program={profile?.assigned_program ?? 'program_b'}
@@ -98,6 +101,7 @@ export default async function DashboardPage() {
     { data: fundingApprovals },
     { data: arrangement },
     { data: subscription },
+    membershipsResult,
   ] = await Promise.all([
     supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
     supabase.from('documents').select('*').eq('user_id', user.id),
@@ -106,7 +110,11 @@ export default async function DashboardPage() {
     supabase.from('funding_approvals').select('approved_amount,approved_limit,approval_type,issuer_name,approval_date').eq('user_id', user.id).eq('status', 'Approved'),
     supabase.from('payment_arrangements').select('setup_fee_total,setup_fee_paid,recurring_amount,next_amount_due,next_due_date,notes,program_code').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
     supabase.from('subscriptions').select('status,current_period_end,setup_fee_standard,setup_fee_paid,monthly_fee_standard,billing_status').eq('user_id', user.id).maybeSingle(),
+    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
   ])
+
+  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
 
@@ -221,6 +229,7 @@ export default async function DashboardPage() {
       accountState="active_member"
       uwNextDueAt={profile?.underwriting_next_due_at ?? null}
       demoSecondaryProgram={profile?.demo_secondary_program ?? null}
+      allPrograms={activePrograms}
     >
       {/* Welcome Gate — first-login service agreement (chargeback protection) */}
       {needsWelcomeGate && (

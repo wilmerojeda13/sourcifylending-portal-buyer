@@ -338,19 +338,23 @@ export default function DocumentsPage() {
   const [isActive, setIsActive] = useState(false)
   const [analyzingId, setAnalyzingId] = useState<string | null>(null)
   const [docTypesForProgram, setDocTypesForProgram] = useState(ALL_DOC_TYPES)
+  const [activePrograms, setActivePrograms] = useState<string[]>([])
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       setUserId(user.id)
-      const [{ data: p }, { data: docs }] = await Promise.all([
+      const [{ data: p }, { data: docs }, membershipsResult] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
         supabase.from('documents').select('*').eq('user_id', user.id).order('uploaded_at', { ascending: false }),
+        supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
       ])
       setProfile(p)
       setDocuments(docs || [])
       setIsActive(p?.subscription_status === 'active' || p?.subscription_status === 'trialing' || p?.is_demo === true)
+      const mPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+      setActivePrograms(mPrograms.length > 0 ? mPrograms : (p?.assigned_program ? [p.assigned_program] : []))
 
       const sorted = getSortedDocTypes(p?.assigned_program)
       setDocTypesForProgram(sorted)
@@ -489,6 +493,7 @@ export default function DocumentsPage() {
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
+      allPrograms={activePrograms}
     >
       <div className="mb-6">
         <h1 className="page-title">Documents</h1>

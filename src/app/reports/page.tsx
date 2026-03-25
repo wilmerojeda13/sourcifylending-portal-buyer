@@ -24,18 +24,22 @@ export default function ReportsPage() {
   const [selectedType, setSelectedType] = useState<ReportType>('next_step_summary')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [isActive, setIsActive] = useState(false)
+  const [activePrograms, setActivePrograms] = useState<string[]>([])
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const [{ data: p }, { data: r }] = await Promise.all([
+      const [{ data: p }, { data: r }, membershipsResult] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
         supabase.from('reports').select('*').eq('user_id', user.id).order('generated_at', { ascending: false }),
+        supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
       ])
       setProfile(p)
       setReports(r || [])
       setIsActive(p?.subscription_status === 'active' || p?.subscription_status === 'trialing')
+      const mPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
+      setActivePrograms(mPrograms.length > 0 ? mPrograms : (p?.assigned_program ? [p.assigned_program] : []))
       setLoading(false)
     }
     init()
@@ -86,6 +90,7 @@ export default function ReportsPage() {
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
+      allPrograms={activePrograms}
     >
       <div className="mb-6">
         <h1 className="page-title flex items-center gap-2">
