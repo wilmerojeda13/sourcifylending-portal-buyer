@@ -176,7 +176,25 @@
       "Bash(vercel --version)",
       "Bash(grep -l \"memberships\\\\|funding_approvals\\\\|payment\\\\|invoice\\\\|billing\\\\|charge\" \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\supabase\\\\migrations\"/*.sql)",
       "Bash(grep -A 30 \"CREATE TABLE.*memberships\" \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\supabase\\\\migrations\"/*.sql)",
-      "Bash(ls \"C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src/app/affiliate/\\(portal\\)/\")"
+      "Bash(ls \"C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src/app/affiliate/\\(portal\\)/\")",
+      "Bash(timeout /t 30 /nobreak)",
+      "Bash(timeout /t 40 /nobreak)",
+      "Bash(node -e \"console.log\\(require\\(''crypto''\\).randomBytes\\(32\\).toString\\(''hex''\\)\\)\")",
+      "Bash(node -e \"require\\(''twilio''\\); require\\(''ws''\\); require\\(''libphonenumber-js''\\); console.log\\(''all packages OK''\\)\")",
+      "Bash(mkdir -p \"C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src/app/api/voice/campaigns/\\\\[id\\\\]/start\")",
+      "Bash(mkdir -p \"C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src/app/api/voice/campaigns/\\\\[id\\\\]/pause\")",
+      "Bash(mkdir -p \"C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src/app/api/voice/leads/\\\\[id\\\\]\")",
+      "Bash(mkdir -p \"C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src/app/api/voice/calls/\\\\[id\\\\]\")",
+      "Bash(mkdir -p \"C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src/app/admin/voice/campaigns/\\\\[id\\\\]\")",
+      "mcp__mcp-registry__search_mcp_registry",
+      "Bash(ls \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\src\\\\app\\\\admin\\\\voice\\\\templates\"\" 2>/dev/null || echo \"DIR_EMPTY \")",
+      "Bash(find . -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx \\\\\\))",
+      "Bash(find . -type f \\\\\\(-name *.sql -o -name *schema* -o -name *types* -o -name *database* \\\\\\))",
+      "Bash(find ./src -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
+      "Bash(find ./supabase -type f -name *.sql)",
+      "Bash(grep -r \"OpportunitiesClient\\\\|opportunity_viewed\\\\|application_attempted\" ./src --include=*.tsx --include=*.ts -l)",
+      "Bash(grep -r \"account_opportunities\\\\|AccountOpportunity\" ./src --include=*.ts --include=*.tsx -l)",
+      "Bash(find '/c/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src' -type f \\\\\\(-name *.sql -o -name *migration* -o -name *schema* \\\\\\))"
     ]
   }
 }

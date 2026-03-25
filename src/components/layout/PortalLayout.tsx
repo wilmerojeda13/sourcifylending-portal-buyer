@@ -48,6 +48,8 @@ interface PortalLayoutProps {
   uwNextDueAt?: string | null
   /** Demo accounts only: the other program available to switch to */
   demoSecondaryProgram?: string | null
+  /** All active program_codes for this user (enables multi-program nav + switcher) */
+  allPrograms?: string[]
 }
 
 export default function PortalLayout({
@@ -63,6 +65,7 @@ export default function PortalLayout({
   accountState = 'active_member',
   uwNextDueAt,
   demoSecondaryProgram,
+  allPrograms,
 }: PortalLayoutProps) {
   const uwReviewDue = !!uwNextDueAt && new Date(uwNextDueAt) < new Date()
   const isProspect = accountState === 'prospect'
@@ -70,6 +73,13 @@ export default function PortalLayout({
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
   const supabase = createClient()
+
+  // Resolve the full set of enrolled programs for nav rendering
+  // allPrograms from server takes priority; falls back to assignedProgram
+  const enrolledPrograms = allPrograms ?? (assignedProgram ? [assignedProgram] : [])
+  const hasA = enrolledPrograms.includes('program_a')
+  const hasB = enrolledPrograms.includes('program_b')
+  const isMultiProgram = enrolledPrograms.filter(p => p !== 'program_c').length > 1
 
   // ── Program-aware sidebar nav ──────────────────────────────────────────────
   // Prospects get a minimal nav. Active members get program-specific items:
@@ -84,12 +94,12 @@ export default function PortalLayout({
         ...BASE_NAV_ITEMS.slice(0, 4), // Dashboard, AI Agent, Documents, Progress
 
         // ── Program A only ───────────────────────────────────────────────────
-        ...(assignedProgram === 'program_a'
+        ...(hasA
           ? [{ href: '/credit-optimization', label: 'Credit Optimization', icon: Star }]
           : []),
 
         // ── Program B only ───────────────────────────────────────────────────
-        ...(assignedProgram === 'program_b'
+        ...(hasB
           ? [
               { href: '/business-credit-setup',      label: 'Biz Credit Setup',      icon: Building2 },
               { href: '/business-credit-monitoring',  label: 'Biz Credit Monitoring', icon: TrendingUp },
@@ -98,7 +108,7 @@ export default function PortalLayout({
           : []),
 
         // ── Underwriting review — Program A & B only ─────────────────────────
-        ...(assignedProgram === 'program_a' || assignedProgram === 'program_b'
+        ...(hasA || hasB
           ? [{ href: '/underwriting', label: 'Underwrite Your Biz', icon: ClipboardList }]
           : []),
 
@@ -108,7 +118,7 @@ export default function PortalLayout({
         { href: '/roi',             label: 'ROI Tracker',     icon: PieChart },
 
         // ── Program A only: credit dispute tooling ───────────────────────────
-        ...(assignedProgram === 'program_a'
+        ...(hasA
           ? [{ href: '/credit-disputes', label: 'Credit Disputes', icon: ShieldAlert }]
           : []),
 
@@ -206,7 +216,11 @@ export default function PortalLayout({
           </div>
           <div>
             <p className="font-bold text-gray-900 text-sm leading-tight">SourcifyLending</p>
-            <p className="text-xs text-gray-400 truncate max-w-[140px]">{programLabel || 'Client Portal'}</p>
+            <p className="text-xs text-gray-400 truncate max-w-[140px]">
+            {isMultiProgram
+              ? enrolledPrograms.filter(p => p !== 'program_c').map(p => p === 'program_a' ? 'Prog A' : p === 'program_b' ? 'Prog B' : p).join(' + ')
+              : (programLabel || 'Client Portal')}
+          </p>
           </div>
         </div>
       </div>
@@ -245,7 +259,47 @@ export default function PortalLayout({
           </div>
           <span>Notifications</span>
         </Link>
-        {isDemo && demoSecondaryProgram && (
+        {/* Multi-program switcher — shown for any user with 2+ programs */}
+        {isMultiProgram && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-4 pt-1">Switch Program</p>
+            {enrolledPrograms.filter(p => p !== 'program_c').map(p => {
+              const isActive = p === assignedProgram
+              const label = p === 'program_a' ? 'Program A — APR Cards' : 'Program B — Biz Credit'
+              return (
+                <button
+                  key={p}
+                  onClick={async () => {
+                    if (isActive) return
+                    setSwitching(true)
+                    try {
+                      await fetch('/api/switch-program', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ program_code: p }),
+                      })
+                      router.push('/dashboard')
+                      router.refresh()
+                    } finally {
+                      setSwitching(false)
+                    }
+                  }}
+                  disabled={switching || isActive}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-60 ${
+                    isActive
+                      ? 'bg-green-600 text-white cursor-default'
+                      : 'text-purple-700 bg-purple-50 hover:bg-purple-100'
+                  }`}
+                >
+                  <RefreshCcw size={16} className={switching && !isActive ? 'animate-spin' : ''} />
+                  <span className="truncate">{isActive ? `✓ ${label}` : label}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+        {/* Demo-only legacy switcher (kept for backward compat) */}
+        {isDemo && demoSecondaryProgram && !isMultiProgram && (
           <button
             onClick={handleSwitchProgram}
             disabled={switching}
