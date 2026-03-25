@@ -51,6 +51,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
   const [rows, setRows] = useState(members)
   const [saving, setSaving] = useState<string | null>(null)
   const [canceling, setCanceling] = useState<string | null>(null)
+  const [resendingInvite, setResendingInvite] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
 
@@ -117,6 +118,23 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
     const matchStatus = !filterStatus || m.subscription_status === filterStatus
     return matchSearch && matchStatus
   })
+
+  async function resendInvite(userId: string) {
+    setResendingInvite(userId)
+    try {
+      const res = await fetch('/api/admin/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, resend: true }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      alert('Invite sent!')
+    } catch {
+      alert('Failed to send invite')
+    } finally {
+      setResendingInvite(null)
+    }
+  }
 
   async function grantAccess(userId: string, program: ProgramId) {
     setSaving(userId)
@@ -437,6 +455,14 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
                     {m.subscription_status === 'active' && (
                       <span className="text-xs text-green-600 font-medium">✓ Active</span>
                     )}
+                    {/* Resend Invite */}
+                    <button
+                      onClick={() => resendInvite(m.id)}
+                      disabled={resendingInvite === m.id}
+                      className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg border border-blue-200 disabled:opacity-50 transition-colors whitespace-nowrap"
+                    >
+                      {resendingInvite === m.id ? 'Sending…' : 'Resend Invite'}
+                    </button>
                   </div>
                 </td>
               </tr>

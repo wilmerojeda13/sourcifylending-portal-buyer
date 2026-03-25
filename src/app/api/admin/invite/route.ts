@@ -47,7 +47,7 @@ async function sendInviteEmail(
           </a>
         </div>
         <p style="font-size:13px;color:#6b7280;text-align:center;margin:0 0 8px">
-          This link is only valid for <strong>72 hours</strong> and can only be used once.
+          This link is only valid for <strong>7 days</strong> and can only be used once.
         </p>
         <p style="font-size:13px;color:#6b7280;text-align:center;margin:0">
           If you didn't expect this email, you can safely ignore it.
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
   }
 
   const inviteToken = uuidv4()
-  const inviteExpiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
+  const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const { error: updateError } = await supabase
     .from('profiles')

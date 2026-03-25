@@ -166,7 +166,32 @@ export async function GET(request: NextRequest) {
           || ''
 
         if (!existing) {
-          // New Google OAuth user — create profile
+          // Check if a profile with this email already exists under a different auth user
+          // (admin-created accounts land here when client tries Google OAuth)
+          if (user.email) {
+            const serviceClient = createServerClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.SUPABASE_SERVICE_ROLE_KEY!,
+              { cookies: { getAll() { return [] }, setAll() {} } }
+            )
+            const { data: emailProfile } = await serviceClient
+              .from('profiles')
+              .select('id, invite_status')
+              .eq('email', user.email)
+              .neq('id', user.id)
+              .maybeSingle()
+
+            if (emailProfile) {
+              // Email already has a portal account — sign out the new OAuth user
+              // and redirect them to login with a clear message
+              await supabase.auth.signOut()
+              return NextResponse.redirect(
+                `${origin}/login?error=account_exists&email=${encodeURIComponent(user.email)}`
+              )
+            }
+          }
+
+          // Truly new user — create profile
           await supabase.from('profiles').insert({
             id: user.id,
             email: user.email ?? '',

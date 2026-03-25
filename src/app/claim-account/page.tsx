@@ -81,7 +81,7 @@ export default async function ClaimAccountPage({ searchParams }: PageProps) {
     return (
       <ErrorCard
         title="Link Expired"
-        message="This invite link has expired (links are valid for 72 hours). Please contact SourcifyLending to get a new invite."
+        message="This invite link has expired (links are valid for 7 days). Please contact SourcifyLending to get a new invite."
         linkLabel="Contact Support →"
         linkHref="mailto:support@sourcifylending.com"
       />
