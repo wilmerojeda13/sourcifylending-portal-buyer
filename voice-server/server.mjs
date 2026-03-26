@@ -214,10 +214,7 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
             sendText: (text) => {
               if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
-                  client_content: {
-                    turns: [{ role: 'user', parts: [{ text }] }],
-                    turn_complete: true,
-                  }
+                  realtime_input: { text }
                 }))
               }
             },
