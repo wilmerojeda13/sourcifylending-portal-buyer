@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { countActiveReferrals, AFFILIATE_FREE_ACCESS_THRESHOLD, AFFILIATE_QUALIFICATION_DAYS } from '@/lib/affiliates'

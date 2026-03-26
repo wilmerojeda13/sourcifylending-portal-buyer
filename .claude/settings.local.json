@@ -194,7 +194,17 @@
       "Bash(find ./supabase -type f -name *.sql)",
       "Bash(grep -r \"OpportunitiesClient\\\\|opportunity_viewed\\\\|application_attempted\" ./src --include=*.tsx --include=*.ts -l)",
       "Bash(grep -r \"account_opportunities\\\\|AccountOpportunity\" ./src --include=*.ts --include=*.tsx -l)",
-      "Bash(find '/c/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src' -type f \\\\\\(-name *.sql -o -name *migration* -o -name *schema* \\\\\\))"
+      "Bash(find '/c/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src' -type f \\\\\\(-name *.sql -o -name *migration* -o -name *schema* \\\\\\))",
+      "Bash(dir \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\src\\\\app\\\\api\" /b)",
+      "Bash(dir \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\src\\\\app\\\\api\\\\tasks\" /b)",
+      "Bash(dir \"C:\\\\Users\\\\abelf\\\\OneDrive\\\\Desktop\\\\Apps\\\\sourcifylending web portal app\\\\src\\\\app\\\\api\\\\outcomes\" /b)",
+      "Bash(grep -n \"opportunity_user_status\\\\|account_opportunities\" \"/c/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/supabase/migrations\"/*.sql)",
+      "Bash(find 'C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/supabase' -type f -name *.sql)",
+      "Bash(grep -h \"CREATE TABLE\\\\|ALTER TABLE.*ENABLE ROW LEVEL SECURITY\" \"C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/supabase/migrations\"/*.sql)",
+      "Bash(grep -h \"CREATE TABLE\\\\|ALTER TABLE.*ENABLE ROW LEVEL SECURITY\" *.sql)",
+      "Bash(find '/c/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app' -type f -name *theme* -o -name *Theme*)",
+      "Bash(find '/c/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src' -type f -name *Provider* -o -name *provider* -o -name *context*)",
+      "Bash(grep -r darkMode '/c/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app' --include=*.ts --include=*.js --include=*.tsx)"
     ]
   }
 }
