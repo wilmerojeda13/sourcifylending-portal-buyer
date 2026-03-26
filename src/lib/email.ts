@@ -5,7 +5,12 @@
 import { Resend } from 'resend'
 import type { AnalyzerResult } from '@/types'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy-initialize so the constructor never runs at build time (no env vars available)
+let _resend: Resend | null = null
+function getResend(): Resend {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY)
+  return _resend
+}
 
 // Always use the verified subdomain — sourcifylending.com is NOT verified in Resend
 const FROM_ADDRESS = 'SourcifyLending <no-reply@ai.sourcifylending.com>'
@@ -225,7 +230,7 @@ export async function sendAnalyzerResultEmail({
 </html>`
 
   try {
-    const { error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
       from: FROM_ADDRESS,
       to: toEmail,
       subject: `Your Credit Readiness Analysis — ${result.readiness_status}`,
@@ -312,7 +317,7 @@ export async function sendWelcomeEmail({
 </html>`
 
   try {
-    const { error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
       from: FROM_ADDRESS,
       to: toEmail,
       subject: `Welcome to SourcifyLending — Your portal is ready`,
@@ -548,7 +553,7 @@ export async function sendUnderwritingCompleteEmail({
 </html>`
 
   try {
-    const { error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
       from: FROM_ADDRESS,
       to: toEmail,
       subject: isRenewal
@@ -698,7 +703,7 @@ export async function sendPaymentReminderEmail({
 </html>`
 
   try {
-    const { error } = await resend.emails.send({ from: FROM_ADDRESS, to: toEmail, subject: c.subject, html })
+    const { error } = await getResend().emails.send({ from: FROM_ADDRESS, to: toEmail, subject: c.subject, html })
     if (error) return { success: false, error: error.message }
     return { success: true }
   } catch (err) {
@@ -801,7 +806,7 @@ export async function sendWelcomeAgreementConfirmation({
 </html>`
 
   try {
-    const { error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
       from: FROM_ADDRESS,
       to: toEmail,
       subject: 'Service Agreement Signed — SourcifyLending',
@@ -923,7 +928,7 @@ export async function sendChargeConfirmationEmail({
 </html>`
 
   try {
-    const { error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
       from: FROM_ADDRESS,
       to: toEmail,
       subject: `Payment Confirmed — ${formattedAmount} · SourcifyLending`,
