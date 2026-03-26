@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Megaphone, Plus, ChevronLeft } from 'lucide-react'

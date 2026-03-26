@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { PhoneCall, Users, Megaphone, CheckCircle, TrendingUp, ShieldOff, ArrowRight, Activity } from 'lucide-react'

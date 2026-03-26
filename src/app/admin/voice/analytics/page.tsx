@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BarChart3, Phone, TrendingUp, Clock, CheckCircle, XCircle, PhoneOff, Voicemail } from 'lucide-react'
 
