@@ -7,7 +7,7 @@ export const TRACKED_LINK_MAP: Record<string, string> = {
   'duns':           'https://www.dnb.com/duns-number/get-a-duns.html',
   'experian-biz':   'https://www.experian.com/small-business/business-credit-building.jsp',
   'equifax-biz':    'https://www.equifax.com/business/credit/',
-  'nav':            'https://www.nav.com',
+  'nav':            'https://app.nav.com/',
 
   // ── Net-30 Vendors (report to D&B / Experian) ─────────────────────────────
   'uline':          'https://www.uline.com/BL_8567/Open-an-Account',

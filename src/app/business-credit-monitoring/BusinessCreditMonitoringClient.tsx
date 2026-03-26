@@ -245,7 +245,7 @@ export default function BusinessCreditMonitoringClient() {
             {navConnected ? 'Sync Nav Data' : 'Integrate Nav'}
           </button>
           <a
-            href="https://app.sourcifylending.com/go/nav"
+            href="/go/nav"
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-blue-600 hover:text-blue-700 underline"
@@ -562,7 +562,7 @@ export default function BusinessCreditMonitoringClient() {
             <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
               <p className="text-xs font-bold text-blue-800 mb-2">Step 1 — Open Your Nav Dashboard</p>
               <a
-                href="https://app.sourcifylending.com/go/nav"
+                href="/go/nav"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
