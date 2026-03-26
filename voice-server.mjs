@@ -92,14 +92,36 @@ function geminiToTwilioAudio(base64Pcm) {
 
 // ─── Opt-out detection ─────────────────────────────────────────
 const OPT_OUT_PHRASES = [
+  // English
   'stop', 'remove me', 'remove us', 'do not call', "don't call",
   'dont call', 'not interested permanently', 'never call', 'take me off',
   'unsubscribe', 'stop calling', 'put me on the do not call list',
+  // Spanish
+  'no me llames', 'no llames', 'quítame de la lista', 'no me interesa',
+  'bórrame', 'elimíname', 'no vuelvas a llamar', 'no quiero que llamen',
+  'ponme en la lista de no llamar', 'no llamar', 'deja de llamar',
 ]
 
 function detectOptOut(text) {
   const lower = text.toLowerCase()
   return OPT_OUT_PHRASES.some(p => lower.includes(p))
+}
+
+// ─── Language detection ─────────────────────────────────────────
+const LANGUAGE_MARKERS = {
+  spanish: ['[LANGUAGE:spanish]', '[IDIOMA:español]', '[LANGUAGE:es]'],
+  french:  ['[LANGUAGE:french]',  '[LANGUAGE:fr]'],
+  portuguese: ['[LANGUAGE:portuguese]', '[LANGUAGE:pt]'],
+  mandarin:   ['[LANGUAGE:mandarin]',   '[LANGUAGE:zh]'],
+  hindi:      ['[LANGUAGE:hindi]',      '[LANGUAGE:hi]'],
+}
+
+function detectLanguageSwitch(text) {
+  const lower = text.toLowerCase()
+  for (const [lang, markers] of Object.entries(LANGUAGE_MARKERS)) {
+    if (markers.some(m => lower.includes(m.toLowerCase()))) return lang
+  }
+  return null
 }
 
 function detectDisposition(text) {
@@ -279,6 +301,15 @@ OBJECTIONS:
 - Is this a loan: "${prompt.objection_is_this_loan ?? "No, we're not a lender. We're an advisory platform that helps owners build and track their business credit profile."}"
 - Remove me: "${prompt.objection_remove_me ?? "Absolutely, removing you now. Sorry for the interruption. Have a great day."}"
 
+MULTILINGUAL RULES (CRITICAL):
+- Listen for the language the prospect speaks
+- If they respond in Spanish, IMMEDIATELY switch to Spanish for ALL remaining responses
+- If they respond in French, Portuguese, or any other language, switch to that language
+- When you detect a language switch, output [LANGUAGE:spanish] (or the detected language) on its own line
+- Continue the full conversation in their language — pitch, objection handling, and close
+- Spanish Sarah persona: "Hola, le habla Sara de SourcifyLending..."
+- Never mix languages mid-sentence
+
 STRICT RULES:
 - Keep opening under 15 seconds
 - Never say "lender", "loan", "guaranteed", "approved"
@@ -304,6 +335,13 @@ Opening: "Hi, this is Sarah from SourcifyLending. I'm reaching out to see who ha
 
 If you reach the decision maker: "We help business owners understand funding readiness through our portal. I can send you the free analyzer link so you can see where you stand. Would that be helpful?"
 
+MULTILINGUAL (CRITICAL):
+- If the prospect speaks Spanish, immediately switch ALL responses to Spanish and output [LANGUAGE:spanish]
+- Spanish opening: "Hola, le habla Sara de SourcifyLending. Le llamo para ver quién maneja el crédito empresarial de la compañía."
+- Spanish pitch: "Ayudamos a dueños de negocios a entender su preparación financiera. ¿Le puedo enviar el enlace del analizador gratuito?"
+- Continue full conversation in their language — never switch back mid-call
+- Apply same rule to French, Portuguese, or any other detected language
+
 At call end output: [DISPOSITION:code] [SUMMARY:brief summary]
 Valid codes: decision_maker, gatekeeper, voicemail, no_answer, bad_number, wrong_number, business_closed, personal_line, not_interested, do_not_call, send_link, callback_requested, interested, transferred_live`
 }
@@ -315,15 +353,16 @@ class CallSession {
     this.callId        = callId
     this.leadId        = leadId
     this.campaignId    = campaignId
-    this.streamSid     = null
-    this.geminiSession = null
-    this.textBuffer    = ''
-    this.disposition   = null
-    this.summary       = null
-    this.startTime     = Date.now()
-    this.callTimer     = null
-    this.closed        = false
-    this.audioChunks   = 0
+    this.streamSid      = null
+    this.geminiSession  = null
+    this.textBuffer     = ''
+    this.disposition    = null
+    this.summary        = null
+    this.detectedLang   = 'english'
+    this.startTime      = Date.now()
+    this.callTimer      = null
+    this.closed         = false
+    this.audioChunks    = 0
   }
 
   async initialize() {
@@ -358,6 +397,18 @@ class CallSession {
             this.disposition = 'do_not_call'
             console.log(`[SESSION ${this.callId}] Opt-out detected`)
             this.handleOptOut()
+          }
+
+          // Detect language switch
+          const lang = detectLanguageSwitch(text)
+          if (lang && lang !== this.detectedLang) {
+            this.detectedLang = lang
+            console.log(`[SESSION ${this.callId}] Language switched to: ${lang}`)
+            this.logEvent('language_detected', { language: lang, text_snippet: text.slice(0, 100) })
+            // Update call record with detected language
+            if (this.callId) {
+              supabase.from('voice_calls').update({ detected_language: lang }).eq('id', this.callId).catch(() => {})
+            }
           }
 
           // Detect disposition
@@ -470,11 +521,12 @@ class CallSession {
     // Update call record
     if (this.callId) {
       const updates = {
-        status:          'completed',
-        ended_at:        new Date().toISOString(),
-        duration_seconds: duration,
-        transcription:   this.textBuffer.trim() || null,
-        summary:         this.summary,
+        status:            'completed',
+        ended_at:          new Date().toISOString(),
+        duration_seconds:  duration,
+        transcription:     this.textBuffer.trim() || null,
+        summary:           this.summary,
+        detected_language: this.detectedLang,
       }
       if (this.disposition) updates.disposition = this.disposition
 
