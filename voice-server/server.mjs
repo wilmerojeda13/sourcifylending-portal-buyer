@@ -189,9 +189,9 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
         const raw = data.toString()
         const msg = JSON.parse(raw)
 
-        // Log first message or any error/unexpected message
-        if (!resolved || msg.error) {
-          console.log('[GEMINI] Message:', raw.slice(0, 300))
+        // Log all non-audio messages for debugging
+        if (!resolved || msg.error || msg.serverContent?.turnComplete) {
+          console.log('[GEMINI] Message:', raw.slice(0, 400))
         }
 
         // Setup complete
@@ -199,22 +199,28 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
           console.log('[GEMINI] Setup complete — session ready')
           resolved = true
           resolve({
+            // Send audio to Gemini (Twilio mulaw→PCM already converted by caller)
             send: (audioBase64) => {
               if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
-                  realtime_input: {
+                  realtimeInput: {
                     audio: {
                       data: audioBase64,
-                      mime_type: 'audio/pcm;rate=16000',
+                      mimeType: 'audio/pcm;rate=16000',
                     }
                   }
                 }))
               }
             },
+            // Send text as a structured turn — triggers model to respond
             sendText: (text) => {
               if (ws.readyState === WebSocket.OPEN) {
+                console.log('[GEMINI] Sending clientContent text trigger')
                 ws.send(JSON.stringify({
-                  realtime_input: { text }
+                  clientContent: {
+                    turns: [{ role: 'user', parts: [{ text }] }],
+                    turnComplete: true,
+                  }
                 }))
               }
             },
@@ -224,12 +230,14 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
           })
         }
 
-        // Model response
-        if (msg.server_content?.model_turn?.parts) {
-          for (const part of msg.server_content.model_turn.parts) {
-            // Audio output
-            if (part.inline_data?.mime_type?.startsWith('audio/pcm') && part.inline_data.data) {
-              onAudio(part.inline_data.data)
+        // Model response — Gemini uses camelCase JSON field names
+        const parts = msg.serverContent?.modelTurn?.parts
+        if (parts) {
+          for (const part of parts) {
+            // Audio output (inlineData, mimeType — camelCase)
+            if (part.inlineData?.mimeType?.startsWith('audio/') && part.inlineData.data) {
+              console.log('[GEMINI] Audio chunk → Twilio')
+              onAudio(part.inlineData.data)
             }
             // Text output (for disposition detection)
             if (part.text) {
@@ -239,8 +247,8 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
         }
 
         // Turn complete
-        if (msg.server_content?.turn_complete) {
-          // Good — model finished speaking
+        if (msg.serverContent?.turnComplete) {
+          console.log('[GEMINI] Turn complete')
         }
       } catch (e) {
         console.error('[GEMINI] Message parse error:', e.message)
