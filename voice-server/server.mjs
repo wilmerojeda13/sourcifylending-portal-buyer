@@ -18,8 +18,8 @@ const PORT             = parseInt(process.env.PORT ?? process.env.VOICE_SERVER_P
 const GEMINI_API_KEY   = process.env.GEMINI_API_KEY             ?? ''
 const SUPABASE_URL     = process.env.NEXT_PUBLIC_SUPABASE_URL   ?? ''
 const SUPABASE_KEY     = process.env.SUPABASE_SERVICE_ROLE_KEY  ?? ''
-const GEMINI_MODEL     = 'models/gemini-2.0-flash-live-001'   // GA Live API model (requires Live API-enabled key)
-const GEMINI_API_VER   = 'v1beta'                             // v1beta for GA Live API
+const GEMINI_MODEL     = 'models/gemini-3.1-flash-live-preview' // Live API model available on this key
+const GEMINI_API_VER   = 'v1beta'                               // v1beta for Live API
 const VOICE_NAME       = 'Aoede'  // Female voice — professional and natural
 const MAX_CALL_SECONDS = 120
 
