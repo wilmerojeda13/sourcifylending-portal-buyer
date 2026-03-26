@@ -212,13 +212,19 @@ export async function GET(request: NextRequest) {
           }).then(() => {})
         }
 
-        // Send admin notification for any new account (email/password or OAuth).
-        // Guard: user.created_at within the last 60 min = fresh signup confirming email.
-        const accountAgeMs = user.created_at
-          ? Date.now() - new Date(user.created_at).getTime()
+        // Send admin notification for new accounts.
+        // Triggers when:
+        //   - Profile didn't exist before (truly new user, any auth method)
+        //   - OR email was just confirmed within the last 5 min (email/password flow
+        //     where profile may have been pre-created by admin invite)
+        const isNewProfile = !existing
+        const confirmedAgeMs = user.confirmed_at
+          ? Date.now() - new Date(user.confirmed_at).getTime()
           : Infinity
-        if (accountAgeMs < 60 * 60 * 1000) {
-          const source = existing ? 'email_password' : 'google_oauth'
+        const isFreshConfirmation = confirmedAgeMs < 5 * 60 * 1000 // confirmed in last 5 min
+
+        if (isNewProfile || isFreshConfirmation) {
+          const source = isNewProfile ? 'google_oauth' : 'email_password'
           sendNewSignupNotification(user.email ?? '', fullName)
           logPortalEvent({
             userId: user.id,

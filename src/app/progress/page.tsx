@@ -110,6 +110,7 @@ function ProgressPage() {
   const markComplete = async (taskId: string) => {
     if (!isActive) { toast.error('Reactivate subscription to complete tasks'); return }
     const now = new Date().toISOString()
+    const task = tasks.find((t) => t.task_id === taskId)
     const { error } = await supabase
       .from('tasks')
       .update({ status: 'completed', completed_at: now })
@@ -128,8 +129,35 @@ function ProgressPage() {
 
     // Refresh
     const { data: refreshed } = await supabase.from('tasks').select('*').eq('user_id', tasks[0]?.user_id).order('sort_order')
-    setTasks(refreshed || [])
+    const updatedTasks = refreshed || []
+    setTasks(updatedTasks)
     toast.success('Task marked complete!')
+
+    // Notify admin (fire-and-forget)
+    const completedCount = updatedTasks.filter((t) => t.status === 'completed').length
+    const totalCount = updatedTasks.length
+    const completedStage = task?.stage
+    const stageTasksDone = completedStage
+      ? updatedTasks.filter((t) => t.stage === completedStage && t.status === 'completed').length
+      : 0
+    const stageTasksTotal = completedStage
+      ? updatedTasks.filter((t) => t.stage === completedStage).length
+      : 0
+    const isStageComplete = completedStage && stageTasksDone === stageTasksTotal && stageTasksTotal > 0
+
+    if (isStageComplete) {
+      fetch('/api/admin/alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'stage_complete', stage: completedStage, completedCount, totalCount }),
+      }).catch(() => {})
+    } else {
+      fetch('/api/admin/alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'task_complete', taskTitle: task?.title, taskId, completedCount, totalCount }),
+      }).catch(() => {})
+    }
   }
 
   const completed = tasks.filter((t) => t.status === 'completed').length
