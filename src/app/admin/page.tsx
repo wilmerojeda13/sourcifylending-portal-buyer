@@ -132,10 +132,17 @@ export default async function AdminHubPage() {
     },
     {
       href: '/admin/training',
-      label: 'Training Videos',
-      desc: 'Add, edit, and publish training videos shown in the client Training Center',
+      label: 'Client Training Videos',
+      desc: 'Add, edit, and publish training videos shown in the client portal Training Center',
       icon: PlayCircle,
       color: 'bg-indigo-600',
+    },
+    {
+      href: '/admin/affiliates/training',
+      label: 'Affiliate Training Videos',
+      desc: 'Add, edit, and publish training videos shown in the affiliate portal Training Center',
+      icon: PlayCircle,
+      color: 'bg-violet-600',
     },
   ]
 
