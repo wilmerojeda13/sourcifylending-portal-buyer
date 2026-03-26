@@ -12,6 +12,7 @@
 import { createServer } from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import { createClient } from '@supabase/supabase-js'
+import { getAvailableSlots, createCalendarEvent } from './calendar.mjs'
 
 // ─── Config ────────────────────────────────────────────────────
 const PORT             = parseInt(process.env.PORT ?? process.env.VOICE_SERVER_PORT ?? '3002')
@@ -160,8 +161,37 @@ function extractSummary(text) {
   return m ? m[1].trim() : null
 }
 
+// ─── Personalized opener builder ───────────────────────────────
+function buildPersonalizedOpener(lead, settings) {
+  const ownerName   = lead?.owner_name    || ''
+  const business    = lead?.business_name || ''
+  const isWarm      = !!(lead?.prior_inquiry_flag || lead?.prior_facebook_flag || lead?.prior_portal_flag || lead?.prior_analyzer_flag)
+
+  const firstName   = ownerName.trim().split(/\s+/)[0] || ''
+  // Clean business name: remove trailing LLC/Inc punctuation oddities
+  const cleanBiz    = business.replace(/[,.]?\s*(LLC|Inc|Corp|Co|Ltd)\.?\s*$/i, '').trim()
+
+  let opener
+  if (isWarm && firstName && cleanBiz) {
+    opener = `Hi, is this ${firstName}? It's SourcifyLending — you had shown interest before in funding options for ${cleanBiz}, and I just wanted to circle back to see if that's still something you're working on.`
+  } else if (isWarm && firstName) {
+    opener = `Hi, is this ${firstName}? It's SourcifyLending — you had shown some interest in funding options before. I just wanted to follow up to see where things stand.`
+  } else if (!isWarm && firstName && cleanBiz) {
+    opener = `Hi, is this ${firstName}? This is SourcifyLending. I'm reaching out regarding ${cleanBiz} to see who handles business funding or credit strategy for the company.`
+  } else if (!isWarm && firstName) {
+    opener = `Hi, is this ${firstName}? This is SourcifyLending. I was reaching out to see if you're the one handling business funding for the company.`
+  } else if (cleanBiz) {
+    opener = `Hi, this is SourcifyLending. I'm calling regarding ${cleanBiz}. Who handles business funding or credit strategy there?`
+  } else {
+    opener = `Hi, this is SourcifyLending. I'm reaching out to see who handles business funding or business credit strategy for the company.`
+  }
+
+  console.log('[PERSONALIZE] Generated opener:', opener.slice(0, 100))
+  return opener
+}
+
 // ─── Gemini Live session ────────────────────────────────────────
-async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
+async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, onClose) {
   if (!GEMINI_API_KEY) {
     console.warn('[GEMINI] No API key — audio passthrough only')
     return null
@@ -198,7 +228,57 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
           },
           system_instruction: {
             parts: [{ text: systemPrompt }]
-          }
+          },
+          tools: [{
+            function_declarations: [
+              {
+                name: 'check_availability',
+                description: 'Check Abel\'s Google Calendar for available demo slots. Call this when a qualified lead agrees to book a demo.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    num_slots: { type: 'integer', description: 'Number of slots to return, usually 2 or 3' }
+                  }
+                }
+              },
+              {
+                name: 'book_appointment',
+                description: 'Book a demo appointment on the calendar. Call this after the lead has selected a time slot.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    slot_index:    { type: 'integer', description: 'The index of the chosen slot from check_availability (0, 1, or 2)' },
+                    lead_email:    { type: 'string',  description: 'Lead\'s email address for the calendar invite' },
+                    lead_name:     { type: 'string',  description: 'Lead\'s full name' },
+                    business_name: { type: 'string',  description: 'Lead\'s business name' }
+                  },
+                  required: ['slot_index', 'lead_name']
+                }
+              },
+              {
+                name: 'send_analyzer_link',
+                description: 'Log that the free analyzer link should be sent to this lead. Call this when the lead wants info first or booking is not possible.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    reason: { type: 'string', description: 'Why the analyzer link is being sent: warm_lead, no_booking, fallback' }
+                  }
+                }
+              },
+              {
+                name: 'log_qualification',
+                description: 'Log the lead\'s qualification classification.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    classification: { type: 'string', description: 'hot, warm, or cold' },
+                    notes:          { type: 'string', description: 'Brief qualification summary' }
+                  },
+                  required: ['classification']
+                }
+              }
+            ]
+          }]
         }
       }
       ws.send(JSON.stringify(setup))
@@ -261,7 +341,14 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
             },
             close: () => {
               if (!closed) { closed = true; ws.close() }
-            }
+            },
+            sendToolResponse: (functionResponses) => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  toolResponse: { functionResponses }
+                }))
+              }
+            },
           })
         }
 
@@ -284,6 +371,13 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
         // Turn complete
         if (msg.serverContent?.turnComplete) {
           console.log('[GEMINI] Turn complete')
+        }
+
+        // Tool calls from Gemini
+        if (msg.toolCall?.functionCalls?.length) {
+          console.log('[GEMINI] Tool call:', msg.toolCall.functionCalls.map(f => f.name).join(', '))
+          // Dispatch to session-level tool handler via callback
+          onToolCall(msg.toolCall.functionCalls)
         }
       } catch (e) {
         console.error('[GEMINI] Message parse error:', e.message)
@@ -315,102 +409,113 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
 // ─── Load system prompt from DB ────────────────────────────────
 async function loadSystemPrompt(leadId, callId) {
   try {
-    if (!supabase) return getDefaultSystemPrompt()
-    const [
-      { data: prompt },
-      { data: lead },
-      { data: settings },
-    ] = await Promise.all([
-      supabase.from('voice_prompt_versions').select('*').eq('is_active', true).limit(1).single(),
-      leadId ? supabase.from('voice_leads').select('*').eq('id', leadId).single() : Promise.resolve({ data: null }),
-      supabase.from('voice_agent_settings').select('*').eq('id', 'default').single(),
-    ])
+    let lead     = null
+    let settings = null
 
-    if (!prompt) {
-      return getDefaultSystemPrompt()
+    if (supabase) {
+      const [leadRes, settingsRes] = await Promise.all([
+        leadId ? supabase.from('voice_leads').select('*').eq('id', leadId).single() : Promise.resolve({ data: null }),
+        supabase.from('voice_agent_settings').select('*').eq('id', 'default').single(),
+      ])
+      lead     = leadRes.data
+      settings = settingsRes.data
     }
 
-    const analyzerUrl   = settings?.analyzer_url ?? 'https://app.sourcifylending.com/analyzer'
-    const transferNum   = settings?.transfer_number ?? 'our advisor'
-    const businessName  = lead?.business_name ?? 'your business'
-    const ownerName     = lead?.owner_name ?? ''
-    const leadSource    = lead?.lead_source ?? 'other'
+    const opener = buildPersonalizedOpener(lead, settings)
 
-    const openingMap = {
-      purchased: prompt.opening_purchased,
-      facebook:  prompt.opening_facebook,
-      inbound:   prompt.opening_inbound,
-      other:     prompt.opening_other,
+    // Log the opener for QA
+    if (callId && supabase) {
+      supabase.from('voice_calls').update({ generated_opener: opener }).eq('id', callId).catch(() => {})
     }
-    const opening = openingMap[leadSource] ?? openingMap.other ?? 'Hi, this is Sarah from SourcifyLending.'
 
-    return `${prompt.system_prompt}
+    const analyzerUrl      = settings?.analyzer_url      ?? process.env.ANALYZER_URL ?? 'https://app.sourcifylending.com/analyzer'
+    const transferNum      = settings?.transfer_number   ?? ''
+    const calendarEnabled  = !!(settings?.google_refresh_token || process.env.GOOGLE_REFRESH_TOKEN)
 
-CALL CONTEXT:
-- Business: ${businessName}
-- Contact: ${ownerName}
-- Lead Source: ${leadSource}
-- Analyzer URL: ${analyzerUrl}
-- Transfer to: ${transferNum}
-
-CALL OPENING: "${opening}"
-
-If you reach the decision maker, say:
-"We help business owners understand funding readiness and business credit options through our portal. I can send you the free analyzer link so you can see where you stand. Would that be helpful?"
-
-OBJECTIONS:
-- Not interested: "${prompt.objection_not_interested ?? "Totally understand. Feel free to visit SourcifyLending dot com if things change. Have a great day."}"
-- Busy: "${prompt.objection_busy ?? "No problem. Can I send you a quick link? Takes 2 minutes on your own time."}"
-- Send info: "${prompt.objection_send_info ?? "Absolutely. I can send the free analyzer link right now. What's the best number or email?"}"
-- Is this a loan: "${prompt.objection_is_this_loan ?? "No, we're not a lender. We're an advisory platform that helps owners build and track their business credit profile."}"
-- Remove me: "${prompt.objection_remove_me ?? "Absolutely, removing you now. Sorry for the interruption. Have a great day."}"
-
-LANGUAGE RULES (CRITICAL):
-- ALWAYS begin the call in English, no matter what. Never open in Spanish or any other language.
-- Only switch languages if the prospect speaks to you in a language other than English first.
-- If they respond in Spanish, IMMEDIATELY switch to Spanish for ALL remaining responses and output [LANGUAGE:spanish]
-- If they respond in French, Portuguese, or any other language, switch to that language
-- When you detect a language switch, output [LANGUAGE:spanish] (or the detected language) on its own line
-- Continue the full conversation in their language — pitch, objection handling, and close
-- Spanish Sarah persona: "Hola, le habla Sara de SourcifyLending..."
-- Never mix languages mid-sentence
-
-STRICT RULES:
-- Keep opening under 15 seconds
-- Never say "lender", "loan", "guaranteed", "approved"
-- Ask one question at a time
-- Exit quickly on clear disinterest
-- If you detect voicemail/automated greeting, immediately output [DISPOSITION:voicemail]
-
-AT CALL END, output on its own line:
-[DISPOSITION:code] [SUMMARY:one sentence]
-
-Valid codes: decision_maker, gatekeeper, voicemail, no_answer, bad_number, wrong_number, business_closed, personal_line, not_interested, do_not_call, send_link, callback_requested, interested, transferred_live`
-
+    return buildSystemPrompt(opener, analyzerUrl, transferNum, calendarEnabled)
   } catch (err) {
     console.error('[VOICE SERVER] Error loading prompt:', err.message)
-    return getDefaultSystemPrompt()
+    return buildSystemPrompt(
+      "Hi, this is SourcifyLending. I'm reaching out to see who handles business funding or business credit strategy for the company.",
+      'https://app.sourcifylending.com/analyzer',
+      '',
+      false
+    )
   }
 }
 
-function getDefaultSystemPrompt() {
-  return `You are Sarah, a professional business credit advisor at SourcifyLending. Speak in a calm, confident, professional female voice. You are not a lender. Keep sentences short. Ask one question at a time. Your goal is to qualify the decision maker and offer a free business credit analyzer link.
+function buildSystemPrompt(opener, analyzerUrl, transferNum, calendarEnabled) {
+  return `You are Sarah, a business credit advisor at SourcifyLending making an outbound call.
 
-Opening: "Hi, this is Sarah from SourcifyLending. I'm reaching out to see who handles business credit or business funding strategy for the company."
+VOICE & TONE:
+- Sound warm, natural, conversational — not scripted or robotic
+- Keep every response to 1-2 short sentences
+- Ask only ONE question at a time
+- Use contractions naturally (I'm, we're, you'd, it's)
+- Use light transitions sparingly: "got it", "makes sense", "okay", "fair enough"
+- Stop talking immediately if the lead interrupts or starts speaking
+- Vary your phrasing — don't repeat the same exact sentences
 
-If you reach the decision maker: "We help business owners understand funding readiness through our portal. I can send you the free analyzer link so you can see where you stand. Would that be helpful?"
+YOUR OPENING LINE (say this first, then pause and wait):
+"${opener}"
 
-LANGUAGE RULES (CRITICAL):
-- ALWAYS start in English. Never open in Spanish or any other language.
-- Only switch if the prospect speaks to you in another language first.
-- If they respond in Spanish, immediately switch ALL responses to Spanish and output [LANGUAGE:spanish]
-- Spanish opening (only if they spoke Spanish first): "Hola, le habla Sara de SourcifyLending. Le llamo para ver quién maneja el crédito empresarial de la compañía."
-- Spanish pitch: "Ayudamos a dueños de negocios a entender su preparación financiera. ¿Le puedo enviar el enlace del analizador gratuito?"
-- Continue full conversation in their language — never switch back mid-call
-- Apply same rule to French, Portuguese, or any other detected language
+YOUR GOAL — in this order:
+1. Confirm you reached the right person
+2. Qualify with 2-3 natural questions
+3. If they're actively looking → offer to book a demo on the calendar
+4. If they want info first → send the free analyzer link
+5. If not interested → exit politely and quickly
 
-At call end output: [DISPOSITION:code] [SUMMARY:brief summary]
-Valid codes: decision_maker, gatekeeper, voicemail, no_answer, bad_number, wrong_number, business_closed, personal_line, not_interested, do_not_call, send_link, callback_requested, interested, transferred_live`
+QUALIFICATION QUESTIONS (rotate naturally, ask 2-3 max, not all at once):
+- "Are you actively looking for funding right now, or more just exploring?"
+- "Is this for an existing business?"
+- "About how long has the business been operating?"
+- "Are you mainly looking at funding, business credit, or just seeing what options are out there?"
+- "Have you applied anywhere recently or are you still in early research?"
+- "Are you trying to move on this soon, or still in the looking phase?"
+
+LEAD CLASSIFICATION (internal, don't say these words):
+HOT = actively seeking funding + operating business + decision maker + open to next step → offer booking
+WARM = interested but not ready yet → send analyzer link
+COLD = not interested / wrong contact / no business → exit politely
+
+OBJECTION HANDLING (keep responses SHORT):
+- Busy: "Understood. Quick question before I let you go — are you actively looking for funding right now, or should I just send you the analyzer link?"
+- Not interested: "No problem at all. I appreciate your time."
+- Send info: "Absolutely. I can send you the free analyzer link so you can review it on your own time."
+- Already working with someone: "Got you. Are you still comparing options or pretty locked in?"
+- What is this about: "We help business owners understand their funding readiness and credit options. I was mainly calling to see if it's something you're actively looking at."
+
+${calendarEnabled ? `BOOKING (when lead is HOT and agrees to next step):
+- Say something like: "Based on what you've shared, it sounds like a quick demo would make sense. I can check a couple of openings for you now — want me to do that?"
+- If yes → CALL check_availability tool immediately
+- Present the slots naturally: "I've got a couple openings — [slot 1] or [slot 2]. Which works better for you?"
+- When they choose → CALL book_appointment tool with their selection and email
+- Confirm: "Perfect, I've got you down for [time]. You'll get a confirmation shortly."
+
+BOOKING TRANSITION EXAMPLES:
+- "It sounds like you're actively working on this. The easiest next step is probably a quick demo. I can pull up a couple of openings right now if you're open to it."
+- "Got it. I'd love to just set up a quick demo so we can walk you through the portal. Let me check what's available."` : `BOOKING: Calendar booking is not configured. If the lead is qualified and interested, send the analyzer link instead.`}
+
+ANALYZER LINK:
+- URL: ${analyzerUrl}
+- Use when: lead is WARM, or HOT but doesn't want to book, or as fallback if booking fails
+- Say: "I can send you the free analyzer link so you can see where you stand. It only takes a couple minutes."
+- CALL send_analyzer_link tool to log it
+
+LANGUAGE RULES:
+- ALWAYS start in English — never open in Spanish or any other language
+- Only switch languages if the lead speaks to you in another language first
+- If they respond in Spanish → switch fully to Spanish and output [LANGUAGE:spanish]
+
+STRICT RULES:
+- Never say "someone will follow up" — book it or send the link
+- Never fabricate prior interest unless it was flagged in the lead record
+- Never say "loan", "guaranteed", "approved"
+- Never give long explanations — keep it moving
+- At call end, output on its own line: [DISPOSITION:code] [SUMMARY:one sentence]
+
+Valid disposition codes: demo_booked, decision_maker, gatekeeper, voicemail, no_answer, bad_number, wrong_number, business_closed, personal_line, not_interested, do_not_call, send_link, callback_requested, interested, transferred_live`
 }
 
 // ─── Call session management ────────────────────────────────────
@@ -420,22 +525,39 @@ class CallSession {
     this.callId        = callId
     this.leadId        = leadId
     this.campaignId    = campaignId
-    this.streamSid      = null
-    this.geminiSession  = null
-    this.textBuffer     = ''
-    this.disposition    = null
-    this.summary        = null
-    this.detectedLang   = 'english'
-    this.startTime      = Date.now()
-    this.callTimer      = null
-    this.silenceTimer   = null
-    this.userSpeaking   = false
-    this.closed         = false
-    this.audioChunks    = 0
+    this.streamSid        = null
+    this.geminiSession    = null
+    this.textBuffer       = ''
+    this.disposition      = null
+    this.summary          = null
+    this.detectedLang     = 'english'
+    this.startTime        = Date.now()
+    this.callTimer        = null
+    this.silenceTimer     = null
+    this.userSpeaking     = false
+    this.closed           = false
+    this.audioChunks      = 0
+    this.availableSlots   = []    // cached slots from check_availability
+    this.bookingData      = null  // set when booking is confirmed
+    this.qualificationClass = null // hot/warm/cold
+    this.calendarSettings = null  // loaded from DB
   }
 
   async initialize() {
     console.log(`[SESSION ${this.callId}] Initializing`)
+
+    // Load calendar settings
+    if (supabase) {
+      const { data: settings } = await supabase.from('voice_agent_settings').select('*').eq('id', 'default').single()
+      this.calendarSettings = settings || {}
+    } else {
+      this.calendarSettings = {}
+    }
+    // Merge env var overrides
+    if (process.env.GOOGLE_REFRESH_TOKEN) this.calendarSettings.google_refresh_token = process.env.GOOGLE_REFRESH_TOKEN
+    if (process.env.GOOGLE_CLIENT_ID)     this.calendarSettings.google_client_id     = process.env.GOOGLE_CLIENT_ID
+    if (process.env.GOOGLE_CLIENT_SECRET) this.calendarSettings.google_client_secret = process.env.GOOGLE_CLIENT_SECRET
+    if (process.env.GOOGLE_CALENDAR_ID)   this.calendarSettings.google_calendar_id   = process.env.GOOGLE_CALENDAR_ID
 
     const systemPrompt = await loadSystemPrompt(this.leadId, this.callId)
 
@@ -491,6 +613,8 @@ class CallSession {
           const summ = extractSummary(text)
           if (summ) this.summary = summ
         },
+        // onToolCall
+        (functionCalls) => this.handleToolCalls(functionCalls),
         // onClose
         () => {
           if (!this.closed) this.close('gemini_disconnected')
@@ -576,6 +700,136 @@ class CallSession {
     }
   }
 
+  async handleToolCalls(functionCalls) {
+    const responses = []
+
+    for (const fc of functionCalls) {
+      console.log(`[SESSION ${this.callId}] Tool: ${fc.name}`, JSON.stringify(fc.args || {}))
+      let response
+
+      try {
+        if (fc.name === 'check_availability') {
+          const numSlots = fc.args?.num_slots || 3
+          if (!this.calendarSettings?.google_refresh_token) {
+            response = { error: 'Calendar not configured', slots: [] }
+          } else {
+            const slots = await getAvailableSlots(this.calendarSettings, numSlots)
+            this.availableSlots = slots
+            response = { slots: slots.map(s => ({ index: s.index, speech: s.speech })) }
+            console.log(`[SESSION ${this.callId}] Calendar slots:`, slots.map(s => s.speech).join(', '))
+          }
+
+        } else if (fc.name === 'book_appointment') {
+          const { slot_index = 0, lead_email, lead_name, business_name } = fc.args || {}
+          const slot = this.availableSlots[slot_index]
+          if (!slot) {
+            response = { error: 'Slot not found', success: false }
+          } else {
+            const eventDetails = {
+              slotStart:          slot.isoStart,
+              slotEnd:            slot.isoEnd,
+              timezone:           slot.timezone,
+              leadName:           lead_name || this.leadId || 'Lead',
+              businessName:       business_name || '',
+              email:              lead_email,
+              phone:              '',
+              leadSource:         '',
+              qualificationNotes: this.textBuffer.slice(-500),
+              analyzerLinkSent:   false,
+              callId:             this.callId,
+            }
+
+            try {
+              const event = await createCalendarEvent(this.calendarSettings, eventDetails)
+              this.bookingData = { event, slot, leadEmail: lead_email, leadName: lead_name }
+              this.disposition = 'demo_booked'
+
+              // Store in DB
+              if (this.callId && supabase) {
+                await supabase.from('voice_calls').update({
+                  demo_booked:       true,
+                  calendar_event_id: event.id,
+                  disposition:       'demo_booked',
+                }).eq('id', this.callId)
+
+                await supabase.from('voice_bookings').insert({
+                  call_id:              this.callId,
+                  lead_id:              this.leadId || null,
+                  calendar_event_id:    event.id,
+                  calendar_id:          this.calendarSettings.google_calendar_id || 'primary',
+                  appointment_datetime: slot.isoStart,
+                  duration_minutes:     this.calendarSettings.booking_duration_minutes || 30,
+                  timezone:             slot.timezone,
+                  lead_email:           lead_email,
+                  lead_first_name:      (lead_name || '').split(' ')[0],
+                  lead_last_name:       (lead_name || '').split(' ').slice(1).join(' '),
+                  business_name:        business_name,
+                  meet_link:            event.hangoutLink || event.conferenceData?.entryPoints?.[0]?.uri || null,
+                  booking_status:       'booked',
+                }).catch(e => console.error('[DB] Booking insert error:', e.message))
+              }
+
+              await this.logEvent('demo_booked', {
+                calendar_event_id: event.id,
+                slot:              slot.speech,
+                lead_email,
+                meet_link:         event.hangoutLink
+              })
+
+              response = {
+                success:   true,
+                event_id:  event.id,
+                slot:      slot.speech,
+                meet_link: event.hangoutLink || null,
+                message:   `Booked for ${slot.speech}`
+              }
+              console.log(`[SESSION ${this.callId}] DEMO BOOKED: ${slot.speech} | event: ${event.id}`)
+            } catch (bookErr) {
+              console.error(`[SESSION ${this.callId}] Booking failed:`, bookErr.message)
+              response = { success: false, error: bookErr.message, fallback: 'send_analyzer_link' }
+            }
+          }
+
+        } else if (fc.name === 'send_analyzer_link') {
+          this.disposition = this.disposition || 'send_link'
+          if (this.callId && supabase) {
+            await supabase.from('voice_calls').update({ analyzer_link_sent: true }).eq('id', this.callId).catch(() => {})
+          }
+          if (this.leadId && supabase) {
+            await supabase.from('voice_leads').update({ analyzer_link_sent: true, updated_at: new Date().toISOString() }).eq('id', this.leadId).catch(() => {})
+          }
+          await this.logEvent('analyzer_link_queued', { reason: fc.args?.reason })
+          response = { success: true, message: 'Analyzer link will be sent after the call' }
+
+        } else if (fc.name === 'log_qualification') {
+          const { classification, notes } = fc.args || {}
+          this.qualificationClass = classification
+          if (this.callId && supabase) {
+            await supabase.from('voice_calls').update({
+              lead_classification:  classification,
+              qualification_notes:  notes,
+            }).eq('id', this.callId).catch(() => {})
+          }
+          await this.logEvent('lead_classified', { classification, notes })
+          console.log(`[SESSION ${this.callId}] Classified: ${classification}`)
+          response = { success: true, classification }
+
+        } else {
+          response = { error: `Unknown tool: ${fc.name}` }
+        }
+      } catch (e) {
+        console.error(`[SESSION ${this.callId}] Tool error (${fc.name}):`, e.message)
+        response = { error: e.message }
+      }
+
+      responses.push({ id: fc.id, response })
+    }
+
+    if (this.geminiSession && responses.length) {
+      this.geminiSession.sendToolResponse(responses)
+    }
+  }
+
   async handleOptOut() {
     await this.logEvent('opt_out_detected', { text_buffer: this.textBuffer.slice(-200) })
 
@@ -627,6 +881,15 @@ class CallSession {
       if (this.disposition) updates.disposition = this.disposition
 
       await supabase.from('voice_calls').update(updates).eq('id', this.callId)
+
+      // Ensure post-call actions are completed
+      const finalUpdates = {
+        lead_classification:  this.qualificationClass,
+        analyzer_link_sent:   !this.bookingData && this.disposition === 'send_link',
+        demo_booked:          this.disposition === 'demo_booked',
+      }
+      if (this.disposition) finalUpdates.disposition = this.disposition
+      await supabase.from('voice_calls').update(finalUpdates).eq('id', this.callId).catch(() => {})
     }
 
     // Update lead stats
