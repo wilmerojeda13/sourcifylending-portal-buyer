@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { PhoneCall, Users, Megaphone, CheckCircle, TrendingUp, ShieldOff, ArrowRight, Activity } from 'lucide-react'
+import TestCallWidget from './TestCallWidget'
 
 export default async function VoiceDashboard() {
   const supabase = await createServiceClient()
@@ -140,6 +141,9 @@ export default async function VoiceDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Test Call Widget */}
+      <TestCallWidget />
 
       {/* Quick Actions */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
