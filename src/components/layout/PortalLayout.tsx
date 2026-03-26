@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import GlobalAIPanel from '@/components/ai/GlobalAIPanel'
+import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Bot, FileText, CheckSquare, BarChart2,
@@ -153,7 +154,7 @@ export default function PortalLayout({
   // Hard suspension screen — overrides all portal content
   if (portalBlocked) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-6">
         <div className="max-w-md w-full text-center">
           <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-5">
             <span className="text-3xl">🚫</span>
@@ -194,7 +195,7 @@ export default function PortalLayout({
             ? 'bg-green-600 text-white shadow-sm'
             : showDueBadge
             ? 'text-amber-700 bg-amber-50 hover:bg-amber-100'
-            : 'text-gray-600 hover:bg-green-50 hover:text-green-700'
+            : 'text-gray-600 dark:text-gray-400 hover:bg-green-50 dark:hover:bg-green-950 hover:text-green-700 dark:hover:text-green-400'
         )}
       >
         <Icon size={18} />
@@ -210,13 +211,13 @@ export default function PortalLayout({
   const sidebar = (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-100">
+      <div className="px-5 py-5 border-b border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">SL</span>
           </div>
           <div>
-            <p className="font-bold text-gray-900 text-sm leading-tight">SourcifyLending</p>
+            <p className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight">SourcifyLending</p>
             <p className="text-xs text-gray-400 truncate max-w-[140px]">{programLabel || 'Client Portal'}</p>
           </div>
         </div>
@@ -230,7 +231,7 @@ export default function PortalLayout({
       </nav>
 
       {/* Bottom actions */}
-      <div className="px-3 py-4 border-t border-gray-100 space-y-1">
+      <div className="px-3 py-4 border-t border-gray-100 dark:border-gray-800 space-y-1">
         {isAdmin && (
           <Link
             href="/admin"
@@ -244,7 +245,7 @@ export default function PortalLayout({
         <Link
           href="/notifications"
           onClick={() => setMobileOpen(false)}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
         >
           <div className="relative">
             <Bell size={18} />
@@ -310,9 +311,10 @@ export default function PortalLayout({
             </span>
           </button>
         )}
+        <ThemeToggle />
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-600 dark:hover:text-red-400 transition-colors"
         >
           <LogOut size={18} />
           <span>Sign Out</span>
@@ -320,9 +322,9 @@ export default function PortalLayout({
       </div>
 
       {/* User info */}
-      <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-1.5">
-          <p className="text-xs font-semibold text-gray-700 truncate">{userName}</p>
+          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">{userName}</p>
           {isDemo && (
             <span className="text-[9px] font-bold px-1 py-0.5 bg-amber-100 text-amber-700 rounded-full uppercase shrink-0">Demo</span>
           )}
@@ -333,7 +335,7 @@ export default function PortalLayout({
             <span className="text-[9px] font-bold px-1 py-0.5 bg-blue-100 text-blue-700 rounded-full uppercase shrink-0">Delegate</span>
           )}
         </div>
-        <p className="text-xs text-gray-400 mt-0.5">
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
           {isDemo ? 'Demo Account' : isDelegate ? 'Delegate Access' : isProspect ? 'Free Prospect Account' : 'Client Account'}
         </p>
       </div>
@@ -341,9 +343,9 @@ export default function PortalLayout({
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-100 fixed h-full z-20">
+      <aside className="hidden lg:flex flex-col w-64 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 fixed h-full z-20">
         {sidebar}
       </aside>
 
@@ -354,7 +356,7 @@ export default function PortalLayout({
             className="fixed inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="relative w-72 bg-white h-full shadow-xl z-50">
+          <div className="relative w-72 bg-white dark:bg-gray-900 h-full shadow-xl z-50">
             <button
               className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-gray-100"
               onClick={() => setMobileOpen(false)}
@@ -369,12 +371,12 @@ export default function PortalLayout({
       {/* Main Content */}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
         {/* Mobile Top Bar */}
-        <header className="lg:hidden bg-white border-b border-gray-100 px-4 py-3.5 flex items-center justify-between sticky top-0 z-10">
+        <header className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3.5 flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-green-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-xs">SL</span>
             </div>
-            <span className="font-bold text-gray-900 text-sm">SourcifyLending</span>
+            <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">SourcifyLending</span>
           </div>
           <div className="flex items-center gap-2">
             {notificationCount > 0 && (
@@ -387,7 +389,7 @@ export default function PortalLayout({
             )}
             <button
               onClick={() => setMobileOpen(true)}
-              className="p-2 rounded-xl hover:bg-gray-50"
+              className="p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               <Menu size={22} className="text-gray-700" />
             </button>
