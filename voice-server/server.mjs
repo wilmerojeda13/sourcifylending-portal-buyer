@@ -211,6 +211,16 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
                 }))
               }
             },
+            sendText: (text) => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  client_content: {
+                    turns: [{ role: 'user', parts: [{ text }] }],
+                    turn_complete: true,
+                  }
+                }))
+              }
+            },
             close: () => {
               if (!closed) { closed = true; ws.close() }
             }
@@ -450,7 +460,9 @@ class CallSession {
         }
       }, MAX_CALL_SECONDS * 1000)
 
-      console.log(`[SESSION ${this.callId}] Gemini session ready`)
+      console.log(`[SESSION ${this.callId}] Gemini session ready — triggering opening`)
+      // Trigger Sarah to begin speaking immediately (Live API waits for input otherwise)
+      this.geminiSession.sendText('The call just connected. Begin your opening now.')
     } catch (err) {
       console.error(`[SESSION ${this.callId}] Gemini init failed:`, err.message)
       // Continue without AI (call will be handled by Twilio fallback)
