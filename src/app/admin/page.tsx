@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3, GitBranch, PhoneCall } from 'lucide-react'
+import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3, GitBranch, PhoneCall, PlayCircle } from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 import SeedDemoButton from './SeedDemoButton'
@@ -129,6 +129,13 @@ export default async function AdminHubPage() {
       desc: 'Outbound AI calling, lead lists, live calls, analytics, and scripts',
       icon: PhoneCall,
       color: 'bg-violet-600',
+    },
+    {
+      href: '/admin/training',
+      label: 'Training Videos',
+      desc: 'Add, edit, and publish training videos shown in the client Training Center',
+      icon: PlayCircle,
+      color: 'bg-indigo-600',
     },
   ]
 

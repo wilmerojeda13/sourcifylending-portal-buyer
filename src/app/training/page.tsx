@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import TrainingClient from './TrainingClient'
@@ -11,10 +12,18 @@ export default async function TrainingPage() {
 
   if (!user) redirect('/login')
 
-  const [{ data: profile }, { data: notifs }, membershipsResult] = await Promise.all([
+  const serviceClient = await createServiceClient()
+
+  const [{ data: profile }, { data: notifs }, membershipsResult, videosResult] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
     supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
+    serviceClient
+      .from('training_videos')
+      .select('*')
+      .eq('is_published', true)
+      .order('category')
+      .order('sort_order'),
   ])
 
   const allPrograms = (membershipsResult?.data ?? [])
@@ -42,6 +51,7 @@ export default async function TrainingPage() {
       <TrainingClient
         userId={user.id}
         assignedProgram={profile?.assigned_program ?? null}
+        videos={videosResult.data ?? []}
       />
     </PortalLayout>
   )
