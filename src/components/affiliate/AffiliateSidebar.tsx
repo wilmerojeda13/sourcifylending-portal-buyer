@@ -8,6 +8,7 @@ import {
   UserPlus,
   DollarSign,
   BookOpen,
+  PlayCircle,
   User,
   LogOut,
   ChevronRight,
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: '/affiliate/referrals',   label: 'Referrals',   icon: Users },
   { href: '/affiliate/commissions', label: 'Commissions', icon: DollarSign },
   { href: '/affiliate/resources',   label: 'Resources',   icon: BookOpen },
+  { href: '/affiliate/training',    label: 'Training',    icon: PlayCircle },
   { href: '/affiliate/account',     label: 'Account',     icon: User },
 ]
 
