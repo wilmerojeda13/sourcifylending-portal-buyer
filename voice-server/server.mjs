@@ -152,19 +152,22 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
 
   // Use WebSocket directly (no SDK dependency for Live API)
   const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${GEMINI_API_KEY}`
+  console.log('[GEMINI] Connecting to Live API...')
 
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(wsUrl)
     let setupSent = false
+    let resolved  = false
     let closed    = false
 
     ws.on('open', () => {
+      console.log('[GEMINI] WebSocket opened — sending setup')
       // Send setup message
       const setup = {
         setup: {
           model: GEMINI_MODEL,
           generation_config: {
-            response_modalities: ['AUDIO', 'TEXT'],
+            response_modalities: ['AUDIO'],
             speech_config: {
               voice_config: {
                 prebuilt_voice_config: { voice_name: VOICE_NAME }
@@ -182,10 +185,18 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
 
     ws.on('message', (data) => {
       try {
-        const msg = JSON.parse(data.toString())
+        const raw = data.toString()
+        const msg = JSON.parse(raw)
+
+        // Log first message or any error/unexpected message
+        if (!resolved || msg.error) {
+          console.log('[GEMINI] Message:', raw.slice(0, 300))
+        }
 
         // Setup complete
         if (msg.setupComplete) {
+          console.log('[GEMINI] Setup complete — session ready')
+          resolved = true
           resolve({
             send: (audioBase64) => {
               if (ws.readyState === WebSocket.OPEN) {
@@ -224,23 +235,28 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
           // Good — model finished speaking
         }
       } catch (e) {
-        // Ignore parse errors
+        console.error('[GEMINI] Message parse error:', e.message)
       }
     })
 
     ws.on('error', (err) => {
       console.error('[GEMINI] WebSocket error:', err.message)
-      if (!setupSent) reject(err)
+      if (!resolved) reject(err)
     })
 
-    ws.on('close', () => {
+    ws.on('close', (code, reason) => {
+      const reasonStr = reason?.toString() || ''
+      console.error(`[GEMINI] WebSocket closed: code=${code}, reason="${reasonStr}"`)
       closed = true
+      if (!resolved) {
+        reject(new Error(`Gemini closed before setupComplete: code=${code} reason="${reasonStr}"`))
+      }
       onClose()
     })
 
     // Timeout for setup
     setTimeout(() => {
-      if (!setupSent) reject(new Error('Gemini setup timeout'))
+      if (!resolved) reject(new Error('Gemini setup timeout (10s)'))
     }, 10000)
   })
 }
