@@ -120,6 +120,7 @@ export async function POST(req: NextRequest) {
       asyncAmd:            true,
       asyncAmdStatusCallback: `${appUrl}/api/voice/twilio/amd?callId=${callRecord.id}`,
       timeout:             30,
+      callReason:          'Business credit advisory outreach',
     })
 
     // Update call record with Twilio SID
