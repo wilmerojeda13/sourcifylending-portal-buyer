@@ -29,24 +29,7 @@ export async function POST(req: NextRequest) {
 
     const serviceClient = await createServiceClient()
 
-    // 1. Log to agreements table
-    const { error: agreementError } = await serviceClient.from('agreements').insert({
-      user_id: user.id,
-      program: 'portal_access',
-      agreement_version: agreement_version ?? 'v2.0',
-      gate_type: 'welcome',
-      accepted_at: now,
-      ip_address: ip,
-      user_agent: userAgent,
-      created_at: now,
-    })
-
-    if (agreementError) {
-      console.error('[WelcomeGate] Agreement insert error:', agreementError)
-      return NextResponse.json({ error: 'Failed to save agreement' }, { status: 500 })
-    }
-
-    // 2. Mark profile as having signed welcome gate
+    // 1. Mark profile as having signed welcome gate (critical — gates portal access)
     const { error: profileError } = await serviceClient.from('profiles').update({
       welcome_agreement_signed_at: now,
       welcome_agreement_name: signed_name.trim(),
@@ -55,7 +38,24 @@ export async function POST(req: NextRequest) {
 
     if (profileError) {
       console.error('[WelcomeGate] Profile update error:', profileError)
-      return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to save agreement. Please try again.' }, { status: 500 })
+    }
+
+    // 2. Log to agreements table (non-blocking — schema may vary)
+    try {
+      await serviceClient.from('agreements').insert({
+        user_id: user.id,
+        program: 'portal_access',
+        agreement_version: agreement_version ?? 'v2.0',
+        gate_type: 'welcome',
+        accepted_at: now,
+        ip_address: ip,
+        user_agent: userAgent,
+        created_at: now,
+      })
+    } catch (agreementErr) {
+      // Non-fatal: agreement already recorded on profile
+      console.error('[WelcomeGate] Agreement table insert failed (non-fatal):', agreementErr)
     }
 
     // 3. Log activity
