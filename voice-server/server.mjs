@@ -26,9 +26,9 @@ if (!GEMINI_API_KEY) console.warn('[VOICE SERVER] WARNING: GEMINI_API_KEY not se
 if (!SUPABASE_URL || !SUPABASE_KEY) console.warn('[VOICE SERVER] WARNING: Supabase env not set')
 
 // ─── Supabase client (service role) ────────────────────────────
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
-})
+const supabase = (SUPABASE_URL && SUPABASE_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
+  : null
 
 // ─── Audio conversion utilities ────────────────────────────────
 // µ-law decode table
@@ -248,6 +248,7 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
 // ─── Load system prompt from DB ────────────────────────────────
 async function loadSystemPrompt(leadId, callId) {
   try {
+    if (!supabase) return getDefaultSystemPrompt()
     const [
       { data: prompt },
       { data: lead },
@@ -402,7 +403,7 @@ class CallSession {
             console.log(`[SESSION ${this.callId}] Language switched to: ${lang}`)
             this.logEvent('language_detected', { language: lang, text_snippet: text.slice(0, 100) })
             // Update call record with detected language
-            if (this.callId) {
+            if (this.callId && supabase) {
               supabase.from('voice_calls').update({ detected_language: lang }).eq('id', this.callId).catch(() => {})
             }
           }
@@ -481,7 +482,7 @@ class CallSession {
     await this.logEvent('opt_out_detected', { text_buffer: this.textBuffer.slice(-200) })
 
     // Add to suppression list
-    if (this.leadId) {
+    if (this.leadId && supabase) {
       const { data: lead } = await supabase
         .from('voice_leads')
         .select('phone_e164')
@@ -515,7 +516,7 @@ class CallSession {
     console.log(`[SESSION ${this.callId}] Closed (${reason}), duration: ${duration}s, disposition: ${this.disposition}`)
 
     // Update call record
-    if (this.callId) {
+    if (this.callId && supabase) {
       const updates = {
         status:            'completed',
         ended_at:          new Date().toISOString(),
@@ -530,7 +531,7 @@ class CallSession {
     }
 
     // Update lead stats
-    if (this.leadId && this.disposition) {
+    if (this.leadId && this.disposition && supabase) {
       const leadUpdates = {
         last_disposition: this.disposition,
         updated_at:       new Date().toISOString(),
@@ -585,7 +586,7 @@ class CallSession {
   }
 
   async logEvent(eventType, data = {}) {
-    if (!this.callId) return
+    if (!this.callId || !supabase) return
     try {
       await supabase.from('voice_call_events').insert({
         call_id:    this.callId,
