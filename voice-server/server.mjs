@@ -725,6 +725,25 @@ adminWss.on('connection', (ws) => {
   ws.on('close', () => clearInterval(interval))
 })
 
+// ─── Startup: log available Gemini models ───────────────────────
+async function logAvailableGeminiModels() {
+  if (!GEMINI_API_KEY) return
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}&pageSize=100`)
+    const data = await res.json()
+    if (data.error) {
+      console.error('[GEMINI] Models list error:', JSON.stringify(data.error))
+      return
+    }
+    const all = (data.models || []).map(m => m.name)
+    const live = all.filter(n => n.includes('live') || n.includes('flash-live'))
+    console.log('[GEMINI] Live-capable models:', live.length ? live.join(', ') : 'NONE FOUND')
+    console.log('[GEMINI] All available models:', all.join(', '))
+  } catch (e) {
+    console.error('[GEMINI] Models list fetch failed:', e.message)
+  }
+}
+
 // ─── Start ─────────────────────────────────────────────────────
 httpServer.listen(PORT, () => {
   console.log(`
@@ -736,6 +755,7 @@ httpServer.listen(PORT, () => {
 ║   Gemini: ${GEMINI_API_KEY ? '✓ configured' : '✗ NOT configured — add GEMINI_API_KEY'}${' '.repeat(Math.max(0, 20 - (GEMINI_API_KEY ? 14 : 28)))}║
 ╚══════════════════════════════════════════════════════╝
 `)
+  logAvailableGeminiModels()
 })
 
 // Graceful shutdown
