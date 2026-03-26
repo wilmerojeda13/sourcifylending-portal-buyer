@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import GlobalAIPanel from '@/components/ai/GlobalAIPanel'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Bot, FileText, CheckSquare, BarChart2,
@@ -406,6 +407,13 @@ export default function PortalLayout({
           )}
           {children}
         </main>
+
+        {/* Global AI Panel — persistent across all portal pages */}
+        <GlobalAIPanel
+          assignedProgram={assignedProgram}
+          accountState={accountState}
+          userName={userName}
+        />
 
         {/* Mobile Bottom Navigation */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-10 px-1 py-1.5 safe-area-pb">

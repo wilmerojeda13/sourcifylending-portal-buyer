@@ -72,7 +72,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { messages, action_type } = body
+    const { messages, action_type, page_context } = body as {
+      messages: { role: string; content: string }[]
+      action_type?: string
+      page_context?: { page?: string; label?: string }
+    }
 
     // ─── Determine action type ─────────────────────────────────────────────────
     // Callers can pass action_type in the request body; default to simple_chat
@@ -192,7 +196,13 @@ STANDARD RESPONSE FORMAT (for instructional replies):
 
 [One closing line only if it adds value]
 
+${page_context?.label ? `════════════════════════════════════════
+CURRENT PAGE CONTEXT
 ════════════════════════════════════════
+The client is currently viewing: ${page_context.label}${page_context.page ? ` (${page_context.page})` : ''}
+Prioritize advice relevant to what they are looking at right now. If they ask a vague question like "what should I do?" or "explain this", answer in the context of the ${page_context.label} page.
+
+` : ''}════════════════════════════════════════
 CLIENT CONTEXT
 ════════════════════════════════════════
 Name: ${profile?.full_name || 'Client'}
