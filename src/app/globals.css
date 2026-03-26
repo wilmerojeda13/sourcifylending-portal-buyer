@@ -117,3 +117,24 @@
 .progress-bar-fill {
   transition: width 0.8s ease-in-out;
 }
+
+/* ── Dark mode global text + background overrides ─────────────────────────
+   These override hardcoded Tailwind gray classes that pages use inline.
+   .dark .text-gray-* has higher specificity than .text-gray-* so it wins.
+────────────────────────────────────────────────────────────────────────── */
+.dark .text-gray-900 { color: rgb(243 244 246);  } /* → gray-100 */
+.dark .text-gray-800 { color: rgb(229 231 235);  } /* → gray-200 */
+.dark .text-gray-700 { color: rgb(209 213 219);  } /* → gray-300 */
+.dark .text-gray-600 { color: rgb(156 163 175);  } /* → gray-400 */
+.dark .text-gray-500 { color: rgb(107 114 128);  } /* unchanged  */
+
+/* White / light backgrounds on cards, panels, modals */
+.dark .bg-white      { background-color: rgb(31 41 55);   } /* gray-800 */
+.dark .bg-gray-50    { background-color: rgb(17 24 39);   } /* gray-900 */
+.dark .bg-gray-100   { background-color: rgb(31 41 55);   } /* gray-800 */
+
+/* Borders */
+.dark .border-gray-100 { border-color: rgb(55 65 81);  } /* gray-700 */
+.dark .border-gray-200 { border-color: rgb(55 65 81);  } /* gray-700 */
+
+/* Preserve intentional color overrides — don't touch green/red/amber/blue text */
