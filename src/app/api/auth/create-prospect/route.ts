@@ -106,6 +106,9 @@ export async function POST(req: NextRequest) {
       created_at: now,
     })
 
+    // Enroll in 30-day free nurture sequence (fire-and-forget)
+    supabase.from('nurture_enrollments').insert({ user_id: userId }).catch(() => {})
+
     // Send welcome email (fire-and-forget)
     if (analyzer_result?.assigned_program) {
       const PROGRAM_LABELS: Record<string, string> = {

@@ -100,6 +100,12 @@ async function activateUser(
     read: false,
     created_at: new Date().toISOString(),
   })
+
+  // 6. Enroll in paid onboarding email sequence (upsert — safe to call on re-subscription)
+  await supabase.from('onboarding_enrollments').upsert(
+    { user_id: userId, enrolled_at: new Date().toISOString() },
+    { onConflict: 'user_id', ignoreDuplicates: true }
+  )
 }
 
 // ─── Main Webhook Handler ─────────────────────────────────────────────────────
