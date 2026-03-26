@@ -1,0 +1,17 @@
+{
+  "name": "sourcifylending-voice-server",
+  "version": "1.0.0",
+  "description": "SourcifyLending AI Voice Agent — Twilio + Gemini Live WebSocket bridge",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.99.1",
+    "ws": "^8.20.0"
+  }
+}
