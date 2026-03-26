@@ -32,8 +32,9 @@ const supabase = (SUPABASE_URL && SUPABASE_KEY)
   : null
 
 // ─── Config: VAD / silence detection ───────────────────────────
-const SPEECH_RMS_THRESHOLD = 400   // RMS above this = user is speaking
-const SILENCE_END_MS       = 700   // ms of silence → signal end of turn
+// Twilio PSTN line noise is typically 100-500 RMS; real speech is 2000+
+const SPEECH_RMS_THRESHOLD = 1800  // RMS above this = user is speaking
+const SILENCE_END_MS       = 700   // ms of silence after speech → end of turn
 
 // ─── Audio conversion utilities ────────────────────────────────
 // µ-law decode table
@@ -232,15 +233,31 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
                 }))
               }
             },
-            // Signal end of user's turn → Gemini generates a response.
-            // activity_end is nested inside realtime_input, NOT a top-level field.
+            // Mark start of user's speaking turn (required when VAD is disabled)
+            startTurn: () => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
+              }
+            },
+            // Mark end of user's speaking turn → model generates response
             endTurn: () => {
               if (ws.readyState === WebSocket.OPEN) {
-                console.log('[GEMINI] realtime_input.activity_end → model turn triggered')
-                ws.send(JSON.stringify({
-                  realtime_input: { activity_end: {} }
-                }))
+                console.log('[GEMINI] activity_end → model turn triggered')
+                ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
               }
+            },
+            // Trigger the opening greeting: full activity cycle with silence
+            // (activity_start + silence + activity_end = minimal user turn)
+            triggerOpening: () => {
+              if (ws.readyState !== WebSocket.OPEN) return
+              console.log('[GEMINI] Triggering opening via activity_start + silence + activity_end')
+              ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
+              // 200ms of silence at 16 kHz 16-bit PCM (= 6400 bytes of zeros)
+              const silence = Buffer.alloc(6400).toString('base64')
+              ws.send(JSON.stringify({
+                realtime_input: { audio: { data: silence, mimeType: 'audio/pcm;rate=16000' } }
+              }))
+              ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
             },
             close: () => {
               if (!closed) { closed = true; ws.close() }
@@ -485,10 +502,10 @@ class CallSession {
         }
       }, MAX_CALL_SECONDS * 1000)
 
-      console.log(`[SESSION ${this.callId}] Gemini session ready — sending activityEnd to trigger opening`)
-      // Signal end-of-turn immediately so Gemini generates the opening line.
-      // VAD is disabled, so we manually control when the model speaks.
-      this.geminiSession.endTurn()
+      console.log(`[SESSION ${this.callId}] Gemini session ready — triggering opening`)
+      // Send a complete minimal user turn (activity_start + silence + activity_end)
+      // so Gemini generates its opening line. VAD is disabled; we control turns manually.
+      this.geminiSession.triggerOpening()
     } catch (err) {
       console.error(`[SESSION ${this.callId}] Gemini init failed:`, err.message)
       // Continue without AI (call will be handled by Twilio fallback)
@@ -517,15 +534,19 @@ class CallSession {
             this.geminiSession.send(geminiAudio)
             this.audioChunks++
 
-            // Energy-based VAD: detect when user stops speaking so we can
-            // send activityEnd (VAD is disabled, so we do this manually).
+            // Energy-based VAD: signal activity_start/end to Gemini manually
+            // (automatic VAD is disabled in setup).
             const rms = mulawRms(msg.media.payload)
             if (rms > SPEECH_RMS_THRESHOLD) {
               if (!this.userSpeaking) {
                 this.userSpeaking = true
-                console.log(`[SESSION ${this.callId}] User speech detected`)
+                console.log(`[SESSION ${this.callId}] User speech detected (rms=${Math.round(rms)})`)
+                // Tell Gemini the user started speaking
+                if (this.geminiSession && !this.closed) {
+                  this.geminiSession.startTurn()
+                }
               }
-              // Reset the silence timer on every speech frame
+              // Reset silence timer on every speech frame
               clearTimeout(this.silenceTimer)
               this.silenceTimer = setTimeout(() => {
                 this.userSpeaking = false
