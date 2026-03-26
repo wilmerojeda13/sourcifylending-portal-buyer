@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Bot, FileText, CheckSquare, BarChart2,
   CreditCard, Bell, LogOut, Menu, X, ChevronRight, Star, TrendingUp, ShieldCheck, Zap, ArrowUpCircle,
-  MessageSquare, Settings, ShieldAlert, DollarSign, Building2, BookOpen, PieChart, ClipboardList
+  MessageSquare, Settings, ShieldAlert, DollarSign, Building2, BookOpen, PieChart, ClipboardList, PlayCircle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -27,6 +27,7 @@ const BASE_NAV_ITEMS = [
 const PROSPECT_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/funding-results', label: 'Funding Results', icon: DollarSign },
+  { href: '/training', label: 'Training Videos', icon: PlayCircle },
   { href: '/billing', label: 'Upgrade', icon: ArrowUpCircle },
   { href: '/support', label: 'Support', icon: MessageSquare },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -129,6 +130,7 @@ export default function PortalLayout({
         { href: '/reports', label: 'Reports', icon: BarChart2 },
         // Delegates cannot access Billing
         ...(!isDelegate ? [{ href: '/billing', label: 'Billing', icon: CreditCard }] : []),
+        { href: '/training',  label: 'Training Videos', icon: PlayCircle },
         { href: '/support',   label: 'Support Inbox', icon: MessageSquare },
         { href: '/settings',  label: 'Settings',      icon: Settings },
       ]
