@@ -233,11 +233,13 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onClose) {
               }
             },
             // Signal end of user's turn → Gemini generates a response.
-            // Required because we disabled automatic VAD in setup.
+            // activity_end is nested inside realtime_input, NOT a top-level field.
             endTurn: () => {
               if (ws.readyState === WebSocket.OPEN) {
-                console.log('[GEMINI] activityEnd → model turn triggered')
-                ws.send(JSON.stringify({ activityEnd: {} }))
+                console.log('[GEMINI] realtime_input.activity_end → model turn triggered')
+                ws.send(JSON.stringify({
+                  realtime_input: { activity_end: {} }
+                }))
               }
             },
             close: () => {
