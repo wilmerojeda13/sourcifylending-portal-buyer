@@ -616,7 +616,26 @@ const httpServer = createServer((req, res) => {
   }
 })
 
-const wss = new WebSocketServer({ server: httpServer, path: '/stream' })
+// Use noServer mode to manually route WebSocket paths — avoids ws library bug
+// where multiple servers on the same httpServer cause cross-path abortHandshake
+// to destroy already-upgraded sockets (code 1006 immediate drop).
+const wss      = new WebSocketServer({ noServer: true })
+const adminWss = new WebSocketServer({ noServer: true })
+
+httpServer.on('upgrade', (req, socket, head) => {
+  const pathname = new URL(req.url, `http://localhost:${PORT}`).pathname
+  if (pathname === '/stream') {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit('connection', ws, req)
+    })
+  } else if (pathname === '/admin') {
+    adminWss.handleUpgrade(req, socket, head, (ws) => {
+      adminWss.emit('connection', ws, req)
+    })
+  } else {
+    socket.destroy()
+  }
+})
 
 // Track active sessions
 const activeSessions = new Map()
@@ -625,7 +644,7 @@ wss.on('connection', (ws, req) => {
   console.log('[VOICE SERVER] New WebSocket connection from Twilio')
 
   // Parse initial params from URL (they also come in 'start' event)
-  const url       = new URL(req.url, `ws://localhost:${PORT}`)
+  const url       = new URL(req.url, `http://localhost:${PORT}`)
   let callId      = url.searchParams.get('callId')    ?? ''
   let leadId      = url.searchParams.get('leadId')    ?? ''
   let campaignId  = url.searchParams.get('campaignId') ?? ''
@@ -644,8 +663,8 @@ wss.on('connection', (ws, req) => {
       const msg = JSON.parse(data.toString())
       if (msg.event === 'start' && msg.start?.customParameters) {
         const p = msg.start.customParameters
-        if (!session.callId   && p.callId)     session.callId    = p.callId
-        if (!session.leadId   && p.leadId)     session.leadId    = p.leadId
+        if (!session.callId    && p.callId)     session.callId     = p.callId
+        if (!session.leadId    && p.leadId)     session.leadId     = p.leadId
         if (!session.campaignId && p.campaignId) session.campaignId = p.campaignId
       }
     } catch {}
@@ -653,7 +672,8 @@ wss.on('connection', (ws, req) => {
     session.handleTwilioMessage(data.toString())
   })
 
-  ws.on('close', () => {
+  ws.on('close', (code, reason) => {
+    console.log(`[VOICE SERVER] Twilio WS closed: code=${code}, reason="${reason?.toString()}"`)
     activeSessions.delete(ws)
     session.close('websocket_closed')
   })
@@ -666,7 +686,6 @@ wss.on('connection', (ws, req) => {
 })
 
 // ─── Admin endpoint: list active calls ─────────────────────────
-const adminWss = new WebSocketServer({ server: httpServer, path: '/admin' })
 adminWss.on('connection', (ws) => {
   // Broadcast active call count
   const interval = setInterval(() => {
