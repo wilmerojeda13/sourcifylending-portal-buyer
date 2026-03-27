@@ -87,35 +87,24 @@ function getDate(prop: Record<string, unknown> | undefined): string | null {
   return ((prop.date as { start?: string }) ?? {}).start ?? null
 }
 
-// ─── Get non-relation property IDs to avoid "multiple data sources" error ────
-async function getNonRelationPropertyIds(): Promise<string[]> {
-  const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_DB_ID}`, {
-    headers: notionHeaders(),
-  })
-  if (!res.ok) return []
-  const db = await res.json()
-  const props = db.properties ?? {}
-  // Only include simple property types — exclude relation, rollup, formula (which cause cross-db issues)
-  const excluded = new Set(['relation', 'rollup', 'formula'])
-  return Object.values(props)
-    .filter((p: unknown) => !excluded.has((p as { type: string }).type))
-    .map((p: unknown) => (p as { id: string }).id)
-}
-
-// ─── Fetch all pages from Notion DB (handles pagination) ─────────────────────
+// ─── Fetch all pages via search API (bypasses multi-source DB restriction) ───
+// Notion's /databases/{id}/query throws "multiple data sources" on merged DBs.
+// The search API returns all pages the integration can see, filtered by parent.
 async function fetchAllNotionPages(): Promise<Record<string, unknown>[]> {
-  // Get safe property IDs first (no relations/rollups/formulas)
-  const filterProps = await getNonRelationPropertyIds()
-
   const pages: Record<string, unknown>[] = []
   let cursor: string | undefined
 
-  do {
-    const body: Record<string, unknown> = { page_size: 100 }
-    if (cursor) body.start_cursor = cursor
-    if (filterProps.length) body.filter_properties = filterProps
+  // Normalise DB ID to no-dashes format for parent comparison
+  const dbIdNoDashes = NOTION_DB_ID.replace(/-/g, '')
 
-    const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_DB_ID}/query`, {
+  do {
+    const body: Record<string, unknown> = {
+      filter: { property: 'object', value: 'page' },
+      page_size: 100,
+    }
+    if (cursor) body.start_cursor = cursor
+
+    const res = await fetch('https://api.notion.com/v1/search', {
       method: 'POST',
       headers: notionHeaders(),
       body: JSON.stringify(body),
@@ -127,7 +116,16 @@ async function fetchAllNotionPages(): Promise<Record<string, unknown>[]> {
     }
 
     const data = await res.json()
-    pages.push(...(data.results ?? []))
+
+    // Keep only pages whose parent is our contacts database
+    const filtered = (data.results ?? []).filter((p: Record<string, unknown>) => {
+      const parent = p.parent as Record<string, string> | undefined
+      if (!parent) return false
+      const parentId = (parent.database_id ?? '').replace(/-/g, '')
+      return parentId === dbIdNoDashes
+    })
+    pages.push(...filtered)
+
     cursor = data.has_more ? data.next_cursor : undefined
   } while (cursor)
 
