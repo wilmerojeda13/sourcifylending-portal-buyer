@@ -977,17 +977,76 @@ class CallSession {
 }
 
 // ─── HTTP + WebSocket server ────────────────────────────────────
-const httpServer = createServer((req, res) => {
-  if (req.url === '/health') {
+const httpServer = createServer(async (req, res) => {
+  const url = new URL(req.url, `http://localhost:${PORT}`)
+
+  if (url.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({
       status:   'ok',
       service:  'SourcifyLending Voice Server',
       port:     PORT,
+      model:    GEMINI_MODEL,
       gemini:   !!GEMINI_API_KEY,
       supabase: !!(SUPABASE_URL && SUPABASE_KEY),
       uptime:   process.uptime(),
     }))
+
+  } else if (url.pathname === '/test-gemini') {
+    // Diagnostic: test Gemini Live connection end-to-end
+    const log = []
+    const result = { ok: false, log, model: GEMINI_MODEL }
+    try {
+      // 1. Check available models
+      const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}&pageSize=200`)
+      const modelsData = await modelsRes.json()
+      if (modelsData.error) {
+        log.push(`Models API error: ${JSON.stringify(modelsData.error)}`)
+      } else {
+        const liveModels = (modelsData.models || []).map(m => m.name).filter(n => n.includes('live') || n.includes('flash'))
+        log.push(`Live-capable models: ${liveModels.join(', ') || 'NONE'}`)
+      }
+
+      // 2. Try connecting to Gemini Live WebSocket
+      await new Promise((resolve) => {
+        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.${GEMINI_API_VER}.GenerativeService.BidiGenerateContent?key=${GEMINI_API_KEY}`
+        const ws = new WebSocket(wsUrl)
+        const timeout = setTimeout(() => { log.push('Timeout: no setupComplete after 8s'); ws.close(); resolve() }, 8000)
+
+        ws.on('open', () => {
+          log.push('WebSocket opened')
+          ws.send(JSON.stringify({ setup: { model: GEMINI_MODEL, generation_config: { response_modalities: ['AUDIO'] }, system_instruction: { parts: [{ text: 'You are a test assistant.' }] } } }))
+          log.push('Setup sent')
+        })
+        ws.on('message', (data) => {
+          const msg = JSON.parse(data.toString())
+          if (msg.setupComplete) {
+            log.push('setupComplete received!')
+            // Send client_content to trigger a response
+            ws.send(JSON.stringify({ client_content: { turns: [{ role: 'user', parts: [{ text: 'Say hello briefly.' }] }], turn_complete: true } }))
+            log.push('client_content sent')
+          }
+          if (msg.serverContent?.modelTurn?.parts?.length) {
+            const parts = msg.serverContent.modelTurn.parts
+            const hasAudio = parts.some(p => p.inlineData?.mimeType?.startsWith('audio/'))
+            const text = parts.filter(p => p.text).map(p => p.text).join('')
+            log.push(`Model response: audio=${hasAudio}, text="${text.slice(0, 100)}"`)
+            result.ok = true
+            clearTimeout(timeout)
+            ws.close()
+            resolve()
+          }
+          if (msg.error) { log.push(`Error: ${JSON.stringify(msg.error)}`); clearTimeout(timeout); ws.close(); resolve() }
+        })
+        ws.on('error', (e) => { log.push(`WS error: ${e.message}`); clearTimeout(timeout); resolve() })
+        ws.on('close', (code, reason) => { log.push(`WS closed: code=${code} reason="${reason?.toString()}"`); clearTimeout(timeout); resolve() })
+      })
+    } catch (e) {
+      log.push(`Exception: ${e.message}`)
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify(result, null, 2))
+
   } else {
     res.writeHead(404)
     res.end()
