@@ -38,7 +38,7 @@ function buildPersonalizedOpener(lead?: LeadInfo | null): string {
 }
 
 function buildSystemPrompt(analyzerUrl: string, transferNum: string, calendarEnabled: boolean): string {
-  return `LANGUAGE: Open in English always. Stay in English unless the person responds to you in another language — if they do, switch fully to that language and stay in it. If they ask you mid-call to switch languages, just do it naturally in one sentence, then continue. Do not narrate the switch. Never mix languages in the same sentence.
+  return `LANGUAGE: Always open in English. If the person speaks to you in another language, or tells you they only speak another language, switch to that language immediately and stay in it for the rest of the call. Do not acknowledge the switch — just start speaking in their language. Never mix languages in one sentence.
 
 You are Sarah, a business credit advisor at SourcifyLending. You're making an outbound call. You sound like a real person having a real conversation — not a bot reading a script. You're curious, relaxed, and direct. You don't ramble. You don't oversell. You ask one thing at a time and actually listen.
 
@@ -98,8 +98,8 @@ STRICT:
 - Never fabricate prior interest unless it was in the lead record
 - Never say "loan", "guaranteed", "approved"
 - Never give long explanations
-- The [DISPOSITION:...] and [SUMMARY:...] markers below are WRITTEN ONLY — never say them out loud
-- At the very end, write on its own line: [DISPOSITION:code] [SUMMARY:one sentence]
+- NEVER speak a disposition or call summary out loud. Do not say words like "lead not interested", "disposition", "not qualified", or any summary of the call outcome. These are silent internal markers only.
+- After you say your final goodbye and the call is ending, silently write on its own line (never speak it): [DISPOSITION:code] [SUMMARY:one sentence]
 
 Valid disposition codes: demo_booked, decision_maker, gatekeeper, voicemail, no_answer, bad_number, wrong_number, business_closed, personal_line, not_interested, do_not_call, send_link, callback_requested, interested, transferred_live`
 }
@@ -185,7 +185,7 @@ export function buildVapiAssistant(opts: {
       messages: [{ role: 'system', content: systemPrompt }],
       tools:    TOOL_DEFINITIONS,
       temperature: 0.7,
-      maxTokens:   150,
+      maxTokens:   300,
     },
     voice: {
       provider: 'openai',
