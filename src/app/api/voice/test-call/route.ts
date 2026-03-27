@@ -127,6 +127,13 @@ export async function POST(req: NextRequest) {
       .update({ twilio_call_sid: call.sid, started_at: new Date().toISOString() })
       .eq('id', callRecord.id)
 
+    // Pre-warm Gemini session while phone rings — so opener fires instantly on answer
+    const wsUrl = settings?.voice_server_ws_url ?? process.env.VOICE_SERVER_WS_URL ?? ''
+    if (wsUrl && !wsUrl.includes('localhost')) {
+      const httpBase = wsUrl.replace(/^wss?:\/\//, (m) => m === 'wss://' ? 'https://' : 'http://').replace(/\/stream$/, '')
+      fetch(`${httpBase}/prepare?callId=${callRecord.id}&leadId=${testLead.id}&campaignId=`, { method: 'POST' }).catch(() => {})
+    }
+
     return NextResponse.json({
       success:    true,
       call_id:    callRecord.id,

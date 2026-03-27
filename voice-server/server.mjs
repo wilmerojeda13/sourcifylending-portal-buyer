@@ -27,6 +27,16 @@ const GEMINI_API_VER      = 'v1beta'                               // v1beta for
 const VOICE_NAME          = 'Aoede'  // Female voice — professional and natural
 const MAX_CALL_SECONDS    = 120
 
+// Pre-warmed Gemini sessions: callId → { geminiSession, handler, createdAt }
+// Populated by /prepare endpoint during ringing so session is ready when answered
+const prewarmSessions = new Map()
+setInterval(() => {
+  const cutoff = Date.now() - 5 * 60 * 1000
+  for (const [id, entry] of prewarmSessions) {
+    if (entry.createdAt < cutoff) { try { entry.geminiSession.close() } catch {} prewarmSessions.delete(id) }
+  }
+}, 60_000)
+
 if (!GEMINI_API_KEY) console.warn('[VOICE SERVER] WARNING: GEMINI_API_KEY not set')
 if (!SUPABASE_URL || !SUPABASE_KEY) console.warn('[VOICE SERVER] WARNING: Supabase env not set')
 if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
@@ -575,83 +585,66 @@ class CallSession {
     const settingsData = this.calendarSettings
     this.analyzerUrl = settingsData?.analyzer_url ?? process.env.ANALYZER_URL ?? 'https://app.sourcifylending.com/analyzer'
 
-    const systemPrompt = await loadSystemPrompt(this.leadId, this.callId)
+    // Build callbacks (used by both pre-warmed and fresh sessions)
+    const onAudio = (geminiAudioBase64) => {
+      if (this.closed || !this.streamSid) return
+      try {
+        const mulawBase64 = geminiToTwilioAudio(geminiAudioBase64)
+        this.ws.send(JSON.stringify({
+          event:     'media',
+          streamSid: this.streamSid,
+          media:     { payload: mulawBase64 },
+        }))
+      } catch (e) {
+        console.error(`[SESSION ${this.callId}] Audio send error:`, e.message)
+      }
+    }
+    const onText = (text) => {
+      this.textBuffer += ' ' + text
+      console.log(`[SESSION ${this.callId}] Gemini text:`, text.slice(0, 100))
+      if (!this.disposition && detectOptOut(text)) {
+        this.disposition = 'do_not_call'
+        this.handleOptOut()
+      }
+      const lang = detectLanguageSwitch(text)
+      if (lang && lang !== this.detectedLang) {
+        this.detectedLang = lang
+        this.logEvent('language_detected', { language: lang, text_snippet: text.slice(0, 100) })
+        if (this.callId && supabase) supabase.from('voice_calls').update({ detected_language: lang }).eq('id', this.callId).catch(() => {})
+      }
+      const disp = detectDisposition(text)
+      if (disp && !this.disposition) { this.disposition = disp; console.log(`[SESSION ${this.callId}] Disposition: ${disp}`) }
+      const summ = extractSummary(text)
+      if (summ) this.summary = summ
+    }
+    const onToolCall = (functionCalls) => this.handleToolCalls(functionCalls)
+    const onClose    = () => { if (!this.closed) this.close('gemini_disconnected') }
 
     try {
-      this.geminiSession = await createGeminiSession(
-        systemPrompt,
-        // onAudio: Gemini → Twilio
-        (geminiAudioBase64) => {
-          if (this.closed || !this.streamSid) return
-          try {
-            const mulawBase64 = geminiToTwilioAudio(geminiAudioBase64)
-            this.ws.send(JSON.stringify({
-              event:     'media',
-              streamSid: this.streamSid,
-              media:     { payload: mulawBase64 },
-            }))
-          } catch (e) {
-            console.error(`[SESSION ${this.callId}] Audio send error:`, e.message)
-          }
-        },
-        // onText: Gemini text output → disposition detection
-        (text) => {
-          this.textBuffer += ' ' + text
-          console.log(`[SESSION ${this.callId}] Gemini text:`, text.slice(0, 100))
-
-          // Detect opt-out in real-time
-          if (!this.disposition && detectOptOut(text)) {
-            this.disposition = 'do_not_call'
-            console.log(`[SESSION ${this.callId}] Opt-out detected`)
-            this.handleOptOut()
-          }
-
-          // Detect language switch
-          const lang = detectLanguageSwitch(text)
-          if (lang && lang !== this.detectedLang) {
-            this.detectedLang = lang
-            console.log(`[SESSION ${this.callId}] Language switched to: ${lang}`)
-            this.logEvent('language_detected', { language: lang, text_snippet: text.slice(0, 100) })
-            // Update call record with detected language
-            if (this.callId && supabase) {
-              supabase.from('voice_calls').update({ detected_language: lang }).eq('id', this.callId).catch(() => {})
-            }
-          }
-
-          // Detect disposition
-          const disp = detectDisposition(text)
-          if (disp && !this.disposition) {
-            this.disposition = disp
-            console.log(`[SESSION ${this.callId}] Disposition: ${disp}`)
-          }
-
-          // Extract summary
-          const summ = extractSummary(text)
-          if (summ) this.summary = summ
-        },
-        // onToolCall
-        (functionCalls) => this.handleToolCalls(functionCalls),
-        // onClose
-        () => {
-          if (!this.closed) this.close('gemini_disconnected')
-        }
-      )
+      // Use pre-warmed session if available (session was started during ringing)
+      const prewarmed = prewarmSessions.get(this.callId)
+      if (prewarmed) {
+        console.log(`[SESSION ${this.callId}] Using pre-warmed Gemini session`)
+        this.geminiSession = prewarmed.geminiSession
+        prewarmed.handler.onAudio    = onAudio
+        prewarmed.handler.onText     = onText
+        prewarmed.handler.onToolCall = onToolCall
+        prewarmed.handler.onClose    = onClose
+        prewarmSessions.delete(this.callId)
+      } else {
+        console.log(`[SESSION ${this.callId}] No pre-warmed session — creating fresh Gemini session`)
+        const systemPrompt = await loadSystemPrompt(this.leadId, this.callId)
+        this.geminiSession = await createGeminiSession(systemPrompt, onAudio, onText, onToolCall, onClose)
+      }
 
       // Start max duration timer
       this.callTimer = setTimeout(() => {
-        if (!this.closed) {
-          console.log(`[SESSION ${this.callId}] Max duration reached`)
-          this.close('max_duration')
-        }
+        if (!this.closed) { console.log(`[SESSION ${this.callId}] Max duration reached`); this.close('max_duration') }
       }, MAX_CALL_SECONDS * 1000)
 
-      console.log(`[SESSION ${this.callId}] Gemini session ready — triggering opening`)
-      // Send a complete minimal user turn (activity_start + silence + activity_end)
-      // so Gemini generates its opening line. VAD is disabled; we control turns manually.
-      this.geminiSession.triggerOpening()
+      console.log(`[SESSION ${this.callId}] Gemini session ready — will trigger opening on stream start`)
     } catch (err) {
       console.error(`[SESSION ${this.callId}] Gemini init failed:`, err.message)
-      // Continue without AI (call will be handled by Twilio fallback)
     }
   }
 
@@ -668,6 +661,8 @@ class CallSession {
           this.streamSid = msg.start?.streamSid ?? msg.streamSid
           console.log(`[SESSION ${this.callId}] Stream started: ${this.streamSid}`)
           this.logEvent('stream_started', { stream_sid: this.streamSid })
+          // Trigger opener immediately — Gemini is pre-warmed and ready
+          if (this.geminiSession) this.geminiSession.triggerOpening()
           break
 
         case 'media':
@@ -986,6 +981,35 @@ const httpServer = createServer(async (req, res) => {
       supabase: !!(SUPABASE_URL && SUPABASE_KEY),
       uptime:   process.uptime(),
     }))
+
+  } else if (url.pathname === '/prepare' && req.method === 'POST') {
+    // Pre-warm a Gemini session for an upcoming call (called during ringing)
+    const callId    = url.searchParams.get('callId')    ?? ''
+    const leadId    = url.searchParams.get('leadId')    ?? ''
+    const campaignId = url.searchParams.get('campaignId') ?? ''
+    if (!callId) { res.writeHead(400); res.end(JSON.stringify({ error: 'callId required' })); return }
+    // Respond immediately so caller isn't blocked
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ ok: true, callId }));
+    // Pre-warm asynchronously in background
+    (async () => {
+      try {
+        console.log(`[PREWARM] Starting Gemini session for call ${callId}`)
+        const systemPrompt = await loadSystemPrompt(leadId || null, callId)
+        const handler = { onAudio: null, onText: null, onToolCall: null, onClose: null }
+        const geminiSession = await createGeminiSession(
+          systemPrompt,
+          (audio)     => handler.onAudio?.(audio),
+          (text)      => handler.onText?.(text),
+          (toolCalls) => handler.onToolCall?.(toolCalls),
+          ()          => handler.onClose?.(),
+        )
+        prewarmSessions.set(callId, { geminiSession, handler, leadId, campaignId, createdAt: Date.now() })
+        console.log(`[PREWARM] Session ready for call ${callId}`)
+      } catch (e) {
+        console.error(`[PREWARM] Failed for call ${callId}:`, e.message)
+      }
+    })()
 
   } else if (url.pathname === '/test-gemini') {
     // Diagnostic: test Gemini Live connection end-to-end
