@@ -252,9 +252,6 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
               }
             }
           },
-          realtime_input_config: {
-            automatic_activity_detection: { disabled: true }
-          },
           system_instruction: {
             parts: [{ text: systemPrompt }]
           },
@@ -342,29 +339,17 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
                 }))
               }
             },
-            // Mark start of user's speaking turn (required when VAD is disabled)
-            startTurn: () => {
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
-              }
-            },
-            // Mark end of user's speaking turn → model generates response
-            endTurn: () => {
-              if (ws.readyState === WebSocket.OPEN) {
-                console.log('[GEMINI] activity_end → model turn triggered')
-                ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
-              }
-            },
-            // Trigger the opening greeting: activity_start + silence + activity_end
+            // Trigger the opening: inject a silent user turn via client_content
+            // Auto VAD handles all subsequent user turns
             triggerOpening: () => {
               if (ws.readyState !== WebSocket.OPEN) return
-              console.log('[GEMINI] Triggering opening via activity_start + silence + activity_end')
-              ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
-              const silence = Buffer.alloc(6400).toString('base64')
+              console.log('[GEMINI] Triggering opening via client_content')
               ws.send(JSON.stringify({
-                realtime_input: { audio: { data: silence, mimeType: 'audio/pcm;rate=16000' } }
+                client_content: {
+                  turns: [{ role: 'user', parts: [{ text: '.' }] }],
+                  turn_complete: true
+                }
               }))
-              ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
             },
             close: () => {
               if (!closed) { closed = true; ws.close() }
@@ -695,26 +680,14 @@ class CallSession {
             this.geminiSession.send(geminiAudio)
             this.audioChunks++
 
-            // Energy-based VAD: signal activity_start/end to Gemini manually
-            // (automatic VAD is disabled in setup).
+            // Log speech energy for monitoring (auto VAD handles turn detection)
             const rms = mulawRms(msg.media.payload)
-            if (rms > SPEECH_RMS_THRESHOLD) {
-              if (!this.userSpeaking) {
-                this.userSpeaking = true
-                console.log(`[SESSION ${this.callId}] User speech detected (rms=${Math.round(rms)})`)
-                // Tell Gemini the user started speaking
-                if (this.geminiSession && !this.closed) {
-                  this.geminiSession.startTurn()
-                }
-              }
-              // Reset silence timer on every speech frame
+            if (rms > SPEECH_RMS_THRESHOLD && !this.userSpeaking) {
+              this.userSpeaking = true
+              console.log(`[SESSION ${this.callId}] User speech detected (rms=${Math.round(rms)})`)
               clearTimeout(this.silenceTimer)
               this.silenceTimer = setTimeout(() => {
                 this.userSpeaking = false
-                console.log(`[SESSION ${this.callId}] Speech ended — activityEnd`)
-                if (this.geminiSession && !this.closed) {
-                  this.geminiSession.endTurn()
-                }
               }, SILENCE_END_MS)
             }
           }
