@@ -22,7 +22,7 @@ const SUPABASE_KEY        = process.env.SUPABASE_SERVICE_ROLE_KEY  ?? ''
 const TWILIO_ACCOUNT_SID  = process.env.TWILIO_ACCOUNT_SID         ?? ''
 const TWILIO_AUTH_TOKEN   = process.env.TWILIO_AUTH_TOKEN          ?? ''
 const TWILIO_FROM_NUMBER  = process.env.TWILIO_FROM_NUMBER         ?? ''  // E.164 number to send SMS from
-const GEMINI_MODEL        = 'models/gemini-2.5-flash-native-audio-preview-12-2025' // Native audio Live model
+const GEMINI_MODEL        = 'models/gemini-2.5-flash-native-audio-preview-09-2025' // Native audio Live model (09 = no thinking overhead)
 const GEMINI_API_VER      = 'v1beta'                               // v1beta for Live API (BidiGenerateContent)
 const VOICE_NAME          = 'Aoede'  // Female voice — professional and natural
 const MAX_CALL_SECONDS    = 120
@@ -256,6 +256,7 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
           model: GEMINI_MODEL,
           generation_config: {
             response_modalities: ['AUDIO'],
+            thinking_config: { thinking_budget: 0 },
           },
           system_instruction: {
             parts: [{ text: systemPrompt }]
