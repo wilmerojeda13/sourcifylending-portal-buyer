@@ -215,18 +215,18 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
       const setup = {
         setup: {
           model: GEMINI_MODEL,
-          generation_config: {
-            response_modalities: ['AUDIO'],
-            speech_config: {
-              voice_config: {
-                prebuilt_voice_config: { voice_name: VOICE_NAME }
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: VOICE_NAME }
               }
             }
           },
-          realtime_input_config: {
-            automatic_activity_detection: { disabled: true }
+          realtimeInputConfig: {
+            automaticActivityDetection: { disabled: true }
           },
-          system_instruction: {
+          systemInstruction: {
             parts: [{ text: systemPrompt }]
           },
           tools: [{
@@ -316,28 +316,28 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             // Mark start of user's speaking turn (required when VAD is disabled)
             startTurn: () => {
               if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
+                ws.send(JSON.stringify({ realtimeInput: { activityStart: {} } }))
               }
             },
             // Mark end of user's speaking turn → model generates response
             endTurn: () => {
               if (ws.readyState === WebSocket.OPEN) {
-                console.log('[GEMINI] activity_end → model turn triggered')
-                ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
+                console.log('[GEMINI] activityEnd → model turn triggered')
+                ws.send(JSON.stringify({ realtimeInput: { activityEnd: {} } }))
               }
             },
             // Trigger the opening greeting: full activity cycle with silence
-            // (activity_start + silence + activity_end = minimal user turn)
+            // (activityStart + silence + activityEnd = minimal user turn)
             triggerOpening: () => {
               if (ws.readyState !== WebSocket.OPEN) return
-              console.log('[GEMINI] Triggering opening via activity_start + silence + activity_end')
-              ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
+              console.log('[GEMINI] Triggering opening via activityStart + silence + activityEnd')
+              ws.send(JSON.stringify({ realtimeInput: { activityStart: {} } }))
               // 200ms of silence at 16 kHz 16-bit PCM (= 6400 bytes of zeros)
               const silence = Buffer.alloc(6400).toString('base64')
               ws.send(JSON.stringify({
-                realtime_input: { audio: { data: silence, mimeType: 'audio/pcm;rate=16000' } }
+                realtimeInput: { audio: { data: silence, mimeType: 'audio/pcm;rate=16000' } }
               }))
-              ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
+              ws.send(JSON.stringify({ realtimeInput: { activityEnd: {} } }))
             },
             close: () => {
               if (!closed) { closed = true; ws.close() }
@@ -503,9 +503,10 @@ ANALYZER LINK:
 - Say: "I can send you the free analyzer link so you can see where you stand. It only takes a couple minutes."
 - CALL send_analyzer_link tool to log it
 
-LANGUAGE RULES:
-- ALWAYS start in English — never open in Spanish or any other language
-- Only switch languages if the lead speaks to you in another language first
+LANGUAGE RULES (CRITICAL — DO NOT IGNORE):
+- YOUR VERY FIRST WORD MUST BE IN ENGLISH. No exceptions.
+- NEVER open in Spanish, French, or any language other than English.
+- Only switch languages AFTER the lead speaks to you in another language first.
 - If they respond in Spanish → switch fully to Spanish and output [LANGUAGE:spanish]
 
 STRICT RULES:
