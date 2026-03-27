@@ -187,7 +187,27 @@ function VideoCard({ video, isWatched, onClick }: { video: TrainingVideo; isWatc
   )
 }
 
+function toEmbedUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    // Loom: /share/ID → /embed/ID
+    if (u.hostname.includes('loom.com')) {
+      return url.replace('/share/', '/embed/')
+    }
+    // YouTube watch?v=ID → /embed/ID
+    if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) {
+      return `https://www.youtube.com/embed/${u.searchParams.get('v')}`
+    }
+    // youtu.be/ID → /embed/ID
+    if (u.hostname === 'youtu.be') {
+      return `https://www.youtube.com/embed${u.pathname}`
+    }
+  } catch {}
+  return url
+}
+
 function VideoModal({ video, onClose }: { video: TrainingVideo; onClose: () => void }) {
+  const embedSrc = toEmbedUrl(video.embed_url)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
       <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-2xl w-full max-w-3xl" onClick={e => e.stopPropagation()}>
@@ -212,7 +232,7 @@ function VideoModal({ video, onClose }: { video: TrainingVideo; onClose: () => v
         </div>
         <div className="aspect-video w-full bg-black">
           <iframe
-            src={video.embed_url}
+            src={embedSrc}
             className="w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
