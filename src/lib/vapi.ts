@@ -169,7 +169,7 @@ export function buildVapiAssistant(opts: {
     firstMessage:  opener,
     model: {
       provider: 'openai',
-      model:    'gpt-4o',
+      model:    'gpt-4o-mini',
       messages: [{ role: 'system', content: systemPrompt }],
       tools:    TOOL_DEFINITIONS,
       temperature: 0.7,
@@ -178,6 +178,16 @@ export function buildVapiAssistant(opts: {
     voice: {
       provider: 'openai',
       voiceId:  'nova',   // natural female voice, low latency
+    },
+    transcriber: {
+      provider: 'deepgram',
+      model:    'nova-3',       // fastest + most accurate Deepgram model
+      language: 'multi',        // handles mid-call language switches
+    },
+    stopSpeakingPlan: {
+      numWords:       0,   // stop immediately when user speaks
+      voiceSeconds:   0.2, // after 0.2s of user voice, cut off
+      backoffSeconds: 1,   // wait 1s before Sarah speaks again
     },
     serverUrl:           webhookUrl,
     serverUrlSecret:     process.env.VAPI_WEBHOOK_SECRET || '',
