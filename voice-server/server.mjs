@@ -341,11 +341,11 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             },
             triggerOpening: () => {
               if (ws.readyState !== WebSocket.OPEN) return
-              console.log('[GEMINI] Triggering opening via client_content')
+              console.log('[GEMINI] Triggering opening via clientContent')
               ws.send(JSON.stringify({
-                client_content: {
+                clientContent: {
                   turns: [{ role: 'user', parts: [{ text: '.' }] }],
-                  turn_complete: true
+                  turnComplete: true
                 }
               }))
             },
@@ -1025,8 +1025,8 @@ const httpServer = createServer(async (req, res) => {
           if (msg.setupComplete) {
             log.push('setupComplete received!')
             // Send client_content to trigger a response
-            ws.send(JSON.stringify({ client_content: { turns: [{ role: 'user', parts: [{ text: 'Say hello briefly.' }] }], turn_complete: true } }))
-            log.push('client_content sent')
+            ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: 'Say hello briefly.' }] }], turnComplete: true } }))
+            log.push('clientContent sent')
           }
           if (msg.serverContent?.modelTurn?.parts?.length) {
             const parts = msg.serverContent.modelTurn.parts
