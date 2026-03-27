@@ -244,18 +244,18 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
       const setup = {
         setup: {
           model: GEMINI_MODEL,
-          generationConfig: {
-            responseModalities: ['AUDIO'],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: VOICE_NAME }
+          generation_config: {
+            response_modalities: ['AUDIO'],
+            speech_config: {
+              voice_config: {
+                prebuilt_voice_config: { voice_name: VOICE_NAME }
               }
             }
           },
-          realtimeInputConfig: {
-            automaticActivityDetection: { disabled: true }
+          realtime_input_config: {
+            automatic_activity_detection: { disabled: true }
           },
-          systemInstruction: {
+          system_instruction: {
             parts: [{ text: systemPrompt }]
           },
           tools: [{
@@ -333,7 +333,7 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             send: (audioBase64) => {
               if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
-                  realtimeInput: {
+                  realtime_input: {
                     audio: {
                       data: audioBase64,
                       mimeType: 'audio/pcm;rate=16000',
@@ -345,26 +345,26 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             // Mark start of user's speaking turn (required when VAD is disabled)
             startTurn: () => {
               if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ realtimeInput: { activityStart: {} } }))
+                ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
               }
             },
             // Mark end of user's speaking turn → model generates response
             endTurn: () => {
               if (ws.readyState === WebSocket.OPEN) {
-                console.log('[GEMINI] activityEnd → model turn triggered')
-                ws.send(JSON.stringify({ realtimeInput: { activityEnd: {} } }))
+                console.log('[GEMINI] activity_end → model turn triggered')
+                ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
               }
             },
-            // Trigger the opening greeting via clientContent — bypasses VAD entirely
+            // Trigger the opening greeting: activity_start + silence + activity_end
             triggerOpening: () => {
               if (ws.readyState !== WebSocket.OPEN) return
-              console.log('[GEMINI] Triggering opening via clientContent')
+              console.log('[GEMINI] Triggering opening via activity_start + silence + activity_end')
+              ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
+              const silence = Buffer.alloc(6400).toString('base64')
               ws.send(JSON.stringify({
-                clientContent: {
-                  turns: [{ role: 'user', parts: [{ text: 'Hello?' }] }],
-                  turnComplete: true
-                }
+                realtime_input: { audio: { data: silence, mimeType: 'audio/pcm;rate=16000' } }
               }))
+              ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
             },
             close: () => {
               if (!closed) { closed = true; ws.close() }
