@@ -516,7 +516,8 @@ STRICT:
 - Never fabricate prior interest unless it was in the lead record
 - Never say "loan", "guaranteed", "approved"
 - Never give long explanations
-- At the very end of the call output on its own line: [DISPOSITION:code] [SUMMARY:one sentence]
+- At the very end of the call, write (do NOT speak) one silent internal line: [DISPOSITION:code] [SUMMARY:one sentence]
+- The [DISPOSITION:...] and [SUMMARY:...] markers are WRITTEN ONLY — never say them out loud. They are invisible to the caller.
 
 Valid disposition codes: demo_booked, decision_maker, gatekeeper, voicemail, no_answer, bad_number, wrong_number, business_closed, personal_line, not_interested, do_not_call, send_link, callback_requested, interested, transferred_live`
 }
