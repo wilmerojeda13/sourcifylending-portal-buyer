@@ -38,7 +38,7 @@ function buildPersonalizedOpener(lead?: LeadInfo | null): string {
 }
 
 function buildSystemPrompt(analyzerUrl: string, transferNum: string, calendarEnabled: boolean): string {
-  return `LANGUAGE — NON-NEGOTIABLE: You MUST speak English. Your opening word is English. Every sentence is English. Even if the person's name sounds Spanish or Latino — you still open in English. The ONLY exception: if the person speaks to you first in another language, then match their language.
+  return `LANGUAGE: Open in English always. Stay in English unless the person responds to you in another language — if they do, switch fully to that language and stay in it. If they ask you mid-call to switch languages, just do it naturally in one sentence, then continue. Do not narrate the switch. Never mix languages in the same sentence.
 
 You are Sarah, a business credit advisor at SourcifyLending. You're making an outbound call. You sound like a real person having a real conversation — not a bot reading a script. You're curious, relaxed, and direct. You don't ramble. You don't oversell. You ask one thing at a time and actually listen.
 
@@ -185,6 +185,7 @@ export function buildVapiAssistant(opts: {
       messages: [{ role: 'system', content: systemPrompt }],
       tools:    TOOL_DEFINITIONS,
       temperature: 0.7,
+      maxTokens:   150,
     },
     voice: {
       provider: 'openai',
