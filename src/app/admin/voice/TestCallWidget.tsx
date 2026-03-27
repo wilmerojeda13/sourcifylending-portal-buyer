@@ -32,8 +32,9 @@ export default function TestCallWidget() {
   const [vapiCallId, setVapiCallId]     = useState<string | null>(null)
   const [error, setError]               = useState<string | null>(null)
   const [duration, setDuration]         = useState(0)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
-  const pollRef  = useRef<NodeJS.Timeout | null>(null)
+  const timerRef    = useRef<NodeJS.Timeout | null>(null)
+  const pollRef     = useRef<NodeJS.Timeout | null>(null)
+  const pollStartRef = useRef<number>(0)
 
   // Duration timer while connected
   useEffect(() => {
@@ -47,7 +48,14 @@ export default function TestCallWidget() {
 
   // Poll call status while in-flight
   const startPolling = (id: string) => {
+    pollStartRef.current = Date.now()
     pollRef.current = setInterval(async () => {
+      // Auto-complete after 3 minutes regardless — catches missed webhook events
+      if (Date.now() - pollStartRef.current > 3 * 60 * 1000) {
+        setCallStatus('completed')
+        stopPolling()
+        return
+      }
       try {
         const res  = await fetch(`/api/voice/calls/${id}`)
         const data = await res.json()

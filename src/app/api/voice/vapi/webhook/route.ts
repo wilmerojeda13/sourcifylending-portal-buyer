@@ -340,9 +340,23 @@ export async function POST(req: NextRequest) {
 
   if (!message) return NextResponse.json({ ok: true })
 
-  const callId  = message.call?.metadata?.callId  ?? ''
-  const leadId  = message.call?.metadata?.leadId  ?? ''
   const vapiId  = message.call?.id ?? ''
+  let   callId  = message.call?.metadata?.callId  ?? ''
+  let   leadId  = message.call?.metadata?.leadId  ?? ''
+
+  // Fallback: if metadata didn't come through, look up by VAPI call ID
+  if (!callId && vapiId) {
+    const supabase = await createServiceClient()
+    const { data: row } = await supabase
+      .from('voice_calls')
+      .select('id, lead_id')
+      .eq('twilio_call_sid', vapiId)
+      .maybeSingle()
+    if (row) {
+      callId = row.id
+      if (!leadId) leadId = row.lead_id ?? ''
+    }
+  }
 
   // ── tool-calls ──────────────────────────────────────────────────────────────
   if (message.type === 'tool-calls' && message.toolCallList?.length) {
@@ -379,11 +393,12 @@ export async function POST(req: NextRequest) {
   if (message.type === 'status-update' && callId) {
     const supabase = await createServiceClient()
     const statusMap: Record<string, string> = {
-      queued:      'initiated',
-      ringing:     'ringing',
+      queued:        'initiated',
+      ringing:       'ringing',
       'in-progress': 'in-progress',
-      forwarding:  'in-progress',
-      ended:       'completed',
+      forwarding:    'in-progress',
+      ended:         'completed',
+      completed:     'completed',
     }
     const newStatus = statusMap[message.status ?? '']
     if (newStatus) {
@@ -392,8 +407,8 @@ export async function POST(req: NextRequest) {
   }
 
   // ── end-of-call-report ──────────────────────────────────────────────────────
-  if (message.type === 'end-of-call-report' && callId) {
-    await handleEndOfCall(message, callId, leadId)
+  if (message.type === 'end-of-call-report') {
+    if (callId) await handleEndOfCall(message, callId, leadId)
   }
 
   return NextResponse.json({ ok: true })
