@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAvailableSlots, createCalendarEvent } from '@/lib/calendar'
 import { AUTO_SUPPRESS_DISPOSITIONS } from '@/modules/voice-agent/compliance/suppression'
+import twilio from 'twilio'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -169,12 +170,39 @@ async function handleSendAnalyzerLink(
 ): Promise<string> {
   const supabase = await createServiceClient()
 
+  const [settingsRes, leadRes] = await Promise.all([
+    supabase.from('voice_agent_settings').select('analyzer_url, twilio_caller_id').eq('id', 'default').single(),
+    leadId ? supabase.from('voice_leads').select('phone_e164, owner_name').eq('id', leadId).maybeSingle() : Promise.resolve({ data: null }),
+  ])
+
+  const analyzerUrl = settingsRes.data?.analyzer_url || process.env.ANALYZER_URL || 'https://app.sourcifylending.com/analyzer'
+  const phoneE164   = (leadRes as { data: { phone_e164?: string; owner_name?: string } | null }).data?.phone_e164
+  const firstName   = (leadRes as { data: { phone_e164?: string; owner_name?: string } | null }).data?.owner_name?.trim().split(/\s+/)[0] || ''
+
+  // Send SMS immediately
+  if (phoneE164) {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID
+    const authToken  = process.env.TWILIO_AUTH_TOKEN
+    const callerId   = settingsRes.data?.twilio_caller_id || process.env.TWILIO_CALLER_ID
+
+    if (accountSid && authToken && callerId) {
+      const greeting = firstName ? `Hi ${firstName}! ` : 'Hi! '
+      const smsBody  = `${greeting}Here's your free business funding analyzer from SourcifyLending — takes 2 min and shows exactly where you stand: ${analyzerUrl}`
+      try {
+        const client = twilio(accountSid, authToken)
+        await client.messages.create({ to: phoneE164, from: callerId, body: smsBody })
+      } catch (err) {
+        console.error('[vapi/webhook] SMS send error:', err)
+      }
+    }
+  }
+
   await Promise.all([
     supabase.from('voice_calls').update({ disposition: 'send_link' }).eq('id', callId),
     supabase.from('voice_call_events').insert({
       call_id:    callId,
       event_type: 'send_analyzer_link',
-      event_data: { reason: args.reason },
+      event_data: { reason: args.reason, sms_sent: !!phoneE164 },
       timestamp:  new Date().toISOString(),
     }),
     leadId
@@ -182,7 +210,7 @@ async function handleSendAnalyzerLink(
       : Promise.resolve(),
   ])
 
-  return 'Analyzer link will be sent after the call.'
+  return 'Analyzer link sent via text message.'
 }
 
 async function handleLogQualification(

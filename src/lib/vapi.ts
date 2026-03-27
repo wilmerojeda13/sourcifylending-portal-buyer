@@ -181,7 +181,7 @@ export function buildVapiAssistant(opts: {
     firstMessage:  opener,
     model: {
       provider: 'openai',
-      model:    'gpt-4o-mini',
+      model:    'gpt-4o',
       messages: [{ role: 'system', content: systemPrompt }],
       tools:    TOOL_DEFINITIONS,
       temperature: 0.7,
