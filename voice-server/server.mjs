@@ -355,18 +355,16 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
                 ws.send(JSON.stringify({ realtimeInput: { activityEnd: {} } }))
               }
             },
-            // Trigger the opening greeting: full activity cycle with silence
-            // (activityStart + silence + activityEnd = minimal user turn)
+            // Trigger the opening greeting via clientContent — bypasses VAD entirely
             triggerOpening: () => {
               if (ws.readyState !== WebSocket.OPEN) return
-              console.log('[GEMINI] Triggering opening via activityStart + silence + activityEnd')
-              ws.send(JSON.stringify({ realtimeInput: { activityStart: {} } }))
-              // 200ms of silence at 16 kHz 16-bit PCM (= 6400 bytes of zeros)
-              const silence = Buffer.alloc(6400).toString('base64')
+              console.log('[GEMINI] Triggering opening via clientContent')
               ws.send(JSON.stringify({
-                realtimeInput: { audio: { data: silence, mimeType: 'audio/pcm;rate=16000' } }
+                clientContent: {
+                  turns: [{ role: 'user', parts: [{ text: 'Hello?' }] }],
+                  turnComplete: true
+                }
               }))
-              ws.send(JSON.stringify({ realtimeInput: { activityEnd: {} } }))
             },
             close: () => {
               if (!closed) { closed = true; ws.close() }
