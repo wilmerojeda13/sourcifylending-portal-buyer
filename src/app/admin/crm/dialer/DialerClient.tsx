@@ -154,9 +154,14 @@ export default function DialerClient() {
 
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-        <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-400">
-          <ChevronLeft size={18}/> CRM
-        </Link>
+        <div className="flex flex-col">
+          <Link href="/admin" className="text-xs text-gray-600 hover:text-green-500 font-medium inline-flex items-center gap-0.5 leading-none mb-0.5">
+            <ChevronLeft size={12}/> Admin
+          </Link>
+          <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-200">
+            <ChevronLeft size={18}/> CRM
+          </Link>
+        </div>
         <div className="text-center">
           <p className="text-xs text-gray-500 font-medium">DIALER MODE</p>
           <p className="text-xs text-gray-400">{remaining} remaining · {done} done</p>

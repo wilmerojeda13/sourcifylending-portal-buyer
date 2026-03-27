@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  Plus, Search, Phone, Building2, Calendar, ChevronRight,
+  Plus, Search, Phone, Building2, Calendar, ChevronLeft, ChevronRight,
   X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
   CheckCircle2, XCircle, Upload, Zap, Filter,
 } from 'lucide-react'
@@ -198,6 +198,9 @@ export default function CRMClient() {
       <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 pt-4 pb-3 sticky top-0 z-20">
         <div className="flex items-center justify-between mb-3">
           <div>
+            <Link href="/admin" className="text-xs text-gray-400 hover:text-green-600 font-medium mb-0.5 inline-flex items-center gap-1">
+              <ChevronLeft size={13}/> Admin Portal
+            </Link>
             <h1 className="text-xl font-bold text-gray-900">Sales CRM</h1>
             <p className="text-xs text-gray-500">{total.toLocaleString()} leads</p>
           </div>

@@ -465,9 +465,14 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
 
       {/* ── Sticky header ── */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3 sticky top-0 z-20 flex items-center justify-between gap-2">
-        <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 font-medium">
-          <ChevronLeft size={18}/> Leads
-        </Link>
+        <div className="flex flex-col">
+          <Link href="/admin" className="text-xs text-gray-400 hover:text-green-600 font-medium inline-flex items-center gap-0.5 leading-none mb-0.5">
+            <ChevronLeft size={12}/> Admin
+          </Link>
+          <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 font-medium">
+            <ChevronLeft size={18}/> Leads
+          </Link>
+        </div>
         <div className="flex items-center gap-1.5">
           <button onClick={toggleDNC} className={cn('text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-colors', lead.do_not_call ? 'border-red-300 text-red-600 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-700 text-gray-500')}>
             <Ban size={13}/>
