@@ -336,8 +336,21 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             },
             triggerOpening: () => {
               if (ws.readyState !== WebSocket.OPEN) return
-              console.log('[GEMINI] Triggering opening via realtimeInput text')
-              ws.send(JSON.stringify({ realtimeInput: { text: '.' } }))
+              console.log('[GEMINI] Triggering opening via audio burst (auto VAD)')
+              // 200ms of 400Hz tone at 16kHz — triggers auto VAD speech detection
+              const numSamples = 3200
+              const tone = Buffer.allocUnsafe(numSamples * 2)
+              for (let i = 0; i < numSamples; i++) {
+                const s = Math.round(Math.sin(2 * Math.PI * 400 * i / 16000) * 8000)
+                tone.writeInt16LE(s, i * 2)
+              }
+              ws.send(JSON.stringify({ realtimeInput: { audio: { data: tone.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
+              // 500ms silence after tone — triggers VAD end-of-speech → Gemini responds
+              setTimeout(() => {
+                if (ws.readyState !== WebSocket.OPEN) return
+                const silence = Buffer.alloc(8000 * 2)
+                ws.send(JSON.stringify({ realtimeInput: { audio: { data: silence.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
+              }, 50)
             },
             close: () => {
               if (!closed) { closed = true; ws.close() }
@@ -1017,9 +1030,19 @@ const httpServer = createServer(async (req, res) => {
           if (!msg.serverContent?.modelTurn) log.push('Msg: ' + JSON.stringify(msg).slice(0, 120))
           if (msg.setupComplete) {
             log.push('setupComplete received!')
-            // Trigger via realtimeInput text (works with auto VAD ON)
-            ws.send(JSON.stringify({ realtimeInput: { text: '.' } }))
-            log.push('realtimeInput text trigger sent')
+            // Trigger via audio burst (same as production triggerOpening)
+            const numSamples = 3200
+            const tone = Buffer.allocUnsafe(numSamples * 2)
+            for (let i = 0; i < numSamples; i++) {
+              const s = Math.round(Math.sin(2 * Math.PI * 400 * i / 16000) * 8000)
+              tone.writeInt16LE(s, i * 2)
+            }
+            ws.send(JSON.stringify({ realtimeInput: { audio: { data: tone.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
+            setTimeout(() => {
+              const silence = Buffer.alloc(8000 * 2)
+              ws.send(JSON.stringify({ realtimeInput: { audio: { data: silence.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
+              log.push('audio burst + silence sent')
+            }, 50)
           }
           const sc = msg.serverContent ?? msg.server_content
           const parts = sc?.modelTurn?.parts ?? sc?.model_turn?.parts
