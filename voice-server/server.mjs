@@ -1027,36 +1027,23 @@ const httpServer = createServer(async (req, res) => {
         })
         ws.on('message', (data) => {
           const msg = JSON.parse(data.toString())
-          if (!msg.serverContent?.modelTurn) log.push('Msg: ' + JSON.stringify(msg).slice(0, 120))
+          const raw = data.toString()
           if (msg.setupComplete) {
-            log.push('setupComplete received!')
-            // Trigger via audio burst (same as production triggerOpening)
-            const numSamples = 8000
-            const noise = Buffer.allocUnsafe(numSamples * 2)
-            for (let i = 0; i < numSamples; i++) {
-              const s = Math.round((Math.random() - 0.5) * 2 * 6000)
-              noise.writeInt16LE(s, i * 2)
-            }
-            ws.send(JSON.stringify({ realtimeInput: { audio: { data: noise.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
-            setTimeout(() => {
-              const silence = Buffer.alloc(32000 * 2)
-              ws.send(JSON.stringify({ realtimeInput: { audio: { data: silence.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
-              log.push('noise burst + 2s silence sent')
-            }, 100)
+            log.push('setupComplete received! Sending text trigger...')
+            // Text trigger — fastest way to get any model response
+            ws.send(JSON.stringify({ realtimeInput: { text: 'say hello' } }))
           }
+          // Log ALL messages in full (truncated) so we can see the real response format
+          const compact = raw.replace(/"data":"[^"]{20,}"/g, '"data":"<base64>"')
+          log.push('MSG: ' + compact.slice(0, 300))
+          if (msg.error) { log.push(`Error: ${JSON.stringify(msg.error)}`); clearTimeout(timeout); ws.close(); resolve() }
           const sc = msg.serverContent ?? msg.server_content
-          const parts = sc?.modelTurn?.parts ?? sc?.model_turn?.parts
-          if (parts?.length) {
-            const inlineData = parts[0]?.inlineData ?? parts[0]?.inline_data
-            const hasAudio = parts.some(p => (p.inlineData ?? p.inline_data)?.data)
-            const text = parts.filter(p => p.text).map(p => p.text).join('')
-            log.push(`Model response: audio=${hasAudio}, text="${text.slice(0, 100)}"`)
+          if (sc?.turnComplete || sc?.turn_complete) {
             result.ok = true
             clearTimeout(timeout)
             ws.close()
             resolve()
           }
-          if (msg.error) { log.push(`Error: ${JSON.stringify(msg.error)}`); clearTimeout(timeout); ws.close(); resolve() }
         })
         ws.on('error', (e) => { log.push(`WS error: ${e.message}`); clearTimeout(timeout); resolve() })
         ws.on('close', (code, reason) => { log.push(`WS closed: code=${code} reason="${reason?.toString()}"`); clearTimeout(timeout); resolve() })
