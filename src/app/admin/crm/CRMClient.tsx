@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  Plus, Search, LayoutGrid, List, Phone, Building2,
-  Calendar, ChevronRight, X, Loader2, AlertCircle, Users,
-  PhoneCall, TrendingUp, CheckCircle2, XCircle, Upload,
+  Plus, Search, Phone, Building2, Calendar, ChevronRight,
+  X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
+  CheckCircle2, XCircle, Upload, Zap, Filter,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -32,20 +32,13 @@ interface CRMLead {
 type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'closed_won' | 'closed_lost'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const STAGES: { key: Stage; label: string; color: string; icon: React.ElementType }[] = [
-  { key: 'new',           label: 'New',           color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',        icon: Users },
-  { key: 'contacted',     label: 'Contacted',     color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',     icon: PhoneCall },
-  { key: 'qualified',     label: 'Qualified',     color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', icon: TrendingUp },
-  { key: 'demo_scheduled',label: 'Demo Scheduled',color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300', icon: Calendar },
-  { key: 'closed_won',    label: 'Closed Won',    color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300', icon: CheckCircle2 },
-  { key: 'closed_lost',   label: 'Closed Lost',   color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',         icon: XCircle },
-]
-
-const SOURCES = ['manual','analyzer','affiliate','facebook','purchased','referral','inbound','other']
-const PROGRAMS = [
-  { value: 'program_a', label: 'Program A' },
-  { value: 'program_b', label: 'Program B' },
-  { value: 'program_c', label: 'Program C' },
+const STAGES: { key: Stage; label: string; color: string; dot: string; icon: React.ElementType }[] = [
+  { key: 'new',            label: 'New',            color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',         dot: 'bg-gray-400',   icon: Users },
+  { key: 'contacted',      label: 'Contacted',      color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',      dot: 'bg-blue-500',   icon: PhoneCall },
+  { key: 'qualified',      label: 'Qualified',      color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',  dot: 'bg-amber-500',  icon: TrendingUp },
+  { key: 'demo_scheduled', label: 'Demo Scheduled', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300', dot: 'bg-purple-500', icon: Calendar },
+  { key: 'closed_won',     label: 'Closed Won',     color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',  dot: 'bg-green-500',  icon: CheckCircle2 },
+  { key: 'closed_lost',    label: 'Closed Lost',    color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',          dot: 'bg-red-400',    icon: XCircle },
 ]
 
 const PROGRAM_BADGE: Record<string, string> = {
@@ -55,136 +48,66 @@ const PROGRAM_BADGE: Record<string, string> = {
 }
 const PROGRAM_LABEL: Record<string, string> = { program_a: 'Prog A', program_b: 'Prog B', program_c: 'Prog C' }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function stageInfo(key: Stage) {
-  return STAGES.find(s => s.key === key) ?? STAGES[0]
-}
-
+function stageInfo(key: Stage) { return STAGES.find(s => s.key === key) ?? STAGES[0] }
+function isPastDue(iso: string | null) { return !!iso && new Date(iso) < new Date() }
 function formatDate(iso: string | null) {
   if (!iso) return null
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function isPastDue(iso: string | null) {
-  if (!iso) return false
-  return new Date(iso) < new Date()
-}
+// ─── New Lead Modal ───────────────────────────────────────────────────────────
+const EMPTY = { first_name:'', last_name:'', phone:'', email:'', business_name:'', stage:'new' as Stage, program_interest:'' as ''|'program_a'|'program_b'|'program_c', source:'manual', notes:'', follow_up_at:'' }
 
-// ─── New Lead Form ─────────────────────────────────────────────────────────────
-const EMPTY_FORM = {
-  first_name: '', last_name: '', phone: '', email: '',
-  business_name: '', stage: 'new' as Stage,
-  program_interest: '' as '' | 'program_a' | 'program_b' | 'program_c',
-  source: 'manual', notes: '', follow_up_at: '',
-}
-
-function NewLeadModal({ onClose, onCreated }: { onClose: () => void; onCreated: (lead: CRMLead) => void }) {
-  const [form, setForm] = useState(EMPTY_FORM)
+function NewLeadModal({ onClose, onCreated }: { onClose:()=>void; onCreated:(l:CRMLead)=>void }) {
+  const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
-
-  function set<K extends keyof typeof form>(k: K, v: typeof form[K]) {
-    setForm(p => ({ ...p, [k]: v }))
-  }
+  function set<K extends keyof typeof form>(k:K,v:typeof form[K]){ setForm(p=>({...p,[k]:v})) }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.first_name.trim() || !form.phone.trim()) {
-      toast.error('First name and phone are required')
-      return
-    }
+    if (!form.first_name.trim() || !form.phone.trim()) { toast.error('First name and phone required'); return }
     setSaving(true)
     try {
       const res = await fetch('/api/admin/crm/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          program_interest: form.program_interest || null,
-          follow_up_at: form.follow_up_at || null,
-          email: form.email || null,
-          business_name: form.business_name || null,
-        }),
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ ...form, program_interest: form.program_interest||null, follow_up_at: form.follow_up_at||null, email: form.email||null, business_name: form.business_name||null }),
       })
       const json = await res.json()
-      if (!res.ok) { toast.error(json.error ?? 'Failed to create lead'); return }
+      if (!res.ok) { toast.error(json.error ?? 'Failed'); return }
       toast.success('Lead created!')
       onCreated(json.lead)
-    } catch {
-      toast.error('Network error')
-    } finally {
-      setSaving(false)
-    }
+    } catch { toast.error('Network error') } finally { setSaving(false) }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900 z-10">
           <h2 className="font-bold text-gray-900">Add New Lead</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
-            <X size={16} />
-          </button>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"><X size={16}/></button>
         </div>
-        <form onSubmit={submit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <form onSubmit={submit} className="p-5 space-y-3.5">
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">First Name *</label>
-              <input className="input-field" value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder="John" />
-            </div>
-            <div>
-              <label className="label">Last Name</label>
-              <input className="input-field" value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder="Smith" />
-            </div>
+            <div><label className="label">First Name *</label><input className="input-field" value={form.first_name} onChange={e=>set('first_name',e.target.value)} placeholder="John"/></div>
+            <div><label className="label">Last Name</label><input className="input-field" value={form.last_name} onChange={e=>set('last_name',e.target.value)} placeholder="Smith"/></div>
           </div>
-          <div>
-            <label className="label">Phone *</label>
-            <input className="input-field" type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+1 (555) 000-0000" />
-          </div>
-          <div>
-            <label className="label">Email</label>
-            <input className="input-field" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="john@example.com" />
-          </div>
-          <div>
-            <label className="label">Business Name</label>
-            <input className="input-field" value={form.business_name} onChange={e => set('business_name', e.target.value)} placeholder="Acme LLC" />
+          <div><label className="label">Phone *</label><input className="input-field" type="tel" value={form.phone} onChange={e=>set('phone',e.target.value)} placeholder="+1 (555) 000-0000"/></div>
+          <div><label className="label">Email</label><input className="input-field" type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="john@example.com"/></div>
+          <div><label className="label">Business Name</label><input className="input-field" value={form.business_name} onChange={e=>set('business_name',e.target.value)} placeholder="Acme LLC"/></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="label">Stage</label><select className="input-field" value={form.stage} onChange={e=>set('stage',e.target.value as Stage)}>{STAGES.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}</select></div>
+            <div><label className="label">Program</label><select className="input-field" value={form.program_interest} onChange={e=>set('program_interest',e.target.value as typeof form.program_interest)}><option value="">Unknown</option><option value="program_a">Program A</option><option value="program_b">Program B</option><option value="program_c">Program C</option></select></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Stage</label>
-              <select className="input-field" value={form.stage} onChange={e => set('stage', e.target.value as Stage)}>
-                {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Program Interest</label>
-              <select className="input-field" value={form.program_interest} onChange={e => set('program_interest', e.target.value as typeof form.program_interest)}>
-                <option value="">Unknown</option>
-                {PROGRAMS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
-            </div>
+            <div><label className="label">Source</label><select className="input-field" value={form.source} onChange={e=>set('source',e.target.value)}>{['manual','analyzer','affiliate','facebook','purchased','referral','inbound','other'].map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}</select></div>
+            <div><label className="label">Follow-up</label><input className="input-field" type="datetime-local" value={form.follow_up_at} onChange={e=>set('follow_up_at',e.target.value)}/></div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Source</label>
-              <select className="input-field" value={form.source} onChange={e => set('source', e.target.value)}>
-                {SOURCES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Follow-up Date</label>
-              <input className="input-field" type="datetime-local" value={form.follow_up_at} onChange={e => set('follow_up_at', e.target.value)} />
-            </div>
-          </div>
-          <div>
-            <label className="label">Notes</label>
-            <textarea className="input-field min-h-[80px] resize-y" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any notes about this lead..." />
-          </div>
-          <div className="flex gap-3 pt-1">
-            <button type="submit" disabled={saving} className="btn-primary flex-1 flex items-center justify-center gap-2">
-              {saving && <Loader2 size={14} className="animate-spin" />}
-              {saving ? 'Saving...' : 'Create Lead'}
+          <div><label className="label">Notes</label><textarea className="input-field min-h-[72px] resize-none" value={form.notes} onChange={e=>set('notes',e.target.value)} placeholder="Any notes..."/></div>
+          <div className="flex gap-3 pt-1 pb-2">
+            <button type="submit" disabled={saving} className="btn-primary flex-1 h-12 flex items-center justify-center gap-2 text-base">
+              {saving && <Loader2 size={15} className="animate-spin"/>}{saving ? 'Saving...' : 'Create Lead'}
             </button>
-            <button type="button" onClick={onClose} className="btn-secondary px-5">Cancel</button>
+            <button type="button" onClick={onClose} className="btn-secondary px-5 h-12">Cancel</button>
           </div>
         </form>
       </div>
@@ -192,105 +115,69 @@ function NewLeadModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   )
 }
 
-// ─── Lead Card (Kanban) ────────────────────────────────────────────────────────
+// ─── Lead Card (mobile-first) ─────────────────────────────────────────────────
 function LeadCard({ lead }: { lead: CRMLead }) {
+  const stage = stageInfo(lead.stage)
   const pastDue = isPastDue(lead.follow_up_at)
   return (
-    <Link
-      href={`/admin/crm/${lead.id}`}
-      className="block bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3.5 hover:shadow-md hover:border-green-200 dark:hover:border-green-700 transition-all group"
-    >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <p className="font-semibold text-sm text-gray-900 leading-snug">
-          {lead.first_name} {lead.last_name}
-        </p>
-        <ChevronRight size={14} className="text-gray-300 group-hover:text-green-500 shrink-0 mt-0.5 transition-colors" />
+    <Link href={`/admin/crm/${lead.id}`} className="block bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 active:scale-[0.99] transition-all hover:shadow-md hover:border-green-200 dark:hover:border-green-700 group">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className={cn('w-2 h-2 rounded-full shrink-0', stage.dot)}/>
+            <p className="font-semibold text-sm text-gray-900 truncate">{lead.first_name} {lead.last_name}</p>
+          </div>
+          {lead.business_name && (
+            <p className="text-xs text-gray-500 flex items-center gap-1 mb-1 ml-4">
+              <Building2 size={10}/> {lead.business_name}
+            </p>
+          )}
+          <a
+            href={`tel:${lead.phone}`}
+            onClick={e => e.stopPropagation()}
+            className="text-sm font-medium text-green-600 flex items-center gap-1.5 ml-4 hover:text-green-700"
+          >
+            <Phone size={13}/> {lead.phone}
+          </a>
+        </div>
+        <ChevronRight size={16} className="text-gray-300 group-hover:text-green-500 shrink-0 mt-1 transition-colors"/>
       </div>
-      {lead.business_name && (
-        <p className="text-xs text-gray-500 flex items-center gap-1 mb-2">
-          <Building2 size={11} /> {lead.business_name}
-        </p>
-      )}
-      <p className="text-xs text-gray-500 flex items-center gap-1 mb-2.5">
-        <Phone size={11} /> {lead.phone}
-      </p>
-      <div className="flex items-center gap-1.5 flex-wrap">
+      <div className="flex items-center gap-1.5 flex-wrap mt-3">
+        <span className={cn('badge text-[10px] px-2 py-0.5', stage.color)}>{stage.label}</span>
         {lead.program_interest && (
-          <span className={cn('badge text-[10px] px-2 py-0.5', PROGRAM_BADGE[lead.program_interest])}>
-            {PROGRAM_LABEL[lead.program_interest]}
-          </span>
+          <span className={cn('badge text-[10px] px-2 py-0.5', PROGRAM_BADGE[lead.program_interest])}>{PROGRAM_LABEL[lead.program_interest]}</span>
         )}
-        <span className="badge text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 capitalize">
-          {lead.source}
-        </span>
         {lead.follow_up_at && (
-          <span className={cn('badge text-[10px] px-2 py-0.5 flex items-center gap-1', pastDue ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400')}>
-            <Calendar size={9} /> {formatDate(lead.follow_up_at)}
+          <span className={cn('badge text-[10px] px-2 py-0.5 flex items-center gap-1', pastDue ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600')}>
+            <Calendar size={9}/> {formatDate(lead.follow_up_at)}{pastDue && ' ⚠'}
           </span>
         )}
+        {lead.do_not_call && <span className="badge text-[10px] px-2 py-0.5 bg-red-100 text-red-600">DNC</span>}
       </div>
     </Link>
   )
 }
 
-// ─── List Row ─────────────────────────────────────────────────────────────────
-function LeadRow({ lead }: { lead: CRMLead }) {
-  const info = stageInfo(lead.stage)
-  const pastDue = isPastDue(lead.follow_up_at)
-  return (
-    <tr className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-      <td className="px-4 py-3">
-        <Link href={`/admin/crm/${lead.id}`} className="font-semibold text-sm text-gray-900 hover:text-green-600 transition-colors">
-          {lead.first_name} {lead.last_name}
-        </Link>
-        {lead.business_name && <p className="text-xs text-gray-400">{lead.business_name}</p>}
-      </td>
-      <td className="px-4 py-3 text-sm text-gray-600">{lead.phone}</td>
-      <td className="px-4 py-3 text-sm text-gray-500">{lead.email ?? '—'}</td>
-      <td className="px-4 py-3">
-        <span className={cn('badge text-xs px-2 py-1', info.color)}>{info.label}</span>
-      </td>
-      <td className="px-4 py-3">
-        {lead.program_interest
-          ? <span className={cn('badge text-xs px-2 py-1', PROGRAM_BADGE[lead.program_interest])}>{PROGRAM_LABEL[lead.program_interest]}</span>
-          : <span className="text-gray-400 text-xs">—</span>}
-      </td>
-      <td className="px-4 py-3 text-xs text-gray-500 capitalize">{lead.source}</td>
-      <td className="px-4 py-3 text-xs">
-        {lead.follow_up_at
-          ? <span className={pastDue ? 'text-red-500 font-medium' : 'text-gray-500'}>{formatDate(lead.follow_up_at)}</span>
-          : <span className="text-gray-300">—</span>}
-      </td>
-      <td className="px-4 py-3">
-        <Link href={`/admin/crm/${lead.id}`} className="text-xs text-green-600 hover:underline font-medium">View</Link>
-      </td>
-    </tr>
-  )
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function CRMClient() {
-  const [leads, setLeads]       = useState<CRMLead[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [view, setView]         = useState<'kanban' | 'list'>('kanban')
-  const [search, setSearch]     = useState('')
+  const [leads, setLeads]           = useState<CRMLead[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [search, setSearch]         = useState('')
   const [stageFilter, setStageFilter] = useState('')
-  const [showNew, setShowNew]   = useState(false)
+  const [showNew, setShowNew]       = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (stageFilter) params.set('stage', stageFilter)
-      if (search)       params.set('search', search)
-      const res  = await fetch(`/api/admin/crm/leads?${params}`)
+      const p = new URLSearchParams()
+      if (stageFilter) p.set('stage', stageFilter)
+      if (search)      p.set('search', search)
+      const res  = await fetch(`/api/admin/crm/leads?${p}`)
       const json = await res.json()
       setLeads(json.leads ?? [])
-    } catch {
-      toast.error('Failed to load leads')
-    } finally {
-      setLoading(false)
-    }
+    } catch { toast.error('Failed to load leads') }
+    finally { setLoading(false) }
   }, [stageFilter, search])
 
   useEffect(() => {
@@ -298,140 +185,135 @@ export default function CRMClient() {
     return () => clearTimeout(t)
   }, [load, search])
 
-  function handleCreated(lead: CRMLead) {
-    setLeads(p => [lead, ...p])
-    setShowNew(false)
-  }
+  function handleCreated(lead: CRMLead) { setLeads(p=>[lead,...p]); setShowNew(false) }
 
-  // Stats
   const total     = leads.length
   const followDue = leads.filter(l => isPastDue(l.follow_up_at)).length
   const wonCount  = leads.filter(l => l.stage === 'closed_won').length
+  const inPipeline = leads.filter(l => !['closed_won','closed_lost'].includes(l.stage)).length
 
   return (
-    <div className="p-6 space-y-6 max-w-[1400px]">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sales CRM</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Pre-portal leads pipeline</p>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      {/* ── Header ── */}
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 pt-4 pb-3 sticky top-0 z-20">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Sales CRM</h1>
+            <p className="text-xs text-gray-500">{total.toLocaleString()} leads</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link href="/admin/crm/import" className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5 hidden sm:flex">
+              <Upload size={13}/> Import
+            </Link>
+            <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-sm">
+              <Plus size={15}/> Add
+            </button>
+          </div>
         </div>
+
+        {/* Search + filter row */}
         <div className="flex items-center gap-2">
-          <Link href="/admin/crm/import" className="btn-secondary text-sm flex items-center gap-2">
-            <Upload size={15} /> Import CSV
-          </Link>
-          <button onClick={() => setShowNew(true)} className="btn-primary gap-2">
-            <Plus size={16} /> Add Lead
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+            <input
+              className="input-field pl-8 h-10 text-sm"
+              placeholder="Search leads..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={() => setShowFilters(p => !p)}
+            className={cn('h-10 w-10 flex items-center justify-center rounded-xl border transition-colors shrink-0',
+              showFilters || stageFilter
+                ? 'bg-green-600 border-green-600 text-white'
+                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500'
+            )}
+          >
+            <Filter size={15}/>
           </button>
         </div>
+
+        {/* Stage filter tabs — collapsible */}
+        {showFilters && (
+          <div className="flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-none">
+            {[{key:'',label:'All'},...STAGES.map(s=>({key:s.key,label:s.label}))].map(s=>(
+              <button
+                key={s.key}
+                onClick={() => setStageFilter(s.key)}
+                className={cn(
+                  'shrink-0 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap',
+                  stageFilter === s.key
+                    ? 'bg-green-600 border-green-600 text-white'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                )}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* ── Stats strip ── */}
+      <div className="grid grid-cols-4 gap-px bg-gray-200 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-800">
         {[
-          { label: 'Total Leads', value: total, icon: Users, color: 'text-blue-600' },
-          { label: 'Follow-ups Due', value: followDue, icon: AlertCircle, color: followDue > 0 ? 'text-red-500' : 'text-gray-400' },
-          { label: 'Closed Won', value: wonCount, icon: CheckCircle2, color: 'text-green-600' },
-          { label: 'In Pipeline', value: leads.filter(l => !['closed_won','closed_lost'].includes(l.stage)).length, icon: TrendingUp, color: 'text-amber-600' },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 flex items-center gap-3">
-            <Icon size={20} className={color} />
-            <div>
-              <p className="text-xl font-bold text-gray-900">{value}</p>
-              <p className="text-xs text-gray-500">{label}</p>
-            </div>
+          { label: 'Total',      value: total,      color: 'text-gray-900' },
+          { label: 'Due',        value: followDue,  color: followDue > 0 ? 'text-red-500' : 'text-gray-900' },
+          { label: 'Won',        value: wonCount,   color: 'text-green-600' },
+          { label: 'Pipeline',   value: inPipeline, color: 'text-amber-600' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="bg-white dark:bg-gray-900 px-3 py-2.5 text-center">
+            <p className={cn('text-lg font-bold', color)}>{value.toLocaleString()}</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide">{label}</p>
           </div>
         ))}
       </div>
 
-      {/* Filters + view toggle */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            className="input-field pl-8 text-sm"
-            placeholder="Search leads..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <select className="input-field text-sm w-44" value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
-          <option value="">All Stages</option>
-          {STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-        </select>
-        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 ml-auto">
-          <button
-            onClick={() => setView('kanban')}
-            className={cn('p-1.5 rounded-md transition-colors', view === 'kanban' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900' : 'text-gray-400 hover:text-gray-600')}
-          >
-            <LayoutGrid size={16} />
-          </button>
-          <button
-            onClick={() => setView('list')}
-            className={cn('p-1.5 rounded-md transition-colors', view === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-gray-900' : 'text-gray-400 hover:text-gray-600')}
-          >
-            <List size={16} />
-          </button>
-        </div>
+      {/* ── Dialer Mode CTA ── */}
+      <div className="px-4 pt-4">
+        <Link
+          href="/admin/crm/dialer"
+          className="flex items-center gap-3 bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-2xl px-4 py-3.5 text-white transition-colors w-full"
+        >
+          <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+            <Zap size={18} className="text-white"/>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm">Dialer Mode</p>
+            <p className="text-green-200 text-xs">Dial through {inPipeline.toLocaleString()} pipeline leads fast</p>
+          </div>
+          <ChevronRight size={18} className="text-green-300"/>
+        </Link>
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20 text-gray-400">
-          <Loader2 size={24} className="animate-spin mr-2" /> Loading leads...
-        </div>
-      ) : leads.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">
-          <Users size={36} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm">{search || stageFilter ? 'No leads match your filters.' : 'No leads yet. Add your first lead to get started.'}</p>
-        </div>
-      ) : view === 'kanban' ? (
-        // Kanban
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start">
-          {STAGES.map(stage => {
-            const col = leads.filter(l => l.stage === stage.key)
-            const Icon = stage.icon
-            return (
-              <div key={stage.key} className="space-y-2">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <Icon size={13} className="text-gray-400" />
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{stage.label}</span>
-                  </div>
-                  <span className="text-xs font-bold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{col.length}</span>
-                </div>
-                {col.length === 0 ? (
-                  <div className="border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-xl h-20 flex items-center justify-center">
-                    <span className="text-xs text-gray-300">Empty</span>
-                  </div>
-                ) : (
-                  col.map(lead => <LeadCard key={lead.id} lead={lead} />)
-                )}
-              </div>
-            )
-          })}
-        </div>
-      ) : (
-        // List
-        <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
-                <tr>
-                  {['Name','Phone','Email','Stage','Program','Source','Follow-up',''].map(h => (
-                    <th key={h} className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {leads.map(lead => <LeadRow key={lead.id} lead={lead} />)}
-              </tbody>
-            </table>
+      {/* ── Lead list ── */}
+      <div className="px-4 pt-4 pb-24 space-y-2.5">
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400">
+            <Loader2 size={22} className="animate-spin mr-2"/> Loading...
           </div>
-        </div>
-      )}
+        ) : leads.length === 0 ? (
+          <div className="text-center py-16 text-gray-400">
+            <Users size={36} className="mx-auto mb-3 opacity-30"/>
+            <p className="text-sm">{search || stageFilter ? 'No leads match your filters.' : 'No leads yet. Tap + Add to get started.'}</p>
+          </div>
+        ) : (
+          leads.map(lead => <LeadCard key={lead.id} lead={lead}/>)
+        )}
+      </div>
 
-      {showNew && <NewLeadModal onClose={() => setShowNew(false)} onCreated={handleCreated} />}
+      {/* ── Mobile bottom bar ── */}
+      <div className="fixed bottom-0 left-0 right-0 sm:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-4 py-3 flex gap-2 z-20">
+        <Link href="/admin/crm/import" className="btn-secondary flex-1 h-11 flex items-center justify-center gap-1.5 text-sm">
+          <Upload size={15}/> Import
+        </Link>
+        <button onClick={()=>setShowNew(true)} className="btn-primary flex-1 h-11 flex items-center justify-center gap-1.5 text-sm">
+          <Plus size={15}/> Add Lead
+        </button>
+      </div>
+
+      {showNew && <NewLeadModal onClose={()=>setShowNew(false)} onCreated={handleCreated}/>}
     </div>
   )
 }

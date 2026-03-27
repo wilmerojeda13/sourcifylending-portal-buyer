@@ -458,315 +458,210 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     toast.success('Demo booked! Check your Google Calendar.')
   }
 
-  const stageData = STAGES.find(s => s.key === lead.stage)
   const programData = PROGRAMS.find(p => p.value === lead.program_interest)
 
   return (
-    <div className="p-6 max-w-5xl space-y-6">
-      {/* Back + actions */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <Link href="/admin/crm" className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors">
-          <ChevronLeft size={14} /> All Leads
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-28">
+
+      {/* ── Sticky header ── */}
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3 sticky top-0 z-20 flex items-center justify-between gap-2">
+        <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 font-medium">
+          <ChevronLeft size={18}/> Leads
         </Link>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/admin/voice/campaigns/new?crm_lead=${lead.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5"
-          >
-            <Megaphone size={13} /> Launch Campaign
+        <div className="flex items-center gap-1.5">
+          <button onClick={toggleDNC} className={cn('text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-colors', lead.do_not_call ? 'border-red-300 text-red-600 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-700 text-gray-500')}>
+            <Ban size={13}/>
+          </button>
+          <Link href={`/admin/voice/campaigns/new?crm_lead=${lead.id}`} target="_blank" rel="noopener noreferrer" className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 font-medium">
+            <Megaphone size={13}/>
           </Link>
-          <button onClick={toggleDNC} className={cn('btn-secondary text-xs px-3 py-2 flex items-center gap-1.5', lead.do_not_call && 'border-red-300 text-red-600 dark:border-red-700')}>
-            <Ban size={13} /> {lead.do_not_call ? 'Remove DNC' : 'Mark DNC'}
-          </button>
-          <button onClick={deleteLead} className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5 text-red-500 hover:text-red-600 border-red-200 hover:border-red-300 dark:border-red-800">
-            <Trash2 size={13} /> Delete
-          </button>
+          {!editing ? (
+            <button onClick={() => setEditing(true)} className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1">
+              <Edit3 size={13}/> Edit
+            </button>
+          ) : (
+            <div className="flex gap-1.5">
+              <button onClick={saveEdits} disabled={saving} className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1">
+                {saving ? <Loader2 size={12} className="animate-spin"/> : <Save size={12}/>} Save
+              </button>
+              <button onClick={() => setEditing(false)} className="btn-secondary text-xs px-2.5 py-1.5"><X size={13}/></button>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left — Contact info */}
-        <div className="lg:col-span-2 space-y-5">
-          {/* Info card */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                  {lead.first_name} {lead.last_name}
-                  {lead.do_not_call && (
-                    <span className="ml-2 text-xs font-semibold text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">DNC</span>
-                  )}
-                </h1>
-                {lead.business_name && (
-                  <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
-                    <Building2 size={13} /> {lead.business_name}
-                  </p>
-                )}
-              </div>
-              {!editing ? (
-                <button onClick={() => setEditing(true)} className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5">
-                  <Edit3 size={13} /> Edit
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <button onClick={saveEdits} disabled={saving} className="btn-primary text-xs px-3 py-2 flex items-center gap-1.5">
-                    {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                    Save
-                  </button>
-                  <button onClick={() => setEditing(false)} className="btn-secondary text-xs px-3 py-2">
-                    <X size={13} />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {!editing ? (
-              <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
-                <div className="flex items-center gap-2 text-gray-700">
-                  <Phone size={14} className="text-gray-400 shrink-0" />
-                  <a href={`tel:${lead.phone}`} className="hover:text-green-600 transition-colors">{lead.phone}</a>
-                </div>
-                <div className="flex items-center gap-2 text-gray-700">
-                  <Mail size={14} className="text-gray-400 shrink-0" />
-                  {lead.email ? <a href={`mailto:${lead.email}`} className="hover:text-green-600 transition-colors">{lead.email}</a> : <span className="text-gray-400">—</span>}
-                </div>
-                <div className="flex items-center gap-2 text-gray-700">
-                  <span className="text-xs text-gray-400 font-medium w-14 shrink-0">Source</span>
-                  <span className="capitalize">{lead.source}</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-700">
-                  <span className="text-xs text-gray-400 font-medium w-14 shrink-0">Created</span>
-                  <span>{formatDateTime(lead.created_at)}</span>
-                </div>
-                {lead.follow_up_at && (
-                  <div className="flex items-center gap-2 col-span-2">
-                    <Calendar size={14} className={cn('shrink-0', new Date(lead.follow_up_at) < new Date() ? 'text-red-500' : 'text-amber-500')} />
-                    <span className={cn('text-sm', new Date(lead.follow_up_at) < new Date() ? 'text-red-500 font-medium' : 'text-gray-700')}>
-                      Follow-up: {formatDateTime(lead.follow_up_at)}
-                      {new Date(lead.follow_up_at) < new Date() && ' (overdue)'}
-                    </span>
-                  </div>
-                )}
-                {lead.notes && (
-                  <div className="col-span-2 mt-1">
-                    <p className="text-xs text-gray-400 font-medium mb-1">Notes</p>
-                    <p className="text-sm text-gray-700 bg-gray-50 dark:bg-gray-900 rounded-lg p-3 leading-relaxed">{lead.notes}</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">First Name</label>
-                  <input className="input-field" value={editForm.first_name} onChange={e => setEF('first_name', e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Last Name</label>
-                  <input className="input-field" value={editForm.last_name} onChange={e => setEF('last_name', e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Phone</label>
-                  <input className="input-field" type="tel" value={editForm.phone} onChange={e => setEF('phone', e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Email</label>
-                  <input className="input-field" type="email" value={editForm.email} onChange={e => setEF('email', e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Business Name</label>
-                  <input className="input-field" value={editForm.business_name} onChange={e => setEF('business_name', e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Source</label>
-                  <select className="input-field" value={editForm.source} onChange={e => setEF('source', e.target.value)}>
-                    {['manual','analyzer','affiliate','facebook','purchased','referral','inbound','other'].map(s => (
-                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Program Interest</label>
-                  <select className="input-field" value={editForm.program_interest} onChange={e => setEF('program_interest', e.target.value)}>
-                    <option value="">Unknown</option>
-                    <option value="program_a">Program A</option>
-                    <option value="program_b">Program B</option>
-                    <option value="program_c">Program C</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Follow-up Date</label>
-                  <input className="input-field" type="datetime-local" value={editForm.follow_up_at} onChange={e => setEF('follow_up_at', e.target.value)} />
-                </div>
-                <div className="col-span-2">
-                  <label className="label">Notes</label>
-                  <textarea className="input-field min-h-[80px] resize-y" value={editForm.notes} onChange={e => setEF('notes', e.target.value)} />
-                </div>
-              </div>
-            )}
+      {/* ── Lead identity ── */}
+      <div className="bg-white dark:bg-gray-900 px-4 py-5 border-b border-gray-100 dark:border-gray-800">
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0 text-green-700 font-bold text-lg">
+            {lead.first_name[0]}{lead.last_name?.[0] ?? ''}
           </div>
-
-          {/* Activity feed */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
-            <h2 className="font-bold text-gray-900 mb-4 text-sm">Activity Feed</h2>
-
-            {/* Add activity */}
-            <div className="mb-5 space-y-2">
-              <div className="flex gap-2">
-                {(['note','call','email','sms','voicemail'] as const).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setNoteType(t)}
-                    className={cn(
-                      'text-xs px-3 py-1.5 rounded-lg font-medium transition-colors capitalize',
-                      noteType === t
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'
-                    )}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <textarea
-                  className="input-field flex-1 min-h-[72px] resize-none text-sm"
-                  placeholder={`Log a ${noteType}...`}
-                  value={noteText}
-                  onChange={e => setNoteText(e.target.value)}
-                />
-                <button
-                  onClick={addActivity}
-                  disabled={!noteText.trim() || addingNote}
-                  className="btn-primary px-4 self-end flex items-center gap-1.5 text-sm"
-                >
-                  {addingNote ? <Loader2 size={14} className="animate-spin" /> : null}
-                  Log
-                </button>
-              </div>
-            </div>
-
-            {/* Activity list */}
-            {activities.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-6">No activity yet. Log your first touchpoint above.</p>
-            ) : (
-              <div className="space-y-3">
-                {activities.map(act => {
-                  const Icon = ACTIVITY_ICONS[act.type] ?? MessageSquare
-                  const colorClass = ACTIVITY_COLORS[act.type] ?? ACTIVITY_COLORS.note
-                  return (
-                    <div key={act.id} className="flex gap-3">
-                      <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5', colorClass)}>
-                        <Icon size={13} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-semibold text-gray-700 capitalize">{act.type.replace('_', ' ')}</span>
-                          <span className="text-xs text-gray-400">{formatDateTime(act.created_at)}</span>
-                          <span className="text-xs text-gray-400">· {act.created_by}</span>
-                        </div>
-                        {act.body && <p className="text-sm text-gray-700 mt-0.5 leading-relaxed">{act.body}</p>}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2 flex-wrap">
+              {lead.first_name} {lead.last_name}
+              {lead.do_not_call && <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">DNC</span>}
+            </h1>
+            {lead.business_name && <p className="text-sm text-gray-500 flex items-center gap-1"><Building2 size={12}/> {lead.business_name}</p>}
+            <a href={`tel:${lead.phone}`} className="text-base font-semibold text-green-600 flex items-center gap-1.5 mt-1">
+              <Phone size={15}/> {lead.phone}
+            </a>
           </div>
         </div>
 
-        {/* Right sidebar — Stage + Program */}
-        <div className="space-y-5">
-          {/* Stage */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Pipeline Stage</h3>
-            <div className="space-y-1.5">
-              {STAGES.map(s => (
-                <button
-                  key={s.key}
-                  onClick={() => changeStage(s.key)}
-                  className={cn(
-                    'w-full text-left text-sm px-3 py-2.5 rounded-xl font-medium transition-all',
-                    lead.stage === s.key
-                      ? cn(s.color, 'ring-2 ring-offset-1 ring-current')
-                      : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  )}
-                >
-                  {s.label}
-                </button>
+        {/* Stage scroll tabs */}
+        <div className="flex gap-1.5 mt-4 overflow-x-auto pb-1 scrollbar-none">
+          {STAGES.map(s => (
+            <button
+              key={s.key}
+              onClick={() => changeStage(s.key)}
+              className={cn(
+                'shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all whitespace-nowrap',
+                lead.stage === s.key ? cn(s.color, 'border-current') : 'border-gray-200 dark:border-gray-700 text-gray-500'
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Content ── */}
+      <div className="px-4 py-4 space-y-4 max-w-2xl mx-auto lg:max-w-5xl">
+
+        {/* Info / Edit */}
+        <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4">
+          {!editing ? (
+            <div className="space-y-3 text-sm">
+              {lead.email && (
+                <div className="flex items-center gap-2">
+                  <Mail size={14} className="text-gray-400 shrink-0"/>
+                  <a href={`mailto:${lead.email}`} className="text-gray-700 hover:text-green-600 truncate">{lead.email}</a>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-16 shrink-0">Source</span>
+                <span className="text-gray-700 capitalize">{lead.source}</span>
+              </div>
+              {programData && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-16 shrink-0">Program</span>
+                  <span className={cn('badge text-xs px-2.5 py-1', programData.badge)}>{programData.label}</span>
+                </div>
+              )}
+              {lead.follow_up_at && (
+                <div className="flex items-center gap-2">
+                  <Calendar size={14} className={cn('shrink-0', new Date(lead.follow_up_at) < new Date() ? 'text-red-500' : 'text-amber-500')}/>
+                  <span className={cn('text-sm', new Date(lead.follow_up_at) < new Date() ? 'text-red-500 font-medium' : 'text-gray-700')}>
+                    Follow-up: {formatDateTime(lead.follow_up_at)}{new Date(lead.follow_up_at) < new Date() && ' ⚠ overdue'}
+                  </span>
+                </div>
+              )}
+              {lead.notes && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Notes</p>
+                  <p className="text-sm text-gray-700 bg-gray-50 dark:bg-gray-900 rounded-xl p-3 leading-relaxed">{lead.notes}</p>
+                </div>
+              )}
+              <div className="text-xs text-gray-400 pt-1">Added {formatDateTime(lead.created_at)}</div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="label">First Name</label><input className="input-field" value={editForm.first_name} onChange={e=>setEF('first_name',e.target.value)}/></div>
+              <div><label className="label">Last Name</label><input className="input-field" value={editForm.last_name} onChange={e=>setEF('last_name',e.target.value)}/></div>
+              <div><label className="label">Phone</label><input className="input-field" type="tel" value={editForm.phone} onChange={e=>setEF('phone',e.target.value)}/></div>
+              <div><label className="label">Email</label><input className="input-field" type="email" value={editForm.email} onChange={e=>setEF('email',e.target.value)}/></div>
+              <div className="col-span-2"><label className="label">Business Name</label><input className="input-field" value={editForm.business_name} onChange={e=>setEF('business_name',e.target.value)}/></div>
+              <div><label className="label">Source</label>
+                <select className="input-field" value={editForm.source} onChange={e=>setEF('source',e.target.value)}>
+                  {['manual','analyzer','affiliate','facebook','purchased','referral','inbound','other'].map(s=><option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+                </select>
+              </div>
+              <div><label className="label">Program</label>
+                <select className="input-field" value={editForm.program_interest} onChange={e=>setEF('program_interest',e.target.value)}>
+                  <option value="">Unknown</option><option value="program_a">Program A</option><option value="program_b">Program B</option><option value="program_c">Program C</option>
+                </select>
+              </div>
+              <div className="col-span-2"><label className="label">Follow-up Date</label><input className="input-field" type="datetime-local" value={editForm.follow_up_at} onChange={e=>setEF('follow_up_at',e.target.value)}/></div>
+              <div className="col-span-2"><label className="label">Notes</label><textarea className="input-field min-h-[80px] resize-y" value={editForm.notes} onChange={e=>setEF('notes',e.target.value)}/></div>
+            </div>
+          )}
+        </div>
+
+        {/* Activity feed */}
+        <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4">
+          <h2 className="font-bold text-gray-900 mb-3 text-sm">Activity</h2>
+          <div className="space-y-2 mb-4">
+            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {(['note','call','email','sms','voicemail'] as const).map(t=>(
+                <button key={t} onClick={()=>setNoteType(t)}
+                  className={cn('shrink-0 text-xs px-3 py-1.5 rounded-full font-medium capitalize transition-colors',
+                    noteType===t ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  )}>{t}</button>
               ))}
             </div>
-          </div>
-
-          {/* Program */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Program Interest</h3>
-            {programData
-              ? <span className={cn('badge text-xs px-3 py-1.5', programData.badge)}>{programData.label}</span>
-              : <span className="text-sm text-gray-400">Not set</span>}
-          </div>
-
-          {/* Quick actions */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Quick Actions</h3>
-            <div className="space-y-2">
-              <button onClick={() => setShowBookDemo(true)} className="btn-primary w-full text-sm flex items-center gap-2 justify-center">
-                <CalendarPlus size={14} /> Book Demo
+            <div className="flex gap-2">
+              <textarea className="input-field flex-1 min-h-[64px] resize-none text-sm" placeholder={`Log a ${noteType}...`} value={noteText} onChange={e=>setNoteText(e.target.value)}/>
+              <button onClick={addActivity} disabled={!noteText.trim()||addingNote} className="btn-primary px-4 self-end text-sm flex items-center gap-1">
+                {addingNote && <Loader2 size={13} className="animate-spin"/>} Log
               </button>
-              <a href={`tel:${lead.phone}`} className="btn-secondary w-full text-sm flex items-center gap-2 justify-center">
-                <Phone size={14} /> Call {lead.first_name}
-              </a>
-              {lead.email && (
-                <button onClick={() => setShowEmail(true)} className="btn-secondary w-full text-sm flex items-center gap-2 justify-center">
-                  <Mail size={14} /> Send Email
-                </button>
-              )}
-              <Link
-                href={`/admin/voice/campaigns/new?from_crm=1&lead_id=${lead.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-primary w-full text-sm flex items-center gap-2 justify-center"
-              >
-                <Megaphone size={14} /> Start Voice Campaign
-              </Link>
             </div>
           </div>
+          {activities.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">No activity yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {activities.map(act=>{
+                const Icon = ACTIVITY_ICONS[act.type] ?? MessageSquare
+                const colorClass = ACTIVITY_COLORS[act.type] ?? ACTIVITY_COLORS.note
+                return (
+                  <div key={act.id} className="flex gap-3">
+                    <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5', colorClass)}><Icon size={13}/></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-gray-700 capitalize">{act.type.replace('_',' ')}</span>
+                        <span className="text-xs text-gray-400">{formatDateTime(act.created_at)}</span>
+                      </div>
+                      {act.body && <p className="text-sm text-gray-700 mt-0.5 leading-relaxed">{act.body}</p>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
-          {/* Meta */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-5 text-xs space-y-2 text-gray-500">
-            <div className="flex justify-between">
-              <span>Created</span>
-              <span className="text-gray-700">{formatDateTime(lead.created_at)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Last Updated</span>
-              <span className="text-gray-700">{formatDateTime(lead.updated_at)}</span>
-            </div>
-            {lead.last_contacted_at && (
-              <div className="flex justify-between">
-                <span>Last Contacted</span>
-                <span className="text-gray-700">{formatDateTime(lead.last_contacted_at)}</span>
-              </div>
-            )}
-          </div>
+        {/* Danger zone */}
+        <button onClick={deleteLead} className="w-full text-xs text-red-400 hover:text-red-600 py-3 flex items-center justify-center gap-1.5 transition-colors">
+          <Trash2 size={13}/> Delete this lead
+        </button>
+      </div>
+
+      {/* ── Sticky bottom actions (mobile-first) ── */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-4 py-3 z-20">
+        <div className="flex gap-2 max-w-2xl mx-auto">
+          <a href={`tel:${lead.phone}`}
+            className="flex-1 h-12 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white rounded-xl flex items-center justify-center gap-2 font-semibold text-sm transition-colors">
+            <Phone size={17}/> Call
+          </a>
+          {lead.email && (
+            <button onClick={() => setShowEmail(true)}
+              className="flex-1 h-12 btn-secondary flex items-center justify-center gap-2 font-semibold text-sm">
+              <Mail size={17}/> Email
+            </button>
+          )}
+          <button onClick={() => setShowBookDemo(true)}
+            className="flex-1 h-12 btn-secondary flex items-center justify-center gap-2 font-semibold text-sm">
+            <CalendarPlus size={17}/> Demo
+          </button>
+          <Link href={`/admin/voice/campaigns/new?from_crm=1&lead_id=${lead.id}`} target="_blank" rel="noopener noreferrer"
+            className="h-12 w-12 btn-secondary flex items-center justify-center shrink-0">
+            <Megaphone size={17}/>
+          </Link>
         </div>
       </div>
 
-      {showBookDemo && (
-        <BookDemoModal
-          lead={lead}
-          onClose={() => setShowBookDemo(false)}
-          onBooked={handleDemoBooked}
-        />
-      )}
-      {showEmail && (
-        <SendEmailModal
-          lead={lead}
-          onClose={() => setShowEmail(false)}
-          onSent={handleEmailSent}
-        />
-      )}
+      {showBookDemo && <BookDemoModal lead={lead} onClose={()=>setShowBookDemo(false)} onBooked={handleDemoBooked}/>}
+      {showEmail && <SendEmailModal lead={lead} onClose={()=>setShowEmail(false)} onSent={handleEmailSent}/>}
     </div>
   )
 }
