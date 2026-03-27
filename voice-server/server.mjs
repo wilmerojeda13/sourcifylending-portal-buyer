@@ -336,21 +336,21 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             },
             triggerOpening: () => {
               if (ws.readyState !== WebSocket.OPEN) return
-              console.log('[GEMINI] Triggering opening via audio burst (auto VAD)')
-              // 200ms of 400Hz tone at 16kHz — triggers auto VAD speech detection
-              const numSamples = 3200
-              const tone = Buffer.allocUnsafe(numSamples * 2)
+              console.log('[GEMINI] Triggering opening via broadband noise burst (auto VAD)')
+              // 500ms of white noise at 16kHz — broadband, triggers speech VAD
+              const numSamples = 8000
+              const noise = Buffer.allocUnsafe(numSamples * 2)
               for (let i = 0; i < numSamples; i++) {
-                const s = Math.round(Math.sin(2 * Math.PI * 400 * i / 16000) * 8000)
-                tone.writeInt16LE(s, i * 2)
+                const s = Math.round((Math.random() - 0.5) * 2 * 6000)
+                noise.writeInt16LE(s, i * 2)
               }
-              ws.send(JSON.stringify({ realtimeInput: { audio: { data: tone.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
-              // 500ms silence after tone — triggers VAD end-of-speech → Gemini responds
+              ws.send(JSON.stringify({ realtimeInput: { audio: { data: noise.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
+              // 2000ms silence after noise — triggers VAD end-of-speech → Gemini responds
               setTimeout(() => {
                 if (ws.readyState !== WebSocket.OPEN) return
-                const silence = Buffer.alloc(8000 * 2)
+                const silence = Buffer.alloc(32000 * 2)
                 ws.send(JSON.stringify({ realtimeInput: { audio: { data: silence.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
-              }, 50)
+              }, 100)
             },
             close: () => {
               if (!closed) { closed = true; ws.close() }
@@ -1018,7 +1018,7 @@ const httpServer = createServer(async (req, res) => {
       await new Promise((resolve) => {
         const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.${GEMINI_API_VER}.GenerativeService.BidiGenerateContent?key=${GEMINI_API_KEY}`
         const ws = new WebSocket(wsUrl)
-        const timeout = setTimeout(() => { log.push('Timeout: no setupComplete after 8s'); ws.close(); resolve() }, 8000)
+        const timeout = setTimeout(() => { log.push('Timeout: no response after 15s'); ws.close(); resolve() }, 15000)
 
         ws.on('open', () => {
           log.push('WebSocket opened')
@@ -1031,18 +1031,18 @@ const httpServer = createServer(async (req, res) => {
           if (msg.setupComplete) {
             log.push('setupComplete received!')
             // Trigger via audio burst (same as production triggerOpening)
-            const numSamples = 3200
-            const tone = Buffer.allocUnsafe(numSamples * 2)
+            const numSamples = 8000
+            const noise = Buffer.allocUnsafe(numSamples * 2)
             for (let i = 0; i < numSamples; i++) {
-              const s = Math.round(Math.sin(2 * Math.PI * 400 * i / 16000) * 8000)
-              tone.writeInt16LE(s, i * 2)
+              const s = Math.round((Math.random() - 0.5) * 2 * 6000)
+              noise.writeInt16LE(s, i * 2)
             }
-            ws.send(JSON.stringify({ realtimeInput: { audio: { data: tone.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
+            ws.send(JSON.stringify({ realtimeInput: { audio: { data: noise.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
             setTimeout(() => {
-              const silence = Buffer.alloc(8000 * 2)
+              const silence = Buffer.alloc(32000 * 2)
               ws.send(JSON.stringify({ realtimeInput: { audio: { data: silence.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
-              log.push('audio burst + silence sent')
-            }, 50)
+              log.push('noise burst + 2s silence sent')
+            }, 100)
           }
           const sc = msg.serverContent ?? msg.server_content
           const parts = sc?.modelTurn?.parts ?? sc?.model_turn?.parts
