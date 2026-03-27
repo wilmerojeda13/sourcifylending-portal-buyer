@@ -85,6 +85,65 @@ const ACTIVITY_COLORS: Record<string, string> = {
   follow_up_set: 'bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400',
 }
 
+// ─── Send Email Modal (opens Gmail compose) ───────────────────────────────────
+function SendEmailModal({ lead, onClose, onSent }: { lead: CRMLead; onClose: () => void; onSent: (subject: string) => void }) {
+  const program = lead.program_interest
+    ? { program_a: 'Program A', program_b: 'Program B', program_c: 'Program C' }[lead.program_interest]
+    : null
+
+  const [subject, setSubject] = useState(`Following up — SourcifyLending`)
+  const [body, setBody]       = useState(
+    `Hi ${lead.first_name},\n\nI wanted to follow up regarding your interest in ${program ? `our ${program}` : 'our credit fulfillment program'}.\n\nWould you have 20–30 minutes this week for a quick demo?\n\nBest,\nSourcifyLending Team`
+  )
+
+  function openGmail() {
+    if (!lead.email) return
+    const params = new URLSearchParams({ view: 'cm', to: lead.email, su: subject, body })
+    window.open(`https://mail.google.com/mail/?${params}`, '_blank')
+    onSent(subject)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <Mail size={17} className="text-blue-500" />
+            <h2 className="font-bold text-gray-900">Send Email</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"><X size={16} /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-2.5 text-sm">
+            <span className="text-gray-400 text-xs font-medium">To: </span>
+            <span className="text-gray-900 font-medium">{lead.first_name} {lead.last_name}</span>
+            <span className="text-gray-400 ml-2">&lt;{lead.email}&gt;</span>
+          </div>
+          <div>
+            <label className="label">Subject</label>
+            <input className="input-field" value={subject} onChange={e => setSubject(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Body</label>
+            <textarea className="input-field min-h-[180px] resize-y text-sm" value={body} onChange={e => setBody(e.target.value)} />
+          </div>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 flex gap-2 text-xs text-blue-700 dark:text-blue-300">
+            <ExternalLink size={13} className="shrink-0 mt-0.5" />
+            <span>Opens Gmail in a new tab with this email pre-filled. The activity will be logged automatically.</span>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button onClick={openGmail} className="btn-primary flex-1 flex items-center justify-center gap-2">
+              <Mail size={15} /> Open in Gmail
+            </button>
+            <button onClick={onClose} className="btn-secondary px-5">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Google Calendar URL builder ──────────────────────────────────────────────
 function buildGCalUrl(lead: CRMLead, startIso: string, durationMins: number, meetingNotes: string): string {
   // Format: YYYYMMDDTHHmmss (local time, no Z)
@@ -231,7 +290,8 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const [noteText, setNoteText]       = useState('')
   const [addingNote, setAddingNote]   = useState(false)
   const [noteType, setNoteType]       = useState<'note' | 'call' | 'email' | 'sms' | 'voicemail'>('note')
-  const [showBookDemo, setShowBookDemo] = useState(false)
+  const [showBookDemo, setShowBookDemo]   = useState(false)
+  const [showEmail, setShowEmail]         = useState(false)
   const [editForm, setEditForm]         = useState({
     first_name:       lead.first_name,
     last_name:        lead.last_name,
@@ -344,6 +404,24 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     if (!res.ok) { toast.error('Delete failed'); return }
     toast.success('Lead deleted')
     router.push('/admin/crm')
+  }
+
+  // ── Email sent ──────────────────────────────────────────────────────────────
+  async function handleEmailSent(subject: string) {
+    await fetch('/api/admin/crm/activities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lead_id:    lead.id,
+        type:       'email',
+        body:       `Email opened in Gmail — Subject: "${subject}"`,
+        created_by: adminEmail,
+      }),
+    })
+    const actRes = await fetch(`/api/admin/crm/activities?lead_id=${lead.id}`)
+    const actJson = await actRes.json()
+    setActivities(actJson.activities ?? [])
+    toast.success('Email opened in Gmail')
   }
 
   // ── Demo booked ─────────────────────────────────────────────────────────────
@@ -638,9 +716,9 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                 <Phone size={14} /> Call {lead.first_name}
               </a>
               {lead.email && (
-                <a href={`mailto:${lead.email}`} className="btn-secondary w-full text-sm flex items-center gap-2 justify-center">
+                <button onClick={() => setShowEmail(true)} className="btn-secondary w-full text-sm flex items-center gap-2 justify-center">
                   <Mail size={14} /> Send Email
-                </a>
+                </button>
               )}
               <Link
                 href={`/admin/voice/campaigns/new?from_crm=1&lead_id=${lead.id}`}
@@ -676,6 +754,13 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           lead={lead}
           onClose={() => setShowBookDemo(false)}
           onBooked={handleDemoBooked}
+        />
+      )}
+      {showEmail && (
+        <SendEmailModal
+          lead={lead}
+          onClose={() => setShowEmail(false)}
+          onSent={handleEmailSent}
         />
       )}
     </div>
