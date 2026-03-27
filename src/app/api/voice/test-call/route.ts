@@ -33,10 +33,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json() as {
     phone: string
     contact_name?: string
+    business_name?: string
     template_id?: string
   }
 
-  const { phone, contact_name, template_id } = body
+  const { phone, contact_name, business_name, template_id } = body
 
   if (!phone) return NextResponse.json({ error: 'Phone number is required' }, { status: 400 })
 
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
       phone_raw:          phone,
       phone_e164:         phoneE164,
       owner_name:         contact_name?.trim() || 'Test Call',
-      business_name:      contact_name?.trim() || 'Test Call',
+      business_name:      business_name?.trim() || contact_name?.trim() || 'Test Call',
       lead_status:        'test',
       do_not_call:        false,
       call_attempt_count: 0,

@@ -26,9 +26,10 @@ const STATUS_COLOR: Record<CallStatus, string> = {
 }
 
 export default function TestCallWidget() {
-  const [phone, setPhone]           = useState('')
-  const [name, setName]             = useState('')
-  const [templateId, setTemplateId] = useState('')
+  const [phone, setPhone]             = useState('')
+  const [name, setName]               = useState('')
+  const [businessName, setBusinessName] = useState('')
+  const [templateId, setTemplateId]   = useState('')
   const [templates, setTemplates]   = useState<Template[]>([])
   const [callStatus, setCallStatus] = useState<CallStatus>('idle')
   const [callId, setCallId]         = useState<string | null>(null)
@@ -102,7 +103,7 @@ export default function TestCallWidget() {
       const res  = await fetch('/api/voice/test-call', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ phone, contact_name: name, template_id: templateId || undefined }),
+        body:    JSON.stringify({ phone, contact_name: name, business_name: businessName, template_id: templateId || undefined }),
       })
       const data = await res.json()
 
@@ -125,6 +126,7 @@ export default function TestCallWidget() {
     setTwilioSid(null)
     setError(null)
     setDuration(0)
+    setBusinessName('')
   }
 
   const isActive   = ['calling', 'ringing', 'connected'].includes(callStatus)
@@ -158,12 +160,23 @@ export default function TestCallWidget() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Contact Name (optional)</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Full Name</label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="e.g. Abel Test"
+              placeholder="e.g. Abel Fernandez"
+              disabled={isActive}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:bg-gray-50"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Business Name</label>
+            <input
+              type="text"
+              value={businessName}
+              onChange={e => setBusinessName(e.target.value)}
+              placeholder="e.g. Fernandez Construction LLC"
               disabled={isActive}
               className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:bg-gray-50"
             />
