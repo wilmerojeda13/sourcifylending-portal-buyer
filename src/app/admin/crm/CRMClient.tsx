@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   Plus, Search, Phone, Building2, Calendar, ChevronLeft, ChevronRight,
   X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
-  CheckCircle2, XCircle, Upload, Zap, Filter,
+  CheckCircle2, XCircle, Upload, Zap, Filter, RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -165,6 +165,19 @@ export default function CRMClient() {
   const [search, setSearch]         = useState('')
   const [stageFilter, setStageFilter] = useState('')
   const [showNew, setShowNew]       = useState(false)
+  const [syncing, setSyncing]       = useState(false)
+
+  async function syncNotion() {
+    setSyncing(true)
+    try {
+      const res  = await fetch('/api/admin/crm/sync/notion', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error ?? 'Sync failed'); return }
+      toast.success(json.message)
+      load()
+    } catch { toast.error('Sync failed') }
+    finally { setSyncing(false) }
+  }
   const [showFilters, setShowFilters] = useState(false)
 
   const load = useCallback(async () => {
@@ -332,6 +345,14 @@ export default function CRMClient() {
           {/* Quick actions */}
           <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 space-y-2">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Actions</p>
+            <button
+              onClick={syncNotion}
+              disabled={syncing}
+              className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 py-1.5 transition-colors w-full text-left disabled:opacity-50"
+            >
+              {syncing ? <Loader2 size={15} className="text-gray-400 animate-spin"/> : <RefreshCw size={15} className="text-gray-400"/>}
+              {syncing ? 'Syncing from Notion...' : 'Sync from Notion'}
+            </button>
             <Link href="/admin/crm/import" className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 py-1.5 transition-colors">
               <Upload size={15} className="text-gray-400"/> Import CSV
             </Link>
@@ -344,6 +365,9 @@ export default function CRMClient() {
 
       {/* ── Mobile bottom bar ── */}
       <div className="fixed bottom-0 left-0 right-0 lg:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-4 py-3 flex gap-2 z-20">
+        <button onClick={syncNotion} disabled={syncing} className="btn-secondary h-11 px-3 flex items-center justify-center gap-1.5 text-sm disabled:opacity-50">
+          {syncing ? <Loader2 size={15} className="animate-spin"/> : <RefreshCw size={15}/>}
+        </button>
         <Link href="/admin/crm/import" className="btn-secondary flex-1 h-11 flex items-center justify-center gap-1.5 text-sm">
           <Upload size={15}/> Import
         </Link>
