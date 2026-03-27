@@ -471,6 +471,8 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
         <div className="flex items-center gap-2">
           <Link
             href={`/admin/voice/campaigns/new?crm_lead=${lead.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5"
           >
             <Megaphone size={13} /> Launch Campaign
@@ -722,6 +724,8 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               )}
               <Link
                 href={`/admin/voice/campaigns/new?from_crm=1&lead_id=${lead.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="btn-primary w-full text-sm flex items-center gap-2 justify-center"
               >
                 <Megaphone size={14} /> Start Voice Campaign
