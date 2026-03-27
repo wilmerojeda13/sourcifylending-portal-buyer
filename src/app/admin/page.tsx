@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3, GitBranch, PhoneCall, PlayCircle } from 'lucide-react'
+import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3, GitBranch, PhoneCall, PlayCircle, ContactRound } from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 import SeedDemoButton from './SeedDemoButton'
@@ -52,6 +52,13 @@ export default async function AdminHubPage() {
   const recentSignups = all.slice(0, 10)
 
   const navCards = [
+    {
+      href: '/admin/crm',
+      label: 'Sales CRM',
+      desc: 'Pre-portal lead pipeline, activity feed, and voice campaign launcher',
+      icon: ContactRound,
+      color: 'bg-teal-600',
+    },
     {
       href: '/admin/members',
       label: 'Members',

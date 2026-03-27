@@ -1,19 +1,30 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, Megaphone, Loader2 } from 'lucide-react'
+import { ChevronLeft, Megaphone, Loader2, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+interface CRMFilter {
+  stage: string
+  program: string
+  source: string
+}
 
 export default function NewCampaignPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const fromCRM = searchParams.get('from_crm') === '1'
   const [loading, setLoading] = useState(false)
+  const [crmFilter, setCRMFilter] = useState<CRMFilter>({ stage: '', program: '', source: '' })
+  const [crmCount, setCRMCount] = useState<number | null>(null)
+  const [countLoading, setCountLoading] = useState(false)
 
   const [form, setForm] = useState({
     name: '',
     description: '',
-    lead_source_filter: 'all',
+    lead_source_filter: fromCRM ? 'crm' : 'all',
     max_call_duration_seconds: 90,
     quiet_hours_start: '21:00',
     quiet_hours_end: '09:00',
@@ -30,6 +41,21 @@ export default function NewCampaignPage() {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
+  // Fetch CRM lead count when filter changes
+  useEffect(() => {
+    if (form.lead_source_filter !== 'crm') { setCRMCount(null); return }
+    const params = new URLSearchParams()
+    if (crmFilter.stage)   params.set('stage', crmFilter.stage)
+    if (crmFilter.program) params.set('program', crmFilter.program)
+    if (crmFilter.source)  params.set('source', crmFilter.source)
+    setCountLoading(true)
+    fetch(`/api/admin/crm/leads?${params}`)
+      .then(r => r.json())
+      .then(j => setCRMCount(j.total ?? 0))
+      .catch(() => setCRMCount(null))
+      .finally(() => setCountLoading(false))
+  }, [form.lead_source_filter, crmFilter])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) {
@@ -38,10 +64,13 @@ export default function NewCampaignPage() {
     }
     setLoading(true)
     try {
+      const payload = form.lead_source_filter === 'crm'
+        ? { ...form, crm_filter: crmFilter }
+        : form
       const res = await fetch('/api/voice/campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -100,12 +129,61 @@ export default function NewCampaignPage() {
             <label className="label">Lead Source Filter</label>
             <select className="input-field" value={form.lead_source_filter} onChange={e => set('lead_source_filter', e.target.value)}>
               <option value="all">All Sources</option>
+              <option value="crm">📋 From CRM (Sales Pipeline)</option>
               <option value="purchased">Purchased</option>
               <option value="facebook">Facebook</option>
               <option value="inbound">Inbound</option>
               <option value="other">Other</option>
             </select>
           </div>
+
+          {/* CRM Segment Filters */}
+          {form.lead_source_filter === 'crm' && (
+            <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users size={14} className="text-teal-600" />
+                  <span className="text-sm font-semibold text-teal-700 dark:text-teal-300">CRM Segment Filters</span>
+                </div>
+                <span className="text-xs font-bold text-teal-700 dark:text-teal-300">
+                  {countLoading ? '...' : crmCount !== null ? `${crmCount} leads match` : ''}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="label text-xs">Stage</label>
+                  <select className="input-field text-sm" value={crmFilter.stage} onChange={e => setCRMFilter(p => ({ ...p, stage: e.target.value }))}>
+                    <option value="">All Stages</option>
+                    <option value="new">New</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="qualified">Qualified</option>
+                    <option value="demo_scheduled">Demo Scheduled</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label text-xs">Program Interest</label>
+                  <select className="input-field text-sm" value={crmFilter.program} onChange={e => setCRMFilter(p => ({ ...p, program: e.target.value }))}>
+                    <option value="">All Programs</option>
+                    <option value="program_a">Program A</option>
+                    <option value="program_b">Program B</option>
+                    <option value="program_c">Program C</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label text-xs">Lead Source</label>
+                  <select className="input-field text-sm" value={crmFilter.source} onChange={e => setCRMFilter(p => ({ ...p, source: e.target.value }))}>
+                    <option value="">All Sources</option>
+                    {['manual','analyzer','affiliate','facebook','purchased','referral','inbound','other'].map(s => (
+                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs text-teal-600 dark:text-teal-400">
+                Sarah will call all matching CRM leads. Closed Won/Lost leads are automatically excluded.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Phone Settings */}
