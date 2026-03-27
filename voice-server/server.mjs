@@ -230,7 +230,7 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             parts: [{ text: systemPrompt }]
           },
           tools: [{
-            function_declarations: [
+            functionDeclarations: [
               {
                 name: 'check_availability',
                 description: 'Check Abel\'s Google Calendar for available demo slots. Call this when a qualified lead agrees to book a demo.',
