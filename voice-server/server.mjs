@@ -22,8 +22,8 @@ const SUPABASE_KEY        = process.env.SUPABASE_SERVICE_ROLE_KEY  ?? ''
 const TWILIO_ACCOUNT_SID  = process.env.TWILIO_ACCOUNT_SID         ?? ''
 const TWILIO_AUTH_TOKEN   = process.env.TWILIO_AUTH_TOKEN          ?? ''
 const TWILIO_FROM_NUMBER  = process.env.TWILIO_FROM_NUMBER         ?? ''  // E.164 number to send SMS from
-const GEMINI_MODEL        = 'models/gemini-2.0-flash-live-001'    // Stable Live API model
-const GEMINI_API_VER      = 'v1alpha'                              // v1alpha for Live API (BidiGenerateContent)
+const GEMINI_MODEL        = 'models/gemini-3.1-flash-live-preview' // Live model available on this key
+const GEMINI_API_VER      = 'v1beta'                               // v1beta for Live API (BidiGenerateContent)
 const VOICE_NAME          = 'Aoede'  // Female voice — professional and natural
 const MAX_CALL_SECONDS    = 120
 
