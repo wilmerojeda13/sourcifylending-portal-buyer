@@ -330,11 +330,11 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             send: (audioBase64) => {
               if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
-                  realtime_input: {
-                    media_chunks: [{
-                      mime_type: 'audio/pcm;rate=16000',
+                  realtimeInput: {
+                    audio: {
                       data: audioBase64,
-                    }]
+                      mimeType: 'audio/pcm;rate=16000',
+                    }
                   }
                 }))
               }
