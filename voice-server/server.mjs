@@ -252,6 +252,9 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
               }
             }
           },
+          realtime_input_config: {
+            automatic_activity_detection: { disabled: true }
+          },
           system_instruction: {
             parts: [{ text: systemPrompt }]
           },
@@ -341,13 +344,11 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             },
             triggerOpening: () => {
               if (ws.readyState !== WebSocket.OPEN) return
-              console.log('[GEMINI] Triggering opening via clientContent')
-              ws.send(JSON.stringify({
-                clientContent: {
-                  turns: [{ role: 'user', parts: [{ text: '.' }] }],
-                  turnComplete: true
-                }
-              }))
+              console.log('[GEMINI] Triggering opening via activity_start + silence + activity_end')
+              ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
+              const silence = Buffer.alloc(6400).toString('base64')
+              ws.send(JSON.stringify({ realtime_input: { audio: { data: silence, mimeType: 'audio/pcm;rate=16000' } } }))
+              ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
             },
             close: () => {
               if (!closed) { closed = true; ws.close() }
@@ -1017,20 +1018,26 @@ const httpServer = createServer(async (req, res) => {
 
         ws.on('open', () => {
           log.push('WebSocket opened')
-          ws.send(JSON.stringify({ setup: { model: GEMINI_MODEL, generation_config: { response_modalities: ['AUDIO'] }, system_instruction: { parts: [{ text: 'You are a test assistant.' }] } } }))
+          ws.send(JSON.stringify({ setup: { model: GEMINI_MODEL, generation_config: { response_modalities: ['AUDIO', 'TEXT'] }, realtime_input_config: { automatic_activity_detection: { disabled: true } }, system_instruction: { parts: [{ text: 'You are a test assistant. Say hello briefly.' }] } } }))
           log.push('Setup sent')
         })
         ws.on('message', (data) => {
           const msg = JSON.parse(data.toString())
+          if (!msg.serverContent?.modelTurn) log.push('Msg: ' + JSON.stringify(msg).slice(0, 120))
           if (msg.setupComplete) {
             log.push('setupComplete received!')
-            // Send client_content to trigger a response
-            ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: 'Say hello briefly.' }] }], turnComplete: true } }))
-            log.push('clientContent sent')
+            // Trigger via activity signals (VAD disabled in setup)
+            const silence = Buffer.alloc(6400).toString('base64')
+            ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
+            ws.send(JSON.stringify({ realtime_input: { audio: { data: silence, mimeType: 'audio/pcm;rate=16000' } } }))
+            ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
+            log.push('activity signals sent')
           }
-          if (msg.serverContent?.modelTurn?.parts?.length) {
-            const parts = msg.serverContent.modelTurn.parts
-            const hasAudio = parts.some(p => p.inlineData?.mimeType?.startsWith('audio/'))
+          const sc = msg.serverContent ?? msg.server_content
+          const parts = sc?.modelTurn?.parts ?? sc?.model_turn?.parts
+          if (parts?.length) {
+            const inlineData = parts[0]?.inlineData ?? parts[0]?.inline_data
+            const hasAudio = parts.some(p => (p.inlineData ?? p.inline_data)?.data)
             const text = parts.filter(p => p.text).map(p => p.text).join('')
             log.push(`Model response: audio=${hasAudio}, text="${text.slice(0, 100)}"`)
             result.ok = true
