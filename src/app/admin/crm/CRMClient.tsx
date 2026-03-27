@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  Plus, Search, LayoutGrid, List, Phone, Mail, Building2,
+  Plus, Search, LayoutGrid, List, Phone, Building2,
   Calendar, ChevronRight, X, Loader2, AlertCircle, Users,
-  PhoneCall, TrendingUp, CheckCircle2, XCircle,
+  PhoneCall, TrendingUp, CheckCircle2, XCircle, Upload,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -316,9 +316,14 @@ export default function CRMClient() {
           <h1 className="text-2xl font-bold text-gray-900">Sales CRM</h1>
           <p className="text-sm text-gray-500 mt-0.5">Pre-portal leads pipeline</p>
         </div>
-        <button onClick={() => setShowNew(true)} className="btn-primary gap-2">
-          <Plus size={16} /> Add Lead
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/crm/import" className="btn-secondary text-sm flex items-center gap-2">
+            <Upload size={15} /> Import CSV
+          </Link>
+          <button onClick={() => setShowNew(true)} className="btn-primary gap-2">
+            <Plus size={16} /> Add Lead
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
