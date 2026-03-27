@@ -3,6 +3,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { sendNurtureEmail, NURTURE_SEQUENCE } from '@/lib/nurture-emails'
 import { sendOnboardingStepEmail, ONBOARDING_SEQUENCE } from '@/lib/onboarding-emails'
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 // Vercel Cron: runs daily at 10 AM ET
 // vercel.json: { "path": "/api/cron/nurture-emails", "schedule": "0 14 * * *" }
 
@@ -78,6 +80,7 @@ export async function GET(req: NextRequest) {
           console.error(`[nurture] Failed day ${day} for ${profile.email}:`, result.error)
           results.free.errors++
         }
+        await sleep(250) // stay under Resend 5 req/s limit
       }
 
       // Mark completed if all days sent
@@ -157,6 +160,7 @@ export async function GET(req: NextRequest) {
           console.error(`[onboarding] Failed day ${day} for ${profile.email}:`, result.error)
           results.paid.errors++
         }
+        await sleep(250) // stay under Resend 5 req/s limit
       }
 
       const newSent = new Set([...sent, ...dueDays])
