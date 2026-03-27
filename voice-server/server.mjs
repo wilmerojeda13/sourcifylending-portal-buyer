@@ -245,12 +245,7 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
         setup: {
           model: GEMINI_MODEL,
           generation_config: {
-            response_modalities: ['AUDIO', 'TEXT'],
-            speech_config: {
-              voice_config: {
-                prebuilt_voice_config: { voice_name: VOICE_NAME }
-              }
-            }
+            response_modalities: ['AUDIO'],
           },
           system_instruction: {
             parts: [{ text: systemPrompt }]
@@ -1014,7 +1009,7 @@ const httpServer = createServer(async (req, res) => {
 
         ws.on('open', () => {
           log.push('WebSocket opened')
-          ws.send(JSON.stringify({ setup: { model: GEMINI_MODEL, generation_config: { response_modalities: ['AUDIO', 'TEXT'] }, system_instruction: { parts: [{ text: 'You are a test assistant. Say hello briefly.' }] } } }))
+          ws.send(JSON.stringify({ setup: { model: GEMINI_MODEL, generation_config: { response_modalities: ['AUDIO'] }, system_instruction: { parts: [{ text: 'You are a test assistant. Say hello briefly.' }] } } }))
           log.push('Setup sent')
         })
         ws.on('message', (data) => {
