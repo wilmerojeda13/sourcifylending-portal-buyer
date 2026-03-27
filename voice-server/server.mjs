@@ -15,17 +15,46 @@ import { createClient } from '@supabase/supabase-js'
 import { getAvailableSlots, createCalendarEvent } from './calendar.mjs'
 
 // ─── Config ────────────────────────────────────────────────────
-const PORT             = parseInt(process.env.PORT ?? process.env.VOICE_SERVER_PORT ?? '3002')
-const GEMINI_API_KEY   = process.env.GEMINI_API_KEY             ?? ''
-const SUPABASE_URL     = process.env.NEXT_PUBLIC_SUPABASE_URL   ?? ''
-const SUPABASE_KEY     = process.env.SUPABASE_SERVICE_ROLE_KEY  ?? ''
-const GEMINI_MODEL     = 'models/gemini-3.1-flash-live-preview' // Live API model available on this key
-const GEMINI_API_VER   = 'v1beta'                               // v1beta for Live API
-const VOICE_NAME       = 'Aoede'  // Female voice — professional and natural
-const MAX_CALL_SECONDS = 120
+const PORT                = parseInt(process.env.PORT ?? process.env.VOICE_SERVER_PORT ?? '3002')
+const GEMINI_API_KEY      = process.env.GEMINI_API_KEY             ?? ''
+const SUPABASE_URL        = process.env.NEXT_PUBLIC_SUPABASE_URL   ?? ''
+const SUPABASE_KEY        = process.env.SUPABASE_SERVICE_ROLE_KEY  ?? ''
+const TWILIO_ACCOUNT_SID  = process.env.TWILIO_ACCOUNT_SID         ?? ''
+const TWILIO_AUTH_TOKEN   = process.env.TWILIO_AUTH_TOKEN          ?? ''
+const TWILIO_FROM_NUMBER  = process.env.TWILIO_FROM_NUMBER         ?? ''  // E.164 number to send SMS from
+const GEMINI_MODEL        = 'models/gemini-3.1-flash-live-preview' // Live API model available on this key
+const GEMINI_API_VER      = 'v1beta'                               // v1beta for Live API
+const VOICE_NAME          = 'Aoede'  // Female voice — professional and natural
+const MAX_CALL_SECONDS    = 120
 
 if (!GEMINI_API_KEY) console.warn('[VOICE SERVER] WARNING: GEMINI_API_KEY not set')
 if (!SUPABASE_URL || !SUPABASE_KEY) console.warn('[VOICE SERVER] WARNING: Supabase env not set')
+if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
+  console.warn('[VOICE SERVER] WARNING: Twilio SMS env not set — analyzer links will NOT be texted')
+}
+
+// ─── Twilio SMS helper ─────────────────────────────────────────
+async function sendSms(toNumber, body) {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) return false
+  try {
+    const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64')
+    const res = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ From: TWILIO_FROM_NUMBER, To: toNumber, Body: body }).toString(),
+      }
+    )
+    const json = await res.json()
+    if (json.error_code) { console.error('[SMS] Send failed:', json.message); return false }
+    console.log('[SMS] Sent to', toNumber, '| sid:', json.sid)
+    return true
+  } catch (e) {
+    console.error('[SMS] Error:', e.message)
+    return false
+  }
+}
 
 // ─── Supabase client (service role) ────────────────────────────
 const supabase = (SUPABASE_URL && SUPABASE_KEY)
@@ -445,76 +474,70 @@ async function loadSystemPrompt(leadId, callId) {
 }
 
 function buildSystemPrompt(opener, analyzerUrl, transferNum, calendarEnabled) {
-  return `You are Sarah, a business credit advisor at SourcifyLending making an outbound call.
+  return `LANGUAGE — NON-NEGOTIABLE: You MUST speak English. Your opening word is English. Every sentence is English. Even if the person's name sounds Spanish or Latino — you still open in English. The ONLY exception: if the person speaks to you first in another language, then match their language. If they respond in Spanish, switch fully to Spanish and output [LANGUAGE:spanish] on its own line.
 
-VOICE & TONE:
-- Sound warm, natural, conversational — not scripted or robotic
-- Keep every response to 1-2 short sentences
-- Ask only ONE question at a time
-- Use contractions naturally (I'm, we're, you'd, it's)
-- Use light transitions sparingly: "got it", "makes sense", "okay", "fair enough"
-- Stop talking immediately if the lead interrupts or starts speaking
-- Vary your phrasing — don't repeat the same exact sentences
+You are Sarah, a business credit advisor at SourcifyLending. You're making an outbound call. You sound like a real person having a real conversation — not a bot reading a script. You're curious, relaxed, and direct. You don't ramble. You don't oversell. You ask one thing at a time and actually listen.
 
-YOUR OPENING LINE (say this first, then pause and wait):
+YOUR OPENING LINE — say this, then stop and wait:
 "${opener}"
 
-YOUR GOAL — in this order:
-1. Confirm you reached the right person
-2. Qualify with 2-3 natural questions
-3. If they're actively looking → offer to book a demo on the calendar
-4. If they want info first → send the free analyzer link
-5. If not interested → exit politely and quickly
+HOW THE CALL FLOWS:
+Say the opener. Wait for them to respond. Then have a real back-and-forth conversation. Your job is to figure out if they're actually looking for funding or business credit — if so, get them booked or send them the analyzer link. If not, wrap it up quickly and politely.
 
-QUALIFICATION QUESTIONS (rotate naturally, ask 2-3 max, not all at once):
+You MUST go through this in order:
+1. Confirm you're talking to the right person
+2. Ask 2-3 qualifying questions — one at a time, naturally
+3. ONLY after qualifying: if they're a fit, offer to book a demo or send the analyzer link
+4. If they're not a fit, end the call respectfully
+
+HARD RULE — DO NOT offer the analyzer link, do not call any tool, do not mention booking until you have asked at least 2 qualifying questions and heard their answers.
+
+QUALIFYING QUESTIONS (pick naturally, one at a time):
 - "Are you actively looking for funding right now, or more just exploring?"
 - "Is this for an existing business?"
-- "About how long has the business been operating?"
-- "Are you mainly looking at funding, business credit, or just seeing what options are out there?"
-- "Have you applied anywhere recently or are you still in early research?"
+- "How long has the business been operating?"
+- "Are you mainly looking at funding, business credit, or just seeing what's out there?"
+- "Have you applied anywhere recently?"
 - "Are you trying to move on this soon, or still in the looking phase?"
 
-LEAD CLASSIFICATION (internal, don't say these words):
-HOT = actively seeking funding + operating business + decision maker + open to next step → offer booking
-WARM = interested but not ready yet → send analyzer link
-COLD = not interested / wrong contact / no business → exit politely
+HOW TO SOUND HUMAN:
+- Short responses. 1-2 sentences max.
+- One question per turn. Never stack two questions.
+- Use natural transitions: "got it", "yeah", "makes sense", "okay", "fair enough"
+- If they give a short answer, follow up naturally before moving on
+- Don't repeat what they said back to them word-for-word
+- If they interrupt you, stop talking immediately
 
-OBJECTION HANDLING (keep responses SHORT):
-- Busy: "Understood. Quick question before I let you go — are you actively looking for funding right now, or should I just send you the analyzer link?"
-- Not interested: "No problem at all. I appreciate your time."
-- Send info: "Absolutely. I can send you the free analyzer link so you can review it on your own time."
-- Already working with someone: "Got you. Are you still comparing options or pretty locked in?"
-- What is this about: "We help business owners understand their funding readiness and credit options. I was mainly calling to see if it's something you're actively looking at."
+LEAD TYPES (internal — don't say these words):
+HOT = actively seeking + existing business + decision maker + open to next step → try to book
+WARM = interested but not ready → send analyzer link
+COLD = not interested / gatekeeper / no business → exit gracefully
 
-${calendarEnabled ? `BOOKING (when lead is HOT and agrees to next step):
-- Say something like: "Based on what you've shared, it sounds like a quick demo would make sense. I can check a couple of openings for you now — want me to do that?"
-- If yes → CALL check_availability tool immediately
-- Present the slots naturally: "I've got a couple openings — [slot 1] or [slot 2]. Which works better for you?"
-- When they choose → CALL book_appointment tool with their selection and email
-- Confirm: "Perfect, I've got you down for [time]. You'll get a confirmation shortly."
+WHEN THEY OBJECT:
+- Busy: "Got it. Quick question before I let you go — are you actively looking for funding, or should I just send you the link?"
+- Not interested: "No worries at all. Thanks for your time."
+- What is this: "We work with business owners on funding readiness and credit options. I was calling to see if it's something you're actively working on."
+- Already have someone: "Got it — are you still comparing options or pretty locked in?"
+- Send info: "Sure thing. I can send you the free analyzer link — takes a couple minutes and shows exactly where you stand."
 
-BOOKING TRANSITION EXAMPLES:
-- "It sounds like you're actively working on this. The easiest next step is probably a quick demo. I can pull up a couple of openings right now if you're open to it."
-- "Got it. I'd love to just set up a quick demo so we can walk you through the portal. Let me check what's available."` : `BOOKING: Calendar booking is not configured. If the lead is qualified and interested, send the analyzer link instead.`}
+${calendarEnabled ? `BOOKING A DEMO (only when they're clearly a fit and open to it):
+- "Based on what you've shared, I'd love to get you in for a quick demo. Let me check a couple openings — want me to do that?"
+- If yes → call check_availability tool
+- Present slots casually: "I've got [slot 1] or [slot 2]. Which works better?"
+- When they pick → call book_appointment tool with their name, email, and chosen slot
+- Confirm: "Perfect, you're down for [time]. You'll get a confirmation."` : `BOOKING: Calendar not configured. If they're a fit, send the analyzer link instead.`}
 
 ANALYZER LINK:
-- URL: ${analyzerUrl}
-- Use when: lead is WARM, or HOT but doesn't want to book, or as fallback if booking fails
-- Say: "I can send you the free analyzer link so you can see where you stand. It only takes a couple minutes."
-- CALL send_analyzer_link tool to log it
+- Only offer this after you've qualified them (at least 2 questions asked and answered)
+- Say: "I can send you the free analyzer link — it just takes a couple minutes and shows where you stand on funding eligibility."
+- Then call send_analyzer_link tool
+- After calling the tool, say: "I'll have that sent over to you after our call."
 
-LANGUAGE RULES (CRITICAL — DO NOT IGNORE):
-- YOUR VERY FIRST WORD MUST BE IN ENGLISH. No exceptions.
-- NEVER open in Spanish, French, or any language other than English.
-- Only switch languages AFTER the lead speaks to you in another language first.
-- If they respond in Spanish → switch fully to Spanish and output [LANGUAGE:spanish]
-
-STRICT RULES:
-- Never say "someone will follow up" — book it or send the link
-- Never fabricate prior interest unless it was flagged in the lead record
+STRICT:
+- Never fabricate prior interest unless it was in the lead record
 - Never say "loan", "guaranteed", "approved"
-- Never give long explanations — keep it moving
-- At call end, output on its own line: [DISPOSITION:code] [SUMMARY:one sentence]
+- Never give long explanations
+- At the very end of the call output on its own line: [DISPOSITION:code] [SUMMARY:one sentence]
 
 Valid disposition codes: demo_booked, decision_maker, gatekeeper, voicemail, no_answer, bad_number, wrong_number, business_closed, personal_line, not_interested, do_not_call, send_link, callback_requested, interested, transferred_live`
 }
@@ -542,6 +565,8 @@ class CallSession {
     this.bookingData      = null  // set when booking is confirmed
     this.qualificationClass = null // hot/warm/cold
     this.calendarSettings = null  // loaded from DB
+    this.leadPhone        = null  // E.164 phone for post-call SMS
+    this.analyzerUrl      = null  // stored for post-call SMS
   }
 
   async initialize() {
@@ -559,6 +584,16 @@ class CallSession {
     if (process.env.GOOGLE_CLIENT_ID)     this.calendarSettings.google_client_id     = process.env.GOOGLE_CLIENT_ID
     if (process.env.GOOGLE_CLIENT_SECRET) this.calendarSettings.google_client_secret = process.env.GOOGLE_CLIENT_SECRET
     if (process.env.GOOGLE_CALENDAR_ID)   this.calendarSettings.google_calendar_id   = process.env.GOOGLE_CALENDAR_ID
+
+    // Load lead phone for post-call SMS
+    if (this.leadId && supabase) {
+      const { data: lead } = await supabase.from('voice_leads').select('phone_e164').eq('id', this.leadId).single()
+      if (lead?.phone_e164) this.leadPhone = lead.phone_e164
+    }
+
+    // Store analyzer URL for post-call SMS
+    const settingsData = this.calendarSettings
+    this.analyzerUrl = settingsData?.analyzer_url ?? process.env.ANALYZER_URL ?? 'https://app.sourcifylending.com/analyzer'
 
     const systemPrompt = await loadSystemPrompt(this.leadId, this.callId)
 
@@ -940,6 +975,15 @@ class CallSession {
             { onConflict: 'phone_e164' }
           )
         }
+      }
+    }
+
+    // Send analyzer link via SMS if flagged
+    if (this.disposition === 'send_link' && this.leadPhone && this.analyzerUrl) {
+      const smsBody = `Hi, it's Sarah from SourcifyLending! Here's the free business funding analyzer I mentioned — it only takes a couple minutes: ${this.analyzerUrl}`
+      const sent = await sendSms(this.leadPhone, smsBody)
+      if (sent && this.callId && supabase) {
+        supabase.from('voice_calls').update({ analyzer_sms_sent: true }).eq('id', this.callId).catch(() => {})
       }
     }
 
