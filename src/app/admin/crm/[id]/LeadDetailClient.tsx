@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ChevronLeft, Phone, Mail, Building2, Calendar, Edit3, Save,
-  X, Loader2, MessageSquare, PhoneCall, Clock, CheckCircle2,
-  XCircle, AlertCircle, Megaphone, Trash2, Ban,
+  X, Loader2, MessageSquare, PhoneCall, CheckCircle2,
+  Megaphone, Trash2, Ban, CalendarPlus, ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -85,6 +85,131 @@ const ACTIVITY_COLORS: Record<string, string> = {
   follow_up_set: 'bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400',
 }
 
+// ─── Google Calendar URL builder ──────────────────────────────────────────────
+function buildGCalUrl(lead: CRMLead, startIso: string, durationMins: number, meetingNotes: string): string {
+  // Format: YYYYMMDDTHHmmss (local time, no Z)
+  function toGCal(iso: string) {
+    return iso.replace(/[-:]/g, '').replace(/\.\d{3}/, '').replace('Z', '')
+  }
+  const start = new Date(startIso)
+  const end   = new Date(start.getTime() + durationMins * 60 * 1000)
+
+  const program = lead.program_interest
+    ? { program_a: 'Program A', program_b: 'Program B', program_c: 'Program C' }[lead.program_interest]
+    : null
+
+  const details = [
+    `Lead: ${lead.first_name} ${lead.last_name}`,
+    `Phone: ${lead.phone}`,
+    lead.email        ? `Email: ${lead.email}`          : null,
+    lead.business_name? `Business: ${lead.business_name}` : null,
+    program           ? `Program Interest: ${program}`  : null,
+    meetingNotes      ? `\nNotes: ${meetingNotes}`      : null,
+  ].filter(Boolean).join('\n')
+
+  const params = new URLSearchParams({
+    action:  'TEMPLATE',
+    text:    `Demo: ${lead.first_name} ${lead.last_name}${lead.business_name ? ` — ${lead.business_name}` : ''} | SourcifyLending`,
+    dates:   `${toGCal(start.toISOString())}/${toGCal(end.toISOString())}`,
+    details,
+    sf:      'true',
+  })
+  return `https://calendar.google.com/calendar/render?${params}`
+}
+
+// ─── Book Demo Modal ───────────────────────────────────────────────────────────
+function BookDemoModal({
+  lead, onClose, onBooked,
+}: {
+  lead: CRMLead
+  onClose: () => void
+  onBooked: (startIso: string, durationMins: number) => void
+}) {
+  const now = new Date()
+  now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15, 0, 0) // round to next 15 min
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  const defaultDT = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+
+  const [dateTime, setDateTime] = useState(defaultDT)
+  const [duration, setDuration] = useState(30)
+  const [notes, setNotes]       = useState('')
+
+  function confirm() {
+    if (!dateTime) { toast.error('Please pick a date and time'); return }
+    const startIso = new Date(dateTime).toISOString()
+    const url = buildGCalUrl(lead, startIso, duration, notes)
+    window.open(url, '_blank')
+    onBooked(startIso, duration)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <CalendarPlus size={18} className="text-green-600" />
+            <h2 className="font-bold text-gray-900">Book Demo</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-sm">
+            <p className="font-semibold text-gray-900">{lead.first_name} {lead.last_name}</p>
+            {lead.business_name && <p className="text-gray-500 text-xs">{lead.business_name}</p>}
+            <p className="text-gray-500 text-xs mt-0.5">{lead.phone}</p>
+          </div>
+
+          <div>
+            <label className="label">Date & Time *</label>
+            <input
+              className="input-field"
+              type="datetime-local"
+              value={dateTime}
+              onChange={e => setDateTime(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="label">Duration</label>
+            <select className="input-field" value={duration} onChange={e => setDuration(Number(e.target.value))}>
+              <option value={15}>15 minutes</option>
+              <option value={30}>30 minutes</option>
+              <option value={45}>45 minutes</option>
+              <option value={60}>1 hour</option>
+              <option value={90}>1.5 hours</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="label">Meeting Notes (optional)</label>
+            <textarea
+              className="input-field min-h-[72px] resize-none text-sm"
+              placeholder="Anything to include in the calendar event..."
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+          </div>
+
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 flex gap-2 text-xs text-blue-700 dark:text-blue-300">
+            <ExternalLink size={13} className="shrink-0 mt-0.5" />
+            <span>This will open Google Calendar in a new tab with the event pre-filled. The lead will be moved to <strong>Demo Scheduled</strong> automatically.</span>
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button onClick={confirm} className="btn-primary flex-1 flex items-center justify-center gap-2">
+              <CalendarPlus size={15} /> Open Google Calendar
+            </button>
+            <button onClick={onClose} className="btn-secondary px-5">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
@@ -106,7 +231,8 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const [noteText, setNoteText]       = useState('')
   const [addingNote, setAddingNote]   = useState(false)
   const [noteType, setNoteType]       = useState<'note' | 'call' | 'email' | 'sms' | 'voicemail'>('note')
-  const [editForm, setEditForm]       = useState({
+  const [showBookDemo, setShowBookDemo] = useState(false)
+  const [editForm, setEditForm]         = useState({
     first_name:       lead.first_name,
     last_name:        lead.last_name,
     phone:            lead.phone,
@@ -218,6 +344,40 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     if (!res.ok) { toast.error('Delete failed'); return }
     toast.success('Lead deleted')
     router.push('/admin/crm')
+  }
+
+  // ── Demo booked ─────────────────────────────────────────────────────────────
+  async function handleDemoBooked(startIso: string, durationMins: number) {
+    // Move stage to demo_scheduled
+    if (lead.stage !== 'demo_scheduled') {
+      const res = await fetch(`/api/admin/crm/leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: 'demo_scheduled' }),
+      })
+      if (res.ok) {
+        const { lead: updated } = await res.json()
+        setLead(updated)
+      }
+    }
+    // Log activity
+    const start = new Date(startIso)
+    const label = start.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    await fetch('/api/admin/crm/activities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lead_id:  lead.id,
+        type:     'stage_change',
+        body:     `Demo booked for ${label} (${durationMins} min) — Google Calendar event created`,
+        metadata: { demo_at: startIso, duration_mins: durationMins },
+        created_by: adminEmail,
+      }),
+    })
+    const actRes = await fetch(`/api/admin/crm/activities?lead_id=${lead.id}`)
+    const actJson = await actRes.json()
+    setActivities(actJson.activities ?? [])
+    toast.success('Demo booked! Check your Google Calendar.')
   }
 
   const stageData = STAGES.find(s => s.key === lead.stage)
@@ -471,6 +631,9 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-5">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Quick Actions</h3>
             <div className="space-y-2">
+              <button onClick={() => setShowBookDemo(true)} className="btn-primary w-full text-sm flex items-center gap-2 justify-center">
+                <CalendarPlus size={14} /> Book Demo
+              </button>
               <a href={`tel:${lead.phone}`} className="btn-secondary w-full text-sm flex items-center gap-2 justify-center">
                 <Phone size={14} /> Call {lead.first_name}
               </a>
@@ -507,6 +670,14 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           </div>
         </div>
       </div>
+
+      {showBookDemo && (
+        <BookDemoModal
+          lead={lead}
+          onClose={() => setShowBookDemo(false)}
+          onBooked={handleDemoBooked}
+        />
+      )}
     </div>
   )
 }
