@@ -22,8 +22,8 @@ const SUPABASE_KEY        = process.env.SUPABASE_SERVICE_ROLE_KEY  ?? ''
 const TWILIO_ACCOUNT_SID  = process.env.TWILIO_ACCOUNT_SID         ?? ''
 const TWILIO_AUTH_TOKEN   = process.env.TWILIO_AUTH_TOKEN          ?? ''
 const TWILIO_FROM_NUMBER  = process.env.TWILIO_FROM_NUMBER         ?? ''  // E.164 number to send SMS from
-const GEMINI_MODEL        = 'models/gemini-3.1-flash-live-preview' // Live API model available on this key
-const GEMINI_API_VER      = 'v1beta'                               // v1beta for Live API
+const GEMINI_MODEL        = 'models/gemini-2.0-flash-live-001'    // Stable Live API model
+const GEMINI_API_VER      = 'v1alpha'                              // v1alpha for Live API (BidiGenerateContent)
 const VOICE_NAME          = 'Aoede'  // Female voice — professional and natural
 const MAX_CALL_SECONDS    = 120
 
@@ -376,16 +376,20 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
           })
         }
 
-        // Model response — Gemini uses camelCase JSON field names
-        const parts = msg.serverContent?.modelTurn?.parts
+        // Model response — check both snake_case (v1alpha) and camelCase (v1beta)
+        const parts = (msg.serverContent ?? msg.server_content)
+          ?.modelTurn?.parts
+          ?? (msg.serverContent ?? msg.server_content)
+          ?.model_turn?.parts
         if (parts) {
           for (const part of parts) {
-            // Audio output (inlineData, mimeType — camelCase)
-            if (part.inlineData?.mimeType?.startsWith('audio/') && part.inlineData.data) {
+            // Audio — check both inline_data (snake) and inlineData (camel)
+            const inlineData = part.inlineData ?? part.inline_data
+            const mimeType   = inlineData?.mimeType ?? inlineData?.mime_type ?? ''
+            if (inlineData?.data && mimeType.startsWith('audio/')) {
               console.log('[GEMINI] Audio chunk → Twilio')
-              onAudio(part.inlineData.data)
+              onAudio(inlineData.data)
             }
-            // Text output (for disposition detection)
             if (part.text) {
               onText(part.text)
             }
@@ -393,15 +397,17 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
         }
 
         // Turn complete
-        if (msg.serverContent?.turnComplete) {
+        const sc = msg.serverContent ?? msg.server_content
+        if (sc?.turnComplete || sc?.turn_complete) {
           console.log('[GEMINI] Turn complete')
         }
 
-        // Tool calls from Gemini
-        if (msg.toolCall?.functionCalls?.length) {
-          console.log('[GEMINI] Tool call:', msg.toolCall.functionCalls.map(f => f.name).join(', '))
-          // Dispatch to session-level tool handler via callback
-          onToolCall(msg.toolCall.functionCalls)
+        // Tool calls
+        const toolCall = msg.toolCall ?? msg.tool_call
+        const fnCalls  = toolCall?.functionCalls ?? toolCall?.function_calls
+        if (fnCalls?.length) {
+          console.log('[GEMINI] Tool call:', fnCalls.map(f => f.name).join(', '))
+          onToolCall(fnCalls)
         }
       } catch (e) {
         console.error('[GEMINI] Message parse error:', e.message)
