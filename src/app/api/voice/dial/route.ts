@@ -1,11 +1,11 @@
 /**
  * POST /api/voice/dial
- * Triggers an outbound call to a lead via Twilio.
- * Creates a voice_calls record and initiates the Twilio call.
+ * Triggers an outbound call to a lead via VAPI.
+ * Creates a voice_calls record and initiates the VAPI call.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import twilio from 'twilio'
+import { buildVapiAssistant } from '@/lib/vapi'
 
 async function requireAdmin() {
   const authClient = await createClient()
@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
   const { lead_id, campaign_id } = body
 
   if (!lead_id) return NextResponse.json({ error: 'lead_id is required' }, { status: 400 })
+
+  const vapiApiKey = process.env.VAPI_API_KEY
+  if (!vapiApiKey) return NextResponse.json({ error: 'VAPI_API_KEY not configured' }, { status: 500 })
 
   // Load lead
   const { data: lead } = await supabase
@@ -71,16 +74,15 @@ export async function POST(req: NextRequest) {
 
   if (activeCall) return NextResponse.json({ error: 'Call already in progress for this lead' }, { status: 400 })
 
-  // Load Twilio credentials
+  const callerId   = settings?.twilio_caller_id || process.env.TWILIO_CALLER_ID
   const accountSid = process.env.TWILIO_ACCOUNT_SID
   const authToken  = process.env.TWILIO_AUTH_TOKEN
-  const callerId   = settings?.twilio_caller_id || process.env.TWILIO_CALLER_ID
 
-  if (!accountSid || !authToken || !callerId) {
-    return NextResponse.json({ error: 'Twilio credentials not configured' }, { status: 500 })
+  if (!callerId || !accountSid || !authToken) {
+    return NextResponse.json({ error: 'Twilio caller credentials not configured' }, { status: 500 })
   }
 
-  const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? ''
+  const appUrl          = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? ''
   const campaignIdParam = campaign_id ?? lead.campaign_id ?? ''
 
   // Create call record first
@@ -89,11 +91,11 @@ export async function POST(req: NextRequest) {
     .insert({
       campaign_id: campaignIdParam || null,
       lead_id,
-      status:       'initiated',
-      direction:    'outbound-api',
-      from_number:  callerId,
-      to_number:    lead.phone_e164,
-      created_at:   new Date().toISOString(),
+      status:      'initiated',
+      direction:   'outbound-api',
+      from_number: callerId,
+      to_number:   lead.phone_e164,
+      created_at:  new Date().toISOString(),
     })
     .select()
     .single()
@@ -102,39 +104,64 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create call record' }, { status: 500 })
   }
 
-  // Initiate Twilio call
+  // Build VAPI assistant config
+  const webhookUrl = `${appUrl}/api/voice/vapi/webhook`
+  const assistant  = buildVapiAssistant({
+    lead: {
+      owner_name:          lead.owner_name,
+      business_name:       lead.business_name,
+      prior_inquiry_flag:  lead.prior_inquiry_flag,
+      prior_facebook_flag: lead.prior_facebook_flag,
+      prior_portal_flag:   lead.prior_portal_flag,
+      prior_analyzer_flag: lead.prior_analyzer_flag,
+    },
+    settings: {
+      analyzer_url:         settings?.analyzer_url,
+      transfer_number:      settings?.transfer_number,
+      google_refresh_token: settings?.google_refresh_token,
+    },
+    callId:     callRecord.id,
+    leadId:     lead_id,
+    webhookUrl,
+  })
+
+  // Initiate call via VAPI
   try {
-    const client = twilio(accountSid, authToken)
-
-    const twimlUrl    = `${appUrl}/api/voice/twilio/outbound?callId=${callRecord.id}&leadId=${lead_id}&campaignId=${campaignIdParam}`
-    const statusUrl   = `${appUrl}/api/voice/twilio/status`
-
-    const call = await client.calls.create({
-      to:                  lead.phone_e164,
-      from:                callerId,
-      url:                 twimlUrl,
-      statusCallback:      statusUrl,
-      statusCallbackMethod: 'POST',
-      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-      machineDetection:    'Enable',
-      asyncAmd:            true,
-      asyncAmdStatusCallback: `${appUrl}/api/voice/twilio/amd?callId=${callRecord.id}`,
-      timeout:             30,
-      callReason:          'Business credit advisory outreach',
+    const vapiRes = await fetch('https://api.vapi.ai/call/phone', {
+      method: 'POST',
+      headers: {
+        Authorization:  `Bearer ${vapiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        assistant,
+        phoneNumber: {
+          twilioAccountSid:  accountSid,
+          twilioAuthToken:   authToken,
+          twilioPhoneNumber: callerId,
+        },
+        customer: {
+          number: lead.phone_e164,
+          name:   lead.owner_name || undefined,
+        },
+      }),
     })
 
-    // Update call record with Twilio SID
+    const vapiData = await vapiRes.json() as Record<string, unknown>
+
+    if (!vapiRes.ok) {
+      console.error('[voice/dial] VAPI error:', vapiData)
+      await supabase.from('voice_calls').update({ status: 'failed', ended_at: new Date().toISOString() }).eq('id', callRecord.id)
+      return NextResponse.json({ error: (vapiData.message as string) ?? 'VAPI call initiation failed' }, { status: 500 })
+    }
+
+    const vapiCallId = vapiData.id as string | undefined
+
+    // Update call record with VAPI call ID (stored in twilio_call_sid for backwards compat)
     await supabase
       .from('voice_calls')
-      .update({ twilio_call_sid: call.sid, started_at: new Date().toISOString() })
+      .update({ twilio_call_sid: vapiCallId, started_at: new Date().toISOString() })
       .eq('id', callRecord.id)
-
-    // Pre-warm Gemini session while phone rings — so opener fires instantly on answer
-    const wsUrl = settings?.voice_server_ws_url ?? process.env.VOICE_SERVER_WS_URL ?? ''
-    if (wsUrl && !wsUrl.includes('localhost')) {
-      const httpBase = wsUrl.replace(/^wss?:\/\//, (m: string) => m === 'wss://' ? 'https://' : 'http://').replace(/\/stream$/, '')
-      fetch(`${httpBase}/prepare?callId=${callRecord.id}&leadId=${lead_id}&campaignId=${campaignIdParam ?? ''}`, { method: 'POST' }).catch(() => {})
-    }
 
     // Increment attempt count on lead
     await supabase
@@ -151,15 +178,10 @@ export async function POST(req: NextRequest) {
       await supabase.rpc('increment_campaign_calls', { campaign_id_param: campaignIdParam }).catch(() => {})
     }
 
-    return NextResponse.json({ success: true, call_id: callRecord.id, twilio_sid: call.sid })
+    return NextResponse.json({ success: true, call_id: callRecord.id, vapi_call_id: vapiCallId })
   } catch (err) {
-    console.error('[voice/dial] Twilio error:', err)
-    // Mark call as failed
-    await supabase
-      .from('voice_calls')
-      .update({ status: 'failed', ended_at: new Date().toISOString() })
-      .eq('id', callRecord.id)
-
+    console.error('[voice/dial] VAPI error:', err)
+    await supabase.from('voice_calls').update({ status: 'failed', ended_at: new Date().toISOString() }).eq('id', callRecord.id)
     return NextResponse.json({ error: 'Failed to initiate call' }, { status: 500 })
   }
 }

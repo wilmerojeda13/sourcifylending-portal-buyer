@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { PhoneCall, PhoneOff, Loader2, CheckCircle, XCircle, AlertCircle, FlaskConical } from 'lucide-react'
 
-interface Template { id: string; name: string }
-
 type CallStatus = 'idle' | 'calling' | 'ringing' | 'connected' | 'completed' | 'failed'
 
 const STATUS_LABELS: Record<CallStatus, string> = {
@@ -26,30 +24,16 @@ const STATUS_COLOR: Record<CallStatus, string> = {
 }
 
 export default function TestCallWidget() {
-  const [phone, setPhone]             = useState('')
-  const [name, setName]               = useState('')
+  const [phone, setPhone]               = useState('')
+  const [name, setName]                 = useState('')
   const [businessName, setBusinessName] = useState('')
-  const [templateId, setTemplateId]   = useState('')
-  const [templates, setTemplates]   = useState<Template[]>([])
-  const [callStatus, setCallStatus] = useState<CallStatus>('idle')
-  const [callId, setCallId]         = useState<string | null>(null)
-  const [twilioSid, setTwilioSid]   = useState<string | null>(null)
-  const [error, setError]           = useState<string | null>(null)
-  const [duration, setDuration]     = useState(0)
+  const [callStatus, setCallStatus]     = useState<CallStatus>('idle')
+  const [callId, setCallId]             = useState<string | null>(null)
+  const [vapiCallId, setVapiCallId]     = useState<string | null>(null)
+  const [error, setError]               = useState<string | null>(null)
+  const [duration, setDuration]         = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const pollRef  = useRef<NodeJS.Timeout | null>(null)
-
-  // Load templates on mount
-  useEffect(() => {
-    fetch('/api/voice/templates')
-      .then(r => r.json())
-      .then(d => {
-        const tpls: Template[] = (d.templates ?? []).map((t: Record<string, string>) => ({ id: t.id, name: t.name }))
-        setTemplates(tpls)
-        if (tpls.length) setTemplateId(tpls[0].id)
-      })
-      .catch(() => {})
-  }, [])
 
   // Duration timer while connected
   useEffect(() => {
@@ -96,21 +80,21 @@ export default function TestCallWidget() {
     setError(null)
     setCallStatus('calling')
     setCallId(null)
-    setTwilioSid(null)
+    setVapiCallId(null)
     setDuration(0)
 
     try {
       const res  = await fetch('/api/voice/test-call', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ phone, contact_name: name, business_name: businessName, template_id: templateId || undefined }),
+        body:    JSON.stringify({ phone, contact_name: name, business_name: businessName }),
       })
       const data = await res.json()
 
       if (!res.ok) throw new Error(data.error || 'Failed to start call')
 
       setCallId(data.call_id)
-      setTwilioSid(data.twilio_sid)
+      setVapiCallId(data.vapi_call_id)
       setCallStatus('ringing')
       startPolling(data.call_id)
     } catch (e: unknown) {
@@ -123,7 +107,7 @@ export default function TestCallWidget() {
     stopPolling()
     setCallStatus('idle')
     setCallId(null)
-    setTwilioSid(null)
+    setVapiCallId(null)
     setError(null)
     setDuration(0)
     setBusinessName('')
@@ -183,22 +167,6 @@ export default function TestCallWidget() {
           </div>
         </div>
 
-        {templates.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Script / Template</label>
-            <select
-              value={templateId}
-              onChange={e => setTemplateId(e.target.value)}
-              disabled={isActive}
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:bg-gray-50"
-            >
-              {templates.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
         {/* Error */}
         {error && (
           <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 text-sm">
@@ -225,9 +193,9 @@ export default function TestCallWidget() {
             {callStatus === 'connected' && (
               <span className="ml-auto text-xs font-mono text-green-600">{fmtDuration(duration)}</span>
             )}
-            {twilioSid && (
+            {vapiCallId && (
               <span className="ml-auto text-[10px] font-mono text-gray-400 hidden sm:block truncate max-w-[160px]">
-                {twilioSid}
+                {vapiCallId}
               </span>
             )}
           </div>
