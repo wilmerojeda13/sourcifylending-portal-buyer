@@ -195,55 +195,56 @@ export default function CRMClient() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* ── Header ── */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 pt-4 pb-3 sticky top-0 z-20">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <Link href="/admin" className="text-xs text-gray-400 hover:text-green-600 font-medium mb-0.5 inline-flex items-center gap-1">
-              <ChevronLeft size={13}/> Admin Portal
-            </Link>
-            <h1 className="text-xl font-bold text-gray-900">Sales CRM</h1>
-            <p className="text-xs text-gray-500">{total.toLocaleString()} leads</p>
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-20">
+        <div className="max-w-screen-xl mx-auto px-4 pt-4 pb-3">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <Link href="/admin" className="text-xs text-gray-400 hover:text-green-600 font-medium mb-0.5 inline-flex items-center gap-1">
+                <ChevronLeft size={13}/> Admin Portal
+              </Link>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Sales CRM</h1>
+              <p className="text-xs text-gray-500">{total.toLocaleString()} leads</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link href="/admin/crm/import" className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5">
+                <Upload size={13}/> Import
+              </Link>
+              <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-sm">
+                <Plus size={15}/> Add Lead
+              </button>
+            </div>
           </div>
+
+          {/* Search + filter row */}
           <div className="flex items-center gap-2">
-            <Link href="/admin/crm/import" className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5 hidden sm:flex">
-              <Upload size={13}/> Import
-            </Link>
-            <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-sm">
-              <Plus size={15}/> Add
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+              <input
+                className="input-field pl-8 h-10 text-sm"
+                placeholder="Search leads..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            {/* Filter toggle — mobile only; desktop always shows tabs */}
+            <button
+              onClick={() => setShowFilters(p => !p)}
+              className={cn('h-10 w-10 flex items-center justify-center rounded-xl border transition-colors shrink-0 sm:hidden',
+                showFilters || stageFilter
+                  ? 'bg-green-600 border-green-600 text-white'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500'
+              )}
+            >
+              <Filter size={15}/>
             </button>
           </div>
-        </div>
 
-        {/* Search + filter row */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-            <input
-              className="input-field pl-8 h-10 text-sm"
-              placeholder="Search leads..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(p => !p)}
-            className={cn('h-10 w-10 flex items-center justify-center rounded-xl border transition-colors shrink-0',
-              showFilters || stageFilter
-                ? 'bg-green-600 border-green-600 text-white'
-                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500'
-            )}
-          >
-            <Filter size={15}/>
-          </button>
-        </div>
-
-        {/* Stage filter tabs — collapsible */}
-        {showFilters && (
-          <div className="flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-none">
+          {/* Stage filter tabs — always on desktop, collapsible on mobile */}
+          <div className={cn('flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-none', showFilters ? 'flex' : 'hidden sm:flex')}>
             {[{key:'',label:'All'},...STAGES.map(s=>({key:s.key,label:s.label}))].map(s=>(
               <button
                 key={s.key}
-                onClick={() => setStageFilter(s.key)}
+                onClick={() => { setStageFilter(s.key); setShowFilters(false) }}
                 className={cn(
                   'shrink-0 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap',
                   stageFilter === s.key
@@ -255,59 +256,94 @@ export default function CRMClient() {
               </button>
             ))}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* ── Stats strip ── */}
-      <div className="grid grid-cols-4 gap-px bg-gray-200 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-800">
-        {[
-          { label: 'Total',      value: total,      color: 'text-gray-900' },
-          { label: 'Due',        value: followDue,  color: followDue > 0 ? 'text-red-500' : 'text-gray-900' },
-          { label: 'Won',        value: wonCount,   color: 'text-green-600' },
-          { label: 'Pipeline',   value: inPipeline, color: 'text-amber-600' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white dark:bg-gray-900 px-3 py-2.5 text-center">
-            <p className={cn('text-lg font-bold', color)}>{value.toLocaleString()}</p>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide">{label}</p>
-          </div>
-        ))}
-      </div>
+      {/* ── Body ── */}
+      <div className="max-w-screen-xl mx-auto px-4 pt-4 pb-24 lg:flex lg:gap-6 lg:items-start">
 
-      {/* ── Dialer Mode CTA ── */}
-      <div className="px-4 pt-4">
-        <Link
-          href="/admin/crm/dialer"
-          className="flex items-center gap-3 bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-2xl px-4 py-3.5 text-white transition-colors w-full"
-        >
-          <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-            <Zap size={18} className="text-white"/>
+        {/* ── Lead list (main column) ── */}
+        <div className="flex-1 min-w-0">
+          {/* Stats strip — desktop inline row */}
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            {[
+              { label: 'Total',    value: total,      color: 'text-gray-900 dark:text-white' },
+              { label: 'Due',      value: followDue,  color: followDue > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white' },
+              { label: 'Won',      value: wonCount,   color: 'text-green-600' },
+              { label: 'Pipeline', value: inPipeline, color: 'text-amber-500' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl px-3 py-3 text-center">
+                <p className={cn('text-xl font-bold', color)}>{value.toLocaleString()}</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">{label}</p>
+              </div>
+            ))}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-sm">Dialer Mode</p>
-            <p className="text-green-200 text-xs">Dial through {inPipeline.toLocaleString()} pipeline leads fast</p>
-          </div>
-          <ChevronRight size={18} className="text-green-300"/>
-        </Link>
-      </div>
 
-      {/* ── Lead list ── */}
-      <div className="px-4 pt-4 pb-24 space-y-2.5">
-        {loading ? (
-          <div className="flex items-center justify-center py-16 text-gray-400">
-            <Loader2 size={22} className="animate-spin mr-2"/> Loading...
+          {/* Dialer CTA — mobile only (desktop shows in sidebar) */}
+          <div className="mb-4 lg:hidden">
+            <Link
+              href="/admin/crm/dialer"
+              className="flex items-center gap-3 bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-2xl px-4 py-3.5 text-white transition-colors"
+            >
+              <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                <Zap size={18}/>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm">Dialer Mode</p>
+                <p className="text-green-200 text-xs">Dial through {inPipeline.toLocaleString()} pipeline leads fast</p>
+              </div>
+              <ChevronRight size={18} className="text-green-300"/>
+            </Link>
           </div>
-        ) : leads.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <Users size={36} className="mx-auto mb-3 opacity-30"/>
-            <p className="text-sm">{search || stageFilter ? 'No leads match your filters.' : 'No leads yet. Tap + Add to get started.'}</p>
+
+          <div className="space-y-2.5">
+            {loading ? (
+              <div className="flex items-center justify-center py-16 text-gray-400">
+                <Loader2 size={22} className="animate-spin mr-2"/> Loading...
+              </div>
+            ) : leads.length === 0 ? (
+              <div className="text-center py-16 text-gray-400">
+                <Users size={36} className="mx-auto mb-3 opacity-30"/>
+                <p className="text-sm">{search || stageFilter ? 'No leads match your filters.' : 'No leads yet. Click + Add Lead to get started.'}</p>
+              </div>
+            ) : (
+              leads.map(lead => <LeadCard key={lead.id} lead={lead}/>)
+            )}
           </div>
-        ) : (
-          leads.map(lead => <LeadCard key={lead.id} lead={lead}/>)
-        )}
+        </div>
+
+        {/* ── Sidebar — desktop only ── */}
+        <div className="hidden lg:flex lg:flex-col gap-4 w-72 shrink-0">
+          {/* Dialer Mode card */}
+          <Link
+            href="/admin/crm/dialer"
+            className="flex items-center gap-3 bg-green-600 hover:bg-green-700 rounded-2xl px-4 py-4 text-white transition-colors"
+          >
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+              <Zap size={20}/>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold">Dialer Mode</p>
+              <p className="text-green-200 text-xs mt-0.5">Dial {inPipeline.toLocaleString()} pipeline leads</p>
+            </div>
+            <ChevronRight size={18} className="text-green-300"/>
+          </Link>
+
+          {/* Quick actions */}
+          <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 space-y-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Actions</p>
+            <Link href="/admin/crm/import" className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 py-1.5 transition-colors">
+              <Upload size={15} className="text-gray-400"/> Import CSV
+            </Link>
+            <button onClick={()=>setShowNew(true)} className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 py-1.5 transition-colors w-full text-left">
+              <Plus size={15} className="text-gray-400"/> Add Lead Manually
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* ── Mobile bottom bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 sm:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-4 py-3 flex gap-2 z-20">
+      <div className="fixed bottom-0 left-0 right-0 lg:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-4 py-3 flex gap-2 z-20">
         <Link href="/admin/crm/import" className="btn-secondary flex-1 h-11 flex items-center justify-center gap-1.5 text-sm">
           <Upload size={15}/> Import
         </Link>
