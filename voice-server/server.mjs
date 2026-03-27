@@ -252,9 +252,6 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
               }
             }
           },
-          realtime_input_config: {
-            automatic_activity_detection: { disabled: true }
-          },
           system_instruction: {
             parts: [{ text: systemPrompt }]
           },
@@ -344,11 +341,8 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             },
             triggerOpening: () => {
               if (ws.readyState !== WebSocket.OPEN) return
-              console.log('[GEMINI] Triggering opening via activity_start + silence + activity_end')
-              ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
-              const silence = Buffer.alloc(6400).toString('base64')
-              ws.send(JSON.stringify({ realtime_input: { audio: { data: silence, mimeType: 'audio/pcm;rate=16000' } } }))
-              ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
+              console.log('[GEMINI] Triggering opening via realtimeInput text')
+              ws.send(JSON.stringify({ realtimeInput: { text: '.' } }))
             },
             close: () => {
               if (!closed) { closed = true; ws.close() }
@@ -465,6 +459,8 @@ function buildSystemPrompt(opener, analyzerUrl, transferNum, calendarEnabled) {
   return `LANGUAGE — NON-NEGOTIABLE: You MUST speak English. Your opening word is English. Every sentence is English. Even if the person's name sounds Spanish or Latino — you still open in English. The ONLY exception: if the person speaks to you first in another language, then match their language. If they respond in Spanish, switch fully to Spanish and output [LANGUAGE:spanish] on its own line.
 
 You are Sarah, a business credit advisor at SourcifyLending. You're making an outbound call. You sound like a real person having a real conversation — not a bot reading a script. You're curious, relaxed, and direct. You don't ramble. You don't oversell. You ask one thing at a time and actually listen.
+
+START IMMEDIATELY: When the call connects, say your opening line right away without waiting. Do not pause. Do not wait for the user to speak first.
 
 YOUR OPENING LINE — say this, then stop and wait:
 "${opener}"
@@ -1018,7 +1014,7 @@ const httpServer = createServer(async (req, res) => {
 
         ws.on('open', () => {
           log.push('WebSocket opened')
-          ws.send(JSON.stringify({ setup: { model: GEMINI_MODEL, generation_config: { response_modalities: ['AUDIO', 'TEXT'] }, realtime_input_config: { automatic_activity_detection: { disabled: true } }, system_instruction: { parts: [{ text: 'You are a test assistant. Say hello briefly.' }] } } }))
+          ws.send(JSON.stringify({ setup: { model: GEMINI_MODEL, generation_config: { response_modalities: ['AUDIO', 'TEXT'] }, system_instruction: { parts: [{ text: 'You are a test assistant. Say hello briefly.' }] } } }))
           log.push('Setup sent')
         })
         ws.on('message', (data) => {
@@ -1026,12 +1022,9 @@ const httpServer = createServer(async (req, res) => {
           if (!msg.serverContent?.modelTurn) log.push('Msg: ' + JSON.stringify(msg).slice(0, 120))
           if (msg.setupComplete) {
             log.push('setupComplete received!')
-            // Trigger via activity signals (VAD disabled in setup)
-            const silence = Buffer.alloc(6400).toString('base64')
-            ws.send(JSON.stringify({ realtime_input: { activity_start: {} } }))
-            ws.send(JSON.stringify({ realtime_input: { audio: { data: silence, mimeType: 'audio/pcm;rate=16000' } } }))
-            ws.send(JSON.stringify({ realtime_input: { activity_end: {} } }))
-            log.push('activity signals sent')
+            // Trigger via realtimeInput text (works with auto VAD ON)
+            ws.send(JSON.stringify({ realtimeInput: { text: '.' } }))
+            log.push('realtimeInput text trigger sent')
           }
           const sc = msg.serverContent ?? msg.server_content
           const parts = sc?.modelTurn?.parts ?? sc?.model_turn?.parts
