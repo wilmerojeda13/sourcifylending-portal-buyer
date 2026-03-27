@@ -135,6 +135,7 @@ export default function TrainingClient({ userId, assignedProgram, videos }: Prop
 
 function VideoCard({ video, isWatched, onClick }: { video: TrainingVideo; isWatched: boolean; onClick: () => void }) {
   const hasVideo = !!video.embed_url
+  const thumbnail = hasVideo ? getThumbnail(video.embed_url) : null
   return (
     <button
       onClick={onClick}
@@ -152,9 +153,13 @@ function VideoCard({ video, isWatched, onClick }: { video: TrainingVideo; isWatc
       )}>
         {hasVideo ? (
           <>
-            <PlayCircle className="w-10 h-10 text-white opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-150" />
+            {thumbnail && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover opacity-70 group-hover:opacity-60 transition-opacity" />
+            )}
+            <PlayCircle className="relative z-10 w-10 h-10 text-white opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-150" />
             {isWatched && (
-              <div className="absolute top-2 right-2 bg-green-500 rounded-full p-0.5">
+              <div className="absolute top-2 right-2 z-10 bg-green-500 rounded-full p-0.5">
                 <CheckCircle className="w-3.5 h-3.5 text-white" />
               </div>
             )}
@@ -185,6 +190,26 @@ function VideoCard({ video, isWatched, onClick }: { video: TrainingVideo; isWatc
       </div>
     </button>
   )
+}
+
+function getThumbnail(url: string): string | null {
+  try {
+    const u = new URL(url)
+    // YouTube watch?v=ID
+    if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) {
+      return `https://img.youtube.com/vi/${u.searchParams.get('v')}/mqdefault.jpg`
+    }
+    // youtu.be/ID
+    if (u.hostname === 'youtu.be') {
+      return `https://img.youtube.com/vi${u.pathname}/mqdefault.jpg`
+    }
+    // Loom share or embed: extract ID
+    const loomMatch = url.match(/loom\.com\/(?:share|embed)\/([a-zA-Z0-9]+)/)
+    if (loomMatch) {
+      return `https://cdn.loom.com/sessions/thumbnails/${loomMatch[1]}/thumbnail.gif`
+    }
+  } catch {}
+  return null
 }
 
 function toEmbedUrl(url: string): string {
