@@ -336,21 +336,8 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             },
             triggerOpening: () => {
               if (ws.readyState !== WebSocket.OPEN) return
-              console.log('[GEMINI] Triggering opening via broadband noise burst (auto VAD)')
-              // 500ms of white noise at 16kHz — broadband, triggers speech VAD
-              const numSamples = 8000
-              const noise = Buffer.allocUnsafe(numSamples * 2)
-              for (let i = 0; i < numSamples; i++) {
-                const s = Math.round((Math.random() - 0.5) * 2 * 6000)
-                noise.writeInt16LE(s, i * 2)
-              }
-              ws.send(JSON.stringify({ realtimeInput: { audio: { data: noise.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
-              // 2000ms silence after noise — triggers VAD end-of-speech → Gemini responds
-              setTimeout(() => {
-                if (ws.readyState !== WebSocket.OPEN) return
-                const silence = Buffer.alloc(32000 * 2)
-                ws.send(JSON.stringify({ realtimeInput: { audio: { data: silence.toString('base64'), mimeType: 'audio/pcm;rate=16000' } } }))
-              }, 100)
+              console.log('[GEMINI] Triggering opening via text prompt')
+              ws.send(JSON.stringify({ realtimeInput: { text: 'begin' } }))
             },
             close: () => {
               if (!closed) { closed = true; ws.close() }
@@ -468,7 +455,7 @@ function buildSystemPrompt(opener, analyzerUrl, transferNum, calendarEnabled) {
 
 You are Sarah, a business credit advisor at SourcifyLending. You're making an outbound call. You sound like a real person having a real conversation — not a bot reading a script. You're curious, relaxed, and direct. You don't ramble. You don't oversell. You ask one thing at a time and actually listen.
 
-START IMMEDIATELY: When the call connects, say your opening line right away without waiting. Do not pause. Do not wait for the user to speak first.
+START IMMEDIATELY: The call has connected. When you receive the "begin" signal, say your opening line immediately. Do not say anything else first. Do not acknowledge "begin".
 
 YOUR OPENING LINE — say this, then stop and wait:
 "${opener}"
