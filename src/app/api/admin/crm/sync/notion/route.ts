@@ -87,14 +87,33 @@ function getDate(prop: Record<string, unknown> | undefined): string | null {
   return ((prop.date as { start?: string }) ?? {}).start ?? null
 }
 
+// ─── Get non-relation property IDs to avoid "multiple data sources" error ────
+async function getNonRelationPropertyIds(): Promise<string[]> {
+  const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_DB_ID}`, {
+    headers: notionHeaders(),
+  })
+  if (!res.ok) return []
+  const db = await res.json()
+  const props = db.properties ?? {}
+  // Only include simple property types — exclude relation, rollup, formula (which cause cross-db issues)
+  const excluded = new Set(['relation', 'rollup', 'formula'])
+  return Object.values(props)
+    .filter((p: unknown) => !excluded.has((p as { type: string }).type))
+    .map((p: unknown) => (p as { id: string }).id)
+}
+
 // ─── Fetch all pages from Notion DB (handles pagination) ─────────────────────
 async function fetchAllNotionPages(): Promise<Record<string, unknown>[]> {
+  // Get safe property IDs first (no relations/rollups/formulas)
+  const filterProps = await getNonRelationPropertyIds()
+
   const pages: Record<string, unknown>[] = []
   let cursor: string | undefined
 
   do {
     const body: Record<string, unknown> = { page_size: 100 }
     if (cursor) body.start_cursor = cursor
+    if (filterProps.length) body.filter_properties = filterProps
 
     const res = await fetch(`https://api.notion.com/v1/databases/${NOTION_DB_ID}/query`, {
       method: 'POST',
