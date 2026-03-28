@@ -343,9 +343,11 @@ export default function CRMClient() {
   const activeCount = leads.filter(l => l.stage === 'active_client').length
   const inPipeline = leads.filter(l => !['closed_won','closed_lost','active_client'].includes(l.stage)).length
 
-  // Paginated list — 50 at a time
-  const visibleLeads = leads.slice(0, listPage * 50)
-  const hasMore = leads.length > listPage * 50
+  // Paginated list — 50 per page (replace, not append)
+  const PAGE_SIZE = 50
+  const visibleLeads = leads.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE)
+  const hasMore = listPage * PAGE_SIZE < leads.length
+  const hasPrev = listPage > 1
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -498,13 +500,26 @@ export default function CRMClient() {
           ) : view === 'list' ? (
             <div className="space-y-1">
               {visibleLeads.map(lead => <LeadCard key={lead.id} lead={lead}/>)}
-              {hasMore && (
-                <button
-                  onClick={() => setListPage(p => p + 1)}
-                  className="w-full py-2.5 text-sm text-gray-500 hover:text-green-600 font-medium border border-gray-200 dark:border-gray-700 rounded-xl mt-2 transition-colors"
-                >
-                  Next 50 · Showing {Math.min(listPage * 50, leads.length).toLocaleString()} of {leads.length.toLocaleString()}
-                </button>
+              {(hasPrev || hasMore) && (
+                <div className="flex items-center gap-2 mt-3">
+                  <button
+                    onClick={() => setListPage(p => p - 1)}
+                    disabled={!hasPrev}
+                    className="flex-1 py-2.5 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-green-600 hover:border-green-300 dark:hover:border-green-700"
+                  >
+                    ← Prev 50
+                  </button>
+                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                    {((listPage - 1) * PAGE_SIZE + 1).toLocaleString()}–{Math.min(listPage * PAGE_SIZE, leads.length).toLocaleString()} of {leads.length.toLocaleString()}
+                  </span>
+                  <button
+                    onClick={() => setListPage(p => p + 1)}
+                    disabled={!hasMore}
+                    className="flex-1 py-2.5 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-green-600 hover:border-green-300 dark:hover:border-green-700"
+                  >
+                    Next 50 →
+                  </button>
+                </div>
               )}
             </div>
           ) : (
