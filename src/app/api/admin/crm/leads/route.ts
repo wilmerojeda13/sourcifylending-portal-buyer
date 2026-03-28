@@ -42,9 +42,13 @@ export async function GET(req: NextRequest) {
     )
   }
 
+  const page  = parseInt(searchParams.get('page')  ?? '0')
+  const limit = parseInt(searchParams.get('limit') ?? '1000')
+  query = query.range(page * limit, (page + 1) * limit - 1)
+
   const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ leads: data ?? [], total: count ?? 0 })
+  return NextResponse.json({ leads: data ?? [], total: count ?? 0, page, limit })
 }
 
 // POST /api/admin/crm/leads

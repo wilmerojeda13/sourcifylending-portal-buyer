@@ -187,12 +187,27 @@ export default function CRMClient() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const p = new URLSearchParams()
+      const p = new URLSearchParams({ limit: '1000' })
       if (stageFilter) p.set('stage', stageFilter)
       if (search)      p.set('search', search)
-      const res  = await fetch(`/api/admin/crm/leads?${p}`)
-      const json = await res.json()
-      setLeads(json.leads ?? [])
+
+      // Paginate through all records
+      let allLeads: CRMLead[] = []
+      let page = 0
+      let total = Infinity
+
+      while (allLeads.length < total) {
+        p.set('page', String(page))
+        const res  = await fetch(`/api/admin/crm/leads?${p}`)
+        const json = await res.json()
+        const batch: CRMLead[] = json.leads ?? []
+        total = json.total ?? batch.length
+        allLeads = [...allLeads, ...batch]
+        if (batch.length < 1000) break
+        page++
+      }
+
+      setLeads(allLeads)
     } catch { toast.error('Failed to load leads') }
     finally { setLoading(false) }
   }, [stageFilter, search])
