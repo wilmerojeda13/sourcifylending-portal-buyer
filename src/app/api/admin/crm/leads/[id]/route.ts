@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { logPortalEvent } from '@/lib/portal-events'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -43,6 +44,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Log stage changes to activity feed
+  if ('stage' in body && body.stage) {
+    const leadName = [data.first_name, data.last_name].filter(Boolean).join(' ') || data.email || 'Unknown'
+    logPortalEvent({
+      eventType: 'crm_lead_stage_changed',
+      category: 'leads',
+      title: `Lead Moved: ${leadName}`,
+      message: `Stage updated to "${body.stage}".`,
+      metadata: {
+        lead_id: id,
+        stage: body.stage,
+        ...(data.email ? { email: data.email } : {}),
+        ...(data.business_name ? { business: data.business_name } : {}),
+      },
+      severity: 'info',
+    }).catch(() => {})
+  }
+
   return NextResponse.json({ lead: data })
 }
 

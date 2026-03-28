@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { routeAnalyzer } from '@/lib/program-router'
 import { sendAnalyzerResultEmail } from '@/lib/email'
+import { logPortalEvent } from '@/lib/portal-events'
 import type { AnalyzerInput } from '@/types'
 
 const NOTION_API_VERSION = '2022-06-28'
@@ -184,6 +185,25 @@ export async function POST(req: NextRequest) {
           analyzer_answers: answers,
         })
         .eq('id', existingLead.id)
+    }
+
+    // ── Log to activity feed (portal_events) for new leads ──
+    if (isNewLead) {
+      logPortalEvent({
+        eventType: 'new_lead_analyzer',
+        category: 'leads',
+        title: `New Lead: ${full_name}`,
+        message: `Completed the free analyzer. Readiness: ${result.readiness_status}. Program: ${result.assigned_program}.`,
+        metadata: {
+          email: email.toLowerCase().trim(),
+          ...(phone ? { phone } : {}),
+          ...(business_name ? { business: business_name } : {}),
+          readiness: result.readiness_status,
+          program: result.assigned_program,
+          ...(result.risk_flags.length > 0 ? { risk_flags: result.risk_flags.join(', ') } : {}),
+        },
+        severity: result.readiness_status === 'ready' ? 'success' : 'info',
+      }).catch(() => {})
     }
 
     // ── Upsert into CRM (crm_leads) so Abel can call them from the dialer ──

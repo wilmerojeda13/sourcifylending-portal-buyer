@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { logPortalEvent } from '@/lib/portal-events'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -79,5 +80,22 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Log to activity feed
+  logPortalEvent({
+    eventType: 'crm_lead_added',
+    category: 'leads',
+    title: `New CRM Lead: ${body.first_name.trim()} ${body.last_name?.trim() ?? ''}`.trim(),
+    message: `Lead manually added to CRM.`,
+    metadata: {
+      phone: body.phone.trim(),
+      ...(body.email ? { email: body.email.trim() } : {}),
+      ...(body.business_name ? { business: body.business_name.trim() } : {}),
+      stage: body.stage ?? 'new',
+      source: body.source ?? 'manual',
+    },
+    severity: 'info',
+  }).catch(() => {})
+
   return NextResponse.json({ lead: data }, { status: 201 })
 }

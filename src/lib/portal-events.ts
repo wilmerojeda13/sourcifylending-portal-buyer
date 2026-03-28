@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 
-export type EventCategory = 'accounts' | 'billing' | 'subscriptions' | 'support' | 'documents' | 'funding' | 'reports'
+export type EventCategory = 'accounts' | 'billing' | 'subscriptions' | 'support' | 'documents' | 'funding' | 'reports' | 'leads'
 export type EventSeverity = 'info' | 'success' | 'warning' | 'critical'
 
 export interface PortalEventOptions {

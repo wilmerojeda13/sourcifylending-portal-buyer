@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { routeAnalyzer } from '@/lib/program-router'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
+import { logPortalEvent } from '@/lib/portal-events'
 import type { AnalyzerInput } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -62,6 +63,20 @@ export async function POST(req: NextRequest) {
           assigned_program: result.assigned_program,
           readiness_status: result.readiness_status,
         }, req)
+
+        await logPortalEvent({
+          userId: user.id,
+          eventType: 'analyzer_completed',
+          category: 'leads',
+          title: 'Member Ran Analyzer',
+          message: `${input.business_name || 'A member'} completed the business credit analyzer. Readiness: ${result.readiness_status}.`,
+          metadata: {
+            program: result.assigned_program,
+            readiness: result.readiness_status,
+            ...(result.risk_flags.length > 0 ? { risk_flags: result.risk_flags.join(', ') } : {}),
+          },
+          severity: 'info',
+        })
       }
     } catch {
       // Non-fatal — continue even if save fails

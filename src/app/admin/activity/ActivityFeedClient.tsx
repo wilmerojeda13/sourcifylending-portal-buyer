@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, Bell, Users, CreditCard, RefreshCw, MessageSquare,
   FileText, TrendingUp, BarChart2, AlertTriangle, CheckCircle,
-  Info, Loader2,
+  Info, Loader2, UserPlus,
 } from 'lucide-react'
 
 type EventSeverity = 'info' | 'success' | 'warning' | 'critical'
@@ -36,6 +36,7 @@ interface Props {
 
 const CATEGORY_TABS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'all', label: 'All', icon: <BarChart2 size={14} /> },
+  { id: 'leads', label: 'Leads', icon: <UserPlus size={14} /> },
   { id: 'accounts', label: 'Accounts', icon: <Users size={14} /> },
   { id: 'billing', label: 'Billing', icon: <CreditCard size={14} /> },
   { id: 'subscriptions', label: 'Subscriptions', icon: <RefreshCw size={14} /> },
@@ -45,6 +46,7 @@ const CATEGORY_TABS: { id: string; label: string; icon: React.ReactNode }[] = [
 ]
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  leads: <UserPlus size={16} className="text-violet-600" />,
   accounts: <Users size={16} className="text-blue-600" />,
   billing: <CreditCard size={16} className="text-green-600" />,
   subscriptions: <RefreshCw size={16} className="text-purple-600" />,
@@ -235,6 +237,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
                 <div key={event.id} className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                   {/* Category icon */}
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                    event.event_category === 'leads' ? 'bg-violet-50 dark:bg-violet-900/30' :
                     event.event_category === 'accounts' ? 'bg-blue-50 dark:bg-blue-900/30' :
                     event.event_category === 'billing' ? 'bg-green-50 dark:bg-green-900/30' :
                     event.event_category === 'subscriptions' ? 'bg-purple-50 dark:bg-purple-900/30' :
