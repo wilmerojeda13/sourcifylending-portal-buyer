@@ -6,7 +6,7 @@ import {
   Plus, Search, Phone, Building2, Calendar, ChevronLeft, ChevronRight,
   X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
   CheckCircle2, XCircle, Upload, Zap, Filter, RefreshCw,
-  LayoutList, Columns, Trash2, Bot, Shuffle,
+  LayoutList, Columns, Trash2, Bot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -358,12 +358,7 @@ export default function CRMClient() {
               <p className="text-xs text-gray-500">{total.toLocaleString()} leads</p>
             </div>
             <div className="flex items-center gap-2">
-              <Link
-                href="/admin/crm/restage"
-                className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5"
-              >
-                <Shuffle size={13}/> Re-stage
-              </Link>
+
               <Link
                 href="/admin/crm/campaign"
                 target="_blank"
