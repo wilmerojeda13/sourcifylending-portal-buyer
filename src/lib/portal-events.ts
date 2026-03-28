@@ -26,6 +26,10 @@ const HIGH_PRIORITY_EVENTS = [
   'subscription_canceled',
   'delegate_invited',
   'invite_sent',
+  'underwriting_completed',
+  'underwriting_disqualified',
+  'checkout_completed',
+  'add_on_purchased',
 ]
 
 async function sendAdminEmail(title: string, message: string | undefined, metadata: Record<string, unknown> | undefined, userId: string | undefined, severity: EventSeverity): Promise<void> {

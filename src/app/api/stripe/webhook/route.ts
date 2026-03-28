@@ -360,6 +360,17 @@ export async function POST(req: NextRequest) {
       if ((status === 'active' || status === 'trialing') &&
           prevStatus && prevStatus !== 'active' && prevStatus !== 'trialing') {
         await logActivity(userId, 'subscription_reactivated', { status, previous_status: prevStatus })
+        const { data: reactivatedProfile } = await supabase
+          .from('profiles').select('full_name, business_name, assigned_program').eq('id', userId).maybeSingle()
+        logPortalEvent({
+          userId,
+          eventType: 'subscription_reactivated',
+          category: 'subscriptions',
+          severity: 'success',
+          title: `Subscription reactivated — ${reactivatedProfile?.full_name ?? reactivatedProfile?.business_name ?? 'Client'}`,
+          message: `${PROGRAM_NAMES[reactivatedProfile?.assigned_program as ProgramId] ?? 'Membership'} reactivated (was ${prevStatus})`,
+          metadata: { previous_status: prevStatus, program: reactivatedProfile?.assigned_program },
+        })
       }
 
       break
@@ -404,6 +415,19 @@ export async function POST(req: NextRequest) {
       })
 
       await logActivity(userId, 'subscription_canceled', { subscription_id: sub.id })
+
+      // Admin notification for cancellation
+      const { data: canceledProfile } = await supabase
+        .from('profiles').select('full_name, business_name, assigned_program').eq('id', userId).maybeSingle()
+      logPortalEvent({
+        userId,
+        eventType: 'subscription_canceled',
+        category: 'subscriptions',
+        severity: 'warning',
+        title: `Subscription canceled — ${canceledProfile?.full_name ?? canceledProfile?.business_name ?? 'Client'}`,
+        message: `${PROGRAM_NAMES[canceledProfile?.assigned_program as ProgramId] ?? 'Membership'} subscription has been canceled`,
+        metadata: { subscription_id: sub.id, program: canceledProfile?.assigned_program },
+      })
 
       // Update referral status when subscription is canceled
       // sub.customer can be a string ID or an expanded Stripe.Customer object — extract safely
@@ -525,6 +549,24 @@ export async function POST(req: NextRequest) {
               deliverables: recentActions?.map(a => ({ title: a.title, description: a.description ?? undefined })) ?? [],
             }).catch(err => console.error('[ChargeConfirmation] Email error:', err))
           }
+
+          // Admin notification for successful payment
+          const clientName = profile?.full_name || profile?.business_name || 'Client'
+          const programLabel2 = PROGRAM_NAMES[profile?.assigned_program as ProgramId] ?? profile?.assigned_program ?? 'Membership'
+          logPortalEvent({
+            userId: sub.user_id,
+            eventType: 'payment_succeeded',
+            category: 'billing',
+            severity: 'success',
+            title: `Payment received — ${clientName}`,
+            message: `$${amountPaid.toFixed(2)} for ${programLabel2}`,
+            metadata: {
+              amount: amountPaid,
+              program: profile?.assigned_program,
+              invoice_id: invoice.id,
+              customer_id: customerId,
+            },
+          })
         }
       }
 

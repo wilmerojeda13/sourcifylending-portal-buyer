@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
   Plus, Search, Phone, Building2, Calendar, ChevronLeft, ChevronRight,
@@ -285,6 +285,9 @@ export default function CRMClient() {
   // Reset list page whenever leads change
   useEffect(() => setListPage(1), [leads])
 
+  // Version counter — cancels stale in-flight loads when a newer one starts
+  const loadVersion = useRef(0)
+
   async function syncNotion() {
     setSyncing(true)
     try {
@@ -299,19 +302,19 @@ export default function CRMClient() {
   const [showFilters, setShowFilters] = useState(false)
 
   const load = useCallback(async () => {
+    const version = ++loadVersion.current
     setLoading(true)
     try {
       const p = new URLSearchParams({ limit: '1000' })
-      // In board view always load all stages — columns ARE the stages
       if (stageFilter && view !== 'board') p.set('stage', stageFilter)
       if (search) p.set('search', search)
 
-      // Paginate through all records
       let allLeads: CRMLead[] = []
       let page = 0
       let total = Infinity
 
       while (allLeads.length < total) {
+        if (version !== loadVersion.current) return // newer load started — abort
         p.set('page', String(page))
         const res  = await fetch(`/api/admin/crm/leads?${p}`)
         const json = await res.json()
@@ -322,9 +325,10 @@ export default function CRMClient() {
         page++
       }
 
+      if (version !== loadVersion.current) return // stale — discard
       setLeads(allLeads)
-    } catch { toast.error('Failed to load leads') }
-    finally { setLoading(false) }
+    } catch { if (version === loadVersion.current) toast.error('Failed to load leads') }
+    finally { if (version === loadVersion.current) setLoading(false) }
   }, [stageFilter, search, view])
 
   useEffect(() => {
