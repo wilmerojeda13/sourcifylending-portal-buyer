@@ -28,6 +28,10 @@ const PAGE_CONTEXTS: Record<string, PageCtx> = {
     label: 'Members',
     starters: ['How many active members do we have?', 'Who signed up recently?', 'Any billing issues?', 'Show program breakdown'],
   },
+  '/admin/client-view': {
+    label: 'Member Detail',
+    starters: ["What stage is he in?", "Why didn't I get notified?", "Update his admin notes", "What's his risk score?"],
+  },
   '/admin/voice': {
     label: 'Voice Campaigns',
     starters: ['How are my campaigns performing?', 'When should I run the next campaign?', 'Which leads responded?'],
@@ -83,8 +87,10 @@ export default function AdminAIPanel() {
   const inputRef       = useRef<HTMLTextAreaElement>(null)
 
   // Extract member/lead context from the current URL
-  const memberMatch = pathname.match(/\/admin\/members\/([^/]+)/)
-  const leadMatch   = pathname.match(/\/admin\/crm\/([^/]+)/)
+  // Members live at /admin/members/[id] OR /admin/client-view/[id]
+  // Leads live at /admin/crm/[uuid] — only match real UUIDs to avoid false positives like /admin/crm/dialer
+  const memberMatch = pathname.match(/\/admin\/(?:members|client-view)\/([^/]+)/)
+  const leadMatch   = pathname.match(/\/admin\/crm\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/)
   const contextId   = memberMatch?.[1] ?? leadMatch?.[1] ?? null
   const contextType = memberMatch ? 'member' : leadMatch ? 'lead' : null
 
@@ -100,13 +106,16 @@ export default function AdminAIPanel() {
   useEffect(() => {
     if (!open || initialized) return
     setInitialized(true)
+    const contextNote = contextType
+      ? `\n\nI can see you're on the **${pageCtx.label}** page — I already have their full profile loaded. Just ask.`
+      : `\n\nYou're on **${pageCtx.label}**. What do you need?`
     setMessages([{
       id: uuidv4(),
       role: 'assistant',
-      content: `Hey Abel 👋 I'm your Admin AI — I have full visibility into your CRM, members, billing, and pipeline.\n\nYou're on **${pageCtx.label}**. What do you need?`,
+      content: `Hey Abel 👋 I'm your Admin AI — I have full visibility into your CRM, members, billing, and pipeline.${contextNote}`,
       timestamp: new Date().toISOString(),
     }])
-  }, [open, initialized, pageCtx.label])
+  }, [open, initialized, pageCtx.label, contextType])
 
   // Page context change notification
   const prevPathRef = useRef(pathname)
