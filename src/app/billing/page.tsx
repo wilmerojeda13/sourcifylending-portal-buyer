@@ -76,9 +76,9 @@ const PROGRAM_ICONS: Record<string, React.ReactNode> = {
 }
 
 const PROGRAM_ICON_BG: Record<string, string> = {
-  program_a: 'bg-blue-100',
-  program_b: 'bg-green-100',
-  program_c: 'bg-purple-100',
+  program_a: 'bg-blue-100 dark:bg-blue-900/40',
+  program_b: 'bg-green-100 dark:bg-green-900/40',
+  program_c: 'bg-purple-100 dark:bg-purple-900/40',
 }
 
 function getAvailableAddOns(activeMemberships: Membership[]): string[] {
@@ -200,8 +200,8 @@ export default function BillingPage() {
     return (
       <PortalLayout>
         <div className="animate-pulse space-y-4">
-          <div className="h-8 w-48 bg-gray-200 rounded" />
-          <div className="h-48 bg-gray-200 rounded-2xl" />
+          <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-2xl" />
         </div>
       </PortalLayout>
     )
@@ -262,7 +262,7 @@ export default function BillingPage() {
               <div key={m.id} className="card border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 ${PROGRAM_ICON_BG[m.program_code] ?? 'bg-gray-100'} rounded-xl flex items-center justify-center shrink-0`}>
+                    <div className={`w-10 h-10 ${PROGRAM_ICON_BG[m.program_code] ?? 'bg-gray-100 dark:bg-gray-700'} rounded-xl flex items-center justify-center shrink-0`}>
                       {PROGRAM_ICONS[m.program_code]}
                     </div>
                     <div>
@@ -284,7 +284,7 @@ export default function BillingPage() {
                     )}
                   </div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-green-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="mt-3 pt-3 border-t border-green-100 dark:border-green-900/40 grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {(PROGRAM_FEATURES[m.program_code] ?? []).map((f) => (
                     <div key={f} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
                       <CheckCircle size={13} className="text-green-500 shrink-0" />
@@ -303,7 +303,7 @@ export default function BillingPage() {
         <div className="card mb-6 border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 ${PROGRAM_ICON_BG[program] ?? 'bg-gray-100'} rounded-xl flex items-center justify-center shrink-0`}>
+              <div className={`w-10 h-10 ${PROGRAM_ICON_BG[program] ?? 'bg-gray-100 dark:bg-gray-700'} rounded-xl flex items-center justify-center shrink-0`}>
                 {PROGRAM_ICONS[program]}
               </div>
               <div>
@@ -382,7 +382,7 @@ export default function BillingPage() {
               <div key={addon} className="card border-2 border-dashed border-purple-200 dark:border-purple-700 bg-purple-50/20 dark:bg-purple-900/10 hover:border-purple-400 dark:hover:border-purple-500 transition-colors">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-start gap-3">
-                    <div className={`w-10 h-10 ${PROGRAM_ICON_BG[addon] ?? 'bg-gray-100'} rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>
+                    <div className={`w-10 h-10 ${PROGRAM_ICON_BG[addon] ?? 'bg-gray-100 dark:bg-gray-700'} rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>
                       {PROGRAM_ICONS[addon]}
                     </div>
                     <div>
@@ -447,9 +447,9 @@ export default function BillingPage() {
           </div>
 
           {[
-            { key: 'program_a', badge: '$1,500 setup', monthly: 'then $399/month', desc: 'Build high-limit 0% intro APR credit card stack for business or personal capital', badgeColor: 'bg-blue-100 text-blue-700' },
-            { key: 'program_b', badge: '$997 setup', monthly: 'then $199/month', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badgeColor: 'bg-green-100 text-green-700' },
-            { key: 'program_c', badge: 'No setup fee', monthly: '$97/month', desc: 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan', badgeColor: 'bg-purple-100 text-purple-700' },
+            { key: 'program_a', badge: '$1,500 setup', monthly: 'then $399/month', desc: 'Build high-limit 0% intro APR credit card stack for business or personal capital', badgeColor: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' },
+            { key: 'program_b', badge: '$997 setup', monthly: 'then $199/month', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badgeColor: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
+            { key: 'program_c', badge: 'No setup fee', monthly: '$97/month', desc: 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan', badgeColor: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400' },
           ].map(({ key, badge, monthly, desc, badgeColor }) => (
             <div key={key} className="card border-2 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-colors">
               <div className="flex items-start justify-between gap-4 flex-wrap">

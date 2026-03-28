@@ -45,7 +45,7 @@ export default async function OpportunitiesPage() {
       >
         <div className="mb-6">
           <h1 className="page-title">Funding Opportunities</h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
             {(profile?.underwriting_review_count ?? 0) > 0
               ? 'Your monthly review is due — complete it to continue accessing opportunities.'
               : 'Complete your underwriting review to unlock opportunities.'}
@@ -97,13 +97,13 @@ export default async function OpportunitiesPage() {
     >
       <div className="mb-6">
         <h1 className="page-title">Funding Opportunities</h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
           Curated accounts and credit opportunities for your program.
         </p>
       </div>
 
       {!isActive && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 text-sm text-amber-800">
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 mb-6 text-sm text-amber-800 dark:text-amber-300">
           <strong>Membership inactive.</strong> Reactivate to unlock full opportunity details and application guidance.
         </div>
       )}
@@ -118,15 +118,15 @@ export default async function OpportunitiesPage() {
       />
 
       {/* Legal disclaimer */}
-      <div className="mt-8 border-t border-gray-200 pt-5 text-xs text-gray-400 leading-relaxed space-y-2">
+      <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-5 text-xs text-gray-400 dark:text-gray-500 leading-relaxed space-y-2">
         <p>
-          <strong className="text-gray-500">Personalization Notice:</strong> All recommendations shown on this page
+          <strong className="text-gray-500 dark:text-gray-400">Personalization Notice:</strong> All recommendations shown on this page
           are based on the information you provided during your profile analysis and underwriting review.
           SourcifyLending logs your underwriting timestamp and the data used to generate these recommendations
           to ensure accuracy and accountability.
         </p>
         <p>
-          <strong className="text-gray-500">Disclaimer:</strong> The funding accounts and credit opportunities listed
+          <strong className="text-gray-500 dark:text-gray-400">Disclaimer:</strong> The funding accounts and credit opportunities listed
           above are provided for informational and educational purposes only. SourcifyLending does not guarantee
           approval, specific credit limits, or outcomes from any lender or creditor. Approval decisions are made
           solely by the respective issuer based on your creditworthiness and their criteria. These listings represent

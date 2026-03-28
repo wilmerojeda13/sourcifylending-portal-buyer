@@ -51,12 +51,12 @@ const CATEGORY_LABELS: Record<OpportunityCategory, string> = {
 }
 
 const CATEGORY_COLORS: Record<OpportunityCategory, string> = {
-  funding:    'bg-blue-100 text-blue-700',
-  vendor:     'bg-purple-100 text-purple-700',
-  store:      'bg-orange-100 text-orange-700',
-  fleet:      'bg-yellow-100 text-yellow-700',
-  cash:       'bg-green-100 text-green-700',
-  monitoring: 'bg-gray-100 text-gray-600',
+  funding:    'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400',
+  vendor:     'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400',
+  store:      'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400',
+  fleet:      'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400',
+  cash:       'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400',
+  monitoring: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
 }
 
 const ALL_CATEGORIES: (OpportunityCategory | '')[] = ['', 'funding', 'vendor', 'store', 'fleet', 'cash', 'monitoring']
@@ -179,17 +179,17 @@ function rankScore(opp: AccountOpportunity): number {
 // ─── StatusBadge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   if (status === 'approved') return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full border border-green-200 dark:border-green-700">
       <CheckCheck size={9} /> Approved
     </span>
   )
   if (status === 'applied' || status === 'pending') return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-700">
       <Clock size={9} /> Applied
     </span>
   )
   if (status === 'denied') return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full border border-red-200">
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full border border-red-200 dark:border-red-700">
       <XCircle size={9} /> Denied
     </span>
   )
@@ -229,7 +229,7 @@ function MarkResultRow({
         <StatusBadge status="applied" />
         <button
           onClick={() => onMark(oppId, 'approved')}
-          className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
+          className="text-[10px] bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-lg border border-green-200 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
         >
           ✓ Got Approved
         </button>
@@ -261,19 +261,19 @@ function MarkResultRow({
       <span className="text-[10px] text-gray-400 mr-0.5">Mark result:</span>
       <button
         onClick={() => onMark(oppId, 'approved')}
-        className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-lg border border-green-200 hover:bg-green-100 transition-colors font-medium"
+        className="text-[10px] bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-lg border border-green-200 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors font-medium"
       >
         ✓ Approved
       </button>
       <button
         onClick={() => onMark(oppId, 'applied')}
-        className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors font-medium"
+        className="text-[10px] bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors font-medium"
       >
         ⏳ Applied
       </button>
       <button
         onClick={() => onMark(oppId, 'denied')}
-        className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-lg border border-red-200 hover:bg-red-100 transition-colors font-medium"
+        className="text-[10px] bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-lg border border-red-200 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors font-medium"
       >
         ✗ Denied
       </button>
@@ -295,15 +295,15 @@ function CompletedSection({
   if (opps.length === 0) return null
 
   return (
-    <div className="border-t border-gray-100 pt-5">
+    <div className="border-t border-gray-100 dark:border-gray-700 pt-5">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors w-full text-left"
+        className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium transition-colors w-full text-left"
       >
         {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         <CheckCheck size={15} className="text-green-500" />
         Completed Opportunities
-        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold ml-1">
+        <span className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-semibold ml-1">
           {opps.length}
         </span>
         <span className="text-xs text-gray-400 font-normal ml-auto">
@@ -318,7 +318,7 @@ function CompletedSection({
             return (
               <div
                 key={opp.id}
-                className="bg-gray-50 rounded-xl border border-gray-200 p-4 flex items-start justify-between gap-3 opacity-75"
+                className="bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-start justify-between gap-3 opacity-75"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -327,8 +327,8 @@ function CompletedSection({
                       {CATEGORY_LABELS[opp.category]}
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-gray-600 leading-snug">{opp.name}</p>
-                  {opp.terms && <p className="text-xs text-gray-400 mt-0.5">{opp.terms}</p>}
+                  <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 leading-snug">{opp.name}</p>
+                  {opp.terms && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{opp.terms}</p>}
                 </div>
                 <button
                   onClick={() => onClear(opp.id)}
@@ -463,27 +463,27 @@ export default function OpportunitiesClient({
       <div className="space-y-6">
 
         {/* ── Stage Progress Banner ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
           <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
             <div>
-              <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest mb-1">Current Stage</p>
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-widest mb-1">Current Stage</p>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <span className="w-7 h-7 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
                   {stageMeta?.num}
                 </span>
                 {stage}
               </h2>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                 {stageMeta?.range} · {matchData?.tradeline_count ?? '—'} tradeline tasks completed
               </p>
             </div>
             {stageMeta?.advanceTo && (
               <div className="text-right shrink-0">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Next Stage</p>
-                <p className="text-sm font-bold text-gray-700 flex items-center gap-1 justify-end">
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide font-semibold">Next Stage</p>
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-200 flex items-center gap-1 justify-end">
                   {stageMeta.advanceTo} <ArrowRight size={14} className="text-green-500" />
                 </p>
-                <p className="text-[10px] text-gray-400 mt-0.5">{stageMeta.advanceReq}</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{stageMeta.advanceReq}</p>
               </div>
             )}
           </div>
@@ -500,10 +500,10 @@ export default function OpportunitiesClient({
                     <div className={`h-2 w-full rounded-full transition-all ${
                       isPast ? 'bg-green-500' :
                       isCurrent ? 'bg-green-600' :
-                      'bg-gray-100'
+                      'bg-gray-100 dark:bg-gray-700'
                     }`} />
                     <span className={`text-[9px] font-semibold mt-1.5 text-center leading-tight ${
-                      isCurrent ? 'text-green-600' : isPast ? 'text-green-400' : 'text-gray-300'
+                      isCurrent ? 'text-green-600' : isPast ? 'text-green-400' : 'text-gray-300 dark:text-gray-600'
                     }`}>
                       {s}
                     </span>
@@ -539,30 +539,30 @@ export default function OpportunitiesClient({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Sparkles size={16} className="text-green-600" />
-            <h2 className="text-base font-bold text-gray-900">Recommended Next Accounts</h2>
-            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">
+            <h2 className="text-base font-bold text-gray-900 dark:text-white">Recommended Next Accounts</h2>
+            <span className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-semibold">
               {stage} Stage
             </span>
           </div>
-          <p className="text-xs text-gray-500 mb-4 ml-0.5">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 ml-0.5">
             Open these accounts in order. Each builds your business credit and advances you to the next stage.
           </p>
 
           {matchLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[1, 2, 3].map(i => (
-                <div key={i} className="bg-white rounded-2xl border border-green-100 p-5 animate-pulse space-y-3">
+                <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl border border-green-100 dark:border-green-900/40 p-5 animate-pulse space-y-3">
                   <div className="flex gap-2 items-center">
-                    <div className="w-8 h-8 bg-green-100 rounded-full shrink-0" />
+                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/40 rounded-full shrink-0" />
                     <div className="flex-1">
-                      <div className="h-3 bg-gray-100 rounded w-16 mb-1" />
-                      <div className="h-4 bg-gray-100 rounded w-3/4" />
+                      <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded w-16 mb-1" />
+                      <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-3/4" />
                     </div>
                   </div>
-                  <div className="h-3 bg-gray-100 rounded w-full" />
-                  <div className="h-14 bg-blue-50 rounded-xl" />
-                  <div className="h-3 bg-gray-100 rounded w-1/2" />
-                  <div className="h-9 bg-green-100 rounded-xl" />
+                  <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded w-full" />
+                  <div className="h-14 bg-blue-50 dark:bg-blue-900/20 rounded-xl" />
+                  <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded w-1/2" />
+                  <div className="h-9 bg-green-100 dark:bg-green-900/40 rounded-xl" />
                 </div>
               ))}
             </div>
@@ -583,14 +583,14 @@ export default function OpportunitiesClient({
             </div>
           ) : recommended.length > 0 && activeRecommended.length === 0 ? (
             // All recommended are approved — show a congrats banner
-            <div className="text-center py-8 bg-green-50 border border-green-200 rounded-2xl">
+            <div className="text-center py-8 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl">
               <CheckCheck size={28} className="mx-auto mb-2 text-green-500" />
-              <p className="text-sm font-bold text-green-800">All current-stage accounts completed!</p>
-              <p className="text-xs text-green-600 mt-1">Great work. Your advisor will advance your stage when tradelines report.</p>
+              <p className="text-sm font-bold text-green-800 dark:text-green-300">All current-stage accounts completed!</p>
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1">Great work. Your advisor will advance your stage when tradelines report.</p>
             </div>
           ) : (
-            <div className="text-center py-10 text-gray-400 text-sm bg-white rounded-2xl border border-gray-200">
-              <AlertCircle size={24} className="mx-auto mb-2 text-gray-300" />
+            <div className="text-center py-10 text-gray-400 dark:text-gray-500 text-sm bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+              <AlertCircle size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
               No opportunities found for your current stage. Contact your advisor.
             </div>
           )}
@@ -601,13 +601,13 @@ export default function OpportunitiesClient({
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Lock size={15} className="text-gray-400" />
-              <h2 className="text-base font-bold text-gray-500">Locked Opportunities</h2>
-              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-semibold">
+              <h2 className="text-base font-bold text-gray-500 dark:text-gray-400">Locked Opportunities</h2>
+              <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full font-semibold">
                 {locked.length} accounts
               </span>
             </div>
-            <p className="text-xs text-gray-400 mb-4 ml-0.5">
-              Complete your <strong className="text-gray-600">{stage}</strong> stage accounts first to unlock these.
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-4 ml-0.5">
+              Complete your <strong className="text-gray-600 dark:text-gray-300">{stage}</strong> stage accounts first to unlock these.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -621,7 +621,7 @@ export default function OpportunitiesClient({
               ))}
             </div>
             {locked.length > 6 && (
-              <p className="text-xs text-center text-gray-400 mt-3">
+              <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-3">
                 +{locked.length - 6} more locked opportunities unlock as you progress
               </p>
             )}
@@ -629,10 +629,10 @@ export default function OpportunitiesClient({
         )}
 
         {/* ── Section 3: Browse All (collapsible) ── */}
-        <div className="border-t border-gray-100 pt-5">
+        <div className="border-t border-gray-100 dark:border-gray-700 pt-5">
           <button
             onClick={() => setShowBrowseAll(!showBrowseAll)}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors"
+            className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium transition-colors"
           >
             {showBrowseAll ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             Browse All {opportunities.length} Program B Opportunities
@@ -644,7 +644,7 @@ export default function OpportunitiesClient({
                 <select
                   value={filterCategory}
                   onChange={e => setFilterCategory(e.target.value as OpportunityCategory | '')}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">All Categories</option>
                   {ALL_CATEGORIES.filter(Boolean).map(c => (
@@ -654,7 +654,7 @@ export default function OpportunitiesClient({
                 <select
                   value={filterPG}
                   onChange={e => setFilterPG(e.target.value as typeof filterPG)}
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="all">All (PG / No PG)</option>
                   <option value="no">No Personal Guarantee</option>
@@ -767,43 +767,43 @@ export default function OpportunitiesClient({
       )}
 
       <div className="flex gap-3 flex-wrap">
-        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-center">
-          <div className="text-lg font-bold text-green-700">{recommendedCount}</div>
-          <div className="text-xs text-green-600">Recommended Now</div>
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl px-4 py-2.5 text-center">
+          <div className="text-lg font-bold text-green-700 dark:text-green-400">{recommendedCount}</div>
+          <div className="text-xs text-green-600 dark:text-green-500">Recommended Now</div>
         </div>
-        <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-center">
-          <div className="text-lg font-bold text-gray-600">{futureCount}</div>
-          <div className="text-xs text-gray-500">Future Stage</div>
+        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-center">
+          <div className="text-lg font-bold text-gray-600 dark:text-gray-300">{futureCount}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">Future Stage</div>
         </div>
         {completedEnrichedOpps.length > 0 && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-center">
-            <div className="text-lg font-bold text-emerald-700">{completedEnrichedOpps.length}</div>
-            <div className="text-xs text-emerald-600">Completed</div>
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-2.5 text-center">
+            <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{completedEnrichedOpps.length}</div>
+            <div className="text-xs text-emerald-600 dark:text-emerald-500">Completed</div>
           </div>
         )}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 text-center">
-          <div className="text-lg font-bold text-blue-700">{opportunities.length}</div>
-          <div className="text-xs text-blue-600">Total Available</div>
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-2.5 text-center">
+          <div className="text-lg font-bold text-blue-700 dark:text-blue-400">{opportunities.length}</div>
+          <div className="text-xs text-blue-600 dark:text-blue-500">Total Available</div>
         </div>
       </div>
 
       <div className="flex gap-2.5 flex-wrap items-center">
-        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value as OpportunityCategory | '')} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value as OpportunityCategory | '')} className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
           <option value="">All Categories</option>
           {ALL_CATEGORIES.filter(Boolean).map(c => <option key={c} value={c}>{CATEGORY_LABELS[c as OpportunityCategory]}</option>)}
         </select>
-        <select value={filterPG} onChange={e => setFilterPG(e.target.value as typeof filterPG)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+        <select value={filterPG} onChange={e => setFilterPG(e.target.value as typeof filterPG)} className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
           <option value="all">All (PG / No PG)</option>
           <option value="no">No Personal Guarantee</option>
           <option value="yes">PG Required</option>
           <option value="varies">PG Varies</option>
         </select>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as typeof filterStatus)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as typeof filterStatus)} className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
           <option value="all">All Stages</option>
           <option value="recommended">Recommended Now</option>
           <option value="future">Future Stage</option>
         </select>
-        <span className="text-sm text-gray-400 ml-1">{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
+        <span className="text-sm text-gray-400 dark:text-gray-500 ml-1">{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -822,7 +822,7 @@ export default function OpportunitiesClient({
       </div>
 
       {filtered.length === 0 && (
-        <div className="text-center py-12 text-gray-400 text-sm">
+        <div className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
           No opportunities match the selected filters.
         </div>
       )}
@@ -873,17 +873,17 @@ function RecommendedCard({
   const isApproved = currentStatus === 'approved'
 
   return (
-    <div className={`bg-white rounded-2xl border shadow-sm ring-1 p-5 flex flex-col space-y-3 transition-all ${
+    <div className={`bg-white dark:bg-gray-800 rounded-2xl border shadow-sm ring-1 p-5 flex flex-col space-y-3 transition-all ${
       isApproved
-        ? 'border-green-300 ring-green-200 opacity-60'
-        : 'border-green-200 ring-green-100'
+        ? 'border-green-300 dark:border-green-700 ring-green-200 dark:ring-green-800 opacity-60'
+        : 'border-green-200 dark:border-green-700 ring-green-100 dark:ring-green-900/40'
     }`}>
       {/* Rank + Category */}
       <div className="flex items-start gap-3">
         <div className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-base ${
-          rank === 1 ? 'bg-yellow-50 border-2 border-yellow-300' :
-          rank === 2 ? 'bg-gray-50 border-2 border-gray-300' :
-          'bg-amber-50 border-2 border-amber-300'
+          rank === 1 ? 'bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-700' :
+          rank === 2 ? 'bg-gray-50 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600' :
+          'bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700'
         }`}>
           {rankIcon}
         </div>
@@ -899,7 +899,7 @@ function RecommendedCard({
               {CATEGORY_LABELS[opp.category]}
             </span>
           </div>
-          <h3 className="font-bold text-gray-900 text-sm leading-snug">{opp.name}</h3>
+          <h3 className="font-bold text-gray-900 dark:text-white text-sm leading-snug">{opp.name}</h3>
         </div>
       </div>
 
@@ -907,20 +907,20 @@ function RecommendedCard({
       {!isApproved && (
         <div className="flex gap-2 flex-wrap">
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-            prob === 'high' ? 'bg-green-100 text-green-700' :
-            prob === 'medium' ? 'bg-amber-100 text-amber-700' :
-            'bg-red-100 text-red-600'
+            prob === 'high' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' :
+            prob === 'medium' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' :
+            'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400'
           }`}>
             <TrendingUp size={9} />
             {prob === 'high' ? 'High' : prob === 'medium' ? 'Medium' : 'Lower'} Approval Odds
           </span>
           {opp.pg_required === 'no' && (
-            <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span className="text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
               <Shield size={9} /> No PG
             </span>
           )}
           {opp.pg_required === 'yes' && (
-            <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
               PG Required
             </span>
           )}
@@ -929,27 +929,27 @@ function RecommendedCard({
 
       {/* Terms */}
       {opp.terms && (
-        <p className="text-xs text-green-700 font-medium bg-green-50 px-3 py-1.5 rounded-lg">
+        <p className="text-xs text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-lg">
           {opp.terms}
         </p>
       )}
 
       {/* AI Reasoning or fallback description */}
       {!isApproved && (opp.ai_reasoning ? (
-        <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 flex items-start gap-2">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl px-3 py-2.5 flex items-start gap-2">
           <Brain size={13} className="text-blue-500 shrink-0 mt-0.5" />
-          <p className="text-xs text-blue-800 leading-relaxed">{opp.ai_reasoning}</p>
+          <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">{opp.ai_reasoning}</p>
         </div>
       ) : opp.description ? (
-        <p className="text-xs text-gray-600 leading-relaxed">{opp.description}</p>
+        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{opp.description}</p>
       ) : null)}
 
       {/* Bureau reporting */}
       {opp.reports_to && (
         <div className="flex items-center gap-1.5">
           <Star size={11} className="text-amber-400 shrink-0" />
-          <p className="text-xs text-gray-500">
-            Reports to: <span className="font-semibold text-gray-700">{opp.reports_to}</span>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Reports to: <span className="font-semibold text-gray-700 dark:text-gray-200">{opp.reports_to}</span>
           </p>
         </div>
       )}
@@ -970,7 +970,7 @@ function RecommendedCard({
           </button>
         </div>
       ) : !isActive ? (
-        <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+        <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-700">
           <Lock size={12} /> Reactivate membership to apply
         </div>
       ) : (
@@ -981,7 +981,7 @@ function RecommendedCard({
                 href={learnMoreUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 inline-flex items-center justify-center gap-1 text-xs text-gray-600 border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+                className="flex-1 inline-flex items-center justify-center gap-1 text-xs text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
               >
                 Learn More <ExternalLink size={10} />
               </a>
@@ -1023,37 +1023,37 @@ function LockedCard({
   onApplyAttempt: () => void
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-2">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
               <Lock size={9} /> {opp.stage}
             </span>
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[opp.category]}`}>
               {CATEGORY_LABELS[opp.category]}
             </span>
           </div>
-          <h3 className="font-bold text-gray-600 text-sm">{opp.name}</h3>
+          <h3 className="font-bold text-gray-600 dark:text-gray-300 text-sm">{opp.name}</h3>
         </div>
       </div>
 
       {opp.terms && (
-        <p className="text-xs text-gray-400">{opp.terms}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">{opp.terms}</p>
       )}
 
-      <p className="text-xs text-gray-400 blur-sm select-none leading-relaxed line-clamp-2">
+      <p className="text-xs text-gray-400 dark:text-gray-500 blur-sm select-none leading-relaxed line-clamp-2">
         {opp.description ?? 'Complete your current stage to unlock application details and guidance for this account.'}
       </p>
 
-      <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+      <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-700">
         <Lock size={10} className="shrink-0" />
-        Complete <strong className="text-gray-600 mx-1">{currentStage}</strong> to unlock
+        Complete <strong className="text-gray-600 dark:text-gray-300 mx-1">{currentStage}</strong> to unlock
       </div>
 
       <button
         onClick={onApplyAttempt}
-        className="w-full text-xs text-gray-400 border border-gray-200 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
+        className="w-full text-xs text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex items-center justify-center gap-1"
       >
         <Lock size={10} /> Apply (Locked)
       </button>
@@ -1076,28 +1076,28 @@ function WarningModal({
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+        className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 mb-4">
-          <div className="w-10 h-10 bg-amber-100 rounded-2xl flex items-center justify-center shrink-0">
-            <AlertTriangle size={20} className="text-amber-600" />
+          <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/40 rounded-2xl flex items-center justify-center shrink-0">
+            <AlertTriangle size={20} className="text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex-1">
-            <h2 className="font-bold text-gray-900 text-base">Applying Out of Sequence</h2>
-            <p className="text-xs text-gray-500 mt-0.5">This may hurt your approval odds</p>
+            <h2 className="font-bold text-gray-900 dark:text-white text-base">Applying Out of Sequence</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">This may hurt your approval odds</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 shrink-0">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 shrink-0">
             <X size={18} />
           </button>
         </div>
 
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 text-xs text-amber-800 leading-relaxed">
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3 mb-4 text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
           You&apos;re in <strong>{currentStage}</strong> stage.{' '}
           <strong>{opp.name}</strong> is a <strong>{opp.stage}</strong> stage account.
         </div>
 
-        <p className="text-xs font-semibold text-gray-700 mb-2">Applying before completing your current stage may cause:</p>
+        <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-2">Applying before completing your current stage may cause:</p>
         <ul className="space-y-1.5 mb-5">
           {[
             'Higher chance of denial or lower credit limits',
@@ -1105,7 +1105,7 @@ function WarningModal({
             'A negative mark on your business credit profile',
             'Delays advancing to higher funding stages',
           ].map((risk, i) => (
-            <li key={i} className="flex items-start gap-2 text-xs text-gray-600">
+            <li key={i} className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
               <span className="text-red-400 font-bold mt-0.5 shrink-0">×</span>
               {risk}
             </li>
@@ -1128,14 +1128,14 @@ function WarningModal({
                 onApplyAway?.(opp)
                 onClose()
               }}
-              className="flex-1 text-sm px-4 py-2.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors text-center font-medium"
+              className="flex-1 text-sm px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-center font-medium"
             >
               Apply Anyway →
             </a>
           )}
         </div>
 
-        <p className="text-[10px] text-gray-400 text-center mt-3">
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-3">
           Complete your current stage first for the best approval odds and credit limits.
         </p>
       </div>
@@ -1171,12 +1171,12 @@ function OpportunityCard({
   const isApproved = currentStatus === 'approved'
 
   return (
-    <div className={`bg-white rounded-2xl border p-5 space-y-3 transition-all ${
+    <div className={`bg-white dark:bg-gray-800 rounded-2xl border p-5 space-y-3 transition-all ${
       isApproved
-        ? 'border-green-200 opacity-60 bg-green-50/30'
+        ? 'border-green-200 dark:border-green-700 opacity-60 bg-green-50/30 dark:bg-green-900/10'
         : isRecommended
-          ? 'border-green-200 shadow-sm ring-1 ring-green-100'
-          : 'border-gray-200'
+          ? 'border-green-200 dark:border-green-700 shadow-sm ring-1 ring-green-100 dark:ring-green-900/40'
+          : 'border-gray-200 dark:border-gray-700'
     }`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
@@ -1194,16 +1194,16 @@ function OpportunityCard({
             )}
             {currentStatus && currentStatus !== 'approved' && <StatusBadge status={currentStatus} />}
             {opp.pg_required === 'no' && (
-              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase">No PG</span>
+              <span className="text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full uppercase">No PG</span>
             )}
             {opp.pg_required === 'yes' && (
-              <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full uppercase">PG Required</span>
+              <span className="text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full uppercase">PG Required</span>
             )}
             {opp.pg_required === 'varies' && (
-              <span className="text-[10px] font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full uppercase">PG Varies</span>
+              <span className="text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full uppercase">PG Varies</span>
             )}
           </div>
-          <h3 className="font-bold text-gray-900 text-sm leading-snug">{opp.name}</h3>
+          <h3 className="font-bold text-gray-900 dark:text-white text-sm leading-snug">{opp.name}</h3>
         </div>
         <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[opp.category]}`}>
           {CATEGORY_LABELS[opp.category]}
@@ -1211,23 +1211,23 @@ function OpportunityCard({
       </div>
 
       {opp.terms && (
-        <p className="text-xs text-green-700 font-medium bg-green-50 px-3 py-1.5 rounded-lg">{opp.terms}</p>
+        <p className="text-xs text-green-700 dark:text-green-400 font-medium bg-green-50 dark:bg-green-900/20 px-3 py-1.5 rounded-lg">{opp.terms}</p>
       )}
 
       {opp.description && (
-        <p className={`text-xs text-gray-600 leading-relaxed ${blurred ? 'blur-sm select-none' : ''}`}>
+        <p className={`text-xs text-gray-600 dark:text-gray-400 leading-relaxed ${blurred ? 'blur-sm select-none' : ''}`}>
           {opp.description}
         </p>
       )}
 
       {opp.reports_to && (
-        <p className={`text-xs text-gray-400 ${blurred ? 'blur-sm select-none' : ''}`}>
-          Reports to: <span className="text-gray-600">{opp.reports_to}</span>
+        <p className={`text-xs text-gray-400 dark:text-gray-500 ${blurred ? 'blur-sm select-none' : ''}`}>
+          Reports to: <span className="text-gray-600 dark:text-gray-300">{opp.reports_to}</span>
         </p>
       )}
 
       {blurred && (
-        <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+        <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-700">
           <Lock size={12} /> Reactivate your membership to view full details
         </div>
       )}
@@ -1249,7 +1249,7 @@ function OpportunityCard({
           <div className="flex gap-2 pt-1">
             {learnMoreUrl && (
               <a href={learnMoreUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+                className="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 Learn More <ExternalLink size={10} />
               </a>
             )}
@@ -1257,7 +1257,7 @@ function OpportunityCard({
               isLocked && onLockedApply ? (
                 <button
                   onClick={onLockedApply}
-                  className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-500 px-3 py-1.5 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-200 transition-colors"
+                  className="inline-flex items-center gap-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   <Lock size={10} /> Apply (Locked)
                 </button>
@@ -1284,12 +1284,12 @@ function OpportunityCard({
           )}
         </>
       ) : !blurred && !learnMoreUrl && !opp.apply_url && isRecommended ? (
-        <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
+        <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-3 py-2 rounded-lg">
           <AlertCircle size={12} /> Contact your advisor for application guidance
         </div>
       ) : null}
 
-      <p className="text-[10px] text-gray-300 pt-0.5">Stage: {opp.stage}</p>
+      <p className="text-[10px] text-gray-300 dark:text-gray-600 pt-0.5">Stage: {opp.stage}</p>
     </div>
   )
 }

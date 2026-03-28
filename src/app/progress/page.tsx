@@ -18,7 +18,7 @@ export default function ProgressPageWrapper() {
     <Suspense fallback={
       <PortalLayout>
         <div className="animate-pulse space-y-4">
-          {[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-gray-200 rounded-2xl" />)}
+          {[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded-2xl" />)}
         </div>
       </PortalLayout>
     }>
@@ -171,7 +171,7 @@ function ProgressPage() {
       <PortalLayout>
         <div className="animate-pulse space-y-4">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-gray-200 rounded-2xl" />
+            <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded-2xl" />
           ))}
         </div>
       </PortalLayout>
@@ -308,8 +308,8 @@ function ProgressPage() {
         <div className="card text-center py-12">
           {isActive ? (
             <>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Sparkles size={22} className="text-green-600" />
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Sparkles size={22} className="text-green-600 dark:text-green-400" />
               </div>
               <p className="text-gray-800 dark:text-gray-200 font-semibold text-sm mb-1">Ready to build your roadmap?</p>
               <p className="text-gray-400 dark:text-gray-500 text-xs leading-relaxed max-w-sm mx-auto mb-4">
@@ -365,7 +365,7 @@ function TaskRow({
   return (
     <div
       ref={setRef}
-      className={`card flex items-start gap-3 transition-all duration-700 ${task.status === 'locked' ? 'opacity-60' : ''} ${highlighted ? 'ring-2 ring-green-500 ring-offset-1 shadow-lg bg-green-50' : ''}`}
+      className={`card flex items-start gap-3 transition-all duration-700 ${task.status === 'locked' ? 'opacity-60' : ''} ${highlighted ? 'ring-2 ring-green-500 ring-offset-1 shadow-lg bg-green-50 dark:bg-green-900/20' : ''}`}
     >
       <div className="mt-0.5">{statusIcon}</div>
       <div className="flex-1 min-w-0">
