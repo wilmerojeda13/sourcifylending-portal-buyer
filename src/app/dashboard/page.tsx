@@ -375,28 +375,28 @@ export default async function DashboardPage() {
             </div>
 
             {!isActive ? (
-              <div className="bg-gray-50 rounded-xl p-5 text-center">
-                <Lock size={24} className="text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">Reactivate subscription to access tasks</p>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 text-center">
+                <Lock size={24} className="text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">Reactivate subscription to access tasks</p>
               </div>
             ) : nextTask ? (
-              <div className="bg-green-50 rounded-xl p-4">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/40 rounded-xl p-4">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
                     <CheckCircle size={16} className="text-white" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-bold text-green-900 text-sm">{nextTask.title}</p>
+                      <p className="font-bold text-green-900 dark:text-green-300 text-sm">{nextTask.title}</p>
                       <StatusBadge status={nextTask.status} />
                     </div>
-                    <p className="text-xs text-green-600 mt-0.5 mb-3">{nextTask.stage}</p>
-                    <p className="text-sm text-gray-600 leading-relaxed">{nextTask.description}</p>
+                    <p className="text-xs text-green-600 dark:text-green-500 mt-0.5 mb-3">{nextTask.stage}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{nextTask.description}</p>
                     {nextTask.due_date && (
-                      <p className="text-xs text-gray-400 mt-2">Due: {formatDate(nextTask.due_date)}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Due: {formatDate(nextTask.due_date)}</p>
                     )}
                     {nextTask.requires_document && (
-                      <div className="mt-3 flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg w-fit">
+                      <div className="mt-3 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-1.5 rounded-lg w-fit">
                         <FileText size={12} />
                         Document upload required
                       </div>
@@ -416,21 +416,21 @@ export default async function DashboardPage() {
                 </div>
               </div>
             ) : totalTasks === 0 ? (
-              <div className="bg-gray-50 rounded-xl p-5">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5">
                 {isActive ? (
                   <GenerateRoadmapButton />
                 ) : (
                   <div className="text-center">
-                    <p className="text-sm text-gray-500 mb-3">No tasks assigned yet.</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No tasks assigned yet.</p>
                     <Link href="/billing" className="btn-primary text-xs">Subscribe to Begin</Link>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="bg-green-50 rounded-xl p-5 text-center">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/40 rounded-xl p-5 text-center">
                 <CheckCircle size={28} className="text-green-500 mx-auto mb-2" />
-                <p className="font-semibold text-green-800 text-sm">All tasks complete!</p>
-                <p className="text-xs text-green-600 mt-1">Great work. Check reports for your next steps.</p>
+                <p className="font-semibold text-green-800 dark:text-green-300 text-sm">All tasks complete!</p>
+                <p className="text-xs text-green-600 dark:text-green-500 mt-1">Great work. Check reports for your next steps.</p>
               </div>
             )}
           </div>
@@ -474,9 +474,9 @@ export default async function DashboardPage() {
             {notifications && notifications.length > 0 ? (
               <ul className="space-y-2">
                 {notifications.slice(0, 3).map((n) => (
-                  <li key={n.id} className="text-xs text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-                    <p className="font-semibold text-gray-700">{n.title}</p>
-                    <p className="text-gray-500 mt-0.5">{n.message}</p>
+                  <li key={n.id} className="text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 px-3 py-2 rounded-lg">
+                    <p className="font-semibold text-gray-700 dark:text-gray-200">{n.title}</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-0.5">{n.message}</p>
                   </li>
                 ))}
               </ul>
