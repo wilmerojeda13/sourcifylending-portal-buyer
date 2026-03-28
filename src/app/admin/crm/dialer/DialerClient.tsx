@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'closed_won' | 'closed_lost'
+type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost'
 
 interface CRMLead {
   id: string
@@ -164,7 +164,15 @@ export default function DialerClient() {
         </div>
         <div className="text-center">
           <p className="text-xs text-gray-500 font-medium">DIALER MODE</p>
-          <p className="text-xs text-gray-400">{remaining} remaining · {done} done</p>
+          <p className="text-xs text-gray-400">
+            {stageFilter
+              ? [
+                  {k:'new',l:'New'},{k:'contacted',l:'Contacted'},{k:'qualified',l:'Qualified'},
+                  {k:'demo_scheduled',l:'Demo Scheduled'},{k:'demo_held',l:'Demo Held'},{k:'follow_up',l:'Follow Up'},
+                ].find(s=>s.k===stageFilter)?.l ?? stageFilter
+              : 'All stages'
+            } · {remaining} left · {done} done
+          </p>
         </div>
         <button onClick={() => setShowFilters(p => !p)} className={cn('p-2 rounded-lg transition-colors', showFilters ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400')}>
           <Filter size={16}/>
@@ -177,7 +185,15 @@ export default function DialerClient() {
           <div>
             <p className="text-xs text-gray-500 font-medium mb-2">Stage</p>
             <div className="flex gap-2 flex-wrap">
-              {[{k:'',l:'All'},{k:'new',l:'New'},{k:'contacted',l:'Contacted'},{k:'qualified',l:'Qualified'}].map(s=>(
+              {[
+                {k:'',l:'All'},
+                {k:'new',l:'New'},
+                {k:'contacted',l:'Contacted'},
+                {k:'qualified',l:'Qualified'},
+                {k:'demo_scheduled',l:'Demo Scheduled'},
+                {k:'demo_held',l:'Demo Held'},
+                {k:'follow_up',l:'Follow Up'},
+              ].map(s=>(
                 <button key={s.k} onClick={()=>setStageFilter(s.k)}
                   className={cn('text-xs px-3 py-1.5 rounded-full font-medium transition-colors', stageFilter===s.k ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400')}>
                   {s.l}

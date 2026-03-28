@@ -188,8 +188,9 @@ export default function CRMClient() {
     setLoading(true)
     try {
       const p = new URLSearchParams({ limit: '1000' })
-      if (stageFilter) p.set('stage', stageFilter)
-      if (search)      p.set('search', search)
+      // In board view always load all stages — columns ARE the stages
+      if (stageFilter && view !== 'board') p.set('stage', stageFilter)
+      if (search) p.set('search', search)
 
       // Paginate through all records
       let allLeads: CRMLead[] = []
@@ -210,7 +211,7 @@ export default function CRMClient() {
       setLeads(allLeads)
     } catch { toast.error('Failed to load leads') }
     finally { setLoading(false) }
-  }, [stageFilter, search])
+  }, [stageFilter, search, view])
 
   useEffect(() => {
     const t = setTimeout(load, search ? 300 : 0)
@@ -267,7 +268,7 @@ export default function CRMClient() {
                 )}
               ><LayoutList size={14}/> List</button>
               <button
-                onClick={() => setView('board')}
+                onClick={() => { setView('board'); setStageFilter('') }}
                 className={cn('h-10 px-3 flex items-center gap-1.5 text-xs font-medium transition-colors border-l border-gray-200 dark:border-gray-700',
                   view === 'board' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'
                 )}
@@ -287,7 +288,7 @@ export default function CRMClient() {
           </div>
 
           {/* Stage filter tabs — always on desktop, collapsible on mobile */}
-          <div className={cn('flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-none', showFilters ? 'flex' : 'hidden sm:flex')}>
+          <div className={cn('flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-none', view === 'board' ? 'hidden' : showFilters ? 'flex' : 'hidden sm:flex')}>
             {[{key:'',label:'All'},...STAGES.map(s=>({key:s.key,label:s.label}))].map(s=>(
               <button
                 key={s.key}
