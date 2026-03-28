@@ -72,13 +72,13 @@ const LEADS: LeadRow[] = [
   { first_name: 'Kevin Odom',          business_name: 'The Odom Group Inc.',                      phone: '(404) 599-3667', email: 'kevin@theodomgroupinc.com',           notion_disposition: 'Follow Up',      stage: 'follow_up', follow_up_at: '2026-09-01' },
 ]
 
-type ResultMap = Record<string, 'updated' | 'not_found' | 'error' | 'pending'>
+type ResultMap = Record<string, 'updated' | 'created' | 'error' | 'pending'>
 
 export default function RestageClient() {
   const [applied, setApplied]   = useState(false)
   const [loading, setLoading]   = useState(false)
   const [results, setResults]   = useState<ResultMap>({})
-  const [summary, setSummary]   = useState<{ updated: number; notFound: number; errors: number } | null>(null)
+  const [summary, setSummary]   = useState<{ updated: number; created: number; errors: number } | null>(null)
 
   async function applyAll() {
     setLoading(true)
@@ -96,21 +96,23 @@ export default function RestageClient() {
             email: l.email,
             stage: l.stage,
             first_name: l.first_name,
+            business_name: l.business_name,
             ...(l.follow_up_at ? { follow_up_at: l.follow_up_at } : {}),
           })),
         }),
       })
       const json = await res.json()
       const map: ResultMap = {}
-      for (const r of json.results ?? []) {
-        map[r.phone] = r.status
+      for (let i = 0; i < LEADS.length; i++) {
+        const r = json.results?.[i]
+        if (r) map[LEADS[i].phone] = r.status
       }
       setResults(map)
-      setSummary({ updated: json.updated, notFound: json.notFound, errors: json.errors })
+      setSummary({ updated: json.updated, created: json.created, errors: json.errors })
       setApplied(true)
-      toast.success(`${json.updated} leads re-staged`)
+      toast.success(`${json.updated} updated · ${json.created} created`)
     } catch {
-      toast.error('Failed to apply restage')
+      toast.error('Failed to apply')
     } finally {
       setLoading(false)
     }

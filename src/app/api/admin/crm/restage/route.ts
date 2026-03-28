@@ -19,10 +19,15 @@ export async function POST(req: NextRequest) {
   if (!supabase) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { leads: incoming } = await req.json() as {
-    leads: Array<{ phone: string; email?: string; stage: string; first_name?: string; follow_up_at?: string }>
+    leads: Array<{
+      phone: string; email?: string; stage: string
+      first_name?: string; last_name?: string
+      business_name?: string; source?: string; notes?: string
+      follow_up_at?: string
+    }>
   }
 
-  // Fetch all leads (up to 10k)
+  // Fetch all leads for matching
   const { data: allLeads } = await supabase
     .from('crm_leads')
     .select('id, phone, email, first_name, last_name, stage')
@@ -30,69 +35,70 @@ export async function POST(req: NextRequest) {
 
   if (!allLeads) return NextResponse.json({ error: 'Failed to fetch leads' }, { status: 500 })
 
-  // Build indexes: phone, email, and full name
   const phoneIndex = new Map<string, typeof allLeads[number]>()
   const emailIndex = new Map<string, typeof allLeads[number]>()
   const nameIndex  = new Map<string, typeof allLeads[number]>()
 
   for (const lead of allLeads) {
-    const phone = normalizePhone(lead.phone ?? '')
-    if (phone) phoneIndex.set(phone, lead)
-    const email = (lead.email ?? '').toLowerCase().trim()
-    if (email) emailIndex.set(email, lead)
-    const fullName = `${lead.first_name ?? ''} ${lead.last_name ?? ''}`.toLowerCase().trim().replace(/\s+/g, ' ')
-    if (fullName) nameIndex.set(fullName, lead)
+    const p = normalizePhone(lead.phone ?? '')
+    if (p) phoneIndex.set(p, lead)
+    const e = (lead.email ?? '').toLowerCase().trim()
+    if (e) emailIndex.set(e, lead)
+    const n = `${lead.first_name ?? ''} ${lead.last_name ?? ''}`.toLowerCase().trim().replace(/\s+/g, ' ')
+    if (n) nameIndex.set(n, lead)
   }
 
-  type Result = {
-    phone: string; email?: string; first_name?: string; stage: string
-    status: string; match_by?: string; id?: string; prev_stage?: string
-  }
+  type Result = { name: string; stage: string; status: string; match_by?: string }
   const results: Result[] = []
 
   for (const item of incoming) {
-    const normalizedPhone = normalizePhone(item.phone)
-    const normalizedEmail = (item.email ?? '').toLowerCase().trim()
-    // first_name field in client holds full display name e.g. "Billy Berringer"
-    const normalizedName  = (item.first_name ?? '').toLowerCase().trim().replace(/\s+/g, ' ')
+    const normPhone = normalizePhone(item.phone)
+    const normEmail = (item.email ?? '').toLowerCase().trim()
+    const normName  = (item.first_name ?? '').toLowerCase().trim().replace(/\s+/g, ' ')
 
-    const matchByPhone = phoneIndex.get(normalizedPhone)
-    const matchByEmail = normalizedEmail ? emailIndex.get(normalizedEmail) : undefined
-    const matchByName  = normalizedName  ? nameIndex.get(normalizedName)   : undefined
+    const matchByPhone = phoneIndex.get(normPhone)
+    const matchByEmail = normEmail ? emailIndex.get(normEmail) : undefined
+    const matchByName  = normName  ? nameIndex.get(normName)   : undefined
     const match = matchByPhone ?? matchByEmail ?? matchByName
     const matchBy = matchByPhone ? 'phone' : matchByEmail ? 'email' : matchByName ? 'name' : undefined
 
-    if (!match) {
-      results.push({ phone: item.phone, email: item.email, first_name: item.first_name, stage: item.stage, status: 'not_found' })
-      continue
+    const now = new Date().toISOString()
+
+    if (match) {
+      // Update existing lead
+      const update: Record<string, unknown> = { stage: item.stage, updated_at: now }
+      if (item.follow_up_at) update.follow_up_at = item.follow_up_at
+      await supabase.from('crm_leads').update(update).eq('id', match.id)
+      results.push({ name: item.first_name ?? '', stage: item.stage, status: 'updated', match_by: matchBy })
+    } else {
+      // Split "First Last" display name into parts
+      const parts = (item.first_name ?? '').trim().split(/\s+/)
+      const firstName = parts[0] ?? ''
+      const lastName  = parts.slice(1).join(' ')
+
+      const insert: Record<string, unknown> = {
+        first_name:   firstName,
+        last_name:    lastName,
+        phone:        item.phone,
+        email:        item.email ?? null,
+        business_name: item.business_name ?? null,
+        stage:        item.stage,
+        source:       item.source ?? 'notion_import',
+        notes:        item.notes ?? null,
+        follow_up_at: item.follow_up_at ?? null,
+        do_not_call:  false,
+        is_archived:  false,
+        created_at:   now,
+        updated_at:   now,
+      }
+      const { error } = await supabase.from('crm_leads').insert(insert)
+      results.push({ name: item.first_name ?? '', stage: item.stage, status: error ? 'error' : 'created' })
     }
-
-    const update: Record<string, unknown> = {
-      stage: item.stage,
-      updated_at: new Date().toISOString(),
-    }
-    if (item.follow_up_at) update.follow_up_at = item.follow_up_at
-
-    const { error } = await supabase
-      .from('crm_leads')
-      .update(update)
-      .eq('id', match.id)
-
-    results.push({
-      phone: item.phone,
-      email: item.email,
-      first_name: item.first_name ?? match.first_name,
-      stage: item.stage,
-      status: error ? 'error' : 'updated',
-      match_by: matchBy,
-      id: match.id,
-      prev_stage: match.stage,
-    })
   }
 
   const updated = results.filter(r => r.status === 'updated').length
-  const notFound = results.filter(r => r.status === 'not_found').length
-  const errors = results.filter(r => r.status === 'error').length
+  const created = results.filter(r => r.status === 'created').length
+  const errors  = results.filter(r => r.status === 'error').length
 
-  return NextResponse.json({ results, updated, notFound, errors })
+  return NextResponse.json({ results, updated, created, errors })
 }

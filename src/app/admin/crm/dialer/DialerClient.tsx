@@ -53,29 +53,30 @@ export default function DialerClient() {
   const [called, setCalled]       = useState(false)
   const [note, setNote]           = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [stageFilter, setStageFilter] = useState('new')
+  const [stageFilter, setStageFilter] = useState<string | null>(null)
   const [programFilter, setProgramFilter] = useState('')
   const [skipped, setSkipped]     = useState(0)
   const [done, setDone]           = useState(0)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (stage: string) => {
     setLoading(true)
     setIndex(0)
     setCalled(false)
     setNote('')
     try {
       const p = new URLSearchParams()
-      if (stageFilter)   p.set('stage', stageFilter)
+      p.set('stage', stage)
       if (programFilter) p.set('program', programFilter)
       const res  = await fetch(`/api/admin/crm/leads?${p}`)
       const json = await res.json()
-      // Filter out DNC
       setLeads((json.leads ?? []).filter((l: CRMLead & { do_not_call: boolean }) => !l.do_not_call))
     } catch { toast.error('Failed to load leads') }
     finally { setLoading(false) }
-  }, [stageFilter, programFilter])
+  }, [programFilter])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (stageFilter) load(stageFilter)
+  }, [stageFilter, load])
 
   const current = leads[index]
   const total   = leads.length
@@ -129,6 +130,34 @@ export default function DialerClient() {
     advance()
   }
 
+  // ── Stage picker splash ──────────────────────────────────────────────────────
+  if (!stageFilter) return (
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-6">
+      <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-300 mb-10 self-start absolute top-4 left-4">
+        <ChevronLeft size={16}/> CRM
+      </Link>
+      <Phone size={36} className="text-green-500 mb-4"/>
+      <h1 className="text-2xl font-bold text-white mb-2">Dialer Mode</h1>
+      <p className="text-gray-400 text-sm mb-8 text-center">Choose a stage to dial through. Only leads in that stage will be loaded.</p>
+      <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
+        {[
+          { k: 'new',            l: 'New',            sub: 'Cold outreach',       color: 'border-gray-600 hover:border-gray-400' },
+          { k: 'contacted',      l: 'Contacted',      sub: 'Already reached',     color: 'border-blue-700 hover:border-blue-500' },
+          { k: 'qualified',      l: 'Qualified',      sub: 'Warm leads',          color: 'border-amber-700 hover:border-amber-500' },
+          { k: 'demo_scheduled', l: 'Demo Scheduled', sub: 'Confirm demo',        color: 'border-purple-700 hover:border-purple-500' },
+          { k: 'demo_held',      l: 'Demo Held',      sub: 'Post-demo follow-up', color: 'border-indigo-700 hover:border-indigo-500' },
+          { k: 'follow_up',      l: 'Follow Up',      sub: 'Scheduled callbacks', color: 'border-orange-700 hover:border-orange-500' },
+        ].map(s => (
+          <button key={s.k} onClick={() => setStageFilter(s.k)}
+            className={cn('flex flex-col items-start px-4 py-3 rounded-xl border bg-gray-900 transition-colors text-left', s.color)}>
+            <span className="text-white font-semibold text-sm">{s.l}</span>
+            <span className="text-gray-500 text-xs mt-0.5">{s.sub}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
       <Loader2 size={28} className="animate-spin text-gray-400"/>
@@ -143,7 +172,8 @@ export default function DialerClient() {
       <p className="text-gray-500 mb-2">{done} contacted · {skipped} skipped</p>
       <p className="text-sm text-gray-400 mb-8">You've gone through all leads in this filter.</p>
       <div className="flex gap-3">
-        <button onClick={load} className="btn-primary px-6 py-3">Reload Queue</button>
+        <button onClick={() => { setStageFilter(null); setLeads([]); setDone(0); setSkipped(0) }} className="btn-primary px-6 py-3">Change Stage</button>
+        <button onClick={() => stageFilter && load(stageFilter)} className="btn-secondary px-6 py-3">Reload Queue</button>
         <Link href="/admin/crm" className="btn-secondary px-6 py-3">Back to CRM</Link>
       </div>
     </div>
@@ -165,13 +195,10 @@ export default function DialerClient() {
         <div className="text-center">
           <p className="text-xs text-gray-500 font-medium">DIALER MODE</p>
           <p className="text-xs text-gray-400">
-            {stageFilter
-              ? [
-                  {k:'new',l:'New'},{k:'contacted',l:'Contacted'},{k:'qualified',l:'Qualified'},
-                  {k:'demo_scheduled',l:'Demo Scheduled'},{k:'demo_held',l:'Demo Held'},{k:'follow_up',l:'Follow Up'},{k:'active_client',l:'Active Client'},
-                ].find(s=>s.k===stageFilter)?.l ?? stageFilter
-              : 'All stages'
-            } · {remaining} left · {done} done
+            {[
+              {k:'new',l:'New'},{k:'contacted',l:'Contacted'},{k:'qualified',l:'Qualified'},
+              {k:'demo_scheduled',l:'Demo Scheduled'},{k:'demo_held',l:'Demo Held'},{k:'follow_up',l:'Follow Up'},{k:'active_client',l:'Active Client'},
+            ].find(s=>s.k===stageFilter)?.l ?? stageFilter} · {remaining} left · {done} done
           </p>
         </div>
         <button onClick={() => setShowFilters(p => !p)} className={cn('p-2 rounded-lg transition-colors', showFilters ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400')}>
@@ -186,7 +213,6 @@ export default function DialerClient() {
             <p className="text-xs text-gray-500 font-medium mb-2">Stage</p>
             <div className="flex gap-2 flex-wrap">
               {[
-                {k:'',l:'All'},
                 {k:'new',l:'New'},
                 {k:'contacted',l:'Contacted'},
                 {k:'qualified',l:'Qualified'},
@@ -195,7 +221,7 @@ export default function DialerClient() {
                 {k:'follow_up',l:'Follow Up'},
                 {k:'active_client',l:'Active Client'},
               ].map(s=>(
-                <button key={s.k} onClick={()=>setStageFilter(s.k)}
+                <button key={s.k} onClick={()=>{ setStageFilter(s.k); setShowFilters(false) }}
                   className={cn('text-xs px-3 py-1.5 rounded-full font-medium transition-colors', stageFilter===s.k ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400')}>
                   {s.l}
                 </button>
