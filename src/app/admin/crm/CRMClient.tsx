@@ -346,20 +346,23 @@ export default function CRMClient() {
             </div>
           ) : (
             /* ── Board view ── */
-            <div className="flex gap-3 overflow-x-auto pb-6 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div
+              className="flex gap-3 overflow-x-auto pb-2 scroll-smooth"
+              style={{ WebkitOverflowScrolling: 'touch', height: 'calc(100vh - 260px)' }}
+            >
               {STAGES.map(stage => {
                 const stageLeads = leads.filter(l => l.stage === stage.key)
                 const Icon = stage.icon
                 return (
-                  <div key={stage.key} className="flex-shrink-0 w-72 flex flex-col">
-                    {/* Column header */}
-                    <div className={cn('flex items-center gap-2 px-3 py-2 rounded-xl mb-2', stage.color)}>
+                  <div key={stage.key} className="flex-shrink-0 w-64 flex flex-col h-full">
+                    {/* Column header — sticky within column */}
+                    <div className={cn('flex items-center gap-2 px-3 py-2 rounded-xl mb-2 shrink-0', stage.color)}>
                       <Icon size={13}/>
                       <span className="text-xs font-semibold">{stage.label}</span>
                       <span className="ml-auto text-xs font-bold opacity-70">{stageLeads.length}</span>
                     </div>
-                    {/* Cards */}
-                    <div className="flex flex-col gap-2 min-h-[80px]">
+                    {/* Cards — each column scrolls independently */}
+                    <div className="flex flex-col gap-2 overflow-y-auto flex-1 pr-0.5 min-h-[80px]">
                       {stageLeads.length === 0 ? (
                         <div className="text-center py-6 text-gray-400 text-xs border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
                           No leads
