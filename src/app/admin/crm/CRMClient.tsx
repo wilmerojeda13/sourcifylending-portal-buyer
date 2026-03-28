@@ -333,6 +333,8 @@ export default function CRMClient() {
           <div className="mb-4 lg:hidden">
             <Link
               href="/admin/crm/dialer"
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center gap-3 bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-2xl px-4 py-3.5 text-white transition-colors"
             >
               <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
@@ -428,6 +430,8 @@ export default function CRMClient() {
           {/* Dialer Mode card */}
           <Link
             href="/admin/crm/dialer"
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center gap-3 bg-green-600 hover:bg-green-700 rounded-2xl px-4 py-4 text-white transition-colors"
           >
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
