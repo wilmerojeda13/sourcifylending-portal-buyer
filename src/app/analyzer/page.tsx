@@ -163,7 +163,8 @@ export default function AnalyzerPage() {
       setContactError('Please enter a valid email address.')
       return
     }
-    await submitAnalyzer(fullName.trim(), email.trim(), phone.trim() || undefined)
+    if (!phone.trim()) { setContactError('Please enter your phone number.'); return }
+    await submitAnalyzer(fullName.trim(), email.trim(), phone.trim())
   }
 
   if (loading) {
@@ -229,7 +230,7 @@ export default function AnalyzerPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                     Full Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -243,7 +244,7 @@ export default function AnalyzerPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                     Email Address <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -257,8 +258,8 @@ export default function AnalyzerPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                    Phone Number <span className="text-gray-400 font-normal">(optional)</span>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                    Phone Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"
@@ -284,7 +285,7 @@ export default function AnalyzerPage() {
                 </button>
                 <button
                   onClick={submitWithContact}
-                  disabled={!fullName.trim() || !email.trim()}
+                  disabled={!fullName.trim() || !email.trim() || !phone.trim()}
                   className="btn-primary px-7 py-3"
                 >
                   View My Results
@@ -358,8 +359,8 @@ export default function AnalyzerPage() {
                     onClick={() => { setValue(opt === 'Yes' ? 'true' : 'false') }}
                     className={`py-4 px-5 rounded-xl border-2 font-semibold text-base transition-all ${
                       currentVal === (opt === 'Yes' ? 'true' : 'false')
-                        ? 'border-green-600 bg-green-50 text-green-700'
-                        : 'border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                        ? 'border-green-600 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                        : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-green-300 dark:hover:border-green-600 hover:bg-green-50/50 dark:hover:bg-green-900/20'
                     }`}
                   >
                     {opt}
@@ -379,12 +380,12 @@ export default function AnalyzerPage() {
                       onClick={() => setValue(val)}
                       className={`w-full text-left py-3.5 px-4 rounded-xl border-2 font-medium text-sm transition-all flex items-center justify-between group ${
                         currentVal === val
-                          ? 'border-green-600 bg-green-50 text-green-700'
-                          : 'border-gray-200 text-gray-700 hover:border-green-200 hover:bg-green-50/50'
+                          ? 'border-green-600 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                          : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-green-300 dark:hover:border-green-600 hover:bg-green-50/50 dark:hover:bg-green-900/20'
                       }`}
                     >
                       <span>{opt}</span>
-                      {currentVal === val && <CheckCircle size={16} className="text-green-600" />}
+                      {currentVal === val && <CheckCircle size={16} className="text-green-600 dark:text-green-400" />}
                     </button>
                   )
                 })}

@@ -186,6 +186,40 @@ export async function POST(req: NextRequest) {
         .eq('id', existingLead.id)
     }
 
+    // ── Upsert into CRM (crm_leads) so Abel can call them from the dialer ──
+    try {
+      const nameParts = full_name.trim().split(' ')
+      const firstName = nameParts[0] ?? full_name
+      const lastName = nameParts.slice(1).join(' ') || ''
+
+      const crmNotes = [
+        `Source: Free Analyzer`,
+        `Readiness: ${result.readiness_status}`,
+        `Program: ${result.assigned_program}`,
+        result.risk_flags.length > 0 ? `Risk Flags: ${result.risk_flags.join(', ')}` : null,
+        input.business_age ? `Business Age: ${input.business_age}` : null,
+        input.monthly_revenue_range ? `Revenue: ${input.monthly_revenue_range}` : null,
+        input.credit_score_range ? `Credit Score: ${input.credit_score_range}` : null,
+      ].filter(Boolean).join('\n')
+
+      await supabase.from('crm_leads').upsert(
+        {
+          first_name: firstName,
+          last_name: lastName,
+          email: email.toLowerCase().trim(),
+          phone: phone || null,
+          business_name: business_name || null,
+          source: 'analyzer',
+          stage: 'new',
+          program_interest: result.assigned_program as 'program_a' | 'program_b' | 'program_c',
+          notes: crmNotes,
+        },
+        { onConflict: 'email', ignoreDuplicates: false }
+      )
+    } catch (crmErr) {
+      console.error('CRM upsert error (non-fatal):', crmErr)
+    }
+
     // Sync to Notion (non-blocking — don't fail the request if Notion fails)
     try {
       if (isNewLead) {
