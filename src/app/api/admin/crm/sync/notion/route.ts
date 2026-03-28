@@ -19,7 +19,7 @@ function notionHeaders() {
 function mapStage(disposition: string | null): string {
   switch (disposition) {
     case 'New Lead':           return 'new'
-    case 'Follow Up':
+    case 'Follow Up':          return 'follow_up'
     case 'Attempted Contact':
     case 'Unresponsive':
     case 'Demo No-Show':       return 'contacted'

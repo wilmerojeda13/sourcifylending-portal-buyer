@@ -30,7 +30,7 @@ interface CRMLead {
   created_at: string
 }
 
-type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'closed_won' | 'closed_lost'
+type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STAGES: { key: Stage; label: string; color: string; dot: string; icon: React.ElementType }[] = [
@@ -38,8 +38,9 @@ const STAGES: { key: Stage; label: string; color: string; dot: string; icon: Rea
   { key: 'contacted',      label: 'Contacted',      color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',        dot: 'bg-blue-500',   icon: PhoneCall },
   { key: 'qualified',      label: 'Qualified',      color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',    dot: 'bg-amber-500',  icon: TrendingUp },
   { key: 'demo_scheduled', label: 'Demo Scheduled', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',dot: 'bg-purple-500', icon: Calendar },
-  { key: 'demo_held',      label: 'Demo Held',      color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',dot: 'bg-indigo-500', icon: CheckCircle2 },
-  { key: 'closed_won',     label: 'Closed Won',     color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',    dot: 'bg-green-500',  icon: CheckCircle2 },
+  { key: 'demo_held',      label: 'Demo Held',      color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',  dot: 'bg-indigo-500',  icon: CheckCircle2 },
+  { key: 'follow_up',      label: 'Follow Up',      color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',  dot: 'bg-orange-500',  icon: PhoneCall },
+  { key: 'closed_won',     label: 'Closed Won',     color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',      dot: 'bg-green-500',   icon: CheckCircle2 },
   { key: 'closed_lost',    label: 'Closed Lost',    color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',            dot: 'bg-red-400',    icon: XCircle },
 ]
 
