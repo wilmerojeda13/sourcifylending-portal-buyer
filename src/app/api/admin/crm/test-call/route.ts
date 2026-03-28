@@ -4,8 +4,14 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 const VAPI_API_KEY = process.env.VAPI_API_KEY
 const VAPI_ASSISTANT_ID = process.env.VAPI_ASSISTANT_ID
 const VAPI_PHONE_NUMBER_ID = process.env.VAPI_PHONE_NUMBER_ID
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sourcifylending.com'
-const WEBHOOK_URL = `${APP_URL}/api/webhooks/vapi`
+/** Normalize phone to E.164. Assumes US (+1) if no country code. */
+function toE164(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
+  if (digits.length > 7) return `+${digits}`
+  return null
+}
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -33,11 +39,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'phone_number is required' }, { status: 400 })
   }
 
+  const e164 = toE164(phone_number.trim())
+  if (!e164) {
+    return NextResponse.json({ error: 'Invalid phone number — could not convert to E.164' }, { status: 400 })
+  }
+
   const payload = {
     assistantId: VAPI_ASSISTANT_ID,
     phoneNumberId: VAPI_PHONE_NUMBER_ID,
     customer: {
-      number: phone_number.trim(),
+      number: e164,
       name: first_name ?? 'Test',
     },
     assistantOverrides: {
@@ -47,8 +58,7 @@ export async function POST(req: NextRequest) {
         business_name: business_name ?? 'Test Business',
       },
     },
-    maxDurationSeconds: 300, // 5-minute cap for test calls
-    serverUrl: WEBHOOK_URL,
+    maxDurationSeconds: 300,
   }
 
   const res = await fetch('https://api.vapi.ai/call/phone', {

@@ -11,6 +11,15 @@ const BATCH_SIZE = 10
 const BATCH_DELAY_MS = 500
 const MAX_LEADS = 500
 
+/** Normalize phone to E.164. Assumes US (+1) if no country code. */
+function toE164(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
+  if (digits.length > 7) return `+${digits}` // international — trust as-is
+  return null
+}
+
 async function assertAdmin() {
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
@@ -67,11 +76,14 @@ export async function POST(req: NextRequest) {
     await Promise.all(
       batch.map(async (lead) => {
         try {
+          const e164 = toE164(lead.phone ?? '')
+          if (!e164) { failed++; return }
+
           const payload: Record<string, unknown> = {
             assistantId: VAPI_ASSISTANT_ID,
             phoneNumberId: VAPI_PHONE_NUMBER_ID,
             customer: {
-              number: lead.phone,
+              number: e164,
               name: [lead.first_name, lead.last_name].filter(Boolean).join(' ') || undefined,
             },
             assistantOverrides: {
@@ -83,7 +95,6 @@ export async function POST(req: NextRequest) {
               ...(script ? { firstMessage: script } : {}),
             },
             maxDurationSeconds: (Number(max_duration) || 2) * 60,
-            serverUrl: WEBHOOK_URL,
           }
 
           const res = await fetch('https://api.vapi.ai/call/phone', {
