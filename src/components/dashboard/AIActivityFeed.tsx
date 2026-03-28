@@ -25,13 +25,13 @@ const AGENT_LABELS: Record<string, string> = {
 }
 
 const AGENT_COLORS: Record<string, string> = {
-  onboarding: 'bg-blue-100 text-blue-700',
-  document:   'bg-purple-100 text-purple-700',
-  roadmap:    'bg-green-100 text-green-700',
-  opportunity:'bg-amber-100 text-amber-700',
-  billing:    'bg-rose-100 text-rose-700',
-  support:    'bg-indigo-100 text-indigo-700',
-  health:     'bg-gray-100 text-gray-600',
+  onboarding: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+  document:   'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
+  roadmap:    'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400',
+  opportunity:'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
+  billing:    'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
+  support:    'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
+  health:     'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
 }
 
 function ActionIcon({ action }: { action: AgentAction }) {
@@ -78,9 +78,9 @@ export default function AIActivityFeed() {
           <div className="w-8 h-8 bg-green-100 rounded-xl flex items-center justify-center">
             <Bot size={16} className="text-green-600" />
           </div>
-          <p className="font-bold text-gray-900 text-sm">AI Activity</p>
+          <p className="font-bold text-gray-900 dark:text-white text-sm">AI Activity</p>
         </div>
-        <div className="flex items-center gap-2 text-gray-400 text-sm py-2">
+        <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500 text-sm py-2">
           <Loader2 size={14} className="animate-spin" /> Loading…
         </div>
       </div>
@@ -94,12 +94,12 @@ export default function AIActivityFeed() {
           <div className="w-8 h-8 bg-green-100 rounded-xl flex items-center justify-center">
             <Bot size={16} className="text-green-600" />
           </div>
-          <p className="font-bold text-gray-900 text-sm">AI Activity</p>
+          <p className="font-bold text-gray-900 dark:text-white text-sm">AI Activity</p>
         </div>
         <div className="flex flex-col items-center py-6 text-center">
-          <Sparkles size={22} className="text-gray-300 mb-2" />
-          <p className="text-sm text-gray-400">Your AI advisor is warming up.</p>
-          <p className="text-xs text-gray-300 mt-1">Activity will appear here as the AI works on your account.</p>
+          <Sparkles size={22} className="text-gray-300 dark:text-gray-600 mb-2" />
+          <p className="text-sm text-gray-400 dark:text-gray-500">Your AI advisor is warming up.</p>
+          <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Activity will appear here as the AI works on your account.</p>
         </div>
       </div>
     )
@@ -116,13 +116,13 @@ export default function AIActivityFeed() {
             <Bot size={16} className="text-green-600" />
           </div>
           <div>
-            <p className="font-bold text-gray-900 text-sm">AI Activity</p>
+            <p className="font-bold text-gray-900 dark:text-white text-sm">AI Activity</p>
             {hasAlerts && (
-              <p className="text-[10px] text-amber-600 font-semibold">Action needed</p>
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">Action needed</p>
             )}
           </div>
         </div>
-        <span className="text-xs text-gray-400">{actions.length} actions</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">{actions.length} actions</span>
       </div>
 
       <div className="space-y-2">
@@ -131,8 +131,8 @@ export default function AIActivityFeed() {
             key={action.id}
             className={`rounded-xl border px-3 py-2.5 transition-all cursor-pointer ${
               action.needs_review || action.status === 'pending_approval'
-                ? 'border-amber-200 bg-amber-50'
-                : 'border-gray-100 bg-gray-50 hover:bg-white'
+                ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30'
+                : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-700'
             }`}
             onClick={() => setExpanded(expanded === action.id ? null : action.id)}
           >
@@ -141,19 +141,19 @@ export default function AIActivityFeed() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className={`text-xs font-semibold leading-snug ${
-                    action.needs_review ? 'text-amber-800' : 'text-gray-800'
+                    action.needs_review ? 'text-amber-800 dark:text-amber-300' : 'text-gray-800 dark:text-gray-200'
                   }`}>
                     {action.title}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${AGENT_COLORS[action.agent_name] ?? 'bg-gray-100 text-gray-500'}`}>
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${AGENT_COLORS[action.agent_name] ?? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
                     {AGENT_LABELS[action.agent_name] ?? action.agent_name}
                   </span>
                   {action.auto_fixed && (
                     <span className="text-[10px] text-green-600 font-medium">Auto-completed</span>
                   )}
-                  <span className="text-[10px] text-gray-400 ml-auto">{timeAgo(action.created_at)}</span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">{timeAgo(action.created_at)}</span>
                 </div>
               </div>
               {action.description && (
@@ -164,7 +164,7 @@ export default function AIActivityFeed() {
             </div>
 
             {expanded === action.id && action.description && (
-              <p className="text-xs text-gray-500 mt-2 leading-relaxed pl-5 border-t border-gray-100 pt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed pl-5 border-t border-gray-100 dark:border-gray-700 pt-2">
                 {action.description}
               </p>
             )}

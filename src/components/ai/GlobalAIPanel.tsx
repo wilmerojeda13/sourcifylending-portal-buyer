@@ -261,9 +261,9 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName 
       {/* ── Panel ── */}
       <div
         className={cn(
-          'fixed z-50 flex flex-col bg-white shadow-2xl transition-all duration-300 ease-in-out',
+          'fixed z-50 flex flex-col bg-white dark:bg-gray-900 shadow-2xl transition-all duration-300 ease-in-out',
           // Desktop: side panel from right
-          'lg:bottom-6 lg:right-6 lg:w-[420px] lg:rounded-2xl lg:border lg:border-gray-200',
+          'lg:bottom-6 lg:right-6 lg:w-[420px] lg:rounded-2xl lg:border lg:border-gray-200 dark:lg:border-gray-700',
           // Mobile: bottom sheet
           'bottom-0 right-0 left-0 lg:left-auto rounded-t-2xl lg:rounded-2xl',
           open
@@ -300,7 +300,7 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName 
               <button
                 key={s}
                 onClick={() => sendMessage(s)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-full bg-green-50 border border-green-200 text-green-700 text-xs font-medium hover:bg-green-100 transition-colors whitespace-nowrap"
+                className="flex-shrink-0 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-400 text-xs font-medium hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors whitespace-nowrap"
               >
                 {s}
               </button>
@@ -325,8 +325,8 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName 
                   'max-w-[78%] px-3 py-2 rounded-2xl text-sm leading-relaxed',
                   msg.role === 'user'
                     ? 'bg-green-600 text-white rounded-br-sm'
-                    : 'bg-gray-100 text-gray-800 rounded-bl-sm',
-                  (msg as ChatMessage & { isSystem?: boolean }).isSystem && 'bg-transparent text-gray-400 text-xs italic px-0 py-0',
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-sm',
+                  (msg as ChatMessage & { isSystem?: boolean }).isSystem && 'bg-transparent text-gray-400 dark:text-gray-500 text-xs italic px-0 py-0',
                 )}
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
               />
@@ -342,10 +342,10 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName 
               <div className="w-6 h-6 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0">
                 <Sparkles size={10} className="text-green-400" />
               </div>
-              <div className="bg-gray-100 px-3 py-2 rounded-2xl rounded-bl-sm flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-2xl rounded-bl-sm flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           )}
@@ -353,8 +353,8 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName 
         </div>
 
         {/* Input */}
-        <div className="px-3 pb-3 pt-2 border-t border-gray-100 flex-shrink-0">
-          <div className="flex items-end gap-2 bg-gray-50 rounded-xl border border-gray-200 px-3 py-2">
+        <div className="px-3 pb-3 pt-2 border-t border-gray-100 dark:border-gray-700 flex-shrink-0">
+          <div className="flex items-end gap-2 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-3 py-2">
             <textarea
               ref={inputRef}
               value={input}
@@ -362,7 +362,7 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName 
               onKeyDown={handleKeyDown}
               placeholder="Ask anything…"
               rows={1}
-              className="flex-1 bg-transparent resize-none text-sm text-gray-800 placeholder-gray-400 outline-none max-h-24 min-h-[20px]"
+              className="flex-1 bg-transparent resize-none text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 outline-none max-h-24 min-h-[20px]"
               style={{ height: 'auto' }}
               onInput={e => {
                 const t = e.currentTarget

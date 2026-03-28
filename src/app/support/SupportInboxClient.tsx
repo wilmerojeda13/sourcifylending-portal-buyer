@@ -34,7 +34,7 @@ function AttachmentPreview({ url }: { url: string }) {
   const isImage = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url)
   return isImage ? (
     <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-2">
-      <img src={url} alt="Attachment" className="max-h-48 rounded-xl border border-gray-200 object-contain" />
+      <img src={url} alt="Attachment" className="max-h-48 rounded-xl border border-gray-200 dark:border-gray-600 object-contain" />
     </a>
   ) : (
     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -117,58 +117,58 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Support Inbox</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Support Inbox</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Send us a message if you need help with your program, next steps, document questions, or portal access.
         </p>
       </div>
 
       {/* New Message Form */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-50">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <MessageSquare size={16} className="text-green-600" />
-            <h2 className="text-sm font-semibold text-gray-900">New Message</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">New Message</h2>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Subject</label>
+            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Subject</label>
             <input
               type="text"
               value={subject}
               onChange={e => setSubject(e.target.value)}
               placeholder="e.g. Question about my next steps"
               maxLength={200}
-              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
               disabled={loading}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Message</label>
+            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Message</label>
             <textarea
               value={message}
               onChange={e => setMessage(e.target.value)}
               placeholder="Describe your question or issue in detail..."
               rows={5}
-              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none transition-all"
+              className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none transition-all"
               disabled={loading}
             />
           </div>
 
           {/* Attachment */}
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
-              Attachment <span className="normal-case font-normal text-gray-400">(optional — screenshot or document)</span>
+            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+              Attachment <span className="normal-case font-normal text-gray-400 dark:text-gray-500">(optional — screenshot or document)</span>
             </label>
 
             {file ? (
-              <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5">
+              <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5">
                 <Image size={15} className="text-green-600 shrink-0" />
-                <span className="text-sm text-gray-700 truncate flex-1">{file.name}</span>
-                <span className="text-xs text-gray-400 shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
+                <span className="text-sm text-gray-700 dark:text-gray-200 truncate flex-1">{file.name}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
                 <button type="button" onClick={removeFile} className="text-gray-400 hover:text-red-500 transition-colors shrink-0">
                   <XCircle size={16} />
                 </button>
@@ -177,7 +177,7 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-xl py-3 text-sm text-gray-500 hover:border-green-400 hover:text-green-600 transition-colors"
+                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl py-3 text-sm text-gray-500 dark:text-gray-400 hover:border-green-400 dark:hover:border-green-600 hover:text-green-600 dark:hover:text-green-400 transition-colors"
                 disabled={loading}
               >
                 <Paperclip size={15} />
@@ -199,25 +199,25 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
                 <XCircle size={12} /> {fileError}
               </p>
             )}
-            <p className="text-xs text-gray-400 mt-1.5">{ALLOWED_LABEL}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">{ALLOWED_LABEL}</p>
           </div>
 
           {error && (
-            <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+            <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-xl px-4 py-3">
               <XCircle size={15} className="text-red-500 mt-0.5 shrink-0" />
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
             </div>
           )}
 
           {success && (
-            <div className="flex items-start gap-2.5 bg-green-50 border border-green-100 rounded-xl px-4 py-3">
+            <div className="flex items-start gap-2.5 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl px-4 py-3">
               <CheckCircle2 size={15} className="text-green-600 mt-0.5 shrink-0" />
-              <p className="text-sm text-green-700 font-medium">Message sent! We&apos;ll get back to you as soon as possible.</p>
+              <p className="text-sm text-green-700 dark:text-green-400 font-medium">Message sent! We&apos;ll get back to you as soon as possible.</p>
             </div>
           )}
 
           <div className="flex items-center justify-between pt-1">
-            <p className="text-xs text-gray-400">Sending from: {userEmail}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Sending from: {userEmail}</p>
             <button
               type="submit"
               disabled={loading}
@@ -234,27 +234,27 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
       </div>
 
       {/* Message History */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <InboxIcon size={16} className="text-gray-500" />
-            <h2 className="text-sm font-semibold text-gray-900">Message History</h2>
+            <InboxIcon size={16} className="text-gray-500 dark:text-gray-400" />
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Message History</h2>
           </div>
           {messages.length > 0 && (
-            <span className="text-xs text-gray-400">{messages.length} message{messages.length !== 1 ? 's' : ''}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{messages.length} message{messages.length !== 1 ? 's' : ''}</span>
           )}
         </div>
 
         {messages.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <InboxIcon size={22} className="text-gray-300" />
+            <div className="w-12 h-12 bg-gray-50 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <InboxIcon size={22} className="text-gray-300 dark:text-gray-500" />
             </div>
-            <p className="text-sm font-medium text-gray-500">No messages yet</p>
-            <p className="text-xs text-gray-400 mt-1">Use the form above to send your first message.</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No messages yet</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Use the form above to send your first message.</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-gray-50 dark:divide-gray-700">
             {messages.map((msg) => {
               const cfg = STATUS_CONFIG[msg.status] ?? STATUS_CONFIG.open
               const StatusIcon = cfg.icon
@@ -266,7 +266,7 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-gray-900 truncate">{msg.subject}</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{msg.subject}</p>
                           <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${cfg.color}`}>
                             <StatusIcon size={10} /> {cfg.label}
                           </span>
@@ -276,9 +276,9 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-400 mt-0.5">{formatDate(msg.created_at)}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{formatDate(msg.created_at)}</p>
                         {!isExpanded && (
-                          <p className="text-xs text-gray-500 mt-1 line-clamp-1">{msg.message}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">{msg.message}</p>
                         )}
                       </div>
                       <div className="shrink-0 text-gray-400 mt-0.5">
@@ -289,15 +289,15 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
 
                   {isExpanded && (
                     <div className="mt-3 space-y-3">
-                      <div className="bg-gray-50 rounded-xl p-3">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Your Message</p>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
+                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Your Message</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">{msg.message}</p>
                         {msg.attachment_url && <AttachmentPreview url={msg.attachment_url} />}
                       </div>
                       {msg.admin_reply && (
-                        <div className="bg-green-50 border border-green-100 rounded-xl p-3">
-                          <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1.5">Response from SourcifyLending</p>
-                          <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{msg.admin_reply}</p>
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl p-3">
+                          <p className="text-xs font-semibold text-green-700 dark:text-green-400 uppercase tracking-wide mb-1.5">Response from SourcifyLending</p>
+                          <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">{msg.admin_reply}</p>
                         </div>
                       )}
                     </div>

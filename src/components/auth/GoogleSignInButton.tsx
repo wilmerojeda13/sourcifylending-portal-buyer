@@ -35,7 +35,7 @@ export default function GoogleSignInButton({
       type="button"
       onClick={handleGoogleSignIn}
       disabled={loading}
-      className="w-full flex items-center justify-center gap-3 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm px-4 py-3 rounded-xl transition-colors disabled:opacity-60"
+      className="w-full flex items-center justify-center gap-3 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold text-sm px-4 py-3 rounded-xl transition-colors disabled:opacity-60"
     >
       {loading ? (
         <svg className="animate-spin h-4 w-4 text-gray-400" viewBox="0 0 24 24" fill="none">

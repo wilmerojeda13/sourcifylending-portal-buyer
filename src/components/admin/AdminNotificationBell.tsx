@@ -26,10 +26,10 @@ interface AdminNotification {
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
-  info:     'bg-blue-50 border-blue-200',
-  success:  'bg-green-50 border-green-200',
-  warning:  'bg-amber-50 border-amber-200',
-  critical: 'bg-red-50 border-red-200',
+  info:     'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800',
+  success:  'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+  warning:  'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800',
+  critical: 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800',
 }
 
 const SEVERITY_DOT: Record<string, string> = {
@@ -153,7 +153,7 @@ export default function AdminNotificationBell() {
               {unreadCount > 0 && (
                 <button
                   onClick={markAllRead}
-                  className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-2 py-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
                   <CheckCheck size={12} />
                   Mark all read
@@ -161,7 +161,7 @@ export default function AdminNotificationBell() {
               )}
               <button
                 onClick={() => setOpen(false)}
-                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               >
                 <X size={13} />
               </button>
@@ -176,8 +176,8 @@ export default function AdminNotificationBell() {
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center px-6">
-                <Bell size={28} className="text-gray-200 mb-3" />
-                <p className="text-sm text-gray-400">No notifications yet</p>
+                <Bell size={28} className="text-gray-200 dark:text-gray-600 mb-3" />
+                <p className="text-sm text-gray-400 dark:text-gray-500">No notifications yet</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -198,9 +198,9 @@ export default function AdminNotificationBell() {
                           {ev?.title ?? 'Notification'}
                         </p>
                         {ev?.message && (
-                          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug line-clamp-2">{ev.message}</p>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 leading-snug line-clamp-2">{ev.message}</p>
                         )}
-                        <p className="text-[10px] text-gray-400 mt-1">{relativeTime(n.created_at)}</p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{relativeTime(n.created_at)}</p>
                       </div>
                       {!n.is_read && (
                         <button

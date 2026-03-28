@@ -28,12 +28,12 @@ export function ProgressBar({
   return (
     <div className={cn('w-full', className)}>
       {showLabel && (
-        <div className="flex justify-between text-xs text-gray-500 mb-1">
+        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
           <span>Progress</span>
-          <span className="font-semibold text-gray-700">{pct}%</span>
+          <span className="font-semibold text-gray-700 dark:text-gray-300">{pct}%</span>
         </div>
       )}
-      <div className={cn('w-full bg-gray-100 rounded-full overflow-hidden', heights[size])}>
+      <div className={cn('w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden', heights[size])}>
         <div
           className={cn('h-full rounded-full progress-bar-fill', colors[color])}
           style={{ width: `${pct}%` }}

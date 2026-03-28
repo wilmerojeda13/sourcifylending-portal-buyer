@@ -234,18 +234,18 @@ function AgentPage() {
 
         {/* Rollover Banner */}
         {showRolloverBanner && (
-          <div className="shrink-0 mb-3 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3">
+          <div className="shrink-0 mb-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-2xl px-4 py-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">
-                <p className="text-sm font-semibold text-blue-900 flex items-center gap-1.5">
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
                   <History size={14} /> Continuing where you left off
                 </p>
                 {priorSummary ? (
-                  <p className="text-xs text-blue-700 mt-1 leading-relaxed">
+                  <p className="text-xs text-blue-700 dark:text-blue-400 mt-1 leading-relaxed">
                     <strong>Prior session summary:</strong> {priorSummary}
                   </p>
                 ) : (
-                  <p className="text-xs text-blue-700 mt-1">
+                  <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
                     Your previous conversation was archived to keep things organized. Your progress and context are fully preserved.
                   </p>
                 )}
@@ -257,15 +257,15 @@ function AgentPage() {
 
         {/* Platform Maintenance Banner */}
         {platformMaintenance && (
-          <div className="shrink-0 mb-3 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-4">
+          <div className="shrink-0 mb-3 flex items-start gap-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-2xl px-4 py-4">
             <WifiOff size={20} className="text-amber-500 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800">AI Temporarily Unavailable</p>
-              <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">AI Temporarily Unavailable</p>
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">
                 The AI assistant is temporarily unavailable due to maintenance, upgrades, or a temporary service issue.
                 We&apos;re actively working to restore access as quickly as possible. Please try again shortly.
               </p>
-              <button onClick={() => setPlatformMaintenance(false)} className="mt-2 text-xs text-amber-700 underline underline-offset-2 hover:text-amber-900">
+              <button onClick={() => setPlatformMaintenance(false)} className="mt-2 text-xs text-amber-700 dark:text-amber-400 underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200">
                 Dismiss
               </button>
             </div>
@@ -288,7 +288,7 @@ function AgentPage() {
                   <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center shrink-0">
                     <Bot size={16} className="text-white" />
                   </div>
-                  <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+                  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
                     <div className="flex gap-1 items-center h-4">
                       <span className="w-2 h-2 bg-green-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
                       <span className="w-2 h-2 bg-green-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
@@ -322,11 +322,11 @@ function AgentPage() {
         )}
 
         {/* Input Box */}
-        <div className="shrink-0 bg-white border border-gray-200 rounded-2xl shadow-sm flex items-end gap-2 p-2">
+        <div className="shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm flex items-end gap-2 p-2">
           <textarea
             ref={inputRef}
             rows={1}
-            className="flex-1 text-sm text-gray-900 placeholder:text-gray-400 resize-none outline-none px-3 py-2.5 max-h-32 overflow-y-auto bg-transparent"
+            className="flex-1 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 resize-none outline-none px-3 py-2.5 max-h-32 overflow-y-auto bg-transparent"
             placeholder={
               platformMaintenance
                 ? "AI is temporarily unavailable — please try again shortly"
@@ -368,7 +368,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
       <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-        isUser ? 'bg-gray-100' : 'bg-green-600'
+        isUser ? 'bg-gray-100 dark:bg-gray-700' : 'bg-green-600'
       }`}>
         {isUser ? <User size={16} className="text-gray-500" /> : <Bot size={16} className="text-white" />}
       </div>
@@ -377,7 +377,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
             isUser
               ? 'bg-green-600 text-white rounded-tr-sm'
-              : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm'
+              : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-sm'
           }`}
           dangerouslySetInnerHTML={{ __html: content }}
         />

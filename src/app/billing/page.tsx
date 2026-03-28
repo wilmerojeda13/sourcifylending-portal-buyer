@@ -221,11 +221,11 @@ export default function BillingPage() {
         allPrograms={activePrograms}
       >
         <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-          <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+          <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-4">
             <Lock size={22} className="text-gray-400" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Billing Not Available</h1>
-          <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Billing Not Available</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm leading-relaxed">
             Billing and subscription management are only accessible to the primary account owner. Please contact the account owner for any billing questions.
           </p>
         </div>
@@ -250,7 +250,7 @@ export default function BillingPage() {
           <CreditCard size={24} className="text-green-500" />
           Billing & Membership
         </h1>
-        <p className="text-gray-500 text-sm mt-1">Manage your SourcifyLending memberships</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Manage your SourcifyLending memberships</p>
       </div>
 
       {/* ── Active Memberships ─────────────────────────────────────────────── */}
@@ -259,14 +259,14 @@ export default function BillingPage() {
           <h2 className="section-title mb-3">Active Memberships</h2>
           <div className="space-y-3">
             {memberships.map((m) => (
-              <div key={m.id} className="card border border-green-200 bg-green-50/30">
+              <div key={m.id} className="card border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 ${PROGRAM_ICON_BG[m.program_code] ?? 'bg-gray-100'} rounded-xl flex items-center justify-center shrink-0`}>
                       {PROGRAM_ICONS[m.program_code]}
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900 text-sm">{PROGRAM_NAMES[m.program_code] ?? m.program_code}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[m.program_code] ?? m.program_code}</p>
                       <p className="text-green-600 font-bold text-sm">{PROGRAM_PRICES[m.program_code]}</p>
                     </div>
                   </div>
@@ -286,7 +286,7 @@ export default function BillingPage() {
                 </div>
                 <div className="mt-3 pt-3 border-t border-green-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {(PROGRAM_FEATURES[m.program_code] ?? []).map((f) => (
-                    <div key={f} className="flex items-center gap-2 text-xs text-gray-600">
+                    <div key={f} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
                       <CheckCircle size={13} className="text-green-500 shrink-0" />
                       {f}
                     </div>
@@ -300,14 +300,14 @@ export default function BillingPage() {
 
       {/* ── Fallback: legacy single-program active (no memberships rows yet) ── */}
       {memberships.length === 0 && isActive && program && (
-        <div className="card mb-6 border border-green-200 bg-green-50/30">
+        <div className="card mb-6 border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 ${PROGRAM_ICON_BG[program] ?? 'bg-gray-100'} rounded-xl flex items-center justify-center shrink-0`}>
                 {PROGRAM_ICONS[program]}
               </div>
               <div>
-                <p className="font-semibold text-gray-900 text-sm">{PROGRAM_NAMES[program]}</p>
+                <p className="font-semibold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[program]}</p>
                 <p className="text-green-600 font-bold text-sm">{PROGRAM_PRICES[program]}</p>
               </div>
             </div>
@@ -330,8 +330,8 @@ export default function BillingPage() {
 
       {/* ── Payment Arrangement Summary ────────────────────────────────────── */}
       {arrangement && (
-        <div className="card mb-6 border border-purple-200 bg-purple-50/40">
-          <h2 className="section-title mb-3 flex items-center gap-2 text-purple-800">
+        <div className="card mb-6 border border-purple-200 dark:border-purple-800 bg-purple-50/40 dark:bg-purple-900/20">
+          <h2 className="section-title mb-3 flex items-center gap-2 text-purple-800 dark:text-purple-300">
             <Calendar size={16} className="text-purple-600" />
             Payment Plan Summary
           </h2>
@@ -339,16 +339,16 @@ export default function BillingPage() {
             {arrangement.setup_fee_total > 0 && (
               <>
                 <div>
-                  <p className="text-xs text-gray-500 mb-0.5">Setup Fee</p>
-                  <p className="font-semibold text-gray-900">${Number(arrangement.setup_fee_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Setup Fee</p>
+                  <p className="font-semibold text-gray-900 dark:text-white">${Number(arrangement.setup_fee_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 mb-0.5">Payment Received</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Payment Received</p>
                   <p className="font-semibold text-green-700">${Number(arrangement.setup_fee_paid).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 </div>
                 {arrangement.setup_fee_remaining > 0 && (
                   <div>
-                    <p className="text-xs text-gray-500 mb-0.5">Remaining Balance</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Remaining Balance</p>
                     <p className="font-semibold text-orange-600">${Number(arrangement.setup_fee_remaining).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                   </div>
                 )}
@@ -356,10 +356,10 @@ export default function BillingPage() {
             )}
             {arrangement.next_amount_due && (
               <div>
-                <p className="text-xs text-gray-500 mb-0.5">Next Payment Due</p>
-                <p className="font-bold text-purple-800 text-lg">${Number(arrangement.next_amount_due).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Next Payment Due</p>
+                <p className="font-bold text-purple-800 dark:text-purple-300 text-lg">${Number(arrangement.next_amount_due).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 {arrangement.next_due_date && (
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     {new Date(arrangement.next_due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                   </p>
                 )}
@@ -367,7 +367,7 @@ export default function BillingPage() {
             )}
           </div>
           {totalPaid > 0 && (
-            <p className="text-xs text-gray-400 mt-3">Total payments logged: <span className="font-semibold text-gray-600">${totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">Total payments logged: <span className="font-semibold text-gray-600 dark:text-gray-300">${totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></p>
           )}
         </div>
       )}
@@ -376,19 +376,19 @@ export default function BillingPage() {
       {availableAddOns.length > 0 && (
         <div className="mb-6">
           <h2 className="section-title mb-1">Available Add-ons</h2>
-          <p className="text-xs text-gray-500 mb-3">Enhance your membership with additional programs.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Enhance your membership with additional programs.</p>
           <div className="space-y-3">
             {availableAddOns.map((addon) => (
-              <div key={addon} className="card border-2 border-dashed border-purple-200 bg-purple-50/20 hover:border-purple-400 transition-colors">
+              <div key={addon} className="card border-2 border-dashed border-purple-200 dark:border-purple-700 bg-purple-50/20 dark:bg-purple-900/10 hover:border-purple-400 dark:hover:border-purple-500 transition-colors">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-start gap-3">
                     <div className={`w-10 h-10 ${PROGRAM_ICON_BG[addon] ?? 'bg-gray-100'} rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>
                       {PROGRAM_ICONS[addon]}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900 text-sm">{PROGRAM_NAMES[addon]}</p>
-                      <p className="text-purple-600 font-bold text-sm">{PROGRAM_PRICES[addon]}</p>
-                      <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                      <p className="font-bold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[addon]}</p>
+                      <p className="text-purple-600 dark:text-purple-400 font-bold text-sm">{PROGRAM_PRICES[addon]}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
                         {addon === 'program_c' && 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan.'}
                       </p>
                     </div>
@@ -442,8 +442,8 @@ export default function BillingPage() {
       {!isActive && !program && (
         <div className="space-y-4">
           <div className="text-center mb-2">
-            <h2 className="text-xl font-bold text-gray-900">Choose Your Program</h2>
-            <p className="text-sm text-gray-500 mt-1">Select a plan and proceed directly to payment</p>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Choose Your Program</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select a plan and proceed directly to payment</p>
           </div>
 
           {[
@@ -451,18 +451,18 @@ export default function BillingPage() {
             { key: 'program_b', badge: '$997 setup', monthly: 'then $199/month', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badgeColor: 'bg-green-100 text-green-700' },
             { key: 'program_c', badge: 'No setup fee', monthly: '$97/month', desc: 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan', badgeColor: 'bg-purple-100 text-purple-700' },
           ].map(({ key, badge, monthly, desc, badgeColor }) => (
-            <div key={key} className="card border-2 border-gray-200 hover:border-green-400 transition-colors">
+            <div key={key} className="card border-2 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-colors">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-start gap-3">
                   <div className={`w-10 h-10 ${PROGRAM_ICON_BG[key]} rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>
                     {PROGRAM_ICONS[key]}
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900">{PROGRAM_NAMES[key]}</p>
-                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{desc}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{PROGRAM_NAMES[key]}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeColor}`}>{badge}</span>
-                      <span className="text-xs text-gray-500">{monthly}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{monthly}</span>
                     </div>
                   </div>
                 </div>
@@ -478,13 +478,13 @@ export default function BillingPage() {
             </div>
           ))}
 
-          <p className="text-xs text-gray-400 text-center pt-2">
-            Not sure which program fits? Contact us at <span className="font-medium text-gray-500">support@sourcifylending.com</span> and we&apos;ll help you choose.
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center pt-2">
+            Not sure which program fits? Contact us at <span className="font-medium text-gray-500 dark:text-gray-400">support@sourcifylending.com</span> and we&apos;ll help you choose.
           </p>
         </div>
       )}
 
-      <p className="text-xs text-gray-400 text-center mt-6 leading-relaxed px-2">
+      <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-6 leading-relaxed px-2">
         Subscriptions are billed monthly. Cancel anytime. Cancellation pauses progress and limits portal access — data is never deleted. SourcifyLending does not guarantee specific credit approvals, credit limits, or funding outcomes.
       </p>
     </PortalLayout>

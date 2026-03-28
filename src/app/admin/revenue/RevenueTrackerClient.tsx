@@ -103,17 +103,17 @@ function programBadgeClass(program: string | null): string {
 }
 
 function programCardClass(program: string | null): string {
-  if (program === 'program_a') return 'border-blue-200 bg-blue-50'
-  if (program === 'program_b') return 'border-purple-200 bg-purple-50'
-  if (program === 'program_c') return 'border-green-200 bg-green-50'
-  return 'border-gray-200 bg-gray-50'
+  if (program === 'program_a') return 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20'
+  if (program === 'program_b') return 'border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20'
+  if (program === 'program_c') return 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20'
+  return 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'
 }
 
 function programHeadingClass(program: string | null): string {
-  if (program === 'program_a') return 'text-blue-700'
-  if (program === 'program_b') return 'text-purple-700'
-  if (program === 'program_c') return 'text-green-700'
-  return 'text-gray-600'
+  if (program === 'program_a') return 'text-blue-700 dark:text-blue-400'
+  if (program === 'program_b') return 'text-purple-700 dark:text-purple-400'
+  if (program === 'program_c') return 'text-green-700 dark:text-green-400'
+  return 'text-gray-600 dark:text-gray-400'
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────

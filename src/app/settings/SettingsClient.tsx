@@ -77,32 +77,32 @@ export default function SettingsClient({ initialProfile, isDelegate = false }: P
   return (
     <div className="space-y-6 max-w-2xl">
       {isDelegate && (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 flex items-start gap-3">
+        <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-2xl px-4 py-3 flex items-start gap-3">
           <span className="text-blue-600 mt-0.5">ℹ️</span>
-          <p className="text-sm text-blue-700">You are logged in as a <strong>delegate</strong>. You can update your personal profile, but billing and subscription management are only available to the account owner.</p>
+          <p className="text-sm text-blue-700 dark:text-blue-300">You are logged in as a <strong>delegate</strong>. You can update your personal profile, but billing and subscription management are only available to the account owner.</p>
         </div>
       )}
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Settings size={20} className="text-green-600" />
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
         </div>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           Update your profile and account information. Keep your contact details current so we can support your account.
         </p>
       </div>
 
       <form onSubmit={handleSave} className="space-y-5">
         {/* Personal Information */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-50 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700 flex items-center gap-2">
             <User size={15} className="text-green-600" />
-            <h2 className="text-sm font-semibold text-gray-900">Personal Information</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Personal Information</h2>
           </div>
           <div className="p-6 space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
                 Full Name <span className="text-red-400">*</span>
               </label>
               <input
@@ -110,13 +110,13 @@ export default function SettingsClient({ initialProfile, isDelegate = false }: P
                 value={form.full_name}
                 onChange={e => set('full_name', e.target.value)}
                 placeholder="Your full name"
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 disabled={loading}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
                 <span className="flex items-center gap-1.5">
                   <Mail size={11} />
                   Email Address <span className="text-red-400">*</span>
@@ -127,7 +127,7 @@ export default function SettingsClient({ initialProfile, isDelegate = false }: P
                 value={form.email}
                 onChange={e => set('email', e.target.value)}
                 placeholder="your@email.com"
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 disabled={loading}
               />
               {form.email !== initialProfile.email && (
@@ -138,7 +138,7 @@ export default function SettingsClient({ initialProfile, isDelegate = false }: P
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
                 <span className="flex items-center gap-1.5">
                   <Phone size={11} />
                   Phone Number
@@ -149,7 +149,7 @@ export default function SettingsClient({ initialProfile, isDelegate = false }: P
                 value={form.phone}
                 onChange={e => set('phone', e.target.value)}
                 placeholder="(555) 000-0000"
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 disabled={loading}
               />
             </div>
@@ -157,14 +157,14 @@ export default function SettingsClient({ initialProfile, isDelegate = false }: P
         </div>
 
         {/* Business Information */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-50 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700 flex items-center gap-2">
             <Building2 size={15} className="text-green-600" />
-            <h2 className="text-sm font-semibold text-gray-900">Business Information</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Business Information</h2>
           </div>
           <div className="p-6 space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
                 Business Name
               </label>
               <input
@@ -172,19 +172,19 @@ export default function SettingsClient({ initialProfile, isDelegate = false }: P
                 value={form.business_name}
                 onChange={e => set('business_name', e.target.value)}
                 placeholder="Your business name"
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 disabled={loading}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
                 Entity Type
               </label>
               <select
                 value={form.entity_type}
                 onChange={e => set('entity_type', e.target.value)}
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all bg-white"
+                className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 disabled={loading}
               >
                 <option value="">Select entity type…</option>
@@ -193,13 +193,13 @@ export default function SettingsClient({ initialProfile, isDelegate = false }: P
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
                 Industry
               </label>
               <select
                 value={form.industry}
                 onChange={e => set('industry', e.target.value)}
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all bg-white"
+                className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 disabled={loading}
               >
                 <option value="">Select industry…</option>
@@ -211,15 +211,15 @@ export default function SettingsClient({ initialProfile, isDelegate = false }: P
 
         {/* Status messages */}
         {error && (
-          <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+          <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-xl px-4 py-3">
             <XCircle size={15} className="text-red-500 mt-0.5 shrink-0" />
-            <p className="text-sm text-red-700">{error}</p>
+            <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
           </div>
         )}
         {success && (
-          <div className="flex items-start gap-2.5 bg-green-50 border border-green-100 rounded-xl px-4 py-3">
+          <div className="flex items-start gap-2.5 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl px-4 py-3">
             <CheckCircle2 size={15} className="text-green-600 mt-0.5 shrink-0" />
-            <p className="text-sm text-green-700">{success}</p>
+            <p className="text-sm text-green-700 dark:text-green-400">{success}</p>
           </div>
         )}
 

@@ -196,7 +196,7 @@ export default function PortalLayout({
           active
             ? 'bg-green-600 text-white shadow-sm'
             : showDueBadge
-            ? 'text-amber-700 bg-amber-50 hover:bg-amber-100'
+            ? 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/40'
             : 'text-gray-600 dark:text-gray-400 hover:bg-green-50 dark:hover:bg-green-950 hover:text-green-700 dark:hover:text-green-400'
         )}
       >
@@ -238,7 +238,7 @@ export default function PortalLayout({
           <Link
             href="/admin"
             onClick={() => setMobileOpen(false)}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
           >
             <ShieldCheck size={18} className="text-green-600" />
             <span>Admin Panel</span>
@@ -288,7 +288,7 @@ export default function PortalLayout({
                   className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-60 ${
                     isActive
                       ? 'bg-green-600 text-white cursor-default'
-                      : 'text-purple-700 bg-purple-50 hover:bg-purple-100'
+                      : 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/40'
                   }`}
                 >
                   <RefreshCcw size={16} className={switching && !isActive ? 'animate-spin' : ''} />
@@ -303,7 +303,7 @@ export default function PortalLayout({
           <button
             onClick={handleSwitchProgram}
             disabled={switching}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors disabled:opacity-60"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors disabled:opacity-60"
           >
             <RefreshCcw size={18} className={switching ? 'animate-spin' : ''} />
             <span>
@@ -360,7 +360,7 @@ export default function PortalLayout({
           />
           <div className="relative w-72 bg-white dark:bg-gray-900 h-full shadow-xl z-50">
             <button
-              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-gray-100"
+              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
               onClick={() => setMobileOpen(false)}
             >
               <X size={18} />
@@ -401,11 +401,11 @@ export default function PortalLayout({
         {/* Page Content */}
         <main className="flex-1 p-4 md:p-6 pb-24 lg:pb-6 max-w-5xl w-full mx-auto">
           {isDemo && (
-            <div className="mb-5 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+            <div className="mb-5 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-2xl px-4 py-3 flex items-center gap-3">
               <span className="text-lg">🧪</span>
               <div>
-                <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Demo Account</p>
-                <p className="text-xs text-amber-600 leading-snug">This is a seeded demo for testing and sales purposes. Data is not real.</p>
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wide">Demo Account</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 leading-snug">This is a seeded demo for testing and sales purposes. Data is not real.</p>
               </div>
             </div>
           )}
@@ -420,7 +420,7 @@ export default function PortalLayout({
         />
 
         {/* Mobile Bottom Navigation */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-10 px-1 py-1.5 safe-area-pb">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 z-10 px-1 py-1.5 safe-area-pb">
           <div className={`grid gap-0.5 ${isProspect ? 'grid-cols-2' : 'grid-cols-6'}`}>
             {(isProspect ? PROSPECT_NAV_ITEMS : MOBILE_NAV_ITEMS).map(({ href, label, icon: Icon }) => {
               const active = pathname === href || pathname.startsWith(href + '/')
@@ -430,7 +430,7 @@ export default function PortalLayout({
                   href={href}
                   className={cn(
                     'flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-colors',
-                    active ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
+                    active ? 'text-green-600' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
                   )}
                 >
                   <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />

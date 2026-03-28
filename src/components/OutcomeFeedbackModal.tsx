@@ -13,10 +13,10 @@ interface Props {
 }
 
 const OPTIONS = [
-  { value: 'approved', label: 'Approved!', icon: CheckCircle, color: 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100' },
-  { value: 'denied', label: 'Denied', icon: XCircle, color: 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100' },
-  { value: 'pending', label: 'Still Pending', icon: Clock, color: 'bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100' },
-  { value: 'not_applied', label: "Didn't Apply", icon: MinusCircle, color: 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100' },
+  { value: 'approved', label: 'Approved!', icon: CheckCircle, color: 'bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50' },
+  { value: 'denied', label: 'Denied', icon: XCircle, color: 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50' },
+  { value: 'pending', label: 'Still Pending', icon: Clock, color: 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-100 dark:hover:bg-yellow-900/50' },
+  { value: 'not_applied', label: "Didn't Apply", icon: MinusCircle, color: 'bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600' },
 ]
 
 export default function OutcomeFeedbackModal({ opportunityName, opportunityId, program, stage, onClose, onSubmitted }: Props) {
@@ -51,23 +51,23 @@ export default function OutcomeFeedbackModal({ opportunityName, opportunityId, p
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-6 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
           <X size={18} />
         </button>
 
         {done ? (
           <div className="text-center py-4">
             <CheckCircle className="mx-auto text-green-500 mb-2" size={40} />
-            <p className="font-semibold text-gray-800">Thanks for the update!</p>
-            <p className="text-sm text-gray-500 mt-1">This helps us improve recommendations for you.</p>
+            <p className="font-semibold text-gray-800 dark:text-gray-200">Thanks for the update!</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">This helps us improve recommendations for you.</p>
           </div>
         ) : (
           <>
             <div className="mb-4">
               <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wide mb-1">Quick Feedback</p>
-              <h3 className="font-bold text-gray-900 text-base leading-snug">What happened with your application?</h3>
-              <p className="text-xs text-gray-500 mt-1 truncate">{opportunityName}</p>
+              <h3 className="font-bold text-gray-900 dark:text-white text-base leading-snug">What happened with your application?</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{opportunityName}</p>
             </div>
 
             <div className="space-y-2 mb-4">
@@ -91,7 +91,7 @@ export default function OutcomeFeedbackModal({ opportunityName, opportunityId, p
               {submitting ? <><Loader2 size={15} className="animate-spin" />Saving&hellip;</> : 'Submit'}
             </button>
 
-            <p className="text-center text-xs text-gray-400 mt-3">
+            <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-3">
               Helps us show better options for clients like you
             </p>
           </>

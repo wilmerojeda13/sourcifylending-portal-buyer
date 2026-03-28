@@ -47,12 +47,12 @@ export default function GenerateRoadmapButton() {
       <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
         <Sparkles size={20} className="text-green-600" />
       </div>
-      <p className="text-sm font-semibold text-gray-800 mb-1">Ready to build your roadmap?</p>
-      <p className="text-xs text-gray-400 leading-relaxed mb-4">
+      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">Ready to build your roadmap?</p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed mb-4">
         Our AI advisor will generate your personalized task list based on your profile and program.
       </p>
       {error && (
-        <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">{error}</p>
+        <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 rounded-lg px-3 py-2 mb-3">{error}</p>
       )}
       <button
         onClick={handleGenerate}

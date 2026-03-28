@@ -97,7 +97,7 @@ export default function ReportsPage() {
           <BarChart2 size={24} className="text-green-500" />
           Reports & Deliverables
         </h1>
-        <p className="text-gray-500 text-sm mt-1">AI-generated reports stored in your portal</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">AI-generated reports stored in your portal</p>
       </div>
 
       {/* Generate Section */}
@@ -116,7 +116,7 @@ export default function ReportsPage() {
                 <option key={rt.value} value={rt.value}>{rt.label}</option>
               ))}
             </select>
-            <p className="text-xs text-gray-400 mt-1.5">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
               {REPORT_TYPES.find((rt) => rt.value === selectedType)?.desc}
             </p>
           </div>
@@ -156,13 +156,13 @@ export default function ReportsPage() {
                 onClick={() => setExpandedId(expandedId === report.report_id ? null : report.report_id)}
               >
                 <div className="flex items-start gap-3 text-left">
-                  <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="w-9 h-9 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
                     <FileText size={18} className="text-green-500" />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900 text-sm">{report.title}</p>
+                    <p className="font-bold text-gray-900 dark:text-white text-sm">{report.title}</p>
                     <p className="text-xs text-green-500 mt-0.5">{reportTypeLabel(report.report_type)}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(report.generated_at)}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{formatDateTime(report.generated_at)}</p>
                   </div>
                 </div>
                 {expandedId === report.report_id
@@ -172,9 +172,9 @@ export default function ReportsPage() {
               </button>
 
               {expandedId === report.report_id && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                   <div
-                    className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap text-sm leading-relaxed"
+                    className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-sm leading-relaxed"
                     dangerouslySetInnerHTML={{
                       __html: report.content
                         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')

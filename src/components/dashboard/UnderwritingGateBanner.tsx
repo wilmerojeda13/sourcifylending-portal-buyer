@@ -108,9 +108,9 @@ export default function UnderwritingGateBanner({ program, reviewCount = 0, nextD
 
       {/* Why it matters — renewal-specific messaging */}
       {isRenewal && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-5">
-          <p className="text-sm font-semibold text-amber-800 mb-1">Why we re-underwrite monthly</p>
-          <p className="text-xs text-amber-700 leading-relaxed">
+        <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-2xl px-5 py-4 mb-5">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-1">Why we re-underwrite monthly</p>
+          <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
             Credit profiles change constantly — new tradelines open, balances shift, inquiries age off, and business
             financials evolve. We underwrite your file the same way banks and vendors do: continuously. Your monthly
             review tracks your risk score delta, stage advancement, and keeps your funding opportunities current.
@@ -124,8 +124,8 @@ export default function UnderwritingGateBanner({ program, reviewCount = 0, nextD
           <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-3">
             <ShieldCheck size={20} className="text-green-600" />
           </div>
-          <p className="text-sm font-semibold text-gray-800 mb-1">Verified Profile</p>
-          <p className="text-xs text-gray-400 leading-relaxed">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">Verified Profile</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
             {isRenewal
               ? 'We verify any changes to your file and update your risk score accordingly.'
               : 'Your funding plan will be built on verified data, not guesswork.'}
@@ -135,10 +135,10 @@ export default function UnderwritingGateBanner({ program, reviewCount = 0, nextD
           <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-3">
             <TrendingUp size={20} className="text-blue-600" />
           </div>
-          <p className="text-sm font-semibold text-gray-800 mb-1">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">
             {isRenewal ? 'Track Progress' : 'Higher Approvals'}
           </p>
-          <p className="text-xs text-gray-400 leading-relaxed">
+          <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
             {isRenewal
               ? 'See your risk score delta and whether your stage has advanced since last review.'
               : 'Applying in the right sequence dramatically increases your success rate.'}
@@ -148,8 +148,8 @@ export default function UnderwritingGateBanner({ program, reviewCount = 0, nextD
           <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-3">
             <ClipboardList size={20} className="text-purple-600" />
           </div>
-          <p className="text-sm font-semibold text-gray-800 mb-1">AI-Powered Plan</p>
-          <p className="text-xs text-gray-400 leading-relaxed">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">AI-Powered Plan</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
             {isRenewal
               ? 'Your roadmap and opportunities are refreshed after each review to reflect your current file.'
               : 'Our AI generates your exact roadmap based on your underwriting results.'}
@@ -159,7 +159,7 @@ export default function UnderwritingGateBanner({ program, reviewCount = 0, nextD
 
       {/* What you'll cover */}
       <div className="card">
-        <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
           <ClipboardList size={16} className="text-gray-400" />
           {isRenewal ? "What we'll review this month" : "What you'll cover in the review"}
         </h3>
@@ -170,12 +170,12 @@ export default function UnderwritingGateBanner({ program, reviewCount = 0, nextD
                 ${isA ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
                 {i + 1}
               </div>
-              <p className="text-sm text-gray-700">{step}</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">{step}</p>
             </div>
           ))}
-          <div className="flex items-center gap-3 pt-1 border-t border-gray-100 mt-3">
+          <div className="flex items-center gap-3 pt-1 border-t border-gray-100 dark:border-gray-700 mt-3">
             <CheckCircle size={20} className="text-green-500 shrink-0" />
-            <p className="text-sm font-semibold text-green-700">
+            <p className="text-sm font-semibold text-green-700 dark:text-green-400">
               {isRenewal
                 ? 'Your roadmap and opportunities unlock immediately after completion.'
                 : 'Your personalized roadmap unlocks instantly after completion.'}

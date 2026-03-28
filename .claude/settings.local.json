@@ -230,7 +230,9 @@
       "Bash(grep -r \"client-view\\\\|support\\\\|member\" 'C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src/app/admin/support' --include=*.tsx -l)",
       "Bash(grep -r href.*admin 'C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src/app/admin/support' --include=*.tsx)",
       "Bash(grep -r \"client-view\\\\|members/\\\\|support\" 'C:/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src/app/admin/operations' --include=*.tsx)",
-      "Bash(node scripts/seed-restage.mjs)"
+      "Bash(node scripts/seed-restage.mjs)",
+      "Bash(find '/c/Users/abelf/OneDrive/Desktop/Apps/sourcifylending web portal app/src' -name *activity* -o -name *event*)",
+      "Bash(vercel deploy:*)"
     ]
   }
 }

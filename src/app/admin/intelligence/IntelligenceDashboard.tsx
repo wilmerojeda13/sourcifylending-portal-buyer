@@ -176,10 +176,10 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
       </div>
 
       {/* Recent Activity */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-        <h2 className="font-bold text-gray-900 mb-4">Recent Outcomes (Last 100)</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <h2 className="font-bold text-gray-900 dark:text-white mb-4">Recent Outcomes (Last 100)</h2>
         {recentOutcomes.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">No outcomes reported yet.</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">No outcomes reported yet.</p>
         ) : (
           <div className="space-y-2 max-h-80 overflow-y-auto">
             {recentOutcomes.map((o, i) => {
@@ -187,11 +187,11 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
                           o.outcome === 'denied' ? <XCircle size={14} className="text-red-400" /> :
                           <Clock size={14} className="text-yellow-500" />
               return (
-                <div key={i} className="flex items-center gap-3 text-sm py-1.5 border-b border-gray-50">
+                <div key={i} className="flex items-center gap-3 text-sm py-1.5 border-b border-gray-50 dark:border-gray-700">
                   {icon}
-                  <span className="flex-1 text-gray-700 truncate">{o.opportunity_name}</span>
-                  <span className="text-xs text-gray-400">{PROGRAM_LABELS[o.program ?? ''] ?? o.program ?? '&mdash;'}</span>
-                  <span className="text-xs text-gray-400">{new Date(o.created_at).toLocaleDateString()}</span>
+                  <span className="flex-1 text-gray-700 dark:text-gray-300 truncate">{o.opportunity_name}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{PROGRAM_LABELS[o.program ?? ''] ?? o.program ?? '&mdash;'}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{new Date(o.created_at).toLocaleDateString()}</span>
                 </div>
               )
             })}
@@ -200,18 +200,18 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
       </div>
 
       {/* Agent Logs */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
         <div className="flex items-center gap-2 mb-4">
           <Bot size={18} className="text-indigo-500" />
-          <h2 className="font-bold text-gray-900">Agent Activity Log</h2>
-          <span className="ml-auto text-xs text-gray-400">{agentLogs.length} recent actions</span>
+          <h2 className="font-bold text-gray-900 dark:text-white">Agent Activity Log</h2>
+          <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">{agentLogs.length} recent actions</span>
         </div>
         {agentLogs.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">No agent actions yet. Run the DB migration to enable agent logging.</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No agent actions yet. Run the DB migration to enable agent logging.</p>
         ) : (
           <div className="space-y-1.5 max-h-96 overflow-y-auto">
             {agentLogs.map(log => (
-              <div key={log.id} className={`flex items-start gap-3 px-3 py-2.5 rounded-xl text-xs ${log.needs_review ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}>
+              <div key={log.id} className={`flex items-start gap-3 px-3 py-2.5 rounded-xl text-xs ${log.needs_review ? 'bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800' : 'bg-gray-50 dark:bg-gray-700'}`}>
                 {log.needs_review ? (
                   <AlertTriangle size={13} className="text-amber-500 shrink-0 mt-0.5" />
                 ) : log.auto_fixed ? (
@@ -220,17 +220,17 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
                   <Bot size={13} className="text-indigo-400 shrink-0 mt-0.5" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-800 truncate">{log.title}</p>
+                  <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{log.title}</p>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${AGENT_COLORS[log.agent_name] ?? 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${AGENT_COLORS[log.agent_name] ?? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
                       {log.agent_name}
                     </span>
-                    {log.auto_fixed && <span className="text-[10px] text-green-600 font-medium">auto-fixed</span>}
-                    {log.needs_review && <span className="text-[10px] text-amber-600 font-medium">needs review</span>}
-                    <span className="text-[10px] text-gray-400">
+                    {log.auto_fixed && <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">auto-fixed</span>}
+                    {log.needs_review && <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">needs review</span>}
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">
                       {log.profiles?.full_name ?? log.profiles?.email ?? log.user_id.slice(0, 8)}
                     </span>
-                    <span className="text-[10px] text-gray-300 ml-auto">{new Date(log.created_at).toLocaleString()}</span>
+                    <span className="text-[10px] text-gray-300 dark:text-gray-600 ml-auto">{new Date(log.created_at).toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -241,15 +241,15 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
 
       {/* Event Breakdown */}
       {Object.keys(actionCounts).length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-          <h2 className="font-bold text-gray-900 mb-4">Event Breakdown (Last 30 Days)</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+          <h2 className="font-bold text-gray-900 dark:text-white mb-4">Event Breakdown (Last 30 Days)</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {Object.entries(actionCounts)
               .sort(([, a], [, b]) => b - a)
               .map(([action, count]) => (
-                <div key={action} className="bg-gray-50 rounded-xl px-4 py-3">
-                  <p className="text-xs text-gray-500 font-mono mb-1">{action}</p>
-                  <p className="text-xl font-bold text-gray-800">{count}</p>
+                <div key={action} className="bg-gray-50 dark:bg-gray-700 rounded-xl px-4 py-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mb-1">{action}</p>
+                  <p className="text-xl font-bold text-gray-800 dark:text-gray-200">{count}</p>
                 </div>
               ))}
           </div>

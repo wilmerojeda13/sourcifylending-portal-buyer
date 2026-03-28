@@ -34,9 +34,9 @@ const READINESS_ICON: Record<string, React.ReactNode> = {
 }
 
 const READINESS_BG: Record<string, string> = {
-  'Ready': 'bg-green-50 border-green-200',
-  'Conditionally Ready': 'bg-yellow-50 border-yellow-200',
-  'Not Ready': 'bg-red-50 border-red-200',
+  'Ready': 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+  'Conditionally Ready': 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
+  'Not Ready': 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
 }
 
 interface ProspectDashboardProps {
@@ -51,7 +51,7 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
   const program = profile.assigned_program
 
   const programInfo = program ? PROGRAM_NAMES[program] : null
-  const readinessBg = readiness ? (READINESS_BG[readiness] ?? 'bg-gray-50 border-gray-200') : 'bg-gray-50 border-gray-200'
+  const readinessBg = readiness ? (READINESS_BG[readiness] ?? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700') : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
   const readinessIcon = readiness ? (READINESS_ICON[readiness] ?? null) : null
 
   const firstName = (profile.full_name || '').split(' ')[0] || 'there'
@@ -65,9 +65,9 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
       {/* Welcome header */}
       <div>
         <h1 className="page-title">Welcome, {firstName} 👋</h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
           Here's your personalized credit readiness analysis.
-          {program && <span className="font-medium text-gray-700"> Recommended: {programInfo?.short}.</span>}
+          {program && <span className="font-medium text-gray-700 dark:text-gray-200"> Recommended: {programInfo?.short}.</span>}
         </p>
       </div>
 
@@ -108,36 +108,36 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
 
         {/* Readiness Card */}
         <div className={`card border-2 ${readinessBg}`}>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Your Funding Readiness</p>
+          <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Your Funding Readiness</p>
           {readiness ? (
             <>
               <div className="flex items-center gap-2 mb-2">
                 {readinessIcon}
-                <span className="text-xl font-bold text-gray-900">{readiness}</span>
+                <span className="text-xl font-bold text-gray-900 dark:text-white">{readiness}</span>
               </div>
               <StatusBadge status={readiness} />
               {result?.summary && (
-                <p className="text-sm text-gray-600 mt-3 leading-relaxed">{result.summary}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mt-3 leading-relaxed">{result.summary}</p>
               )}
             </>
           ) : (
-            <p className="text-sm text-gray-400">No analysis on file. <Link href="/analyzer" className="text-green-600 font-medium">Run the analyzer</Link></p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">No analysis on file. <Link href="/analyzer" className="text-green-600 font-medium">Run the analyzer</Link></p>
           )}
         </div>
 
         {/* Recommended Program */}
-        <div className="card border-2 border-green-200 bg-green-50/40">
+        <div className="card border-2 border-green-200 dark:border-green-800 bg-green-50/40 dark:bg-green-900/20">
           <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-2">Recommended Program</p>
           {programInfo ? (
             <>
-              <p className="text-base font-bold text-green-900 mb-1">{programInfo.short} — {programInfo.full}</p>
-              <p className="text-sm text-green-700 leading-relaxed">{programInfo.description}</p>
+              <p className="text-base font-bold text-green-900 dark:text-green-300 mb-1">{programInfo.short} — {programInfo.full}</p>
+              <p className="text-sm text-green-700 dark:text-green-400 leading-relaxed">{programInfo.description}</p>
               {result?.recommendation && (
-                <p className="text-xs text-green-600 mt-3 italic leading-relaxed">&ldquo;{result.recommendation}&rdquo;</p>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-3 italic leading-relaxed">&ldquo;{result.recommendation}&rdquo;</p>
               )}
             </>
           ) : (
-            <p className="text-sm text-gray-400">No program assigned yet.</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500">No program assigned yet.</p>
           )}
         </div>
       </div>
@@ -145,20 +145,20 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
       {/* Risk Flags */}
       {result?.risk_flags && result.risk_flags.length > 0 && (
         <div className="card">
-          <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+          <h2 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
             <AlertTriangle size={16} className="text-yellow-500" />
             Risk Factors to Address ({result.risk_flags.length})
           </h2>
           <ul className="space-y-2">
             {result.risk_flags.map((flag, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-sm text-gray-600">
+              <li key={i} className="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5 shrink-0" />
                 {flag}
               </li>
             ))}
           </ul>
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-500">
+          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               These factors are addressed step-by-step inside your program roadmap.{' '}
               <Link href={`/billing${program ? `?program=${program}` : ''}`} className="text-green-600 font-semibold">
                 Upgrade to begin →
@@ -178,10 +178,10 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
 
           {/* Tasks Teaser */}
           <div className="card relative overflow-hidden">
-            <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center z-10 rounded-2xl">
+            <div className="absolute inset-0 bg-white/60 dark:bg-gray-800/70 backdrop-blur-[2px] flex items-center justify-center z-10 rounded-2xl">
               <div className="text-center px-4">
                 <Lock size={20} className="text-gray-400 mx-auto mb-1.5" />
-                <p className="text-xs font-bold text-gray-600">Upgrade to Unlock</p>
+                <p className="text-xs font-bold text-gray-600 dark:text-gray-300">Upgrade to Unlock</p>
                 <Link
                   href={`/billing${program ? `?program=${program}` : ''}`}
                   className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-green-600 hover:text-green-700"
@@ -196,7 +196,7 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
               </p>
               <div className="space-y-2">
                 {['Set up business bank account', 'Apply for D-U-N-S number', 'Open Net-30 vendor accounts'].map((t) => (
-                  <div key={t} className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+                  <div key={t} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
                     <div className="w-3 h-3 rounded-full border-2 border-gray-300 shrink-0" />
                     <span className="text-xs text-gray-500 truncate">{t}</span>
                   </div>
@@ -207,10 +207,10 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
 
           {/* AI Agent Teaser */}
           <div className="card relative overflow-hidden">
-            <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center z-10 rounded-2xl">
+            <div className="absolute inset-0 bg-white/60 dark:bg-gray-800/70 backdrop-blur-[2px] flex items-center justify-center z-10 rounded-2xl">
               <div className="text-center px-4">
                 <Lock size={20} className="text-gray-400 mx-auto mb-1.5" />
-                <p className="text-xs font-bold text-gray-600">Upgrade to Unlock</p>
+                <p className="text-xs font-bold text-gray-600 dark:text-gray-300">Upgrade to Unlock</p>
                 <Link
                   href={`/billing${program ? `?program=${program}` : ''}`}
                   className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-green-600 hover:text-green-700"
@@ -223,10 +223,10 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
                 <Bot size={14} /> AI Fulfillment Agent
               </p>
-              <div className="bg-gray-50 rounded-xl p-3">
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
                 <p className="text-xs text-gray-500 italic">&ldquo;What's my next step for building business credit?&rdquo;</p>
-                <div className="mt-2 bg-green-50 rounded-lg px-3 py-2">
-                  <p className="text-xs text-green-700">Based on your profile, your next step is to open a Net-30 account with Uline…</p>
+                <div className="mt-2 bg-green-50 dark:bg-green-900/30 rounded-lg px-3 py-2">
+                  <p className="text-xs text-green-700 dark:text-green-400">Based on your profile, your next step is to open a Net-30 account with Uline…</p>
                 </div>
               </div>
             </div>
@@ -234,10 +234,10 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
 
           {/* Documents Teaser */}
           <div className="card relative overflow-hidden">
-            <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center z-10 rounded-2xl">
+            <div className="absolute inset-0 bg-white/60 dark:bg-gray-800/70 backdrop-blur-[2px] flex items-center justify-center z-10 rounded-2xl">
               <div className="text-center px-4">
                 <Lock size={20} className="text-gray-400 mx-auto mb-1.5" />
-                <p className="text-xs font-bold text-gray-600">Upgrade to Unlock</p>
+                <p className="text-xs font-bold text-gray-600 dark:text-gray-300">Upgrade to Unlock</p>
                 <Link
                   href={`/billing${program ? `?program=${program}` : ''}`}
                   className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-green-600 hover:text-green-700"
@@ -252,7 +252,7 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
               </p>
               <div className="space-y-2">
                 {['Personal Credit Report', 'EIN Letter', 'Business Formation Docs'].map((d) => (
-                  <div key={d} className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+                  <div key={d} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 px-3 py-2 rounded-lg">
                     <FileText size={12} className="text-gray-300 shrink-0" />
                     <span className="text-xs text-gray-500 truncate">{d}</span>
                   </div>
@@ -264,12 +264,12 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
       </div>
 
       {/* Bottom CTA */}
-      <div className="card border border-gray-200 text-center py-8">
+      <div className="card border border-gray-200 dark:border-gray-700 text-center py-8">
         <TrendingUp size={28} className="text-green-500 mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-gray-900 mb-1">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
           Ready to Execute {programInfo?.short ?? 'Your Program'}?
         </h3>
-        <p className="text-sm text-gray-500 mb-5 max-w-sm mx-auto">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 max-w-sm mx-auto">
           Get full access to your roadmap, AI agent, document manager, and personal advisor guidance.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">

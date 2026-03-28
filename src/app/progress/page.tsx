@@ -192,11 +192,11 @@ function ProgressPage() {
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <h1 className="page-title">Progress & Tasks</h1>
-          <div className="flex border border-gray-200 rounded-xl overflow-hidden">
+          <div className="flex border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
             <button
               onClick={() => setView('list')}
               className={`px-3 py-2 text-sm flex items-center gap-1.5 transition-colors ${
-                view === 'list' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+                view === 'list' ? 'bg-green-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
               <List size={15} /> List
@@ -204,14 +204,14 @@ function ProgressPage() {
             <button
               onClick={() => setView('board')}
               className={`px-3 py-2 text-sm flex items-center gap-1.5 transition-colors ${
-                view === 'board' ? 'bg-green-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+                view === 'board' ? 'bg-green-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
               <LayoutGrid size={15} /> Board
             </button>
           </div>
         </div>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
           {profile?.assigned_program ? getProgramShortLabel(profile.assigned_program) : 'No program assigned'}
           {profile?.current_stage && ` · Stage: ${profile.current_stage}`}
         </p>
@@ -221,7 +221,7 @@ function ProgressPage() {
       <div className="card mb-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="font-bold text-gray-900">Overall Completion</p>
+            <p className="font-bold text-gray-900 dark:text-white">Overall Completion</p>
             <p className="text-sm text-gray-400">{completed} of {total} tasks done</p>
           </div>
           <span className="text-3xl font-bold text-green-600">{progress}%</span>
@@ -236,7 +236,7 @@ function ProgressPage() {
             const allDone = stageCompleted === stageTasks.length
             return (
               <div key={stage} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-                allDone ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                allDone ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
               }`}>
                 {allDone && <CheckCircle size={12} />}
                 {stage} ({stageCompleted}/{stageTasks.length})
@@ -248,13 +248,13 @@ function ProgressPage() {
 
       {/* Welcome banner after roadmap generation */}
       {showWelcomeBanner && tasks.length > 0 && (
-        <div className="mb-4 bg-green-50 border border-green-200 rounded-2xl px-4 py-4 flex items-start gap-3">
+        <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl px-4 py-4 flex items-start gap-3">
           <div className="w-9 h-9 bg-green-600 rounded-xl flex items-center justify-center shrink-0">
             <Sparkles size={18} className="text-white" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-bold text-green-900 mb-0.5">Your roadmap is ready!</p>
-            <p className="text-xs text-green-700 leading-relaxed">
+            <p className="text-sm font-bold text-green-900 dark:text-green-300 mb-0.5">Your roadmap is ready!</p>
+            <p className="text-xs text-green-700 dark:text-green-400 leading-relaxed">
               Start with <strong>Task 1: {tasks.find(t => t.status === 'pending')?.title || tasks[0]?.title}</strong>. Tap <strong>Ask AI</strong> on any task and your advisor will walk you through it step by step.
             </p>
           </div>
@@ -269,7 +269,7 @@ function ProgressPage() {
         <div className="space-y-3">
           {stages.map((stage) => (
             <div key={stage}>
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2 px-1">{stage}</h3>
+              <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 px-1">{stage}</h3>
               <div className="space-y-2">
                 {tasks.filter((t) => t.stage === stage).map((task) => (
                   <TaskRow
@@ -292,8 +292,8 @@ function ProgressPage() {
       {view === 'board' && (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {stages.map((stage) => (
-            <div key={stage} className="min-w-[260px] max-w-[280px] bg-gray-100 rounded-2xl p-3">
-              <h3 className="font-bold text-gray-700 text-sm mb-3 px-1">{stage}</h3>
+            <div key={stage} className="min-w-[260px] max-w-[280px] bg-gray-100 dark:bg-gray-800 rounded-2xl p-3">
+              <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm mb-3 px-1">{stage}</h3>
               <div className="space-y-2">
                 {tasks.filter((t) => t.stage === stage).map((task) => (
                   <TaskCard key={task.task_id} task={task} onComplete={markComplete} isActive={isActive} />
@@ -311,12 +311,12 @@ function ProgressPage() {
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Sparkles size={22} className="text-green-600" />
               </div>
-              <p className="text-gray-800 font-semibold text-sm mb-1">Ready to build your roadmap?</p>
-              <p className="text-gray-400 text-xs leading-relaxed max-w-sm mx-auto mb-4">
+              <p className="text-gray-800 dark:text-gray-200 font-semibold text-sm mb-1">Ready to build your roadmap?</p>
+              <p className="text-gray-400 dark:text-gray-500 text-xs leading-relaxed max-w-sm mx-auto mb-4">
                 Our AI advisor will generate a personalized task list based on your profile and program.
               </p>
               {generateError && (
-                <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3 max-w-xs mx-auto">{generateError}</p>
+                <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 rounded-lg px-3 py-2 mb-3 max-w-xs mx-auto">{generateError}</p>
               )}
               <button
                 onClick={generateRoadmap}
@@ -370,12 +370,12 @@ function TaskRow({
       <div className="mt-0.5">{statusIcon}</div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2 flex-wrap">
-          <p className={`text-sm font-semibold ${task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+          <p className={`text-sm font-semibold ${task.status === 'completed' ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>
             {task.title}
           </p>
           <StatusBadge status={task.status} />
         </div>
-        <p className="text-xs text-gray-500 mt-1 leading-relaxed">{task.description}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{task.description}</p>
         <div className="flex flex-wrap items-center gap-3 mt-2">
           {task.due_date && (
             <span className="text-xs text-gray-400">Due: {formatDate(task.due_date)}</span>
@@ -401,7 +401,7 @@ function TaskRow({
           </button>
           <button
             onClick={() => onAskAI?.(task.title)}
-            className="text-xs bg-white border border-green-200 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors font-medium flex items-center gap-1 justify-center"
+            className="text-xs bg-white dark:bg-gray-700 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors font-medium flex items-center gap-1 justify-center"
           >
             <Bot size={11} /> Ask AI
           </button>
@@ -413,14 +413,14 @@ function TaskRow({
 
 function TaskCard({ task, onComplete, isActive }: { task: Task; onComplete: (id: string) => void; isActive: boolean }) {
   return (
-    <div className={`bg-white rounded-xl p-3 shadow-sm border border-gray-100 ${task.status === 'locked' ? 'opacity-50' : ''}`}>
+    <div className={`bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-gray-100 dark:border-gray-700 ${task.status === 'locked' ? 'opacity-50' : ''}`}>
       <div className="flex items-start justify-between gap-2 mb-1.5">
-        <p className={`text-xs font-semibold leading-snug ${task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+        <p className={`text-xs font-semibold leading-snug ${task.status === 'completed' ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}>
           {task.title}
         </p>
         <StatusBadge status={task.status} />
       </div>
-      <p className="text-xs text-gray-400 leading-relaxed mb-2 line-clamp-2">{task.description}</p>
+      <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed mb-2 line-clamp-2">{task.description}</p>
       {task.requires_document && (
         <span className="flex items-center gap-1 text-xs text-amber-600 mb-2">
           <FileText size={11} /> Doc required
