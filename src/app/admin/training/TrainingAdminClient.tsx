@@ -130,7 +130,7 @@ export default function TrainingAdminClient({ initialVideos }: { initialVideos: 
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setFilter('all')}
-            className={cn('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors', filter === 'all' ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50')}
+            className={cn('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors', filter === 'all' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700')}
           >
             All ({videos.length})
           </button>
@@ -140,7 +140,7 @@ export default function TrainingAdminClient({ initialVideos }: { initialVideos: 
               <button
                 key={cat}
                 onClick={() => setFilter(cat)}
-                className={cn('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors', filter === cat ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50')}
+                className={cn('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors', filter === cat ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700')}
               >
                 {cat.split('—')[0].trim()} ({count})
               </button>
@@ -158,81 +158,81 @@ export default function TrainingAdminClient({ initialVideos }: { initialVideos: 
 
       {/* Add/Edit form */}
       {editing && (
-        <div className="bg-white border border-indigo-200 rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="font-bold text-gray-900 text-sm">{isNew ? 'Add New Video' : 'Edit Video'}</h3>
+        <div className="bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="font-bold text-gray-900 dark:text-white text-sm">{isNew ? 'Add New Video' : 'Edit Video'}</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Title *</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
               <input
                 value={editing.title ?? ''}
                 onChange={e => setEditing(p => ({ ...p, title: e.target.value }))}
                 placeholder="e.g. Welcome to the Sourcify Portal"
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
               <textarea
                 value={editing.description ?? ''}
                 onChange={e => setEditing(p => ({ ...p, description: e.target.value }))}
                 placeholder="Brief description shown on the video card"
                 rows={2}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Embed URL</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Embed URL</label>
               <input
                 value={editing.embed_url ?? ''}
                 onChange={e => setEditing(p => ({ ...p, embed_url: e.target.value }))}
                 placeholder="https://www.youtube.com/embed/... or Loom/Guidde embed URL"
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
               />
-              <p className="text-xs text-gray-400 mt-1">YouTube: use /embed/VIDEO_ID · Loom: use /embed/ID · Guidde: use their share embed link</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">YouTube: use /embed/VIDEO_ID · Loom: use /embed/ID · Guidde: use their share embed link</p>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
               <select
                 value={editing.category ?? 'Getting Started'}
                 onChange={e => setEditing(p => ({ ...p, category: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Visible To</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Visible To</label>
               <select
                 value={editing.program ?? 'all'}
                 onChange={e => setEditing(p => ({ ...p, program: e.target.value as TrainingVideo['program'] }))}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 {PROGRAMS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Duration (optional)</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Duration (optional)</label>
               <input
                 value={editing.duration ?? ''}
                 onChange={e => setEditing(p => ({ ...p, duration: e.target.value }))}
                 placeholder="e.g. 3:45"
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Sort Order</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Sort Order</label>
               <input
                 type="number"
                 value={editing.sort_order ?? 0}
                 onChange={e => setEditing(p => ({ ...p, sort_order: Number(e.target.value) }))}
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -242,15 +242,15 @@ export default function TrainingAdminClient({ initialVideos }: { initialVideos: 
                 id="is_published"
                 checked={editing.is_published ?? false}
                 onChange={e => setEditing(p => ({ ...p, is_published: e.target.checked }))}
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
               />
-              <label htmlFor="is_published" className="text-sm font-medium text-gray-700">
+              <label htmlFor="is_published" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Published (visible to clients)
               </label>
             </div>
           </div>
 
-          {error && <p className="text-red-600 text-xs">{error}</p>}
+          {error && <p className="text-red-600 dark:text-red-400 text-xs">{error}</p>}
 
           <div className="flex gap-2">
             <button
@@ -263,7 +263,7 @@ export default function TrainingAdminClient({ initialVideos }: { initialVideos: 
             </button>
             <button
               onClick={cancelEdit}
-              className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+              className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
             >
               <X className="w-4 h-4" />
               Cancel
@@ -278,15 +278,15 @@ export default function TrainingAdminClient({ initialVideos }: { initialVideos: 
         if (!catVideos.length) return null
         return (
           <div key={cat} className="space-y-2">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">{cat}</h3>
-            <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-50 overflow-hidden">
+            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{cat}</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 divide-y divide-gray-50 dark:divide-gray-700 overflow-hidden">
               {catVideos.map(video => (
                 <div key={video.id} className="flex items-center gap-3 px-4 py-3">
-                  <GripVertical className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                  <GripVertical className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0" />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{video.title}</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{video.title}</p>
                       {video.is_published ? (
                         <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Live</span>
                       ) : (
@@ -313,20 +313,20 @@ export default function TrainingAdminClient({ initialVideos }: { initialVideos: 
                     <button
                       onClick={() => togglePublish(video)}
                       title={video.is_published ? 'Unpublish' : 'Publish'}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                     >
                       {video.is_published ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                     <button
                       onClick={() => openEdit(video)}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => deleteVideo(video.id)}
                       disabled={deleting === video.id}
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                      className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors disabled:opacity-50"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

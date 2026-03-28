@@ -156,20 +156,20 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <Link href="/admin" className="p-2 rounded-xl hover:bg-gray-200 transition-colors">
-            <ArrowLeft size={18} className="text-gray-600" />
+          <Link href="/admin" className="p-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+            <ArrowLeft size={18} className="text-gray-600 dark:text-gray-300" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Bell size={20} className="text-amber-500" />
               Activity Feed
               {unreadCount > 0 && (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300">
                   {unreadCount} unread
                 </span>
               )}
             </h1>
-            <p className="text-sm text-gray-500">Real-time client activity and admin alerts</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Real-time client activity and admin alerts</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -177,7 +177,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
             <button
               onClick={markAllRead}
               disabled={markingRead}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50"
             >
               {markingRead ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} className="text-green-500" />}
               Mark all read
@@ -186,7 +186,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-700 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50"
           >
             <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
             Refresh
@@ -195,7 +195,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
       </div>
 
       {/* Category Tabs */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-1 flex gap-1 overflow-x-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-1 flex gap-1 overflow-x-auto">
         {CATEGORY_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -203,7 +203,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
             className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap ${
               activeCategory === tab.id
                 ? 'bg-amber-500 text-white shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
             {tab.icon}
@@ -213,35 +213,35 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
       </div>
 
       {/* Feed */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         {filteredEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Info size={32} className="text-gray-200 mb-3" />
-            <p className="text-sm font-medium text-gray-400">No activity yet</p>
-            <p className="text-xs text-gray-300 mt-1">
+            <Info size={32} className="text-gray-200 dark:text-gray-600 mb-3" />
+            <p className="text-sm font-medium text-gray-400 dark:text-gray-500">No activity yet</p>
+            <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
               {activeCategory === 'all'
                 ? 'Events will appear here as clients interact with the portal.'
                 : `No ${activeCategory} events recorded yet.`}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-gray-50 dark:divide-gray-700">
             {filteredEvents.map((event) => {
               const showBadge = event.severity === 'warning' || event.severity === 'critical'
               const userName = event.profiles?.full_name || event.profiles?.email || null
               const memberHref = event.user_id ? `/admin/members/${event.user_id}` : null
 
               return (
-                <div key={event.id} className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 transition-colors">
+                <div key={event.id} className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                   {/* Category icon */}
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                    event.event_category === 'accounts' ? 'bg-blue-50' :
-                    event.event_category === 'billing' ? 'bg-green-50' :
-                    event.event_category === 'subscriptions' ? 'bg-purple-50' :
-                    event.event_category === 'support' ? 'bg-amber-50' :
-                    event.event_category === 'documents' ? 'bg-gray-100' :
-                    event.event_category === 'funding' ? 'bg-emerald-50' :
-                    'bg-indigo-50'
+                    event.event_category === 'accounts' ? 'bg-blue-50 dark:bg-blue-900/30' :
+                    event.event_category === 'billing' ? 'bg-green-50 dark:bg-green-900/30' :
+                    event.event_category === 'subscriptions' ? 'bg-purple-50 dark:bg-purple-900/30' :
+                    event.event_category === 'support' ? 'bg-amber-50 dark:bg-amber-900/30' :
+                    event.event_category === 'documents' ? 'bg-gray-100 dark:bg-gray-700' :
+                    event.event_category === 'funding' ? 'bg-emerald-50 dark:bg-emerald-900/30' :
+                    'bg-indigo-50 dark:bg-indigo-900/30'
                   }`}>
                     {CATEGORY_ICONS[event.event_category] ?? <BarChart2 size={16} className="text-gray-400" />}
                   </div>
@@ -250,9 +250,9 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 leading-snug">{event.title}</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white leading-snug">{event.title}</p>
                         {event.message && (
-                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed line-clamp-2">{event.message}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed line-clamp-2">{event.message}</p>
                         )}
                         {userName && memberHref && (
                           <Link
@@ -273,7 +273,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
                         )}
                         <div className="flex items-center gap-1.5">
                           <div className={`w-1.5 h-1.5 rounded-full ${SEVERITY_DOT[event.severity]}`} />
-                          <span className="text-[11px] text-gray-400">{relativeTime(event.created_at)}</span>
+                          <span className="text-[11px] text-gray-400 dark:text-gray-500">{relativeTime(event.created_at)}</span>
                         </div>
                       </div>
                     </div>
@@ -282,7 +282,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
                     {event.metadata && Object.keys(event.metadata).length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {Object.entries(event.metadata).slice(0, 4).map(([k, v]) => (
-                          <span key={k} className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                          <span key={k} className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
                             {k.replace(/_/g, ' ')}: {String(v).slice(0, 40)}
                           </span>
                         ))}
@@ -297,7 +297,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
       </div>
 
       {/* Footer note */}
-      <p className="text-center text-xs text-gray-400">
+      <p className="text-center text-xs text-gray-400 dark:text-gray-500">
         Showing last {filteredEvents.length} events &bull; Auto-refreshes every 60 seconds
       </p>
     </div>

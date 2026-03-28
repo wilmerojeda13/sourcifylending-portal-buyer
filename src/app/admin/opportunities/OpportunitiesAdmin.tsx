@@ -211,7 +211,7 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
         <select
           value={filterProgram}
           onChange={(e) => setFilterProgram(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+          className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none"
         >
           <option value="">All Programs</option>
           {PROGRAMS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
@@ -219,19 +219,19 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
         <select
           value={filterActive}
           onChange={(e) => setFilterActive(e.target.value as typeof filterActive)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
+          className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none"
         >
           <option value="all">All</option>
           <option value="active">Active Only</option>
           <option value="inactive">Inactive Only</option>
         </select>
-        <span className="text-sm text-gray-400">{filtered.length} records</span>
+        <span className="text-sm text-gray-400 dark:text-gray-500">{filtered.length} records</span>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
           <button
             onClick={() => seedOpportunities('import')}
             disabled={seeding !== null}
             title="Import only missing defaults — safe, skips existing"
-            className="flex items-center gap-1.5 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-3 py-2 rounded-xl transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium px-3 py-2 rounded-xl transition-colors disabled:opacity-50"
           >
             {seeding === 'import' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             Import Defaults
@@ -268,10 +268,10 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
+      <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wide">
+            <tr className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               <th className="px-4 py-3 text-left">Name</th>
               <th className="px-4 py-3 text-left">Program / Stage</th>
               <th className="px-4 py-3 text-left">Category</th>
@@ -281,26 +281,26 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
               <th className="px-4 py-3 text-left">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {filtered.map((opp) => (
-              <tr key={opp.id} className={`bg-white hover:bg-gray-50 transition-colors ${!opp.is_active ? 'opacity-50' : ''}`}>
+              <tr key={opp.id} className={`bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${!opp.is_active ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3">
-                  <p className="font-medium text-gray-900 text-sm">{opp.name}</p>
-                  {opp.terms && <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[200px]">{opp.terms}</p>}
+                  <p className="font-medium text-gray-900 dark:text-white text-sm">{opp.name}</p>
+                  {opp.terms && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate max-w-[200px]">{opp.terms}</p>}
                 </td>
                 <td className="px-4 py-3">
-                  <span className="font-bold text-gray-700 text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                  <span className="font-bold text-gray-700 dark:text-gray-300 text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
                     {PROGRAM_LABELS[opp.program] ?? opp.program}
                   </span>
-                  <p className="text-xs text-gray-500 mt-1">{opp.stage}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{opp.stage}</p>
                 </td>
                 <td className="px-4 py-3">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[opp.category]}`}>
                     {opp.category}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-xs text-gray-600 capitalize">{opp.pg_required}</td>
-                <td className="px-4 py-3 text-xs font-mono text-gray-600">{opp.priority_score}</td>
+                <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300 capitalize">{opp.pg_required}</td>
+                <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-300">{opp.priority_score}</td>
                 <td className="px-4 py-3">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                     opp.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
@@ -313,7 +313,7 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
                     <button
                       onClick={() => openEdit(opp)}
                       title="Edit"
-                      className="p-1.5 rounded-lg text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 transition-colors"
                     >
                       <Edit2 size={14} />
                     </button>
@@ -322,8 +322,8 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
                       title={opp.is_active ? 'Disable' : 'Enable'}
                       className={`p-1.5 rounded-lg transition-colors ${
                         opp.is_active
-                          ? 'text-gray-500 hover:bg-amber-50 hover:text-amber-600'
-                          : 'text-gray-400 hover:bg-green-50 hover:text-green-600'
+                          ? 'text-gray-500 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:text-amber-600'
+                          : 'text-gray-400 dark:text-gray-500 hover:bg-green-50 dark:hover:bg-green-900/30 hover:text-green-600'
                       }`}
                     >
                       {opp.is_active ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -331,7 +331,7 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
                     <button
                       onClick={() => deleteOpp(opp)}
                       title="Delete"
-                      className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                      className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -341,7 +341,7 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={7} className="px-4 py-12 text-center text-gray-400 dark:text-gray-500 text-sm">
                   No opportunities found.
                 </td>
               </tr>
@@ -353,12 +353,12 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
       {/* Add / Edit Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8">
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl my-8 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                 {editing ? 'Edit Opportunity' : 'New Opportunity'}
               </h2>
-              <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-gray-100">
+              <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400">
                 <X size={18} />
               </button>
             </div>
@@ -413,7 +413,7 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
                     onChange={f('is_active')}
                     className="w-4 h-4 rounded accent-green-600"
                   />
-                  <label htmlFor="is_active" className="text-sm font-medium text-gray-700">Active (visible to members)</label>
+                  <label htmlFor="is_active" className="text-sm font-medium text-gray-700 dark:text-gray-300">Active (visible to members)</label>
                 </div>
               </div>
 
@@ -449,8 +449,8 @@ export default function OpportunitiesAdmin({ initialOpportunities }: Props) {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-              <button onClick={() => setShowForm(false)} className="text-sm text-gray-600 border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3">
+              <button onClick={() => setShowForm(false)} className="text-sm text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 Cancel
               </button>
               <button

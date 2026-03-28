@@ -82,10 +82,10 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
           { label: 'Approvals', value: totalApproved, color: 'text-green-600', icon: CheckCircle },
           { label: 'Overall Approval Rate', value: `${overallRate}%`, color: overallRate >= 60 ? 'text-green-600' : overallRate >= 40 ? 'text-yellow-600' : 'text-red-500', icon: TrendingUp },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div key={label} className="bg-white rounded-2xl border border-gray-200 px-4 py-4 shadow-sm">
+          <div key={label} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 px-4 py-4 shadow-sm">
             <div className="flex items-center gap-2 mb-1">
               <Icon size={14} className={color} />
-              <span className="text-xs text-gray-500">{label}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
             </div>
             <div className={`text-2xl font-bold ${color}`}>{value}</div>
           </div>
@@ -94,21 +94,21 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
 
       {/* By Program */}
       {Object.keys(byProgram).length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-          <h2 className="font-bold text-gray-900 mb-4">Outcomes by Program</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+          <h2 className="font-bold text-gray-900 dark:text-white mb-4">Outcomes by Program</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {Object.entries(byProgram).map(([prog, counts]) => {
               const total = counts.approved + counts.denied + counts.pending
               const rate = total > 0 ? Math.round((counts.approved / total) * 100) : 0
               return (
-                <div key={prog} className="bg-gray-50 rounded-xl p-4">
-                  <p className="font-semibold text-gray-800 text-sm mb-3">{PROGRAM_LABELS[prog] ?? prog}</p>
+                <div key={prog} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+                  <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm mb-3">{PROGRAM_LABELS[prog] ?? prog}</p>
                   <div className="space-y-1 text-xs">
-                    <div className="flex justify-between"><span className="text-green-600">Approved</span><span className="font-semibold">{counts.approved}</span></div>
-                    <div className="flex justify-between"><span className="text-red-500">Denied</span><span className="font-semibold">{counts.denied}</span></div>
-                    <div className="flex justify-between"><span className="text-yellow-600">Pending</span><span className="font-semibold">{counts.pending}</span></div>
-                    <div className="flex justify-between border-t border-gray-200 pt-1 mt-1">
-                      <span className="text-gray-600 font-medium">Approval Rate</span>
+                    <div className="flex justify-between"><span className="text-green-600">Approved</span><span className="font-semibold dark:text-gray-200">{counts.approved}</span></div>
+                    <div className="flex justify-between"><span className="text-red-500">Denied</span><span className="font-semibold dark:text-gray-200">{counts.denied}</span></div>
+                    <div className="flex justify-between"><span className="text-yellow-600">Pending</span><span className="font-semibold dark:text-gray-200">{counts.pending}</span></div>
+                    <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-1 mt-1">
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">Approval Rate</span>
                       <span className={`font-bold ${rate >= 60 ? 'text-green-600' : rate >= 40 ? 'text-yellow-600' : 'text-red-500'}`}>{rate}%</span>
                     </div>
                   </div>
@@ -120,10 +120,10 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
       )}
 
       {/* Opportunity Performance Table */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-        <h2 className="font-bold text-gray-900 mb-4">Opportunity Performance</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <h2 className="font-bold text-gray-900 dark:text-white mb-4">Opportunity Performance</h2>
         {performance.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
+          <div className="text-center py-12 text-gray-400 dark:text-gray-500">
             <BarChart3 size={40} className="mx-auto mb-2 opacity-30" />
             <p className="text-sm">No performance data yet.</p>
             <p className="text-xs mt-1">Data appears as users report outcomes on opportunities.</p>
@@ -132,7 +132,7 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-gray-500 border-b border-gray-100">
+                <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                   <th className="pb-2 font-medium">Opportunity</th>
                   <th className="pb-2 font-medium text-center">Clicks</th>
                   <th className="pb-2 font-medium text-center">Reported</th>
@@ -142,15 +142,15 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
                   <th className="pb-2 font-medium">Tag</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                 {performance.map((row) => {
                   const tag = TAG_CONFIG[row.performance_tag as keyof typeof TAG_CONFIG] ?? TAG_CONFIG.unknown
                   const TagIcon = tag.icon
                   return (
-                    <tr key={row.opportunity_id} className="hover:bg-gray-50">
-                      <td className="py-2.5 pr-4 font-medium text-gray-800 max-w-[200px] truncate">{row.opportunity_name}</td>
-                      <td className="py-2.5 text-center text-gray-600">{row.total_clicks}</td>
-                      <td className="py-2.5 text-center text-gray-600">{row.total_reported}</td>
+                    <tr key={row.opportunity_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                      <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-200 max-w-[200px] truncate">{row.opportunity_name}</td>
+                      <td className="py-2.5 text-center text-gray-600 dark:text-gray-400">{row.total_clicks}</td>
+                      <td className="py-2.5 text-center text-gray-600 dark:text-gray-400">{row.total_reported}</td>
                       <td className="py-2.5 text-center text-green-600 font-medium">{row.total_approved}</td>
                       <td className="py-2.5 text-center text-red-500 font-medium">{row.total_denied}</td>
                       <td className="py-2.5 text-center">
@@ -158,7 +158,7 @@ export default function IntelligenceDashboard({ performance, recentOutcomes, act
                           <span className={`font-bold ${row.approval_rate >= 60 ? 'text-green-600' : row.approval_rate >= 40 ? 'text-yellow-600' : 'text-red-500'}`}>
                             {row.approval_rate}%
                           </span>
-                        ) : <span className="text-gray-400">&mdash;</span>}
+                        ) : <span className="text-gray-400 dark:text-gray-500">&mdash;</span>}
                       </td>
                       <td className="py-2.5">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${tag.color}`}>

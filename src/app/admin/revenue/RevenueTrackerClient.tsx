@@ -220,30 +220,30 @@ export default function RevenueTrackerClient() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Revenue Tracker</h1>
-            <p className="text-sm text-gray-500 mt-1">Monitor collected revenue, MRR, setup fees, and outstanding balances</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Revenue Tracker</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Monitor collected revenue, MRR, setup fees, and outstanding balances</p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={fetchRevenue}
-              className="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline underline-offset-2"
             >
               Refresh
             </button>
-            <Link href="/admin" className="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2">
+            <Link href="/admin" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline underline-offset-2">
               ← Admin Hub
             </Link>
           </div>
         </div>
 
         {/* Tab Bar */}
-        <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 w-fit shadow-sm">
+        <div className="flex gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1 w-fit shadow-sm">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -251,7 +251,7 @@ export default function RevenueTrackerClient() {
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === tab.id
                   ? 'bg-green-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
               {tab.label}
@@ -261,7 +261,7 @@ export default function RevenueTrackerClient() {
 
         {/* Loading */}
         {loading && (
-          <div className="text-center py-16 text-gray-400 text-sm">Loading revenue data...</div>
+          <div className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">Loading revenue data...</div>
         )}
 
         {/* ── Tab: Overview ──────────────────────────────────────────────────── */}
@@ -272,138 +272,138 @@ export default function RevenueTrackerClient() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
               {/* Total Revenue */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center">
+                  <div className="w-9 h-9 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center">
                     <DollarSign size={18} className="text-green-600" />
                   </div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Collected</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Collected</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{fmt(metrics.totalCollected)}</p>
-                <p className="text-xs text-gray-400 mt-1">All time</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{fmt(metrics.totalCollected)}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">All time</p>
               </div>
 
               {/* This Month */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center">
                     <TrendingUp size={18} className="text-blue-600" />
                   </div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">This Month</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">This Month</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{fmt(metrics.thisMonth)}</p>
-                <p className="text-xs text-gray-400 mt-1">{new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{fmt(metrics.thisMonth)}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
               </div>
 
               {/* MRR */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <div className="w-9 h-9 bg-purple-100 dark:bg-purple-900/40 rounded-xl flex items-center justify-center">
                     <RefreshCw size={18} className="text-purple-600" />
                   </div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">MRR</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">MRR</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{fmt(metrics.mrr)}</p>
-                <p className="text-xs text-gray-400 mt-1">Monthly recurring revenue</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{fmt(metrics.mrr)}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Monthly recurring revenue</p>
               </div>
 
               {/* Setup Fees */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center">
+                  <div className="w-9 h-9 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center">
                     <Receipt size={18} className="text-amber-600" />
                   </div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Setup Fees</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Setup Fees</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{fmt(metrics.setupFeesCollected)}</p>
-                <p className="text-xs text-gray-400 mt-1">All time collected</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{fmt(metrics.setupFeesCollected)}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">All time collected</p>
               </div>
 
               {/* Recurring Revenue */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center">
+                  <div className="w-9 h-9 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center">
                     <Repeat size={18} className="text-green-600" />
                   </div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Recurring Revenue</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Recurring Revenue</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{fmt(metrics.recurringCollected)}</p>
-                <p className="text-xs text-gray-400 mt-1">All time collected</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{fmt(metrics.recurringCollected)}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">All time collected</p>
               </div>
 
               {/* AI Packages */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <div className="w-9 h-9 bg-purple-100 dark:bg-purple-900/40 rounded-xl flex items-center justify-center">
                     <Zap size={18} className="text-purple-600" />
                   </div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">AI Packages</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">AI Packages</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{fmt(metrics.addOnCollected)}</p>
-                <p className="text-xs text-gray-400 mt-1">Credit pack purchases</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{fmt(metrics.addOnCollected)}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Credit pack purchases</p>
               </div>
 
               {/* Outstanding Balance */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 bg-red-100 rounded-xl flex items-center justify-center">
+                  <div className="w-9 h-9 bg-red-100 dark:bg-red-900/40 rounded-xl flex items-center justify-center">
                     <AlertCircle size={18} className="text-red-500" />
                   </div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Outstanding</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Outstanding</span>
                 </div>
                 <p className="text-2xl font-bold text-red-600">{fmt(metrics.outstandingBalance)}</p>
-                <p className="text-xs text-gray-400 mt-1">Pending + arrangements</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Pending + arrangements</p>
               </div>
 
               {/* Active Paying Clients */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center">
-                    <Users size={18} className="text-gray-600" />
+                  <div className="w-9 h-9 bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center">
+                    <Users size={18} className="text-gray-600 dark:text-gray-300" />
                   </div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Paying Clients</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Paying Clients</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{metrics.activePayingClients}</p>
-                <p className="text-xs text-gray-400 mt-1">Distinct clients with payments</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{metrics.activePayingClients}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Distinct clients with payments</p>
               </div>
 
               {/* Goal Progress */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center">
+                  <div className="w-9 h-9 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center">
                     <Target size={18} className="text-green-600" />
                   </div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Goal Progress</span>
+                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Goal Progress</span>
                 </div>
                 {currentGoal ? (
                   <>
-                    <p className="text-2xl font-bold text-gray-900">{goalProgress}%</p>
-                    <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{goalProgress}%</p>
+                    <div className="mt-2 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                       <div
                         className="h-2 bg-green-500 rounded-full transition-all"
                         style={{ width: `${goalProgress}%` }}
                       />
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                       {fmt(metrics.thisMonth)} of {fmt(currentGoal.revenue_goal)} goal
                     </p>
                   </>
                 ) : (
-                  <p className="text-sm text-gray-400 mt-1">No goal set</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">No goal set</p>
                 )}
               </div>
             </div>
 
             {/* Revenue Goal Card */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <Target size={18} className="text-green-600" />
                   Monthly Revenue Goal
                 </h2>
                 <button
                   onClick={() => setShowGoalForm(!showGoalForm)}
-                  className="text-sm font-medium text-green-600 hover:text-green-700"
+                  className="text-sm font-medium text-green-600 hover:text-green-700 dark:hover:text-green-400"
                 >
                   {showGoalForm ? 'Cancel' : 'Set New Goal'}
                 </button>
@@ -412,31 +412,31 @@ export default function RevenueTrackerClient() {
               {currentGoal ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Target: <span className="font-semibold text-gray-900">{fmt(currentGoal.revenue_goal)}</span></span>
-                    <span className="text-gray-600">Collected: <span className="font-semibold text-green-700">{fmt(metrics.thisMonth)}</span></span>
+                    <span className="text-gray-600 dark:text-gray-300">Target: <span className="font-semibold text-gray-900 dark:text-white">{fmt(currentGoal.revenue_goal)}</span></span>
+                    <span className="text-gray-600 dark:text-gray-300">Collected: <span className="font-semibold text-green-700">{fmt(metrics.thisMonth)}</span></span>
                   </div>
-                  <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
                       className="h-3 bg-green-500 rounded-full transition-all"
                       style={{ width: `${goalProgress}%` }}
                     />
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
                     {fmt(Math.max(0, currentGoal.revenue_goal - metrics.thisMonth))} remaining to reach goal
                   </p>
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">No monthly goal set. Click "Set New Goal" to add one.</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">No monthly goal set. Click "Set New Goal" to add one.</p>
               )}
 
               {showGoalForm && (
-                <div className="mt-4 border-t border-gray-100 pt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="mt-4 border-t border-gray-100 dark:border-gray-700 pt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Period Type</label>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Period Type</label>
                     <select
                       value={goalForm.period_type}
                       onChange={(e) => setGoalForm({ ...goalForm, period_type: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                     >
                       <option value="monthly">Monthly</option>
                       <option value="quarterly">Quarterly</option>
@@ -444,31 +444,31 @@ export default function RevenueTrackerClient() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Period Start</label>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Period Start</label>
                     <input
                       type="date"
                       value={goalForm.period_start}
                       onChange={(e) => setGoalForm({ ...goalForm, period_start: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Period End (optional)</label>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Period End (optional)</label>
                     <input
                       type="date"
                       value={goalForm.period_end}
                       onChange={(e) => setGoalForm({ ...goalForm, period_end: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Revenue Goal ($)</label>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Revenue Goal ($)</label>
                     <input
                       type="number"
                       value={goalForm.revenue_goal}
                       onChange={(e) => setGoalForm({ ...goalForm, revenue_goal: e.target.value })}
                       placeholder="e.g. 10000"
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
                   </div>
                   <div className="col-span-2 sm:col-span-4 space-y-2">
@@ -494,64 +494,64 @@ export default function RevenueTrackerClient() {
 
         {/* ── Tab: Clients ───────────────────────────────────────────────────── */}
         {!loading && activeTab === 'clients' && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900">Revenue by Client</h2>
-              <p className="text-xs text-gray-400 mt-0.5">{byClient.length} clients with payment records</p>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="font-bold text-gray-900 dark:text-white">Revenue by Client</h2>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{byClient.length} clients with payment records</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Client</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Program</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Paid</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Setup Fees</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Recurring</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Outstanding</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Last Payment</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Next Due</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Billing</th>
+                  <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Client</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Program</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Paid</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Setup Fees</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Recurring</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Outstanding</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Last Payment</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Next Due</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Billing</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                   {byClient.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="px-5 py-10 text-center text-gray-400">No payment records found</td>
+                      <td colSpan={9} className="px-5 py-10 text-center text-gray-400 dark:text-gray-500">No payment records found</td>
                     </tr>
                   )}
                   {byClient.map((client) => (
-                    <tr key={client.userId} className="hover:bg-gray-50 transition-colors">
+                    <tr key={client.userId} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                       <td className="px-4 py-3">
-                        <p className="font-semibold text-gray-900">{client.fullName}</p>
-                        <p className="text-xs text-gray-400">{client.email}</p>
+                        <p className="font-semibold text-gray-900 dark:text-white">{client.fullName}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">{client.email}</p>
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${programBadgeClass(client.program)}`}>
                           {programLabel(client.program)}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-900">{fmt(client.totalPaid)}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{fmt(client.setupPaid)}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{fmt(client.recurringPaid)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{fmt(client.totalPaid)}</td>
+                      <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt(client.setupPaid)}</td>
+                      <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{fmt(client.recurringPaid)}</td>
                       <td className="px-4 py-3 text-right">
-                        <span className={client.outstandingBalance > 0 ? 'font-semibold text-red-600' : 'text-gray-400'}>
+                        <span className={client.outstandingBalance > 0 ? 'font-semibold text-red-600' : 'text-gray-400 dark:text-gray-500'}>
                           {client.outstandingBalance > 0 ? fmt(client.outstandingBalance) : '—'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-center text-gray-500 dark:text-gray-400 text-xs">
                         {client.lastPaymentDate || '—'}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-center text-gray-500 dark:text-gray-400 text-xs">
                         {client.nextPaymentDue || '—'}
                       </td>
                       <td className="px-4 py-3 text-center">
                         {client.billingStatus ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-gray-100 text-gray-600">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                             {client.billingStatus}
                           </span>
                         ) : (
-                          <span className="text-gray-300">—</span>
+                          <span className="text-gray-300 dark:text-gray-600">—</span>
                         )}
                       </td>
                     </tr>
@@ -609,21 +609,21 @@ export default function RevenueTrackerClient() {
 
         {/* ── Tab: Activity ──────────────────────────────────────────────────── */}
         {!loading && activeTab === 'activity' && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900">Recent Payment Activity</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Last {recentActivity.length} transactions</p>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="font-bold text-gray-900 dark:text-white">Recent Payment Activity</h2>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Last {recentActivity.length} transactions</p>
             </div>
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-gray-50 dark:divide-gray-700">
               {recentActivity.length === 0 && (
-                <div className="px-5 py-10 text-center text-gray-400 text-sm">No payment activity yet</div>
+                <div className="px-5 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">No payment activity yet</div>
               )}
               {recentActivity.map((item) => {
                 const isPaid = item.status === 'paid' || item.status == null
                 const isFailed = item.status === 'failed'
                 const isRefund = item.status === 'refunded' || item.amount < 0
                 return (
-                  <div key={item.id} className="flex items-start gap-4 px-5 py-4 hover:bg-gray-50 transition-colors">
+                  <div key={item.id} className="flex items-start gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                     <div className="mt-1 shrink-0">
                       {isPaid && !isRefund && <CheckCircle size={16} className="text-green-500" />}
                       {isFailed && <AlertCircle size={16} className="text-red-500" />}
@@ -631,10 +631,10 @@ export default function RevenueTrackerClient() {
                       {isRefund && <AlertCircle size={16} className="text-red-400" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-800">{item.description}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-sm text-gray-800 dark:text-gray-200">{item.description}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                         {item.date}
-                        {item.paymentSource && <span className="ml-2 text-gray-300">via {item.paymentSource}</span>}
+                        {item.paymentSource && <span className="ml-2 text-gray-300 dark:text-gray-600">via {item.paymentSource}</span>}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
@@ -645,7 +645,7 @@ export default function RevenueTrackerClient() {
                       }`}>
                         {item.amount < 0 ? '-' : ''}{fmt(Math.abs(item.amount))}
                       </span>
-                      <p className="text-[10px] text-gray-400 mt-0.5 uppercase font-medium">{item.status || 'paid'}</p>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 uppercase font-medium">{item.status || 'paid'}</p>
                     </div>
                   </div>
                 )

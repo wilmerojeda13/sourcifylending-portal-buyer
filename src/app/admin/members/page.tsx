@@ -67,30 +67,30 @@ export default async function AdminMembersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Membership Management</h1>
-            <p className="text-sm text-gray-500 mt-1">Manage subscriptions, programs, and access for all members</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Membership Management</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage subscriptions, programs, and access for all members</p>
           </div>
           <div className="flex items-center gap-4">
             <Link
               href="/admin"
-              className="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline underline-offset-2"
             >
               ← Admin Hub
             </Link>
             <a
               href="/admin/opportunities"
-              className="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline underline-offset-2"
             >
               Opportunities →
             </a>
             <a
               href="/admin/chargeback-defense"
-              className="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline underline-offset-2"
             >
               Chargeback Defense →
             </a>
@@ -100,16 +100,16 @@ export default async function AdminMembersPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
           {[
-            { label: 'Total', value: stats.total, color: 'text-gray-900' },
+            { label: 'Total', value: stats.total, color: 'text-gray-900 dark:text-white' },
             { label: 'Active', value: stats.active, color: 'text-green-600' },
             { label: 'Trialing', value: stats.trialing, color: 'text-blue-600' },
             { label: 'Canceled', value: stats.canceled, color: 'text-red-500' },
             { label: 'Inactive', value: stats.inactive, color: 'text-gray-400' },
             { label: 'Blocked', value: stats.blocked, color: 'text-red-700' },
           ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white rounded-2xl border border-gray-200 px-4 py-3 text-center shadow-sm">
+            <div key={label} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 px-4 py-3 text-center shadow-sm dark:shadow-gray-900">
               <div className={`text-2xl font-bold ${color}`}>{value}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{label}</div>
             </div>
           ))}
         </div>
