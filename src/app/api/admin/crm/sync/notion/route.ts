@@ -24,7 +24,7 @@ function mapStage(disposition: string | null): string {
     case 'Unresponsive':
     case 'Demo No-Show':       return 'contacted'
     case 'Demo Booked':        return 'demo_scheduled'
-    case 'Demo Held':          return 'qualified'
+    case 'Demo Held':          return 'demo_held'
     case 'Contract Out':
     case 'Active Client':
     case 'Closed Won':         return 'closed_won'

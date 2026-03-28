@@ -6,6 +6,7 @@ import {
   Plus, Search, Phone, Building2, Calendar, ChevronLeft, ChevronRight,
   X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
   CheckCircle2, XCircle, Upload, Zap, Filter, RefreshCw,
+  LayoutList, Columns,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -29,16 +30,17 @@ interface CRMLead {
   created_at: string
 }
 
-type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'closed_won' | 'closed_lost'
+type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'closed_won' | 'closed_lost'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STAGES: { key: Stage; label: string; color: string; dot: string; icon: React.ElementType }[] = [
-  { key: 'new',            label: 'New',            color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',         dot: 'bg-gray-400',   icon: Users },
-  { key: 'contacted',      label: 'Contacted',      color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',      dot: 'bg-blue-500',   icon: PhoneCall },
-  { key: 'qualified',      label: 'Qualified',      color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',  dot: 'bg-amber-500',  icon: TrendingUp },
-  { key: 'demo_scheduled', label: 'Demo Scheduled', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300', dot: 'bg-purple-500', icon: Calendar },
-  { key: 'closed_won',     label: 'Closed Won',     color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',  dot: 'bg-green-500',  icon: CheckCircle2 },
-  { key: 'closed_lost',    label: 'Closed Lost',    color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',          dot: 'bg-red-400',    icon: XCircle },
+  { key: 'new',            label: 'New',            color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',           dot: 'bg-gray-400',   icon: Users },
+  { key: 'contacted',      label: 'Contacted',      color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',        dot: 'bg-blue-500',   icon: PhoneCall },
+  { key: 'qualified',      label: 'Qualified',      color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',    dot: 'bg-amber-500',  icon: TrendingUp },
+  { key: 'demo_scheduled', label: 'Demo Scheduled', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',dot: 'bg-purple-500', icon: Calendar },
+  { key: 'demo_held',      label: 'Demo Held',      color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',dot: 'bg-indigo-500', icon: CheckCircle2 },
+  { key: 'closed_won',     label: 'Closed Won',     color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',    dot: 'bg-green-500',  icon: CheckCircle2 },
+  { key: 'closed_lost',    label: 'Closed Lost',    color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',            dot: 'bg-red-400',    icon: XCircle },
 ]
 
 const PROGRAM_BADGE: Record<string, string> = {
@@ -166,6 +168,7 @@ export default function CRMClient() {
   const [stageFilter, setStageFilter] = useState('')
   const [showNew, setShowNew]       = useState(false)
   const [syncing, setSyncing]       = useState(false)
+  const [view, setView]             = useState<'list' | 'board'>('list')
 
   async function syncNotion() {
     setSyncing(true)
@@ -239,7 +242,22 @@ export default function CRMClient() {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            {/* Filter toggle — mobile only; desktop always shows tabs */}
+            {/* View toggle */}
+            <div className="hidden sm:flex items-center rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
+              <button
+                onClick={() => setView('list')}
+                className={cn('h-10 px-3 flex items-center gap-1.5 text-xs font-medium transition-colors',
+                  view === 'list' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'
+                )}
+              ><LayoutList size={14}/> List</button>
+              <button
+                onClick={() => setView('board')}
+                className={cn('h-10 px-3 flex items-center gap-1.5 text-xs font-medium transition-colors border-l border-gray-200 dark:border-gray-700',
+                  view === 'board' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'
+                )}
+              ><Columns size={14}/> Board</button>
+            </div>
+            {/* Filter toggle — mobile only */}
             <button
               onClick={() => setShowFilters(p => !p)}
               className={cn('h-10 w-10 flex items-center justify-center rounded-xl border transition-colors shrink-0 sm:hidden',
@@ -273,7 +291,10 @@ export default function CRMClient() {
       </div>
 
       {/* ── Body ── */}
-      <div className="max-w-screen-xl mx-auto px-4 pt-4 pb-24 lg:flex lg:gap-6 lg:items-start">
+      <div className={cn(
+        'max-w-screen-xl mx-auto px-4 pt-4 pb-24',
+        view === 'list' ? 'lg:flex lg:gap-6 lg:items-start' : ''
+      )}>
 
         {/* ── Lead list (main column) ── */}
         <div className="flex-1 min-w-0">
@@ -309,24 +330,82 @@ export default function CRMClient() {
             </Link>
           </div>
 
-          <div className="space-y-2.5">
-            {loading ? (
-              <div className="flex items-center justify-center py-16 text-gray-400">
-                <Loader2 size={22} className="animate-spin mr-2"/> Loading...
-              </div>
-            ) : leads.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">
-                <Users size={36} className="mx-auto mb-3 opacity-30"/>
-                <p className="text-sm">{search || stageFilter ? 'No leads match your filters.' : 'No leads yet. Click + Add Lead to get started.'}</p>
-              </div>
-            ) : (
-              leads.map(lead => <LeadCard key={lead.id} lead={lead}/>)
-            )}
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-gray-400">
+              <Loader2 size={22} className="animate-spin mr-2"/> Loading...
+            </div>
+          ) : leads.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <Users size={36} className="mx-auto mb-3 opacity-30"/>
+              <p className="text-sm">{search || stageFilter ? 'No leads match your filters.' : 'No leads yet. Click + Add Lead to get started.'}</p>
+            </div>
+          ) : view === 'list' ? (
+            <div className="space-y-2.5">
+              {leads.map(lead => <LeadCard key={lead.id} lead={lead}/>)}
+            </div>
+          ) : (
+            /* ── Board view ── */
+            <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1">
+              {STAGES.map(stage => {
+                const stageLeads = leads.filter(l => l.stage === stage.key)
+                const Icon = stage.icon
+                return (
+                  <div key={stage.key} className="flex-shrink-0 w-72 flex flex-col">
+                    {/* Column header */}
+                    <div className={cn('flex items-center gap-2 px-3 py-2 rounded-xl mb-2', stage.color)}>
+                      <Icon size={13}/>
+                      <span className="text-xs font-semibold">{stage.label}</span>
+                      <span className="ml-auto text-xs font-bold opacity-70">{stageLeads.length}</span>
+                    </div>
+                    {/* Cards */}
+                    <div className="flex flex-col gap-2 min-h-[80px]">
+                      {stageLeads.length === 0 ? (
+                        <div className="text-center py-6 text-gray-400 text-xs border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                          No leads
+                        </div>
+                      ) : stageLeads.map(lead => (
+                        <Link
+                          key={lead.id}
+                          href={`/admin/crm/${lead.id}`}
+                          className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 hover:shadow-md hover:border-green-200 dark:hover:border-green-700 transition-all group block"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">
+                              {lead.first_name} {lead.last_name}
+                            </p>
+                            {lead.program_interest && (
+                              <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0', PROGRAM_BADGE[lead.program_interest])}>
+                                {PROGRAM_LABEL[lead.program_interest]}
+                              </span>
+                            )}
+                          </div>
+                          {lead.business_name && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mb-1 truncate">
+                              <Building2 size={10}/> {lead.business_name}
+                            </p>
+                          )}
+                          <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                            <Phone size={10}/> {lead.phone}
+                          </p>
+                          {lead.follow_up_at && (
+                            <p className={cn('text-[10px] flex items-center gap-1 mt-1.5',
+                              isPastDue(lead.follow_up_at) ? 'text-red-500' : 'text-gray-400'
+                            )}>
+                              <Calendar size={9}/> {formatDate(lead.follow_up_at)}
+                            </p>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
-        {/* ── Sidebar — desktop only ── */}
-        <div className="hidden lg:flex lg:flex-col gap-4 w-72 shrink-0">
+        {/* ── Sidebar — desktop only, list view only ── */}
+        <div className={cn('lg:flex lg:flex-col gap-4 w-72 shrink-0', view === 'board' ? 'hidden' : 'hidden lg:flex')}>
           {/* Dialer Mode card */}
           <Link
             href="/admin/crm/dialer"
