@@ -293,12 +293,12 @@ export default function CRMClient() {
 
       {/* ── Body ── */}
       <div className={cn(
-        'max-w-screen-xl mx-auto px-4 pt-4 pb-24',
-        view === 'list' ? 'lg:flex lg:gap-6 lg:items-start' : ''
+        'pt-4 pb-24',
+        view === 'list' ? 'max-w-screen-xl mx-auto px-4 lg:flex lg:gap-6 lg:items-start' : 'px-4'
       )}>
 
         {/* ── Lead list (main column) ── */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           {/* Stats strip — desktop inline row */}
           <div className="grid grid-cols-4 gap-3 mb-4">
             {[
@@ -346,7 +346,7 @@ export default function CRMClient() {
             </div>
           ) : (
             /* ── Board view ── */
-            <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1">
+            <div className="flex gap-3 overflow-x-auto pb-6 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
               {STAGES.map(stage => {
                 const stageLeads = leads.filter(l => l.stage === stage.key)
                 const Icon = stage.icon
