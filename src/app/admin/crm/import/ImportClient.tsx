@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type CRMField = 'first_name' | 'last_name' | 'phone' | 'email' | 'business_name' |
+type CRMField = 'full_name' | 'first_name' | 'last_name' | 'phone' | 'email' | 'business_name' |
                 'stage' | 'program_interest' | 'source' | 'notes' | '__skip__'
 
 interface FieldDef {
@@ -22,6 +22,7 @@ interface FieldDef {
 
 const CRM_FIELDS: FieldDef[] = [
   { key: '__skip__',        label: '— Skip this column —' },
+  { key: 'full_name',      label: 'Full Name (auto-split)', hint: 'First + last split automatically' },
   { key: 'first_name',     label: 'First Name',       required: true },
   { key: 'last_name',      label: 'Last Name' },
   { key: 'phone',          label: 'Phone',            required: true },
@@ -65,9 +66,10 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 function autoMap(headers: string[]): Record<number, CRMField> {
   const mapping: Record<number, CRMField> = {}
   const patterns: [RegExp, CRMField][] = [
+    [/contact.?name|full.?name/i,         'full_name'],
     [/first.?name|fname|given/i,          'first_name'],
     [/last.?name|lname|surname/i,         'last_name'],
-    [/^name$/i,                           'first_name'],
+    [/^name$/i,                           'full_name'],
     [/phone|mobile|cell|tel/i,            'phone'],
     [/email|e-mail/i,                     'email'],
     [/business|company|org|biz/i,         'business_name'],
@@ -151,7 +153,7 @@ export default function ImportClient() {
   }
 
   const mappedFields = Object.values(mapping).filter(f => f !== '__skip__')
-  const hasFirst = mappedFields.includes('first_name')
+  const hasFirst = mappedFields.includes('first_name') || mappedFields.includes('full_name')
   const hasPhone = mappedFields.includes('phone')
   const canImport = hasFirst && hasPhone
 
@@ -166,7 +168,19 @@ export default function ImportClient() {
         const lead: Record<string, string> = {}
         headers.forEach((_, i) => {
           const field = mapping[i]
-          if (field && field !== '__skip__') {
+          if (!field || field === '__skip__') return
+          if (field === 'full_name') {
+            // Split "First Last" → first_name + last_name
+            const full = (row[i] ?? '').trim()
+            const spaceIdx = full.indexOf(' ')
+            if (spaceIdx === -1) {
+              lead['first_name'] = full
+              lead['last_name']  = ''
+            } else {
+              lead['first_name'] = full.slice(0, spaceIdx)
+              lead['last_name']  = full.slice(spaceIdx + 1)
+            }
+          } else {
             lead[field] = row[i] ?? ''
           }
         })
