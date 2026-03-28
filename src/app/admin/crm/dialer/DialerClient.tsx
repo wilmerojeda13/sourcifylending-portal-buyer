@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost'
+type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost' | 'active_client'
 
 interface CRMLead {
   id: string
@@ -168,7 +168,7 @@ export default function DialerClient() {
             {stageFilter
               ? [
                   {k:'new',l:'New'},{k:'contacted',l:'Contacted'},{k:'qualified',l:'Qualified'},
-                  {k:'demo_scheduled',l:'Demo Scheduled'},{k:'demo_held',l:'Demo Held'},{k:'follow_up',l:'Follow Up'},
+                  {k:'demo_scheduled',l:'Demo Scheduled'},{k:'demo_held',l:'Demo Held'},{k:'follow_up',l:'Follow Up'},{k:'active_client',l:'Active Client'},
                 ].find(s=>s.k===stageFilter)?.l ?? stageFilter
               : 'All stages'
             } · {remaining} left · {done} done
@@ -193,6 +193,7 @@ export default function DialerClient() {
                 {k:'demo_scheduled',l:'Demo Scheduled'},
                 {k:'demo_held',l:'Demo Held'},
                 {k:'follow_up',l:'Follow Up'},
+                {k:'active_client',l:'Active Client'},
               ].map(s=>(
                 <button key={s.k} onClick={()=>setStageFilter(s.k)}
                   className={cn('text-xs px-3 py-1.5 rounded-full font-medium transition-colors', stageFilter===s.k ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400')}>

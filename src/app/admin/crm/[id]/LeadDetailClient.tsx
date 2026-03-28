@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost'
+type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost' | 'active_client'
 
 interface CRMLead {
   id: string
@@ -57,6 +57,7 @@ const STAGES: { key: Stage; label: string; color: string }[] = [
   { key: 'demo_scheduled', label: 'Demo Scheduled',color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
   { key: 'demo_held',      label: 'Demo Held',     color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' },
   { key: 'follow_up',      label: 'Follow Up',     color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
+  { key: 'active_client',  label: 'Active Client', color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' },
   { key: 'closed_won',     label: 'Closed Won',    color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
   { key: 'closed_lost',    label: 'Closed Lost',   color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
 ]

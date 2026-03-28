@@ -30,7 +30,7 @@ interface CRMLead {
   created_at: string
 }
 
-type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost'
+type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost' | 'active_client'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STAGES: { key: Stage; label: string; color: string; dot: string; icon: React.ElementType }[] = [
@@ -40,6 +40,7 @@ const STAGES: { key: Stage; label: string; color: string; dot: string; icon: Rea
   { key: 'demo_scheduled', label: 'Demo Scheduled', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',dot: 'bg-purple-500', icon: Calendar },
   { key: 'demo_held',      label: 'Demo Held',      color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',  dot: 'bg-indigo-500',  icon: CheckCircle2 },
   { key: 'follow_up',      label: 'Follow Up',      color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',  dot: 'bg-orange-500',  icon: PhoneCall },
+  { key: 'active_client',  label: 'Active Client',  color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',         dot: 'bg-teal-500',    icon: CheckCircle2 },
   { key: 'closed_won',     label: 'Closed Won',     color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',      dot: 'bg-green-500',   icon: CheckCircle2 },
   { key: 'closed_lost',    label: 'Closed Lost',    color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',            dot: 'bg-red-400',    icon: XCircle },
 ]
@@ -336,7 +337,8 @@ export default function CRMClient() {
   const total     = leads.length
   const followDue = leads.filter(l => isPastDue(l.follow_up_at)).length
   const wonCount  = leads.filter(l => l.stage === 'closed_won').length
-  const inPipeline = leads.filter(l => !['closed_won','closed_lost'].includes(l.stage)).length
+  const activeCount = leads.filter(l => l.stage === 'active_client').length
+  const inPipeline = leads.filter(l => !['closed_won','closed_lost','active_client'].includes(l.stage)).length
 
   // Paginated list
   const visibleLeads = leads.slice(0, listPage * 100)
@@ -448,10 +450,11 @@ export default function CRMClient() {
           {/* Stats strip — desktop inline row */}
           <div className="grid grid-cols-4 gap-3 mb-4">
             {[
-              { label: 'Total',    value: total,      color: 'text-gray-900 dark:text-white' },
-              { label: 'Due',      value: followDue,  color: followDue > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white' },
-              { label: 'Won',      value: wonCount,   color: 'text-green-600' },
-              { label: 'Pipeline', value: inPipeline, color: 'text-amber-500' },
+              { label: 'Total',    value: total,       color: 'text-gray-900 dark:text-white' },
+              { label: 'Due',      value: followDue,   color: followDue > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white' },
+              { label: 'Active',   value: activeCount, color: 'text-teal-500' },
+              { label: 'Won',      value: wonCount,    color: 'text-green-600' },
+              { label: 'Pipeline', value: inPipeline,  color: 'text-amber-500' },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl px-3 py-3 text-center">
                 <p className={cn('text-xl font-bold', color)}>{value.toLocaleString()}</p>
