@@ -23,6 +23,7 @@ type LeadRow = {
   first_name: string
   business_name: string
   phone: string
+  email: string
   notion_disposition: string
   stage: string
   follow_up_at?: string
@@ -30,45 +31,45 @@ type LeadRow = {
 
 const LEADS: LeadRow[] = [
   // Contract Out → demo_held
-  { first_name: 'Billy Berringer',     business_name: "Berringer's Elegant Floors And Remodeling", phone: '(417) 840-3743', notion_disposition: 'Contract Out',   stage: 'demo_held' },
-  { first_name: 'Sebastian Wiggins',   business_name: 'Wiggins 1 Contracting LLC',                phone: '(312) 415-5125', notion_disposition: 'Contract Out',   stage: 'demo_held' },
+  { first_name: 'Billy Berringer',     business_name: "Berringer's Elegant Floors And Remodeling", phone: '(417) 840-3743', email: 'billyberringer@gmail.com',           notion_disposition: 'Contract Out',   stage: 'demo_held' },
+  { first_name: 'Sebastian Wiggins',   business_name: 'Wiggins 1 Contracting LLC',                phone: '(312) 415-5125', email: 'wiggins1contractingllc@gmail.com',    notion_disposition: 'Contract Out',   stage: 'demo_held' },
 
   // Demo Held → demo_held
-  { first_name: 'Anthony Watson',      business_name: 'LAD Enterprise Inc',                       phone: '+1 (973) 392-6647', notion_disposition: 'Demo Held', stage: 'demo_held' },
-  { first_name: 'Ave Torrens',         business_name: 'Packaging Corporation of America, PCA',    phone: '(484) 268-4065', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Carlos Ferguson',     business_name: 'C&D Concrete',                             phone: '(720) 296-3521', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Deron Guillory',      business_name: 'DG Hotshots',                              phone: '(832) 202-9324', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Frank Lewis',         business_name: 'Chadworth Homes',                          phone: '(404) 707-0839', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Gabino Armas',        business_name: 'La Estrella Landscape & maintenance',      phone: '(510) 468-1388', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Isaac Thomas',        business_name: 'Artisan Carpentry',                        phone: '(402) 432-0390', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Ismael Garrido',      business_name: 'Timba Construction LLC',                   phone: '(407) 676-4209', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Jaír Bustos',         business_name: 'Sophisticated tree services',              phone: '(707) 329-5247', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Jose Figueroa',       business_name: 'CAL ERA LANDSCAPING',                      phone: '(530) 300-0453', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Kurjuan Kirkpatrick', business_name: 'Sentel Construction & Remodeling, LLC',   phone: '(240) 455-2268', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Kyle Bayer',          business_name: 'Kne Customs',                              phone: '(414) 313-5618', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Lee Hill',            business_name: 'Hilltop transportation',                   phone: '(440) 317-1623', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Manuel Rubio',        business_name: 'Manny Construction',                       phone: '(760) 235-2035', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Maria Gonzalez',      business_name: 'MG Realty Partners',                       phone: '(786) 555-0202', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Martin Leon',         business_name: 'Garden Worx',                              phone: '(626) 383-5682', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Mitchell Derouens',   business_name: "Mitchells Lawn & Tree Care",               phone: '(214) 728-9342', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Perry Clarke',        business_name: 'Phantom Cruiser Logistics LLC',            phone: '(213) 926-7155', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Peter Bernard',       business_name: 'Bernard Construction Group Inc.',          phone: '(407) 383-0149', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Qwanchivalous Edwards', business_name: 'Villa World Construction LLC',           phone: '(773) 996-4475', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Terry',               business_name: 'Paradise Builders',                        phone: '(757) 679-6223', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Tony D D',            business_name: 'TAD Construction',                         phone: '(313) 920-9365', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Uriel Salazar',       business_name: 'Uriel professional services',              phone: '(209) 561-7568', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Uziya D Irizarry',    business_name: 'Uzis Contracting LLC',                    phone: '(718) 576-0426', notion_disposition: 'Demo Held',   stage: 'demo_held' },
-  { first_name: 'Vladimir Torrealba',  business_name: 'Sisglobal restoration llc',               phone: '(407) 680-5930', notion_disposition: 'Demo Held',   stage: 'demo_held' },
+  { first_name: 'Anthony Watson',      business_name: 'LAD Enterprise Inc',                       phone: '+1 (973) 392-6647', email: 'LADEnterpriseInc@gmail.com',       notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Ave Torrens',         business_name: 'Packaging Corporation of America, PCA',    phone: '(484) 268-4065', email: 'atorrens29@gmail.com',                notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Carlos Ferguson',     business_name: 'C&D Concrete',                             phone: '(720) 296-3521', email: 'cdconcrete7@aol.com',                 notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Deron Guillory',      business_name: 'DG Hotshots',                              phone: '(832) 202-9324', email: 'derongui@gmail.com',                  notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Frank Lewis',         business_name: 'Chadworth Homes',                          phone: '(404) 707-0839', email: 'info@chadworthhomes.com',              notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Gabino Armas',        business_name: 'La Estrella Landscape & maintenance',      phone: '(510) 468-1388', email: 'gabinoarmaz1979@gmail.com',           notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Isaac Thomas',        business_name: 'Artisan Carpentry',                        phone: '(402) 432-0390', email: 'artisancarpentrylnk@gmail.com',       notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Ismael Garrido',      business_name: 'Timba Construction LLC',                   phone: '(407) 676-4209', email: 'timbaconstruction@yahoo.com',          notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Jaír Bustos',         business_name: 'Sophisticated tree services',              phone: '(707) 329-5247', email: 'jairbustos@icloud.com',               notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Jose Figueroa',       business_name: 'CAL ERA LANDSCAPING',                      phone: '(530) 300-0453', email: 'sfigueroa013@gmail.com',              notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Kurjuan Kirkpatrick', business_name: 'Sentel Construction & Remodeling, LLC',   phone: '(240) 455-2268', email: 'sentelconstruction@gmail.com',         notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Kyle Bayer',          business_name: 'Kne Customs',                              phone: '(414) 313-5618', email: 'kne_customs@yahoo.com',               notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Lee Hill',            business_name: 'Hilltop transportation',                   phone: '(440) 317-1623', email: 'hilltopcon71@yahoo.com',              notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Manuel Rubio',        business_name: 'Manny Construction',                       phone: '(760) 235-2035', email: 'manolex1@hotmail.com',                notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Maria Gonzalez',      business_name: 'MG Realty Partners',                       phone: '(786) 555-0202', email: 'mgonzalez@mgrealty.com',              notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Martin Leon',         business_name: 'Garden Worx',                              phone: '(626) 383-5682', email: 'gardenworxlandscape@gmail.com',       notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Mitchell Derouens',   business_name: "Mitchells Lawn & Tree Care",               phone: '(214) 728-9342', email: 'mitchell@mitchellslawncaretreeservice.com', notion_disposition: 'Demo Held', stage: 'demo_held' },
+  { first_name: 'Perry Clarke',        business_name: 'Phantom Cruiser Logistics LLC',            phone: '(213) 926-7155', email: 'prryclarke@icloud.com',               notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Peter Bernard',       business_name: 'Bernard Construction Group Inc.',          phone: '(407) 383-0149', email: 'bernardhomes@gmail.com',              notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Qwanchivalous Edwards', business_name: 'Villa World Construction LLC',           phone: '(773) 996-4475', email: 'villaworldllc@yahoo.com',             notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Terry',               business_name: 'Paradise Builders',                        phone: '(757) 679-6223', email: 'paradisebuildersinc@yahoo.com',       notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Tony D D',            business_name: 'TAD Construction',                         phone: '(313) 920-9365', email: 'tonyd@mitoshe.net',                   notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Uriel Salazar',       business_name: 'Uriel professional services',              phone: '(209) 561-7568', email: 'e.uriel209@yahoo.com',                notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Uziya D Irizarry',    business_name: 'Uzis Contracting LLC',                    phone: '(718) 576-0426', email: 'uzicrontracting@gmail.com',            notion_disposition: 'Demo Held',      stage: 'demo_held' },
+  { first_name: 'Vladimir Torrealba',  business_name: 'Sisglobal restoration llc',               phone: '(407) 680-5930', email: 'vladimir.usa45@gmail.com',             notion_disposition: 'Demo Held',      stage: 'demo_held' },
 
   // Demo No-Show → follow_up
-  { first_name: 'Corey Howard',        business_name: 'Big jakes que',                            phone: '(229) 520-2463', notion_disposition: 'Demo No-Show', stage: 'follow_up' },
-  { first_name: 'Paul Gonzalez',       business_name: 'Seamless Floor Restoration',               phone: '(323) 359-1021', notion_disposition: 'Demo No-Show', stage: 'follow_up' },
+  { first_name: 'Corey Howard',        business_name: 'Big jakes que',                            phone: '(229) 520-2463', email: 'bigjakesque@gmail.com',               notion_disposition: 'Demo No-Show',  stage: 'follow_up' },
+  { first_name: 'Paul Gonzalez',       business_name: 'Seamless Floor Restoration',               phone: '(323) 359-1021', email: 'gonzalezpaul213@gmail.com',           notion_disposition: 'Demo No-Show',  stage: 'follow_up' },
 
   // Follow Up → follow_up
-  { first_name: 'Darrin Jennings',     business_name: 'AKD Financing LLC',                       phone: '(908) 337-8635', notion_disposition: 'Follow Up',   stage: 'follow_up' },
-  { first_name: 'Egal Warsame',        business_name: 'Centurylink Transport',                    phone: '(206) 557-2821', notion_disposition: 'Follow Up',   stage: 'follow_up' },
-  { first_name: 'Habibou Maiga',       business_name: 'Smart business system LLC',               phone: '(973) 820-8620', notion_disposition: 'Follow Up',   stage: 'follow_up' },
-  { first_name: 'Kevin Odom',          business_name: 'The Odom Group Inc.',                      phone: '(404) 599-3667', notion_disposition: 'Follow Up',   stage: 'follow_up', follow_up_at: '2026-09-01' },
+  { first_name: 'Darrin Jennings',     business_name: 'AKD Financing LLC',                       phone: '(908) 337-8635', email: 'tgbhomes100@gmail.com',               notion_disposition: 'Follow Up',      stage: 'follow_up' },
+  { first_name: 'Egal Warsame',        business_name: 'Centurylink Transport',                    phone: '(206) 557-2821', email: 'centurylinktransport@yahoo.com',      notion_disposition: 'Follow Up',      stage: 'follow_up' },
+  { first_name: 'Habibou Maiga',       business_name: 'Smart business system LLC',               phone: '(973) 820-8620', email: 'h_maiga@aol.com',                     notion_disposition: 'Follow Up',      stage: 'follow_up' },
+  { first_name: 'Kevin Odom',          business_name: 'The Odom Group Inc.',                      phone: '(404) 599-3667', email: 'kevin@theodomgroupinc.com',           notion_disposition: 'Follow Up',      stage: 'follow_up', follow_up_at: '2026-09-01' },
 ]
 
 type ResultMap = Record<string, 'updated' | 'not_found' | 'error' | 'pending'>
@@ -92,6 +93,7 @@ export default function RestageClient() {
         body: JSON.stringify({
           leads: LEADS.map(l => ({
             phone: l.phone,
+            email: l.email,
             stage: l.stage,
             first_name: l.first_name,
             ...(l.follow_up_at ? { follow_up_at: l.follow_up_at } : {}),

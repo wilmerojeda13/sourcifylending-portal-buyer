@@ -19,33 +19,46 @@ export async function POST(req: NextRequest) {
   if (!supabase) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { leads: incoming } = await req.json() as {
-    leads: Array<{ phone: string; stage: string; first_name?: string; follow_up_at?: string }>
+    leads: Array<{ phone: string; email?: string; stage: string; first_name?: string; follow_up_at?: string }>
   }
 
   // Fetch all leads (up to 10k)
   const { data: allLeads } = await supabase
     .from('crm_leads')
-    .select('id, phone, first_name, last_name, stage')
+    .select('id, phone, email, first_name, last_name, stage')
     .limit(10000)
 
   if (!allLeads) return NextResponse.json({ error: 'Failed to fetch leads' }, { status: 500 })
 
-  // Build normalized-phone → lead index
+  // Build indexes: normalized phone → lead, lowercase email → lead
   const phoneIndex = new Map<string, typeof allLeads[number]>()
+  const emailIndex = new Map<string, typeof allLeads[number]>()
+
   for (const lead of allLeads) {
-    const normalized = normalizePhone(lead.phone ?? '')
-    if (normalized) phoneIndex.set(normalized, lead)
+    const phone = normalizePhone(lead.phone ?? '')
+    if (phone) phoneIndex.set(phone, lead)
+    const email = (lead.email ?? '').toLowerCase().trim()
+    if (email) emailIndex.set(email, lead)
   }
 
-  type Result = { phone: string; first_name?: string; stage: string; status: string; id?: string; prev_stage?: string }
+  type Result = {
+    phone: string; email?: string; first_name?: string; stage: string
+    status: string; match_by?: string; id?: string; prev_stage?: string
+  }
   const results: Result[] = []
 
   for (const item of incoming) {
-    const normalized = normalizePhone(item.phone)
-    const match = phoneIndex.get(normalized)
+    // Try phone first, then email
+    const normalizedPhone = normalizePhone(item.phone)
+    const normalizedEmail = (item.email ?? '').toLowerCase().trim()
+
+    const matchByPhone = phoneIndex.get(normalizedPhone)
+    const matchByEmail = normalizedEmail ? emailIndex.get(normalizedEmail) : undefined
+    const match = matchByPhone ?? matchByEmail
+    const matchBy = matchByPhone ? 'phone' : matchByEmail ? 'email' : undefined
 
     if (!match) {
-      results.push({ phone: item.phone, first_name: item.first_name, stage: item.stage, status: 'not_found' })
+      results.push({ phone: item.phone, email: item.email, first_name: item.first_name, stage: item.stage, status: 'not_found' })
       continue
     }
 
@@ -62,9 +75,11 @@ export async function POST(req: NextRequest) {
 
     results.push({
       phone: item.phone,
+      email: item.email,
       first_name: item.first_name ?? match.first_name,
       stage: item.stage,
       status: error ? 'error' : 'updated',
+      match_by: matchBy,
       id: match.id,
       prev_stage: match.stage,
     })
