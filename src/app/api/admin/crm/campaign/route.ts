@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 
-const BLAND_API_KEY = process.env.BLAND_API_KEY
+const VAPI_API_KEY = process.env.VAPI_API_KEY
+const VAPI_ASSISTANT_ID = process.env.VAPI_ASSISTANT_ID
+const VAPI_PHONE_NUMBER_ID = process.env.VAPI_PHONE_NUMBER_ID
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sourcifylending.com'
+const WEBHOOK_URL = `${APP_URL}/api/webhooks/vapi`
+
+const BATCH_SIZE = 10
+const BATCH_DELAY_MS = 500
+const MAX_LEADS = 500
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -12,25 +20,30 @@ async function assertAdmin() {
   return data?.is_admin ? supabase : null
 }
 
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await assertAdmin()
   if (!supabase) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  if (!BLAND_API_KEY) {
+  if (!VAPI_API_KEY || !VAPI_ASSISTANT_ID || !VAPI_PHONE_NUMBER_ID) {
     return NextResponse.json(
-      { error: 'BLAND_API_KEY not configured. Add it to your environment variables.' },
+      { error: 'VAPI is not configured. Ensure VAPI_API_KEY, VAPI_ASSISTANT_ID, and VAPI_PHONE_NUMBER_ID are set in your environment variables.' },
       { status: 503 }
     )
   }
 
-  const { stage, script, voice, max_duration } = await req.json()
+  const { stage, script, max_duration } = await req.json()
 
-  // Fetch leads to call
+  // Fetch leads filtered by stage, not archived, not DNC — capped at MAX_LEADS
   let query = supabase
     .from('crm_leads')
     .select('id, phone, first_name, last_name, business_name')
     .eq('is_archived', false)
     .eq('do_not_call', false)
+    .limit(MAX_LEADS)
 
   if (stage && stage !== 'all') query = query.eq('stage', stage)
 
@@ -42,47 +55,75 @@ export async function POST(req: NextRequest) {
   const callable = leads.filter(l => l.phone?.trim())
   if (!callable.length) return NextResponse.json({ error: 'No leads with phone numbers found' }, { status: 400 })
 
-  // Build Bland.ai batch payload
-  const callData = callable.map(l => ({
-    phone_number: l.phone,
-    first_name: l.first_name,
-    last_name: l.last_name ?? '',
-    business_name: l.business_name ?? '',
-  }))
+  const capped = callable.length >= MAX_LEADS
 
-  const blandPayload = {
-    base_prompt: script,
-    call_data: callData,
-    voice: voice === 'female' ? 'maya' : 'mason',
-    max_duration: Number(max_duration) || 2,
-    wait_for_greeting: true,
-    record: true,
-    webhook: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://sourcifylending.com'}/api/webhooks/bland`,
-    answered_by_enabled: true,
-    metadata: { source: 'sourcify_crm', stage },
-  }
+  // Make VAPI calls in batches of BATCH_SIZE
+  let succeeded = 0
+  let failed = 0
 
-  const blandRes = await fetch('https://api.bland.ai/v1/batches', {
-    method: 'POST',
-    headers: {
-      Authorization: BLAND_API_KEY,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(blandPayload),
-  })
+  for (let i = 0; i < callable.length; i += BATCH_SIZE) {
+    const batch = callable.slice(i, i + BATCH_SIZE)
 
-  const blandData = await blandRes.json()
-  if (!blandRes.ok) {
-    return NextResponse.json(
-      { error: blandData.message ?? 'Bland.ai error' },
-      { status: 502 }
+    await Promise.all(
+      batch.map(async (lead) => {
+        try {
+          const payload: Record<string, unknown> = {
+            assistantId: VAPI_ASSISTANT_ID,
+            phoneNumberId: VAPI_PHONE_NUMBER_ID,
+            customer: {
+              number: lead.phone,
+              name: [lead.first_name, lead.last_name].filter(Boolean).join(' ') || undefined,
+            },
+            assistantOverrides: {
+              variableValues: {
+                first_name: lead.first_name ?? '',
+                last_name: lead.last_name ?? '',
+                business_name: lead.business_name ?? '',
+              },
+              ...(script ? { firstMessage: script } : {}),
+            },
+            maxDurationSeconds: (Number(max_duration) || 2) * 60,
+            serverUrl: WEBHOOK_URL,
+          }
+
+          const res = await fetch('https://api.vapi.ai/call/phone', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${VAPI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          })
+
+          if (res.ok) {
+            succeeded++
+          } else {
+            console.error(`VAPI call failed for lead ${lead.id}:`, await res.text())
+            failed++
+          }
+        } catch (err) {
+          console.error(`VAPI call error for lead ${lead.id}:`, err)
+          failed++
+        }
+      })
     )
+
+    // Delay between batches (skip delay after the last batch)
+    if (i + BATCH_SIZE < callable.length) {
+      await sleep(BATCH_DELAY_MS)
+    }
   }
+
+  const total = callable.length
+  const cappedNote = capped
+    ? ` This run was capped at ${MAX_LEADS} leads. Run the campaign again to continue calling remaining leads.`
+    : ''
 
   return NextResponse.json({
     success: true,
-    batch_id: blandData.batch_id,
-    total_calls: callable.length,
-    message: `Campaign launched! ${callable.length} calls queued via Bland.ai.`,
+    total,
+    succeeded,
+    failed,
+    message: `Campaign launched via VAPI! ${succeeded} calls initiated, ${failed} failed.${cappedNote}`,
   })
 }
