@@ -237,23 +237,23 @@ function LeadCard({ lead }: { lead: CRMLead }) {
       className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/30 dark:hover:bg-green-950/20 transition-colors group"
     >
       <span className={cn('w-2 h-2 rounded-full shrink-0', stage.dot)}/>
-      <div className="min-w-0 flex-1 flex items-center gap-3">
-        <p className="font-medium text-sm text-gray-900 dark:text-white truncate w-36 shrink-0">
+      <div className="min-w-0 flex-1 flex items-center gap-2">
+        <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
           {lead.first_name} {lead.last_name}
         </p>
         {lead.business_name && (
-          <p className="text-xs text-gray-400 truncate hidden sm:block flex-1">{lead.business_name}</p>
+          <p className="text-xs text-gray-400 truncate hidden lg:block flex-1">{lead.business_name}</p>
         )}
       </div>
       <a
         href={`tel:${lead.phone}`}
         onClick={e => e.stopPropagation()}
-        className="text-xs text-green-600 dark:text-green-400 shrink-0 hidden md:block hover:underline"
+        className="text-xs text-green-600 dark:text-green-400 shrink-0 hidden lg:block hover:underline"
       >
         {lead.phone}
       </a>
       <div className="flex items-center gap-1 shrink-0">
-        <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', stage.color)}>{stage.label}</span>
+        <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap', stage.color)}>{stage.label}</span>
         {lead.program_interest && (
           <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium hidden sm:inline', PROGRAM_BADGE[lead.program_interest])}>
             {PROGRAM_LABEL[lead.program_interest]}
@@ -364,25 +364,26 @@ export default function CRMClient() {
               <p className="text-xs text-gray-500">{total.toLocaleString()} leads</p>
             </div>
             <div className="flex items-center gap-2">
-
+              {/* Desktop-only action buttons */}
               <Link
                 href="/admin/crm/campaign"
                 target="_blank"
-                className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5"
+                className="btn-secondary text-xs px-3 py-2 hidden sm:flex items-center gap-1.5"
               >
                 <Bot size={13}/> AI Campaign
               </Link>
               <button
                 onClick={() => setShowCleanup(true)}
-                className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5"
+                className="btn-secondary text-xs px-3 py-2 hidden sm:flex items-center gap-1.5"
               >
                 <Trash2 size={13}/> Cleanup
               </button>
-              <Link href="/admin/crm/import" className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5">
+              <Link href="/admin/crm/import" className="btn-secondary text-xs px-3 py-2 hidden sm:flex items-center gap-1.5">
                 <Upload size={13}/> Import
               </Link>
-              <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-sm">
-                <Plus size={15}/> Add Lead
+              {/* Add Lead — icon-only on mobile, full label on desktop */}
+              <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-3 sm:px-4 flex items-center gap-1.5 text-sm">
+                <Plus size={15}/> <span className="hidden sm:inline">Add Lead</span>
               </button>
             </div>
           </div>
@@ -454,8 +455,8 @@ export default function CRMClient() {
 
         {/* ── Lead list (main column) ── */}
         <div className="flex-1 min-w-0 overflow-hidden">
-          {/* Stats strip — desktop inline row */}
-          <div className="grid grid-cols-4 gap-3 mb-4">
+          {/* Stats strip */}
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 mb-4">
             {[
               { label: 'Total',    value: total,       color: 'text-gray-900 dark:text-white' },
               { label: 'Due',      value: followDue,   color: followDue > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white' },
@@ -463,8 +464,8 @@ export default function CRMClient() {
               { label: 'Won',      value: wonCount,    color: 'text-green-600' },
               { label: 'Pipeline', value: inPipeline,  color: 'text-amber-500' },
             ].map(({ label, value, color }) => (
-              <div key={label} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl px-3 py-3 text-center">
-                <p className={cn('text-xl font-bold', color)}>{value.toLocaleString()}</p>
+              <div key={label} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl px-2 py-2.5 text-center">
+                <p className={cn('text-lg font-bold', color)}>{value.toLocaleString()}</p>
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">{label}</p>
               </div>
             ))}
@@ -660,14 +661,17 @@ export default function CRMClient() {
       </div>
 
       {/* ── Mobile bottom bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 lg:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-4 py-3 flex gap-2 z-20">
-        <button onClick={syncNotion} disabled={syncing} className="btn-secondary h-11 px-3 flex items-center justify-center gap-1.5 text-sm disabled:opacity-50">
+      <div className="fixed bottom-0 left-0 right-0 sm:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-3 py-2.5 flex gap-2 z-20">
+        <button onClick={syncNotion} disabled={syncing} className="btn-secondary h-11 w-11 flex items-center justify-center shrink-0 disabled:opacity-50">
           {syncing ? <Loader2 size={15} className="animate-spin"/> : <RefreshCw size={15}/>}
         </button>
-        <Link href="/admin/crm/import" className="btn-secondary flex-1 h-11 flex items-center justify-center gap-1.5 text-sm">
-          <Upload size={15}/> Import
+        <button onClick={()=>setShowCleanup(true)} className="btn-secondary h-11 w-11 flex items-center justify-center shrink-0">
+          <Trash2 size={15}/>
+        </button>
+        <Link href="/admin/crm/import" className="btn-secondary h-11 flex-1 flex items-center justify-center gap-1.5 text-sm">
+          <Upload size={14}/> Import
         </Link>
-        <button onClick={()=>setShowNew(true)} className="btn-primary flex-1 h-11 flex items-center justify-center gap-1.5 text-sm">
+        <button onClick={()=>setShowNew(true)} className="btn-primary h-11 flex-1 flex items-center justify-center gap-1.5 text-sm">
           <Plus size={15}/> Add Lead
         </button>
       </div>
