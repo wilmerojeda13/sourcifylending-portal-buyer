@@ -52,7 +52,7 @@ const PROGRAM_BADGE: Record<string, string> = {
 }
 const PROGRAM_LABEL: Record<string, string> = { program_a: 'Prog A', program_b: 'Prog B', program_c: 'Prog C' }
 
-const BOARD_CAP = 40
+const BOARD_PAGE_SIZE = 20
 
 function stageInfo(key: Stage) { return STAGES.find(s => s.key === key) ?? STAGES[0] }
 function isPastDue(iso: string | null) { return !!iso && new Date(iso) < new Date() }
@@ -280,9 +280,10 @@ export default function CRMClient() {
   const [syncing, setSyncing]       = useState(false)
   const [view, setView]             = useState<'list' | 'board'>('list')
   const [listPage, setListPage]     = useState(1)
+  const [boardPages, setBoardPages] = useState<Record<string, number>>({})
 
-  // Reset list page whenever leads change
-  useEffect(() => setListPage(1), [leads])
+  // Reset pages whenever leads change
+  useEffect(() => { setListPage(1); setBoardPages({}) }, [leads])
 
   // Version counter — cancels stale in-flight loads when a newer one starts
   const loadVersion = useRef(0)
@@ -530,11 +531,17 @@ export default function CRMClient() {
             >
               {STAGES.map(stage => {
                 const stageLeads = leads.filter(l => l.stage === stage.key)
-                const visibleStageLeads = stageLeads.slice(0, BOARD_CAP)
+                const colPage = boardPages[stage.key] ?? 1
+                const colHasPrev = colPage > 1
+                const colHasNext = colPage * BOARD_PAGE_SIZE < stageLeads.length
+                const visibleStageLeads = stageLeads.slice((colPage - 1) * BOARD_PAGE_SIZE, colPage * BOARD_PAGE_SIZE)
                 const Icon = stage.icon
+                function setColPage(n: number) {
+                  setBoardPages(p => ({ ...p, [stage.key]: n }))
+                }
                 return (
                   <div key={stage.key} className="flex-shrink-0 w-64 flex flex-col h-full">
-                    {/* Column header — sticky within column */}
+                    {/* Column header */}
                     <div className={cn('flex items-center gap-2 px-3 py-2 rounded-xl mb-2 shrink-0', stage.color)}>
                       <Icon size={13}/>
                       <span className="text-xs font-semibold">{stage.label}</span>
@@ -579,13 +586,27 @@ export default function CRMClient() {
                           )}
                         </Link>
                       ))}
-                      {stageLeads.length > BOARD_CAP && (
-                        <Link
-                          href={`/admin/crm?stage=${stage.key}`}
-                          className="text-[10px] text-center text-gray-500 hover:text-green-500 py-1.5 transition-colors"
-                        >
-                          +{(stageLeads.length - BOARD_CAP).toLocaleString()} more — view all →
-                        </Link>
+                      {/* Per-column pagination */}
+                      {stageLeads.length > BOARD_PAGE_SIZE && (
+                        <div className="flex items-center justify-between gap-1 pt-1 pb-0.5 shrink-0">
+                          <button
+                            onClick={() => setColPage(colPage - 1)}
+                            disabled={!colHasPrev}
+                            className="flex-1 py-1.5 text-[11px] font-medium border border-gray-200 dark:border-gray-700 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-green-600 hover:border-green-300 dark:hover:border-green-700"
+                          >
+                            ← Prev
+                          </button>
+                          <span className="text-[10px] text-gray-400 whitespace-nowrap px-1">
+                            {((colPage - 1) * BOARD_PAGE_SIZE + 1)}–{Math.min(colPage * BOARD_PAGE_SIZE, stageLeads.length)}
+                          </span>
+                          <button
+                            onClick={() => setColPage(colPage + 1)}
+                            disabled={!colHasNext}
+                            className="flex-1 py-1.5 text-[11px] font-medium border border-gray-200 dark:border-gray-700 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-green-600 hover:border-green-300 dark:hover:border-green-700"
+                          >
+                            Next →
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
