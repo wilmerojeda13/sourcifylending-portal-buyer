@@ -11,14 +11,18 @@ import toast from 'react-hot-toast'
 
 const DEFAULT_SCRIPT = `Hi, is this {{first_name}}?
 
-Great! This is Sarah from Sourcify Lending. We specialize in helping business owners like yourself build and optimize their business credit profile — without using personal credit.
+Hey — quick heads up, you're actually speaking with an AI assistant from Sourcify Lending. I know that's a little different, but I promise to keep this super short.
 
-I'm calling because we have a quick 15-minute demo that shows exactly how our clients typically unlock $50,000 to $150,000 in business credit within 90 days.
+I'm reaching out because we help business owners like yourself — especially at {{business_name}} — build strong business credit fast, without touching your personal credit.
 
-Would you be open to a quick call this week to see if you qualify?
+I'm not here to pitch you. I just want to find out if it makes sense to connect you with one of our actual advisors for a free 15-minute demo. They'll show you exactly how much credit you could qualify for.
 
-[If interested: Great! I'll have someone from our team reach out to schedule that. Can I confirm your email?]
-[If not interested: No problem at all. I'll make a note of that. Have a great day!]`
+Is that something you'd be open to?
+
+[If YES: Perfect! I'll flag you as interested and have someone from our team reach out to schedule that. What's the best email to send a calendar link to?]
+[If NO / Not interested: Totally understand, I appreciate you picking up. I'll make a note and we won't bother you again. Have a great day!]
+[If asks to speak to human: Absolutely — I'll mark you as a priority and have one of our advisors call you personally. You should hear from them within 24 hours.]
+[If speaks Spanish: Switch to Spanish immediately — "Por supuesto, puedo continuar en español. Somos Sourcify Lending y ayudamos a dueños de negocios a construir crédito comercial. ¿Tiene un momento para escuchar más?"]`
 
 const STAGE_OPTIONS = [
   { value: 'all', label: 'All Active Leads' },
@@ -127,7 +131,7 @@ export default function CampaignClient() {
           </div>
           <h1 className="text-2xl font-bold">AI Voice Campaign</h1>
           <p className="text-gray-400 text-sm max-w-sm mx-auto">
-            Automatically call your leads using an AI voice agent powered by Bland.ai. The CRM updates after each call.
+            Automatically call your leads using an AI voice agent. Transparent AI script — discloses AI upfront, books demos, switches to Spanish automatically. CRM updates after every call.
           </p>
         </div>
 
@@ -262,7 +266,7 @@ export default function CampaignClient() {
               <p className="text-xs text-gray-400 font-mono truncate">{WEBHOOK_URL}</p>
             </div>
             <p className="text-xs text-gray-600 mt-1.5">
-              Bland.ai will POST call results here. Your CRM stages update automatically.
+              Your voice provider will POST call results here. CRM stages update automatically after every call.
             </p>
           </div>
         </div>
@@ -275,9 +279,9 @@ export default function CampaignClient() {
           </div>
           <ol className="space-y-2 text-xs text-gray-400 list-none">
             {[
-              'The AI calls each lead using the script above, speaking naturally and adapting to responses.',
-              'Bland.ai detects whether the call was answered, went to voicemail, or had no answer.',
-              'After each call completes, Bland.ai sends results to your webhook.',
+              'The AI calls each lead, immediately discloses it\'s an AI, and pivots to booking a demo with a real human.',
+              'The AI detects if the call was answered, went to voicemail, or had no answer — and handles each differently.',
+              'If the lead speaks Spanish, the AI switches languages automatically mid-call.',
               'Your CRM automatically updates the lead\'s stage and logs a call activity — within seconds.',
               'You can view updated leads in the CRM immediately.',
             ].map((step, i) => (
