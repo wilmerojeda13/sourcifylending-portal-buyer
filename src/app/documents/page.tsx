@@ -84,7 +84,7 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
 
   if (isAnalyzing || status === 'analyzing') {
     return (
-      <div className="mt-3 flex items-center gap-2 text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
+      <div className="mt-3 flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-xl px-3 py-2.5">
         <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
         <span>AI is reviewing this document and updating your profile…</span>
       </div>
@@ -93,7 +93,7 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
 
   if (status === 'skipped') {
     return (
-      <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-400 bg-gray-50 rounded-xl px-3 py-2">
+      <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2">
         <Bot size={12} />
         AI review not available (insufficient credits)
       </div>
@@ -102,7 +102,7 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
 
   if (status === 'failed') {
     return (
-      <div className="mt-3 flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+      <div className="mt-3 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800 rounded-xl px-3 py-2">
         <AlertCircle size={12} />
         AI analysis could not be completed — try re-uploading this document
       </div>
@@ -118,9 +118,9 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
 
   return (
     <div className={`mt-3 rounded-xl border text-xs overflow-hidden ${
-      isApproved ? 'border-green-200 bg-green-50' :
-      isRejected ? 'border-red-200 bg-red-50' :
-      'border-amber-200 bg-amber-50'
+      isApproved ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20' :
+      isRejected ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20' :
+      'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20'
     }`}>
 
       {/* Header row */}
@@ -155,8 +155,8 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
             style={{ borderColor: isApproved ? '#bbf7d0' : isRejected ? '#fca5a5' : '#fde68a' }}>
             {Object.entries(a.extracted_fields).map(([k, v]) => (
               <div key={k} className="flex gap-2">
-                <span className="text-gray-400 capitalize shrink-0">{k.replace(/_/g, ' ')}:</span>
-                <span className="font-semibold text-gray-700">{v}</span>
+                <span className="text-gray-400 dark:text-gray-500 capitalize shrink-0">{k.replace(/_/g, ' ')}:</span>
+                <span className="font-semibold text-gray-700 dark:text-gray-200">{v}</span>
               </div>
             ))}
           </div>
@@ -171,32 +171,32 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               {a.credit_insights.estimated_score_range && (
                 <div className="flex gap-1.5">
-                  <span className="text-gray-400">Score range:</span>
-                  <span className="font-semibold text-gray-700">{a.credit_insights.estimated_score_range}</span>
+                  <span className="text-gray-400 dark:text-gray-500">Score range:</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">{a.credit_insights.estimated_score_range}</span>
                 </div>
               )}
               {a.credit_insights.utilization_pct && (
                 <div className="flex gap-1.5">
-                  <span className="text-gray-400">Utilization:</span>
-                  <span className="font-semibold text-gray-700">{a.credit_insights.utilization_pct}</span>
+                  <span className="text-gray-400 dark:text-gray-500">Utilization:</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">{a.credit_insights.utilization_pct}</span>
                 </div>
               )}
               {a.credit_insights.inquiry_count != null && (
                 <div className="flex gap-1.5">
-                  <span className="text-gray-400">Inquiries:</span>
-                  <span className="font-semibold text-gray-700">{a.credit_insights.inquiry_count}</span>
+                  <span className="text-gray-400 dark:text-gray-500">Inquiries:</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">{a.credit_insights.inquiry_count}</span>
                 </div>
               )}
               {a.credit_insights.negative_accounts != null && (
                 <div className="flex gap-1.5">
-                  <span className="text-gray-400">Negative accts:</span>
-                  <span className="font-semibold text-gray-700">{a.credit_insights.negative_accounts}</span>
+                  <span className="text-gray-400 dark:text-gray-500">Negative accts:</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">{a.credit_insights.negative_accounts}</span>
                 </div>
               )}
             </div>
             {a.credit_insights.recommendations && a.credit_insights.recommendations.length > 0 && (
               <div className="space-y-0.5">
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Recommendations</p>
+                <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Recommendations</p>
                 {a.credit_insights.recommendations.map((r, i) => (
                   <div key={i} className="flex items-start gap-1.5 text-blue-800">
                     <span className="text-blue-400 font-bold mt-0.5 shrink-0">→</span>
@@ -217,38 +217,38 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
             <div className="space-y-0.5">
               {a.business_identity.business_name && (
                 <div className="flex gap-2">
-                  <span className="text-gray-400 shrink-0">Business:</span>
-                  <span className="font-semibold text-gray-700">{a.business_identity.business_name}</span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0">Business:</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">{a.business_identity.business_name}</span>
                 </div>
               )}
               {a.business_identity.ein && (
                 <div className="flex gap-2">
-                  <span className="text-gray-400 shrink-0">EIN:</span>
-                  <span className="font-semibold text-gray-700">{a.business_identity.ein}</span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0">EIN:</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">{a.business_identity.ein}</span>
                 </div>
               )}
               {a.business_identity.entity_type && (
                 <div className="flex gap-2">
-                  <span className="text-gray-400 shrink-0">Entity:</span>
-                  <span className="font-semibold text-gray-700">{a.business_identity.entity_type}</span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0">Entity:</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">{a.business_identity.entity_type}</span>
                 </div>
               )}
               {a.business_identity.state && (
                 <div className="flex gap-2">
-                  <span className="text-gray-400 shrink-0">State:</span>
-                  <span className="font-semibold text-gray-700">{a.business_identity.state}</span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0">State:</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">{a.business_identity.state}</span>
                 </div>
               )}
               {a.business_identity.duns_number && (
                 <div className="flex gap-2">
-                  <span className="text-gray-400 shrink-0">DUNS:</span>
-                  <span className="font-semibold text-gray-700">{a.business_identity.duns_number}</span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0">DUNS:</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">{a.business_identity.duns_number}</span>
                 </div>
               )}
               {a.business_identity.address && (
                 <div className="flex gap-2">
-                  <span className="text-gray-400 shrink-0">Address:</span>
-                  <span className="font-semibold text-gray-700">{a.business_identity.address}</span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0">Address:</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">{a.business_identity.address}</span>
                 </div>
               )}
             </div>
@@ -270,7 +270,7 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
                 Score change: {a.score_change}
               </div>
             )}
-            <p className="text-gray-700 leading-relaxed">{a.monitoring_summary}</p>
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{a.monitoring_summary}</p>
             {a.alerts && a.alerts.length > 0 && (
               <div className="space-y-0.5">
                 <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">Alerts</p>
@@ -284,9 +284,9 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
             )}
             {a.recommended_actions && a.recommended_actions.length > 0 && (
               <div className="space-y-0.5">
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Recommended Actions</p>
+                <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Recommended Actions</p>
                 {a.recommended_actions.map((action, i) => (
-                  <div key={i} className="flex items-start gap-1.5 text-gray-700">
+                  <div key={i} className="flex items-start gap-1.5 text-gray-700 dark:text-gray-300">
                     <span className="text-green-500 font-bold mt-0.5 shrink-0">→</span>
                     {action}
                   </div>
@@ -316,7 +316,7 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
 
         {/* Updates summary badge */}
         {a.program_updates_summary && (
-          <div className="flex items-center gap-1.5 bg-white/70 border border-gray-100 rounded-lg px-2 py-1.5 text-[10px] text-gray-500 font-medium">
+          <div className="flex items-center gap-1.5 bg-white/70 dark:bg-gray-800/70 border border-gray-100 dark:border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-gray-500 dark:text-gray-400 font-medium">
             <ShieldCheck size={10} className="text-green-500 shrink-0" />
             {a.program_updates_summary}
           </div>
@@ -466,9 +466,9 @@ export default function DocumentsPage() {
     return (
       <PortalLayout>
         <div className="animate-pulse space-y-4">
-          <div className="h-8 w-48 bg-gray-200 rounded" />
-          <div className="h-40 bg-gray-200 rounded-2xl" />
-          <div className="h-64 bg-gray-200 rounded-2xl" />
+          <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="h-40 bg-gray-200 dark:bg-gray-700 rounded-2xl" />
+          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-2xl" />
         </div>
       </PortalLayout>
     )
@@ -497,7 +497,7 @@ export default function DocumentsPage() {
     >
       <div className="mb-6">
         <h1 className="page-title">Documents</h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
           Upload documents — AI analyzes each one and updates your program automatically
         </p>
       </div>
@@ -505,28 +505,28 @@ export default function DocumentsPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3 mb-6">
         {[
-          { label: 'Total',          value: documents.length, color: 'text-gray-900' },
+          { label: 'Total',          value: documents.length, color: 'text-gray-900 dark:text-white' },
           { label: 'Pending Review', value: pendingCount,     color: 'text-yellow-600' },
           { label: 'AI Analyzed',    value: aiCount,          color: 'text-blue-600' },
           { label: 'Approved',       value: approvedCount,    color: 'text-green-600' },
         ].map(({ label, value, color }) => (
           <div key={label} className="card text-center">
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{label}</p>
           </div>
         ))}
       </div>
 
       {/* Program-specific hint banner */}
       {programHint && (
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 mb-5">
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-4 mb-5">
           <div className="flex items-center gap-2 mb-2">
             <Brain size={16} className="text-green-600" />
-            <p className="text-sm font-bold text-green-900">{programHint.title}</p>
+            <p className="text-sm font-bold text-green-900 dark:text-green-300">{programHint.title}</p>
           </div>
           <ul className="space-y-1">
             {programHint.bullets.map((b, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-green-800">
+              <li key={i} className="flex items-start gap-2 text-xs text-green-800 dark:text-green-300">
                 <span className="text-green-500 font-bold mt-0.5 shrink-0">•</span>
                 {b}
               </li>
@@ -582,10 +582,10 @@ export default function DocumentsPage() {
           {...getRootProps()}
           className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
             !isActive
-              ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+              ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-60'
               : isDragActive
-              ? 'border-green-500 bg-green-50'
-              : 'border-gray-200 hover:border-green-400 hover:bg-green-50/50'
+              ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+              : 'border-gray-200 dark:border-gray-700 hover:border-green-400 hover:bg-green-50/50 dark:hover:bg-green-900/10'
           }`}
         >
           <input {...getInputProps()} />
@@ -597,10 +597,10 @@ export default function DocumentsPage() {
             </div>
           ) : (
             <>
-              <p className="text-sm font-semibold text-gray-700">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                 {isDragActive ? 'Drop file here' : 'Drag & drop or click to upload'}
               </p>
-              <p className="text-xs text-gray-400 mt-1">PDF, PNG, JPG, DOCX — max 10MB</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">PDF, PNG, JPG, DOCX — max 10MB</p>
               <p className="text-xs text-blue-400 mt-1.5 flex items-center justify-center gap-1">
                 <Sparkles size={11} />
                 AI document review included — your profile updates automatically
@@ -621,9 +621,9 @@ export default function DocumentsPage() {
         <h2 className="section-title mb-4">Your Documents ({documents.length})</h2>
         {documents.length === 0 ? (
           <div className="card text-center py-10">
-            <FileText size={32} className="text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400 text-sm">No documents uploaded yet</p>
-            <p className="text-xs text-gray-300 mt-1">
+            <FileText size={32} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-400 dark:text-gray-500 text-sm">No documents uploaded yet</p>
+            <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
               {programHint
                 ? `Start by uploading a ${docTypesForProgram[0]?.label ?? 'document'}`
                 : 'Upload your first document above'}
@@ -633,14 +633,14 @@ export default function DocumentsPage() {
           <div className="space-y-3">
             {documents.map((doc) => (
               <div key={doc.document_id} className="card flex items-start gap-3">
-                <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 bg-green-50 dark:bg-green-900/30 rounded-xl flex items-center justify-center shrink-0">
                   <FileText size={18} className="text-green-500" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{doc.file_name}</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{doc.file_name}</p>
                     {doc.program && (
-                      <span className="text-[9px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                      <span className="text-[9px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
                         {doc.program.replace('program_', 'Prog ')}
                       </span>
                     )}
@@ -651,11 +651,11 @@ export default function DocumentsPage() {
                       {statusIcon[doc.review_status]}
                       <StatusBadge status={doc.review_status} />
                     </div>
-                    <span className="text-xs text-gray-400">{formatFileSize(doc.file_size)}</span>
-                    <span className="text-xs text-gray-400">{formatDateTime(doc.uploaded_at)}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">{formatFileSize(doc.file_size)}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">{formatDateTime(doc.uploaded_at)}</span>
                   </div>
                   {doc.notes && (
-                    <p className="text-xs text-gray-500 mt-1.5 bg-gray-50 px-2.5 py-1.5 rounded-lg">{doc.notes}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 bg-gray-50 dark:bg-gray-700 px-2.5 py-1.5 rounded-lg">{doc.notes}</p>
                   )}
                   <AIAnalysisCard doc={doc} isAnalyzing={analyzingId === doc.document_id} />
                 </div>
