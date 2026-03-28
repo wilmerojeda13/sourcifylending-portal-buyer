@@ -107,31 +107,34 @@ export default function AdminAIPanel() {
     if (!open || initialized) return
     setInitialized(true)
     const contextNote = contextType
-      ? `\n\nI can see you're on the **${pageCtx.label}** page — I already have their full profile loaded. Just ask.`
+      ? `\n\nI can see you're on **${pageCtx.label}** — I have their full profile loaded. Just ask.`
       : `\n\nYou're on **${pageCtx.label}**. What do you need?`
     setMessages([{
       id: uuidv4(),
       role: 'assistant',
-      content: `Hey Abel 👋 I'm your Admin AI — I have full visibility into your CRM, members, billing, and pipeline.${contextNote}`,
+      content: `Hey Abel 👋 I'm your Admin AI — I follow you across every page and know exactly what you're looking at.${contextNote}`,
       timestamp: new Date().toISOString(),
     }])
   }, [open, initialized, pageCtx.label, contextType])
 
-  // Page context change notification
+  // Page/context change — update greeting message and starters whenever pathname changes
   const prevPathRef = useRef(pathname)
   useEffect(() => {
-    if (!open || !initialized || pathname === prevPathRef.current) return
+    if (!initialized || pathname === prevPathRef.current) return
     prevPathRef.current = pathname
     const ctx = getPageCtx(pathname, contextType)
+    const note = contextType
+      ? `_(Switched to **${ctx.label}** — profile loaded. Ask me anything about them.)_`
+      : `_(Now on **${ctx.label}**)_`
     setMessages(prev => [...prev, {
       id: uuidv4(),
       role: 'assistant',
-      content: `_(Now on **${ctx.label}**)_`,
+      content: note,
       timestamp: new Date().toISOString(),
       isSystem: true,
     }])
     setShowStarters(true)
-  }, [pathname, open, initialized])
+  }, [pathname, initialized, contextType])
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
