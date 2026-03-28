@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { scoreUnderwriting } from '@/lib/underwriting-scorer'
 import { logActivity } from '@/lib/activity'
 import { sendUnderwritingCompleteEmail } from '@/lib/email'
+import { logPortalEvent } from '@/lib/portal-events'
 
 // Reviews are valid for 30 days
 const REVIEW_VALIDITY_DAYS = 30
@@ -268,7 +269,35 @@ ${scoreResult.estimated_funding_range ? `Estimated funding range: ${scoreResult.
       next_due_at: nextDueIso,
     }, req)
 
-    // 12. Email (fire-and-forget)
+    // 12. Admin notification (fire-and-forget)
+    const notifTitle = scoreResult.approval_likelihood === 'disqualified'
+      ? `Underwriting Disqualified — ${profile.full_name ?? 'Client'}`
+      : `Underwriting Completed — ${profile.full_name ?? 'Client'}`
+    const notifMessage = [
+      `Program: ${profile.assigned_program === 'program_a' ? 'Program A' : 'Program B'}`,
+      `Risk Score: ${scoreResult.risk_score}`,
+      `Likelihood: ${scoreResult.approval_likelihood.replace(/_/g, ' ')}`,
+      scoreResult.determined_stage ? `Stage: ${scoreResult.determined_stage}` : null,
+    ].filter(Boolean).join(' · ')
+    logPortalEvent({
+      userId: user.id,
+      eventType: eventType,
+      category: 'accounts',
+      title: notifTitle,
+      message: notifMessage,
+      severity: scoreResult.approval_likelihood === 'disqualified' ? 'warning' : 'success',
+      metadata: {
+        program: profile.assigned_program,
+        risk_score: scoreResult.risk_score,
+        approval_likelihood: scoreResult.approval_likelihood,
+        review_number: reviewNumber,
+        determined_stage: scoreResult.determined_stage,
+        next_due_at: nextDueIso,
+      },
+      createdBy: 'system',
+    }).catch(err => console.error('[Underwriting] Notification failed:', err))
+
+    // 13. Email (fire-and-forget)
     sendUnderwritingCompleteEmail({
       toEmail: profile.email,
       toName: profile.full_name ?? 'Client',

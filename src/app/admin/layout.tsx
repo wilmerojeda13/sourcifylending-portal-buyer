@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import AdminAIPanel from '@/components/ai/AdminAIPanel'
+import AdminNotificationBell from '@/components/admin/AdminNotificationBell'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const authClient = await createClient()
@@ -13,6 +14,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <>
+      {/* Notification bell — fixed top-right, visible on all admin pages */}
+      <div className="fixed top-4 right-4 z-40">
+        <AdminNotificationBell />
+      </div>
       {children}
       <AdminAIPanel />
     </>

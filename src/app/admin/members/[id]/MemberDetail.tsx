@@ -72,6 +72,27 @@ function fmtDate(iso: string) {
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
+function formatActivityMeta(data: Record<string, unknown> | null): string {
+  if (!data || Object.keys(data).length === 0) return ''
+  const parts: string[] = []
+  if (data.program) {
+    const p = String(data.program)
+    parts.push(p.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()))
+  }
+  if (data.risk_score !== undefined) parts.push(`Risk Score: ${data.risk_score}`)
+  if (data.next_due_at) {
+    const d = new Date(String(data.next_due_at))
+    parts.push(`Next due: ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`)
+  }
+  if (data.changes && typeof data.changes === 'object') {
+    const changed = Object.entries(data.changes as Record<string, unknown>)
+      .filter(([, v]) => v !== null && v !== undefined && v !== '')
+      .map(([k]) => k.replace(/_/g, ' '))
+    if (changed.length) parts.push(changed.slice(0, 3).join(', '))
+  }
+  if (data.approval_likelihood) parts.push(String(data.approval_likelihood).replace(/_/g, ' '))
+  return parts.join(' · ')
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function MemberDetail({
@@ -1333,6 +1354,9 @@ export default function MemberDetail({
                           <div className="w-1.5 h-1.5 bg-green-400 rounded-full mt-1.5 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-gray-700 capitalize">{log.event_type.replace(/_/g, ' ')}</p>
+                            {formatActivityMeta(log.event_data) && (
+                              <p className="text-[10px] text-indigo-500 mt-0.5">{formatActivityMeta(log.event_data)}</p>
+                            )}
                             <p className="text-[10px] text-gray-400 mt-0.5">{fmtDateTime(log.created_at)}</p>
                           </div>
                         </div>

@@ -38,7 +38,23 @@ const PAGE_CONTEXTS: Record<string, PageCtx> = {
   },
 }
 
-function getPageCtx(pathname: string): PageCtx {
+const MEMBER_PAGE_STARTERS = [
+  "What stage is he in?",
+  "Send him an email",
+  "Why didn't I get notified?",
+  "Update his admin notes",
+]
+
+const LEAD_PAGE_STARTERS = [
+  "What stage is this lead in?",
+  "Log a call with them",
+  "Set a follow-up for tomorrow",
+  "Move them to qualified",
+]
+
+function getPageCtx(pathname: string, contextType: 'member' | 'lead' | null): PageCtx {
+  if (contextType === 'member') return { label: 'Member Detail', starters: MEMBER_PAGE_STARTERS }
+  if (contextType === 'lead')   return { label: 'Lead Detail',   starters: LEAD_PAGE_STARTERS }
   const exact = PAGE_CONTEXTS[pathname]
   if (exact) return exact
   for (const [key, ctx] of Object.entries(PAGE_CONTEXTS)) {
@@ -66,7 +82,13 @@ export default function AdminAIPanel() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLTextAreaElement>(null)
 
-  const pageCtx = getPageCtx(pathname)
+  // Extract member/lead context from the current URL
+  const memberMatch = pathname.match(/\/admin\/members\/([^/]+)/)
+  const leadMatch   = pathname.match(/\/admin\/crm\/([^/]+)/)
+  const contextId   = memberMatch?.[1] ?? leadMatch?.[1] ?? null
+  const contextType = memberMatch ? 'member' : leadMatch ? 'lead' : null
+
+  const pageCtx = getPageCtx(pathname, contextType)
 
   // Scroll to bottom
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, open])
@@ -91,7 +113,7 @@ export default function AdminAIPanel() {
   useEffect(() => {
     if (!open || !initialized || pathname === prevPathRef.current) return
     prevPathRef.current = pathname
-    const ctx = getPageCtx(pathname)
+    const ctx = getPageCtx(pathname, contextType)
     setMessages(prev => [...prev, {
       id: uuidv4(),
       role: 'assistant',
@@ -119,7 +141,12 @@ export default function AdminAIPanel() {
       const res  = await fetch('/api/admin/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, page_context: { page: pathname, label: pageCtx.label } }),
+        body: JSON.stringify({
+          messages: history,
+          page_context: { page: pathname, label: pageCtx.label },
+          context_id: contextId,
+          context_type: contextType,
+        }),
       })
       const data = await res.json()
       setMessages(prev => [...prev, {

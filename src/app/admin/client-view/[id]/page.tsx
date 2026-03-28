@@ -11,6 +11,27 @@ function formatCurrency(n: number | null | undefined): string {
   return `$${Number(n).toLocaleString()}`
 }
 
+function formatActivityMeta(data: Record<string, unknown>): string {
+  const parts: string[] = []
+  if (data.program) {
+    const p = String(data.program)
+    parts.push(p.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))
+  }
+  if (data.risk_score !== undefined) parts.push(`Risk Score: ${data.risk_score}`)
+  if (data.next_due_at) {
+    const d = new Date(String(data.next_due_at))
+    parts.push(`Next due: ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`)
+  }
+  if (data.changes && typeof data.changes === 'object') {
+    const changed = Object.entries(data.changes as Record<string, unknown>)
+      .filter(([, v]) => v !== null && v !== undefined && v !== '')
+      .map(([k]) => k.replace(/_/g, ' '))
+    if (changed.length) parts.push(changed.slice(0, 2).join(', '))
+  }
+  if (data.approval_likelihood) parts.push(String(data.approval_likelihood).replace(/_/g, ' '))
+  return parts.length ? parts.join(' · ') : ''
+}
+
 function relativeTime(iso: string | null | undefined): string {
   if (!iso) return 'Never'
   const diff = (Date.now() - new Date(iso).getTime()) / 1000
@@ -280,9 +301,9 @@ export default async function AdminClientViewPage({ params }: { params: Promise<
                     <span className="text-xs font-semibold text-gray-700 capitalize">
                       {log.event_type.replace(/_/g, ' ')}
                     </span>
-                    {log.event_data && (
+                    {log.event_data && Object.keys(log.event_data).length > 0 && (
                       <span className="text-xs text-gray-400 ml-2 truncate">
-                        {JSON.stringify(log.event_data).slice(0, 60)}
+                        {formatActivityMeta(log.event_data)}
                       </span>
                     )}
                   </div>

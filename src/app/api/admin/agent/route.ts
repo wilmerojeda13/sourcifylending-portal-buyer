@@ -269,9 +269,71 @@ export async function POST(req: NextRequest) {
   if (!supabase) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ message: 'AI not configured' }, { status: 503 })
 
-  const { messages, page_context } = await req.json() as {
+  const { messages, page_context, context_id, context_type } = await req.json() as {
     messages: { role: string; content: string }[]
     page_context?: { page?: string; label?: string }
+    context_id?: string | null
+    context_type?: 'member' | 'lead' | null
+  }
+
+  // ─── Fetch member/lead page context if present ────────────────────────────
+  let pageContextBlock = ''
+  if (context_id && context_type) {
+    try {
+      if (context_type === 'member') {
+        const { data: m } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, business_name, assigned_program, subscription_status, current_stage, admin_notes, readiness_status, uw_risk_score, uw_approval_likelihood, underwriting_completed_at, underwriting_next_due_at, portal_blocked, created_at')
+          .eq('id', context_id)
+          .single()
+        if (m) {
+          pageContextBlock = `
+=== CURRENT PAGE: Admin is viewing ${m.full_name ?? 'Unknown'} ===
+Type: Member
+ID: ${m.id}
+Email: ${m.email ?? 'N/A'}
+Business: ${m.business_name ?? 'N/A'}
+Program: ${m.assigned_program ?? 'None'}
+Status: ${m.subscription_status ?? 'N/A'}
+Stage: ${m.current_stage ?? 'N/A'}
+Readiness: ${m.readiness_status ?? 'N/A'}
+Risk Score: ${m.uw_risk_score ?? 'N/A'}
+Approval Likelihood: ${m.uw_approval_likelihood ?? 'N/A'}
+Portal Blocked: ${m.portal_blocked ? 'Yes' : 'No'}
+Admin Notes: ${m.admin_notes ?? 'None'}
+Member Since: ${m.created_at ? new Date(m.created_at).toLocaleDateString() : 'N/A'}
+Underwriting Next Due: ${m.underwriting_next_due_at ? new Date(m.underwriting_next_due_at).toLocaleDateString() : 'N/A'}
+===
+`
+        }
+      } else if (context_type === 'lead') {
+        const { data: l } = await supabase
+          .from('crm_leads')
+          .select('id, first_name, last_name, email, phone, business_name, stage, program_interest, notes, follow_up_at, last_contacted_at, do_not_call, created_at')
+          .eq('id', context_id)
+          .single()
+        if (l) {
+          pageContextBlock = `
+=== CURRENT PAGE: Admin is viewing ${l.first_name ?? ''} ${l.last_name ?? ''} ===
+Type: Lead
+ID: ${l.id}
+Email: ${l.email ?? 'N/A'}
+Phone: ${l.phone ?? 'N/A'}
+Business: ${l.business_name ?? 'N/A'}
+Stage: ${l.stage ?? 'N/A'}
+Program Interest: ${l.program_interest ?? 'N/A'}
+Do Not Call: ${l.do_not_call ? 'Yes' : 'No'}
+Follow-up At: ${l.follow_up_at ? new Date(l.follow_up_at).toLocaleDateString() : 'N/A'}
+Last Contacted: ${l.last_contacted_at ? new Date(l.last_contacted_at).toLocaleDateString() : 'N/A'}
+Notes: ${l.notes ?? 'None'}
+Lead Since: ${l.created_at ? new Date(l.created_at).toLocaleDateString() : 'N/A'}
+===
+`
+        }
+      }
+    } catch (err) {
+      console.error('[admin/agent] Failed to fetch page context:', err)
+    }
   }
 
   // ─── Load live context snapshot ───────────────────────────────────────────
@@ -292,7 +354,7 @@ export async function POST(req: NextRequest) {
   const activeCount = members.filter(m => m.subscription_status === 'active' || m.subscription_status === 'trialing').length
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
-  const systemPrompt = `You are Abel's personal Admin AI for SourcifyLending — an agentic assistant with direct access to take actions inside the CRM, member portal, and business data.
+  const systemPrompt = `${pageContextBlock}You are Abel's personal Admin AI for SourcifyLending — an agentic assistant with direct access to take actions inside the CRM, member portal, and business data.
 
 You are NOT just a chatbot. You TAKE ACTION. When Abel asks you to update a lead, move a stage, log a call, filter contacts, or update a member — you DO IT using your tools. Don't ask for confirmation unless the action is irreversible (like bulk DNC). Just act and report what you did.
 
