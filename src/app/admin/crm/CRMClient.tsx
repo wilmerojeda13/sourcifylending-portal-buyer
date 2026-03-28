@@ -6,7 +6,7 @@ import {
   Plus, Search, Phone, Building2, Calendar, ChevronLeft, ChevronRight,
   X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
   CheckCircle2, XCircle, Upload, Zap, Filter, RefreshCw,
-  LayoutList, Columns,
+  LayoutList, Columns, Trash2, Bot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -50,6 +50,8 @@ const PROGRAM_BADGE: Record<string, string> = {
   program_c: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
 }
 const PROGRAM_LABEL: Record<string, string> = { program_a: 'Prog A', program_b: 'Prog B', program_c: 'Prog C' }
+
+const BOARD_CAP = 40
 
 function stageInfo(key: Stage) { return STAGES.find(s => s.key === key) ?? STAGES[0] }
 function isPastDue(iso: string | null) { return !!iso && new Date(iso) < new Date() }
@@ -118,6 +120,112 @@ function NewLeadModal({ onClose, onCreated }: { onClose:()=>void; onCreated:(l:C
   )
 }
 
+// ─── Cleanup Modal ────────────────────────────────────────────────────────────
+function CleanupModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [running, setRunning] = useState<string | null>(null)
+
+  async function runAction(action: string, filter?: string) {
+    if (action === 'delete_archived') {
+      const ok = window.confirm('Permanently delete ALL archived leads? This cannot be undone.')
+      if (!ok) return
+    }
+    setRunning(action + (filter ?? ''))
+    try {
+      const body: Record<string, string> = { action }
+      if (filter) body.filter = filter
+      const res = await fetch('/api/admin/crm/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(`${json.count} ${json.message}`)
+        onDone()
+      } else {
+        toast.error(json.error ?? 'Failed')
+      }
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setRunning(null)
+    }
+  }
+
+  const actions = [
+    {
+      id: 'archive_closed_lost',
+      label: 'Archive Closed Lost',
+      desc: 'leads marked closed_lost',
+      action: 'archive',
+      filter: 'closed_lost',
+      red: false,
+    },
+    {
+      id: 'archive_dnc',
+      label: 'Archive DNC Leads',
+      desc: 'do not call leads',
+      action: 'archive',
+      filter: 'dnc',
+      red: false,
+    },
+    {
+      id: 'delete_archived',
+      label: 'Delete Archived',
+      desc: 'permanently remove all archived leads',
+      action: 'delete_archived',
+      filter: undefined,
+      red: true,
+    },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <div>
+            <h2 className="font-bold text-gray-900 dark:text-white">Quick Lead Cleanup</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Archive leads you no longer need to contact</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
+            <X size={16}/>
+          </button>
+        </div>
+        <div className="p-5 space-y-3">
+          {actions.map(a => {
+            const isRunning = running === a.action + (a.filter ?? '')
+            return (
+              <button
+                key={a.id}
+                onClick={() => runAction(a.action, a.filter)}
+                disabled={!!running}
+                className={cn(
+                  'w-full flex items-center justify-between px-4 py-3.5 rounded-xl border transition-colors text-left disabled:opacity-60',
+                  a.red
+                    ? 'border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950 text-red-600 dark:text-red-400'
+                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-200'
+                )}
+              >
+                <div>
+                  <p className="font-semibold text-sm">{a.label}</p>
+                  <p className={cn('text-xs mt-0.5', a.red ? 'text-red-400' : 'text-gray-400')}>{a.desc}</p>
+                </div>
+                {isRunning && <Loader2 size={16} className="animate-spin shrink-0"/>}
+              </button>
+            )
+          })}
+        </div>
+        <div className="px-5 pb-5">
+          <p className="text-xs text-gray-400 text-center">Archived leads are hidden from the CRM but not deleted unless you choose Delete Archived.</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Lead Card (mobile-first) ─────────────────────────────────────────────────
 function LeadCard({ lead }: { lead: CRMLead }) {
   const stage = stageInfo(lead.stage)
@@ -168,8 +276,13 @@ export default function CRMClient() {
   const [search, setSearch]         = useState('')
   const [stageFilter, setStageFilter] = useState('')
   const [showNew, setShowNew]       = useState(false)
+  const [showCleanup, setShowCleanup] = useState(false)
   const [syncing, setSyncing]       = useState(false)
   const [view, setView]             = useState<'list' | 'board'>('list')
+  const [listPage, setListPage]     = useState(1)
+
+  // Reset list page whenever leads change
+  useEffect(() => setListPage(1), [leads])
 
   async function syncNotion() {
     setSyncing(true)
@@ -225,6 +338,10 @@ export default function CRMClient() {
   const wonCount  = leads.filter(l => l.stage === 'closed_won').length
   const inPipeline = leads.filter(l => !['closed_won','closed_lost'].includes(l.stage)).length
 
+  // Paginated list
+  const visibleLeads = leads.slice(0, listPage * 100)
+  const hasMore = leads.length > listPage * 100
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* ── Header ── */}
@@ -239,6 +356,19 @@ export default function CRMClient() {
               <p className="text-xs text-gray-500">{total.toLocaleString()} leads</p>
             </div>
             <div className="flex items-center gap-2">
+              <Link
+                href="/admin/crm/campaign"
+                target="_blank"
+                className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5"
+              >
+                <Bot size={13}/> AI Campaign
+              </Link>
+              <button
+                onClick={() => setShowCleanup(true)}
+                className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5"
+              >
+                <Trash2 size={13}/> Cleanup
+              </button>
               <Link href="/admin/crm/import" className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5">
                 <Upload size={13}/> Import
               </Link>
@@ -360,7 +490,15 @@ export default function CRMClient() {
             </div>
           ) : view === 'list' ? (
             <div className="space-y-2.5">
-              {leads.map(lead => <LeadCard key={lead.id} lead={lead}/>)}
+              {visibleLeads.map(lead => <LeadCard key={lead.id} lead={lead}/>)}
+              {hasMore && (
+                <button
+                  onClick={() => setListPage(p => p + 1)}
+                  className="w-full py-3 text-sm text-gray-500 hover:text-green-600 font-medium border border-gray-200 dark:border-gray-700 rounded-2xl mt-2 transition-colors"
+                >
+                  Load {Math.min(100, leads.length - listPage * 100).toLocaleString()} more · Showing {Math.min(listPage * 100, leads.length).toLocaleString()} of {leads.length.toLocaleString()}
+                </button>
+              )}
             </div>
           ) : (
             /* ── Board view ── */
@@ -370,6 +508,7 @@ export default function CRMClient() {
             >
               {STAGES.map(stage => {
                 const stageLeads = leads.filter(l => l.stage === stage.key)
+                const visibleStageLeads = stageLeads.slice(0, BOARD_CAP)
                 const Icon = stage.icon
                 return (
                   <div key={stage.key} className="flex-shrink-0 w-64 flex flex-col h-full">
@@ -385,7 +524,7 @@ export default function CRMClient() {
                         <div className="text-center py-6 text-gray-400 text-xs border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
                           No leads
                         </div>
-                      ) : stageLeads.map(lead => (
+                      ) : visibleStageLeads.map(lead => (
                         <Link
                           key={lead.id}
                           href={`/admin/crm/${lead.id}`}
@@ -418,6 +557,14 @@ export default function CRMClient() {
                           )}
                         </Link>
                       ))}
+                      {stageLeads.length > BOARD_CAP && (
+                        <Link
+                          href={`/admin/crm?stage=${stage.key}`}
+                          className="text-[10px] text-center text-gray-500 hover:text-green-500 py-1.5 transition-colors"
+                        >
+                          +{(stageLeads.length - BOARD_CAP).toLocaleString()} more — view all →
+                        </Link>
+                      )}
                     </div>
                   </div>
                 )
@@ -462,6 +609,9 @@ export default function CRMClient() {
             <button onClick={()=>setShowNew(true)} className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 py-1.5 transition-colors w-full text-left">
               <Plus size={15} className="text-gray-400"/> Add Lead Manually
             </button>
+            <button onClick={()=>setShowCleanup(true)} className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 py-1.5 transition-colors w-full text-left">
+              <Trash2 size={15} className="text-gray-400"/> Cleanup Leads
+            </button>
           </div>
         </div>
       </div>
@@ -480,6 +630,7 @@ export default function CRMClient() {
       </div>
 
       {showNew && <NewLeadModal onClose={()=>setShowNew(false)} onCreated={handleCreated}/>}
+      {showCleanup && <CleanupModal onClose={()=>setShowCleanup(false)} onDone={() => { setShowCleanup(false); load() }}/>}
     </div>
   )
 }
