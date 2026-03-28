@@ -227,45 +227,44 @@ function CleanupModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
   )
 }
 
-// ─── Lead Card (mobile-first) ─────────────────────────────────────────────────
+// ─── Lead Row (compact) ───────────────────────────────────────────────────────
 function LeadCard({ lead }: { lead: CRMLead }) {
   const stage = stageInfo(lead.stage)
   const pastDue = isPastDue(lead.follow_up_at)
   return (
-    <Link href={`/admin/crm/${lead.id}`} className="block bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 active:scale-[0.99] transition-all hover:shadow-md hover:border-green-200 dark:hover:border-green-700 group">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className={cn('w-2 h-2 rounded-full shrink-0', stage.dot)}/>
-            <p className="font-semibold text-sm text-gray-900 truncate">{lead.first_name} {lead.last_name}</p>
-          </div>
-          {lead.business_name && (
-            <p className="text-xs text-gray-500 flex items-center gap-1 mb-1 ml-4">
-              <Building2 size={10}/> {lead.business_name}
-            </p>
-          )}
-          <a
-            href={`tel:${lead.phone}`}
-            onClick={e => e.stopPropagation()}
-            className="text-sm font-medium text-green-600 flex items-center gap-1.5 ml-4 hover:text-green-700"
-          >
-            <Phone size={13}/> {lead.phone}
-          </a>
-        </div>
-        <ChevronRight size={16} className="text-gray-300 group-hover:text-green-500 shrink-0 mt-1 transition-colors"/>
-      </div>
-      <div className="flex items-center gap-1.5 flex-wrap mt-3">
-        <span className={cn('badge text-[10px] px-2 py-0.5', stage.color)}>{stage.label}</span>
-        {lead.program_interest && (
-          <span className={cn('badge text-[10px] px-2 py-0.5', PROGRAM_BADGE[lead.program_interest])}>{PROGRAM_LABEL[lead.program_interest]}</span>
+    <Link
+      href={`/admin/crm/${lead.id}`}
+      className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/30 dark:hover:bg-green-950/20 transition-colors group"
+    >
+      <span className={cn('w-2 h-2 rounded-full shrink-0', stage.dot)}/>
+      <div className="min-w-0 flex-1 flex items-center gap-3">
+        <p className="font-medium text-sm text-gray-900 dark:text-white truncate w-36 shrink-0">
+          {lead.first_name} {lead.last_name}
+        </p>
+        {lead.business_name && (
+          <p className="text-xs text-gray-400 truncate hidden sm:block flex-1">{lead.business_name}</p>
         )}
-        {lead.follow_up_at && (
-          <span className={cn('badge text-[10px] px-2 py-0.5 flex items-center gap-1', pastDue ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600')}>
-            <Calendar size={9}/> {formatDate(lead.follow_up_at)}{pastDue && ' ⚠'}
+      </div>
+      <a
+        href={`tel:${lead.phone}`}
+        onClick={e => e.stopPropagation()}
+        className="text-xs text-green-600 dark:text-green-400 shrink-0 hidden md:block hover:underline"
+      >
+        {lead.phone}
+      </a>
+      <div className="flex items-center gap-1 shrink-0">
+        <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', stage.color)}>{stage.label}</span>
+        {lead.program_interest && (
+          <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium hidden sm:inline', PROGRAM_BADGE[lead.program_interest])}>
+            {PROGRAM_LABEL[lead.program_interest]}
           </span>
         )}
-        {lead.do_not_call && <span className="badge text-[10px] px-2 py-0.5 bg-red-100 text-red-600">DNC</span>}
+        {pastDue && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium hidden sm:inline">Due</span>
+        )}
+        {lead.do_not_call && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">DNC</span>}
       </div>
+      <ChevronRight size={14} className="text-gray-300 group-hover:text-green-500 shrink-0 transition-colors"/>
     </Link>
   )
 }
@@ -344,9 +343,9 @@ export default function CRMClient() {
   const activeCount = leads.filter(l => l.stage === 'active_client').length
   const inPipeline = leads.filter(l => !['closed_won','closed_lost','active_client'].includes(l.stage)).length
 
-  // Paginated list
-  const visibleLeads = leads.slice(0, listPage * 100)
-  const hasMore = leads.length > listPage * 100
+  // Paginated list — 50 at a time
+  const visibleLeads = leads.slice(0, listPage * 50)
+  const hasMore = leads.length > listPage * 50
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -497,14 +496,14 @@ export default function CRMClient() {
               <p className="text-sm">{search || stageFilter ? 'No leads match your filters.' : 'No leads yet. Click + Add Lead to get started.'}</p>
             </div>
           ) : view === 'list' ? (
-            <div className="space-y-2.5">
+            <div className="space-y-1">
               {visibleLeads.map(lead => <LeadCard key={lead.id} lead={lead}/>)}
               {hasMore && (
                 <button
                   onClick={() => setListPage(p => p + 1)}
-                  className="w-full py-3 text-sm text-gray-500 hover:text-green-600 font-medium border border-gray-200 dark:border-gray-700 rounded-2xl mt-2 transition-colors"
+                  className="w-full py-2.5 text-sm text-gray-500 hover:text-green-600 font-medium border border-gray-200 dark:border-gray-700 rounded-xl mt-2 transition-colors"
                 >
-                  Load {Math.min(100, leads.length - listPage * 100).toLocaleString()} more · Showing {Math.min(listPage * 100, leads.length).toLocaleString()} of {leads.length.toLocaleString()}
+                  Next 50 · Showing {Math.min(listPage * 50, leads.length).toLocaleString()} of {leads.length.toLocaleString()}
                 </button>
               )}
             </div>
