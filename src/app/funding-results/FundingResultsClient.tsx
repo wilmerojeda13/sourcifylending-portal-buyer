@@ -82,10 +82,10 @@ const PROGRAM_LABELS: Record<string, string> = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  'Approved': 'bg-green-100 text-green-700',
-  'Declined': 'bg-red-100 text-red-700',
-  'Pending':  'bg-amber-100 text-amber-700',
-  'Closed':   'bg-gray-100 text-gray-500',
+  'Approved': 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400',
+  'Declined': 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400',
+  'Pending':  'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400',
+  'Closed':   'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',
 }
 
 function effectiveAmount(o: Outcome): number {
@@ -206,9 +206,9 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
         <div>
           <div className="flex items-center gap-2 mb-1">
             <TrendingUp size={20} className="text-green-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Funding Results</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Funding Results</h1>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Track every approval and decline.
             {assignedProgram && (
               <span className="ml-1 text-green-600 font-medium">{PROGRAM_LABELS[assignedProgram]}</span>
@@ -236,46 +236,46 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
 
       {/* Metrics grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <p className="text-xs text-gray-500 flex items-center gap-1"><ThumbsUp size={11} /> Total Approvals</p>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm px-4 py-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><ThumbsUp size={11} /> Total Approvals</p>
           <p className="text-2xl font-bold text-green-700 mt-1">{approvedOnly.length}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <p className="text-xs text-gray-500 flex items-center gap-1"><ThumbsDown size={11} /> Total Declines</p>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm px-4 py-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><ThumbsDown size={11} /> Total Declines</p>
           <p className="text-2xl font-bold text-red-600 mt-1">{declinedOnly.length}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <p className="text-xs text-gray-500 flex items-center gap-1"><BarChart2 size={11} /> Approval Rate</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm px-4 py-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><BarChart2 size={11} /> Approval Rate</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
             {approvalRate !== null ? `${approvalRate}%` : '—'}
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
-          <p className="text-xs text-gray-500 flex items-center gap-1"><DollarSign size={11} /> Largest Approval</p>
-          <p className="text-lg font-bold text-gray-900 mt-1">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm px-4 py-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1"><DollarSign size={11} /> Largest Approval</p>
+          <p className="text-lg font-bold text-gray-900 dark:text-white mt-1">
             {largestApproval ? formatMoney(effectiveAmount(largestApproval)) : '—'}
           </p>
-          {largestApproval && <p className="text-xs text-gray-400 truncate">{largestApproval.issuer_name}</p>}
+          {largestApproval && <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{largestApproval.issuer_name}</p>}
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 col-span-2 sm:col-span-1">
-          <p className="text-xs text-gray-500">Most Recent</p>
-          <p className="text-sm font-bold text-gray-900 mt-1 truncate">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm px-4 py-3 col-span-2 sm:col-span-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Most Recent</p>
+          <p className="text-sm font-bold text-gray-900 dark:text-white mt-1 truncate">
             {mostRecent ? mostRecent.issuer_name : '—'}
           </p>
           {mostRecent && (
-            <p className="text-xs text-gray-400">{formatMoney(effectiveAmount(mostRecent))} · {mostRecent.approval_date}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">{formatMoney(effectiveAmount(mostRecent))} · {mostRecent.approval_date}</p>
           )}
         </div>
       </div>
 
       {/* Log Funding Outcome form */}
       {showForm && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">Log Funding Outcome</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Log Funding Outcome</h2>
             <button
               onClick={() => { setShowForm(false); setForm({ ...EMPTY_FORM }); setFormError(null) }}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
             >
               <XCircle size={18} />
             </button>
@@ -285,17 +285,17 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
 
             {/* Program — locked if single program, selectable otherwise */}
             <div className={assignedProgram ? '' : 'sm:col-span-2'}>
-              <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">Program</label>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">Program</label>
               {assignedProgram ? (
-                <div className="w-full px-3 py-2.5 text-sm border border-gray-100 rounded-xl bg-gray-50 text-gray-600">
+                <div className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                   {PROGRAM_LABELS[assignedProgram] ?? assignedProgram}
-                  <span className="ml-2 text-[10px] text-gray-400">(auto)</span>
+                  <span className="ml-2 text-[10px] text-gray-400 dark:text-gray-500">(auto)</span>
                 </div>
               ) : (
                 <select
                   value={form.program_type}
                   onChange={e => { setField('program_type', e.target.value); setField('approval_type', '') }}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Select program…</option>
                   <option value="Program A">Program A — 0% Intro APR</option>
@@ -307,13 +307,13 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
 
             {/* Outcome type — filtered by program */}
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
                 Outcome Type <span className="text-red-400">*</span>
               </label>
               <select
                 value={form.approval_type}
                 onChange={e => setField('approval_type', e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">Select type…</option>
                 {outcomeTypes.map(t => <option key={t}>{t}</option>)}
@@ -322,52 +322,52 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
 
             {/* Issuer */}
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
                 {assignedProgram === 'program_b' ? 'Vendor / Issuer' : 'Issuer / Bank'} <span className="text-red-400">*</span>
               </label>
               <input
                 value={form.issuer_name}
                 onChange={e => setField('issuer_name', e.target.value)}
                 placeholder={assignedProgram === 'program_b' ? 'e.g. Uline' : 'e.g. Chase'}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               />
             </div>
 
             {/* Account name */}
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">Account / Product Name</label>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">Account / Product Name</label>
               <input
                 value={form.account_name}
                 onChange={e => setField('account_name', e.target.value)}
                 placeholder="e.g. Chase Ink Business"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               />
             </div>
 
             {/* Date */}
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
                 Date <span className="text-red-400">*</span>
               </label>
               <input
                 type="date"
                 value={form.approval_date}
                 onChange={e => setField('approval_date', e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               />
             </div>
 
             {/* Credit limit — credit account types only */}
             {isCreditType && (
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">Credit Limit</label>
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">Credit Limit</label>
                 <input
                   type="number"
                   value={form.approved_limit}
                   onChange={e => setField('approved_limit', e.target.value)}
                   placeholder="e.g. 20000"
                   min="0"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
                 />
               </div>
             )}
@@ -375,27 +375,27 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
             {/* Funded amount — Program A / non-B only */}
             {assignedProgram !== 'program_b' && (
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">Funded Amount</label>
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">Funded Amount</label>
                 <input
                   type="number"
                   value={form.approved_amount}
                   onChange={e => setField('approved_amount', e.target.value)}
                   placeholder="e.g. 50000"
                   min="0"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
                 />
               </div>
             )}
 
             {/* Decline reason */}
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
                 Decline Reason <span className="text-gray-300 font-normal normal-case">(required if declining)</span>
               </label>
               <select
                 value={form.decline_reason}
                 onChange={e => setField('decline_reason', e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">— Select if declined —</option>
                 {DECLINE_REASONS.map(r => <option key={r} value={r.toLowerCase()}>{r}</option>)}
@@ -419,20 +419,20 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
 
             {/* Notes */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">Notes</label>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">Notes</label>
               <input
                 value={form.notes}
                 onChange={e => setField('notes', e.target.value)}
                 placeholder="Optional notes…"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
               />
             </div>
 
             {/* Error */}
             {formError && (
-              <div className="sm:col-span-2 flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+              <div className="sm:col-span-2 flex items-center gap-2 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-xl px-3 py-2">
                 <XCircle size={13} className="text-red-500" />
-                <p className="text-xs text-red-700">{formError}</p>
+                <p className="text-xs text-red-700 dark:text-red-400">{formError}</p>
               </div>
             )}
 
@@ -442,7 +442,7 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
                 type="button"
                 onClick={() => submit('Declined')}
                 disabled={submitting}
-                className="flex items-center justify-center gap-2 border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50 text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+                className="flex items-center justify-center gap-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
               >
                 {submitting ? <Loader2 size={14} className="animate-spin" /> : <ThumbsDown size={14} />}
                 Log Decline
@@ -462,62 +462,62 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
       )}
 
       {/* Outcome History Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">Outcome History</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Outcome History</h2>
           {outcomes.length > 0 && (
-            <span className="text-xs text-gray-400">{outcomes.length} record{outcomes.length !== 1 ? 's' : ''}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{outcomes.length} record{outcomes.length !== 1 ? 's' : ''}</span>
           )}
         </div>
 
         {outcomes.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <DollarSign size={28} className="text-gray-200 mx-auto mb-3" />
-            <p className="text-sm font-medium text-gray-500">No outcomes logged yet</p>
-            <p className="text-xs text-gray-400 mt-1">Click &quot;Log Funding Outcome&quot; to record your first result.</p>
+            <DollarSign size={28} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No outcomes logged yet</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Click &quot;Log Funding Outcome&quot; to record your first result.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-50">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Issuer</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Account</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Type</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                <tr className="border-b border-gray-50 dark:border-gray-700">
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Date</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Issuer</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">Account</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">Type</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Amount</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
                   <th className="px-4 py-3 w-10"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                 {outcomes.map(o => (
-                  <tr key={o.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-3 text-gray-600 text-xs whitespace-nowrap">{o.approval_date}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
+                  <tr key={o.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <td className="px-6 py-3 text-gray-600 dark:text-gray-400 text-xs whitespace-nowrap">{o.approval_date}</td>
+                    <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white whitespace-nowrap">
                       {o.issuer_name}
                       {o.mark_for_reattempt && (
-                        <span className="ml-1.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                        <span className="ml-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">
                           Reattempt
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">{o.account_name || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs hidden md:table-cell">
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs hidden sm:table-cell">{o.account_name || '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs hidden md:table-cell">
                       {o.approval_type}
                       {o.decline_reason && (
                         <span className="block text-[10px] text-red-400 capitalize">{o.decline_reason}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-gray-900 whitespace-nowrap">
+                    <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white whitespace-nowrap">
                       {o.status === 'Approved' && effectiveAmount(o) > 0 ? (
-                        <span className="text-green-700">{formatMoney(effectiveAmount(o))}</span>
+                        <span className="text-green-600 dark:text-green-400">{formatMoney(effectiveAmount(o))}</span>
                       ) : o.status === 'Declined' ? (
                         <span className="text-red-400 text-xs">Declined</span>
                       ) : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[o.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[o.status] ?? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
                         {o.status === 'Approved' && <><CheckCircle2 size={9} /><ArrowUpRight size={9} /></>}
                         {o.status}
                       </span>
@@ -526,7 +526,7 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
                       <button
                         onClick={() => handleDelete(o.id)}
                         disabled={deleting === o.id}
-                        className="p-1 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-50"
+                        className="p-1 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-50"
                       >
                         {deleting === o.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                       </button>
@@ -541,27 +541,27 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
 
       {/* Approval timeline */}
       {approvedOnly.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-50">
-            <h2 className="text-sm font-semibold text-gray-900">Approval Timeline</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Approval Timeline</h2>
           </div>
           <div className="p-6">
             <div className="relative">
-              <div className="absolute left-3.5 top-0 bottom-0 w-0.5 bg-green-100" />
+              <div className="absolute left-3.5 top-0 bottom-0 w-0.5 bg-green-100 dark:bg-green-900/40" />
               <div className="space-y-4">
                 {[...approvedOnly].reverse().map((o, i) => (
                   <div key={o.id} className="flex gap-4 relative">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 z-10 ${i === approvedOnly.length - 1 ? 'bg-green-600' : 'bg-green-100'}`}>
-                      <DollarSign size={13} className={i === approvedOnly.length - 1 ? 'text-white' : 'text-green-600'} />
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 z-10 ${i === approvedOnly.length - 1 ? 'bg-green-600' : 'bg-green-100 dark:bg-green-900/40'}`}>
+                      <DollarSign size={13} className={i === approvedOnly.length - 1 ? 'text-white' : 'text-green-600 dark:text-green-400'} />
                     </div>
                     <div className="flex-1 pb-1">
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
                         {o.issuer_name}{o.account_name ? ` — ${o.account_name}` : ''}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-xs text-green-700 font-bold">{formatMoney(effectiveAmount(o))}</span>
-                        <span className="text-xs text-gray-400">{o.approval_date}</span>
-                        <span className="text-xs text-gray-400">{o.approval_type}</span>
+                        <span className="text-xs text-green-700 dark:text-green-400 font-bold">{formatMoney(effectiveAmount(o))}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{o.approval_date}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{o.approval_type}</span>
                       </div>
                     </div>
                   </div>
@@ -572,7 +572,7 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
         </div>
       )}
 
-      <p className="text-xs text-gray-400 leading-relaxed">
+      <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
         Approval totals reflect results logged in the portal and may include products approved by third-party issuers or vendors. SourcifyLending does not guarantee approvals, limits, or funding.
       </p>
     </div>
