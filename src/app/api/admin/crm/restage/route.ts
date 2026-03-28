@@ -30,15 +30,18 @@ export async function POST(req: NextRequest) {
 
   if (!allLeads) return NextResponse.json({ error: 'Failed to fetch leads' }, { status: 500 })
 
-  // Build indexes: normalized phone → lead, lowercase email → lead
+  // Build indexes: phone, email, and full name
   const phoneIndex = new Map<string, typeof allLeads[number]>()
   const emailIndex = new Map<string, typeof allLeads[number]>()
+  const nameIndex  = new Map<string, typeof allLeads[number]>()
 
   for (const lead of allLeads) {
     const phone = normalizePhone(lead.phone ?? '')
     if (phone) phoneIndex.set(phone, lead)
     const email = (lead.email ?? '').toLowerCase().trim()
     if (email) emailIndex.set(email, lead)
+    const fullName = `${lead.first_name ?? ''} ${lead.last_name ?? ''}`.toLowerCase().trim().replace(/\s+/g, ' ')
+    if (fullName) nameIndex.set(fullName, lead)
   }
 
   type Result = {
@@ -48,14 +51,16 @@ export async function POST(req: NextRequest) {
   const results: Result[] = []
 
   for (const item of incoming) {
-    // Try phone first, then email
     const normalizedPhone = normalizePhone(item.phone)
     const normalizedEmail = (item.email ?? '').toLowerCase().trim()
+    // first_name field in client holds full display name e.g. "Billy Berringer"
+    const normalizedName  = (item.first_name ?? '').toLowerCase().trim().replace(/\s+/g, ' ')
 
     const matchByPhone = phoneIndex.get(normalizedPhone)
     const matchByEmail = normalizedEmail ? emailIndex.get(normalizedEmail) : undefined
-    const match = matchByPhone ?? matchByEmail
-    const matchBy = matchByPhone ? 'phone' : matchByEmail ? 'email' : undefined
+    const matchByName  = normalizedName  ? nameIndex.get(normalizedName)   : undefined
+    const match = matchByPhone ?? matchByEmail ?? matchByName
+    const matchBy = matchByPhone ? 'phone' : matchByEmail ? 'email' : matchByName ? 'name' : undefined
 
     if (!match) {
       results.push({ phone: item.phone, email: item.email, first_name: item.first_name, stage: item.stage, status: 'not_found' })
