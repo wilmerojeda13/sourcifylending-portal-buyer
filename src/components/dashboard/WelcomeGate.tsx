@@ -76,7 +76,7 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-gray-950/90 backdrop-blur-sm overflow-y-auto py-8 px-4">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl my-auto">
+      <div className="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl my-auto">
 
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-t-2xl px-8 py-6 text-white">
@@ -92,22 +92,22 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
         <div className="px-8 py-6 space-y-6">
 
           {/* Welcome message */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <p className="text-blue-900 text-sm font-medium">
+          <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
+            <p className="text-blue-900 dark:text-blue-100 text-sm font-medium">
               Welcome, {userName.split(' ')[0]}! One quick step before you get started.
             </p>
-            <p className="text-blue-700 text-sm mt-1">
+            <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
               Review the agreement below, type your full name as your electronic signature, and you&apos;ll have immediate access to your portal.
             </p>
           </div>
 
           {/* Agreement text */}
           <div>
-            <h2 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
               <Lock className="h-4 w-4" /> Service Agreement
             </h2>
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 h-56 overflow-y-auto">
-              <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">
+            <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 h-56 overflow-y-auto">
+              <pre className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
                 {SERVICE_AGREEMENT_TEXT}
               </pre>
             </div>
@@ -120,9 +120,9 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
                 type="checkbox"
                 checked={noRefundChecked}
                 onChange={e => setNoRefundChecked(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 cursor-pointer"
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 cursor-pointer bg-white dark:bg-gray-700"
               />
-              <span className="text-sm text-gray-700 group-hover:text-gray-900">
+              <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white">
                 <strong>I understand all payments are non-refundable</strong> once portal access is granted. Service delivery begins immediately upon activation.
               </span>
             </label>
@@ -132,9 +132,9 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
                 type="checkbox"
                 checked={disputeChecked}
                 onChange={e => setDisputeChecked(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 cursor-pointer"
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 cursor-pointer bg-white dark:bg-gray-700"
               />
-              <span className="text-sm text-gray-700 group-hover:text-gray-900">
+              <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white">
                 <strong>I agree to contact SourcifyLending first</strong> at support@sourcifylending.com before initiating any dispute with my card issuer, allowing 5 business days to resolve.
               </span>
             </label>
@@ -142,7 +142,7 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
 
           {/* Electronic signature */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
               Electronic Signature — Type Your Full Legal Name
             </label>
             <input
@@ -150,17 +150,17 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
               value={signedName}
               onChange={e => setSignedName(e.target.value)}
               placeholder="Your Full Name"
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-900 font-medium text-lg tracking-wide focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400 placeholder:font-normal placeholder:text-base placeholder:tracking-normal"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-gray-900 dark:text-white bg-white dark:bg-gray-800 font-medium text-lg tracking-wide focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500 placeholder:font-normal placeholder:text-base placeholder:tracking-normal"
               style={{ fontFamily: 'Georgia, serif' }}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Typing your name constitutes a legally binding electronic signature (ESIGN Act).
             </p>
           </div>
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-xl px-4 py-3">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               <span className="text-sm">{error}</span>
             </div>
@@ -173,7 +173,7 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
             className={`w-full py-4 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 transition-all
               ${canSubmit
                 ? 'bg-blue-700 hover:bg-blue-800 shadow-lg hover:shadow-xl'
-                : 'bg-gray-300 cursor-not-allowed'
+                : 'bg-gray-300 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
               }`}
           >
             {loading ? (
@@ -189,7 +189,7 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
             )}
           </button>
 
-          <p className="text-center text-xs text-gray-400">
+          <p className="text-center text-xs text-gray-400 dark:text-gray-500">
             Agreement version {AGREEMENT_VERSION} · Signed agreement stored securely with timestamp and IP address
           </p>
         </div>
