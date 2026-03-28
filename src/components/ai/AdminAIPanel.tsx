@@ -16,29 +16,137 @@ const PAGE_CONTEXTS: Record<string, PageCtx> = {
     label: 'Admin Hub',
     starters: ['How is the pipeline doing?', 'Who needs follow-up today?', 'Show me a revenue summary', 'Any members at risk?'],
   },
-  '/admin/crm': {
-    label: 'CRM',
-    starters: ['Who should I call next?', 'How many leads are in each stage?', 'Who has a follow-up due today?', 'Which leads are unresponsive?'],
-  },
-  '/admin/crm/dialer': {
-    label: 'Dialer',
-    starters: ['Give me a quick talk track', 'How do I handle objections?', 'What should I say on voicemail?'],
+  '/admin/activity': {
+    label: 'Activity Log',
+    starters: ['What happened today?', 'Show me recent admin actions', 'Any unusual activity?', 'Who was most active this week?'],
   },
   '/admin/members': {
     label: 'Members',
     starters: ['How many active members do we have?', 'Who signed up recently?', 'Any billing issues?', 'Show program breakdown'],
   },
-  '/admin/client-view': {
-    label: 'Member Detail',
-    starters: ["What stage is he in?", "Why didn't I get notified?", "Update his admin notes", "What's his risk score?"],
+  '/admin/operations': {
+    label: 'Operations',
+    starters: ['Who needs follow-up?', 'Show overdue tasks', "What's the team workload?", 'Any clients at risk?'],
+  },
+  '/admin/support': {
+    label: 'Support Tickets',
+    starters: ['Any open tickets?', 'Show me unanswered messages', "What's the average response time?", 'Reply to the oldest ticket'],
+  },
+  '/admin/crm': {
+    label: 'CRM',
+    starters: ['Who should I call next?', 'How many leads are in each stage?', 'Who has a follow-up due today?', 'Which leads are unresponsive?'],
+  },
+  '/admin/crm/dialer': {
+    label: 'Dialer Mode',
+    starters: ['Give me a quick talk track', 'How do I handle objections?', 'What should I say on voicemail?', 'Who am I calling today?'],
+  },
+  '/admin/crm/import': {
+    label: 'CSV Import',
+    starters: ['How many leads have I imported?', 'What format does the CSV need to be?', 'Check for duplicate imports', 'Show import history'],
+  },
+  '/admin/crm/campaign': {
+    label: 'AI Campaign',
+    starters: ['How is the current campaign doing?', 'How many leads were contacted?', 'Any bounce-backs or errors?', 'Start a new campaign'],
+  },
+  '/admin/revenue': {
+    label: 'Revenue & Billing',
+    starters: ["What's our MRR?", 'Any failed payments?', 'Show revenue this month', "Who hasn't paid?"],
+  },
+  '/admin/training': {
+    label: 'Video Training',
+    starters: ['What videos are uploaded?', 'Help me write a video title', 'What topics should I add?', 'How many members have watched?'],
   },
   '/admin/voice': {
-    label: 'Voice Campaigns',
-    starters: ['How are my campaigns performing?', 'When should I run the next campaign?', 'Which leads responded?'],
+    label: 'Voice AI',
+    starters: ['How are my campaigns performing?', 'Show recent call outcomes', 'Any failed calls?', "What's my answer rate?"],
   },
-  '/admin/billing': {
-    label: 'Billing',
-    starters: ["What's our MRR?", 'Any failed payments?', 'Who is past due?'],
+  '/admin/voice/campaigns': {
+    label: 'Voice Campaigns',
+    starters: ['Show all campaigns', 'Which campaigns are active?', 'How many calls were made today?', 'Pause a campaign'],
+  },
+  '/admin/voice/campaigns/new': {
+    label: 'New Campaign',
+    starters: ['What should I name this campaign?', 'How many leads should I add?', 'What script works best?', 'When should I schedule this?'],
+  },
+  '/admin/voice/analytics': {
+    label: 'Voice Analytics',
+    starters: ['What is my connect rate?', 'Show best calling hours', 'Which campaign performed best?', 'What dispositions are most common?'],
+  },
+  '/admin/voice/logs': {
+    label: 'Call Logs',
+    starters: ['Show recent calls', 'How many connected today?', 'Show failed calls', 'Any DNC requests?'],
+  },
+  '/admin/voice/leads': {
+    label: 'Voice Leads',
+    starters: ['How many leads are loaded?', 'Show uncontacted leads', 'Any leads with bad numbers?', 'Import more leads'],
+  },
+  '/admin/voice/live': {
+    label: 'Live Calls',
+    starters: ['How many calls are active right now?', 'Show live call status', 'Any calls in progress?', 'Stop all calls'],
+  },
+  '/admin/voice/settings': {
+    label: 'Voice Settings',
+    starters: ['What is my caller ID set to?', 'Check my Bland AI config', 'Update my voicemail drop', 'Show current settings'],
+  },
+  '/admin/voice/templates': {
+    label: 'Voice Templates',
+    starters: ['Show all templates', 'Help me write a new script', 'Which template converts best?', 'Create a follow-up template'],
+  },
+  '/admin/voice/suppression': {
+    label: 'Suppression List',
+    starters: ['How many numbers are suppressed?', 'Add a number to DNC', 'Show recent suppressions', 'Export suppression list'],
+  },
+  '/admin/affiliates': {
+    label: 'Affiliates',
+    starters: ['How many active affiliates?', 'Who has pending commissions?', 'Show top performers', 'Any flagged affiliates?'],
+  },
+  '/admin/affiliates/applications': {
+    label: 'Affiliate Applications',
+    starters: ['Any new applications?', 'Show pending approvals', 'How many applied this week?', 'Approve or reject an application'],
+  },
+  '/admin/affiliates/commissions': {
+    label: 'Commissions',
+    starters: ['What commissions are pending?', 'Show this month totals', 'Who earned the most?', 'Any disputed commissions?'],
+  },
+  '/admin/affiliates/payouts': {
+    label: 'Payouts',
+    starters: ['Any payouts ready to run?', 'Show pending payout amounts', 'Who is owed money?', 'Run payouts now'],
+  },
+  '/admin/affiliates/leads': {
+    label: 'Affiliate Leads',
+    starters: ['How many leads came from affiliates?', 'Which affiliate sent the most leads?', 'Show unconverted affiliate leads', 'Any new leads today?'],
+  },
+  '/admin/affiliates/resources': {
+    label: 'Affiliate Resources',
+    starters: ['What resources are available?', 'Add a new resource', 'Which resources are most used?', 'Update resource links'],
+  },
+  '/admin/affiliates/training': {
+    label: 'Affiliate Training',
+    starters: ['What training videos are uploaded?', 'Add a new training module', 'Which videos are most watched?', 'Help write a training description'],
+  },
+  '/admin/affiliates/settings': {
+    label: 'Affiliate Settings',
+    starters: ['What is the current commission rate?', 'Update payout threshold', 'Show cookie duration setting', 'Configure tier structure'],
+  },
+  '/admin/affiliates/flags': {
+    label: 'Affiliate Flags',
+    starters: ['Who is flagged?', 'Show recent flags', 'Resolve a flag', 'What triggered the flags?'],
+  },
+  '/admin/intelligence': {
+    label: 'Business Intelligence',
+    starters: ['Give me a business summary', 'What are my top opportunities?', 'Where are we losing leads?', "What's trending?"],
+  },
+  '/admin/opportunities': {
+    label: 'Opportunities',
+    starters: ['Show all open opportunities', 'Which have the highest value?', 'What needs follow-up?', 'Add a new opportunity'],
+  },
+  '/admin/chargeback-defense': {
+    label: 'Chargeback Defense',
+    starters: ['Any active chargebacks?', 'What evidence do I have?', 'Show dispute timeline', 'Help write a rebuttal'],
+  },
+  '/admin/ai-controls': {
+    label: 'AI Controls',
+    starters: ['What are the current AI credit limits?', 'Show usage by member', 'Update credit limits', 'Any members over budget?'],
   },
 }
 
@@ -56,13 +164,33 @@ const LEAD_PAGE_STARTERS = [
   "Move them to qualified",
 ]
 
-function getPageCtx(pathname: string, contextType: 'member' | 'lead' | null): PageCtx {
-  if (contextType === 'member') return { label: 'Member Detail', starters: MEMBER_PAGE_STARTERS }
-  if (contextType === 'lead')   return { label: 'Lead Detail',   starters: LEAD_PAGE_STARTERS }
+const AFFILIATE_PAGE_STARTERS = [
+  "How much has this affiliate earned?",
+  "How many referrals have they sent?",
+  "Show their commission history",
+  "Update their notes",
+]
+
+const VOICE_CAMPAIGN_PAGE_STARTERS = [
+  "How is this campaign performing?",
+  "How many calls were made?",
+  "Show the connect rate",
+  "Pause or resume this campaign",
+]
+
+function getPageCtx(pathname: string, contextType: 'member' | 'lead' | 'affiliate' | 'voice_campaign' | null): PageCtx {
+  if (contextType === 'member')         return { label: 'Member Detail',         starters: MEMBER_PAGE_STARTERS }
+  if (contextType === 'lead')           return { label: 'Lead Detail',            starters: LEAD_PAGE_STARTERS }
+  if (contextType === 'affiliate')      return { label: 'Affiliate Detail',       starters: AFFILIATE_PAGE_STARTERS }
+  if (contextType === 'voice_campaign') return { label: 'Campaign Detail',        starters: VOICE_CAMPAIGN_PAGE_STARTERS }
+
   const exact = PAGE_CONTEXTS[pathname]
   if (exact) return exact
-  for (const [key, ctx] of Object.entries(PAGE_CONTEXTS)) {
-    if (pathname.startsWith(key + '/')) return ctx
+
+  // Try longest prefix match
+  const sortedKeys = Object.keys(PAGE_CONTEXTS).sort((a, b) => b.length - a.length)
+  for (const key of sortedKeys) {
+    if (pathname.startsWith(key + '/')) return PAGE_CONTEXTS[key]
   }
   return PAGE_CONTEXTS['/admin']
 }
@@ -86,13 +214,18 @@ export default function AdminAIPanel() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLTextAreaElement>(null)
 
-  // Extract member/lead context from the current URL
+  // Extract context from the current URL
   // Members live at /admin/members/[id] OR /admin/client-view/[id]
   // Leads live at /admin/crm/[uuid] — only match real UUIDs to avoid false positives like /admin/crm/dialer
-  const memberMatch = pathname.match(/\/admin\/(?:members|client-view)\/([^/]+)/)
-  const leadMatch   = pathname.match(/\/admin\/crm\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/)
-  const contextId   = memberMatch?.[1] ?? leadMatch?.[1] ?? null
-  const contextType = memberMatch ? 'member' : leadMatch ? 'lead' : null
+  // Affiliates live at /admin/affiliates/[uuid]
+  // Voice campaigns live at /admin/voice/campaigns/[uuid]
+  const memberMatch    = pathname.match(/\/admin\/(?:members|client-view)\/([^/]+)/)
+  const leadMatch      = pathname.match(/\/admin\/crm\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/)
+  const affiliateMatch = pathname.match(/\/admin\/affiliates\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/)
+  const voiceCampMatch = pathname.match(/\/admin\/voice\/campaigns\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/)
+
+  const contextId   = memberMatch?.[1] ?? leadMatch?.[1] ?? affiliateMatch?.[1] ?? voiceCampMatch?.[1] ?? null
+  const contextType = memberMatch ? 'member' : leadMatch ? 'lead' : affiliateMatch ? 'affiliate' : voiceCampMatch ? 'voice_campaign' : null
 
   const pageCtx = getPageCtx(pathname, contextType)
 
@@ -177,7 +310,7 @@ export default function AdminAIPanel() {
     } finally {
       setLoading(false)
     }
-  }, [messages, loading, pathname, pageCtx.label])
+  }, [messages, loading, pathname, pageCtx.label, contextId, contextType])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input) }
