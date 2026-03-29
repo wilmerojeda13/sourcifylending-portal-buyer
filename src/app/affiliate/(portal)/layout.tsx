@@ -18,7 +18,7 @@ export default async function AffiliateLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
       <AffiliateSidebar affiliateName={affiliate.name} />
       <main className="flex-1 lg:ml-64 p-4 lg:p-8 pb-24 lg:pb-8">
         <div className="max-w-5xl mx-auto">

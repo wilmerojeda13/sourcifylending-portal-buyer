@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { PlayCircle, CheckCircle, Clock, Lock, X, ExternalLink } from 'lucide-react'
@@ -76,15 +76,15 @@ export default function AffiliateTrainingPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Training Center</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Training Center</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
             Everything you need to confidently pitch and close clients.
           </p>
         </div>
         {videos.length > 0 && (
-          <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-sm">
-            <CheckCircle className="w-4 h-4 text-indigo-600" />
-            <span className="font-semibold text-indigo-700">
+          <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-700 rounded-xl px-4 py-2.5 text-sm">
+            <CheckCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="font-semibold text-indigo-700 dark:text-indigo-400">
               {totalWatched} / {videos.length} watched
             </span>
           </div>
@@ -93,7 +93,7 @@ export default function AffiliateTrainingPage() {
 
       {/* Progress bar */}
       {videos.length > 0 && (
-        <div className="w-full bg-gray-100 rounded-full h-2">
+        <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
           <div
             className="bg-indigo-500 h-2 rounded-full transition-all duration-700"
             style={{ width: `${(totalWatched / videos.length) * 100}%` }}
@@ -105,7 +105,7 @@ export default function AffiliateTrainingPage() {
       {loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="rounded-2xl bg-gray-200 animate-pulse aspect-[4/3]" />
+            <div key={i} className="rounded-2xl bg-gray-200 dark:bg-gray-700 animate-pulse aspect-[4/3]" />
           ))}
         </div>
       )}
@@ -114,14 +114,14 @@ export default function AffiliateTrainingPage() {
       {!loading && videos.length === 0 && (
         <div className="text-center py-20">
           <PlayCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-          <p className="text-sm text-gray-500">Training videos are coming soon. Check back shortly!</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">Training videos are coming soon. Check back shortly!</p>
         </div>
       )}
 
       {/* Video categories */}
       {!loading && Object.entries(grouped).map(([category, catVideos]) => (
         <section key={category} className="space-y-4">
-          <h2 className="text-sm font-bold text-gray-700 border-b border-gray-200 pb-2 uppercase tracking-wide">
+          <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 pb-2 uppercase tracking-wide">
             {category}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -159,13 +159,13 @@ function VideoCard({ video, isWatched, onClick }: { video: TrainingVideo; isWatc
       className={cn(
         'group text-left rounded-2xl border p-4 transition-all duration-150',
         hasVideo
-          ? 'bg-white border-gray-200 hover:shadow-md hover:border-indigo-200 cursor-pointer'
-          : 'bg-gray-50 border-gray-100 cursor-default opacity-70'
+          ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-700 cursor-pointer'
+          : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-800 cursor-default opacity-70'
       )}
     >
       <div className={cn(
         'w-full aspect-video rounded-xl mb-3 flex items-center justify-center relative overflow-hidden',
-        hasVideo ? 'bg-gray-900' : 'bg-gray-100'
+        hasVideo ? 'bg-gray-900' : 'bg-gray-100 dark:bg-gray-700'
       )}>
         {hasVideo ? (
           <>
@@ -177,24 +177,24 @@ function VideoCard({ video, isWatched, onClick }: { video: TrainingVideo; isWatc
             )}
           </>
         ) : (
-          <div className="flex flex-col items-center gap-1.5 text-gray-400">
+          <div className="flex flex-col items-center gap-1.5 text-gray-400 dark:text-gray-500">
             <Lock className="w-5 h-5" />
             <span className="text-xs font-medium">Coming Soon</span>
           </div>
         )}
       </div>
-      <p className={cn('text-sm font-semibold leading-snug', hasVideo ? 'text-gray-900' : 'text-gray-500')}>
+      <p className={cn('text-sm font-semibold leading-snug', hasVideo ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500')}>
         {video.title}
       </p>
-      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{video.description}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1 line-clamp-2">{video.description}</p>
       <div className="flex items-center gap-2 mt-2">
         {video.duration && (
-          <span className="flex items-center gap-1 text-xs text-gray-400">
+          <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
             <Clock className="w-3 h-3" />{video.duration}
           </span>
         )}
         {isWatched && hasVideo && (
-          <span className="text-xs text-indigo-600 font-medium">Watched</span>
+          <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">Watched</span>
         )}
       </div>
     </button>
@@ -204,18 +204,18 @@ function VideoCard({ video, isWatched, onClick }: { video: TrainingVideo; isWatc
 function VideoModal({ video, onClose }: { video: TrainingVideo; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl overflow-hidden shadow-2xl w-full max-w-3xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-2xl w-full max-w-3xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
           <div>
-            <p className="text-xs text-indigo-600 font-semibold uppercase tracking-wide">{video.category}</p>
-            <h3 className="text-base font-bold text-gray-900 mt-0.5">{video.title}</h3>
+            <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold uppercase tracking-wide">{video.category}</p>
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mt-0.5">{video.title}</h3>
           </div>
           <div className="flex items-center gap-2">
             <a href={video.embed_url} target="_blank" rel="noopener noreferrer"
-              className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
               <ExternalLink className="w-4 h-4" />
             </a>
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -226,7 +226,7 @@ function VideoModal({ video, onClose }: { video: TrainingVideo; onClose: () => v
             allowFullScreen />
         </div>
         <div className="px-5 py-4">
-          <p className="text-sm text-gray-600">{video.description}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">{video.description}</p>
         </div>
       </div>
     </div>

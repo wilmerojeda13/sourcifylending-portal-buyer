@@ -6,7 +6,8 @@ import {
   Plus, Search, Phone, Building2, Calendar, ChevronLeft, ChevronRight,
   X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
   CheckCircle2, XCircle, Upload, Zap, Filter, RefreshCw,
-  LayoutList, Columns, Trash2, Bot,
+  LayoutList, Columns, Trash2, Bot, CheckSquare, Square, MinusSquare,
+  Archive,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -228,44 +229,61 @@ function CleanupModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
 }
 
 // ─── Lead Row (compact) ───────────────────────────────────────────────────────
-function LeadCard({ lead }: { lead: CRMLead }) {
+function LeadCard({ lead, selected, onToggle }: { lead: CRMLead; selected?: boolean; onToggle?: (id: string) => void }) {
   const stage = stageInfo(lead.stage)
   const pastDue = isPastDue(lead.follow_up_at)
   return (
-    <Link
-      href={`/admin/crm/${lead.id}`}
-      className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/30 dark:hover:bg-green-950/20 transition-colors group"
-    >
-      <span className={cn('w-2 h-2 rounded-full shrink-0', stage.dot)}/>
-      <div className="min-w-0 flex-1 flex items-center gap-2">
-        <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
-          {lead.first_name} {lead.last_name}
-        </p>
-        {lead.business_name && (
-          <p className="text-xs text-gray-400 truncate hidden lg:block flex-1">{lead.business_name}</p>
+    <div className="flex items-center gap-2">
+      {onToggle && (
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggle(lead.id) }}
+          className="shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        >
+          {selected ? (
+            <CheckSquare size={18} className="text-green-600 dark:text-green-400" />
+          ) : (
+            <Square size={18} className="text-gray-300 dark:text-gray-600" />
+          )}
+        </button>
+      )}
+      <Link
+        href={`/admin/crm/${lead.id}`}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2 bg-white dark:bg-gray-800 border rounded-xl hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/30 dark:hover:bg-green-950/20 transition-colors group flex-1 min-w-0",
+          selected ? 'border-green-300 dark:border-green-700 bg-green-50/40 dark:bg-green-950/20' : 'border-gray-100 dark:border-gray-700'
         )}
-      </div>
-      <a
-        href={`tel:${lead.phone}`}
-        onClick={e => e.stopPropagation()}
-        className="text-xs text-green-600 dark:text-green-400 shrink-0 hidden lg:block hover:underline"
       >
-        {lead.phone}
-      </a>
-      <div className="flex items-center gap-1 shrink-0">
-        <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap', stage.color)}>{stage.label}</span>
-        {lead.program_interest && (
-          <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium hidden sm:inline', PROGRAM_BADGE[lead.program_interest])}>
-            {PROGRAM_LABEL[lead.program_interest]}
-          </span>
-        )}
-        {pastDue && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium hidden sm:inline">Due</span>
-        )}
-        {lead.do_not_call && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">DNC</span>}
-      </div>
-      <ChevronRight size={14} className="text-gray-300 group-hover:text-green-500 shrink-0 transition-colors"/>
-    </Link>
+        <span className={cn('w-2 h-2 rounded-full shrink-0', stage.dot)}/>
+        <div className="min-w-0 flex-1 flex items-center gap-2">
+          <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
+            {lead.first_name} {lead.last_name}
+          </p>
+          {lead.business_name && (
+            <p className="text-xs text-gray-400 truncate hidden lg:block flex-1">{lead.business_name}</p>
+          )}
+        </div>
+        <a
+          href={`tel:${lead.phone}`}
+          onClick={e => e.stopPropagation()}
+          className="text-xs text-green-600 dark:text-green-400 shrink-0 hidden lg:block hover:underline"
+        >
+          {lead.phone}
+        </a>
+        <div className="flex items-center gap-1 shrink-0">
+          <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap', stage.color)}>{stage.label}</span>
+          {lead.program_interest && (
+            <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium hidden sm:inline', PROGRAM_BADGE[lead.program_interest])}>
+              {PROGRAM_LABEL[lead.program_interest]}
+            </span>
+          )}
+          {pastDue && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium hidden sm:inline">Due</span>
+          )}
+          {lead.do_not_call && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">DNC</span>}
+        </div>
+        <ChevronRight size={14} className="text-gray-300 group-hover:text-green-500 shrink-0 transition-colors"/>
+      </Link>
+    </div>
   )
 }
 
@@ -281,9 +299,12 @@ export default function CRMClient() {
   const [view, setView]             = useState<'list' | 'board'>('list')
   const [listPage, setListPage]     = useState(1)
   const [boardPages, setBoardPages] = useState<Record<string, number>>({})
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkStageOpen, setBulkStageOpen] = useState(false)
 
-  // Reset pages whenever leads change
-  useEffect(() => { setListPage(1); setBoardPages({}) }, [leads])
+  // Reset pages and selection whenever leads change
+  useEffect(() => { setListPage(1); setBoardPages({}); setSelectedIds(new Set()) }, [leads])
 
   // Version counter — cancels stale in-flight loads when a newer one starts
   const loadVersion = useRef(0)
@@ -338,17 +359,109 @@ export default function CRMClient() {
 
   function handleCreated(lead: CRMLead) { setLeads(p=>[lead,...p]); setShowNew(false) }
 
+  // Paginated list — 50 per page
+  const PAGE_SIZE = 50
+  const visibleLeads = leads.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE)
+  const hasMore = listPage * PAGE_SIZE < leads.length
+  const hasPrev = listPage > 1
+
+  // ── Selection helpers ──
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === visibleLeads.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(visibleLeads.map(l => l.id)))
+    }
+  }
+
+  function selectAllLeads() {
+    setSelectedIds(new Set(leads.map(l => l.id)))
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+    setBulkStageOpen(false)
+  }
+
+  // ── Bulk actions ──
+  async function bulkDelete() {
+    if (selectedIds.size === 0) return
+    const ok = window.confirm(`Permanently delete ${selectedIds.size} lead(s)? This cannot be undone.`)
+    if (!ok) return
+    setBulkLoading(true)
+    try {
+      const res = await fetch('/api/admin/crm/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_ids', ids: [...selectedIds] }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(json.message)
+        setLeads(prev => prev.filter(l => !selectedIds.has(l.id)))
+        clearSelection()
+      } else {
+        toast.error(json.error ?? 'Failed')
+      }
+    } catch { toast.error('Network error') }
+    finally { setBulkLoading(false) }
+  }
+
+  async function bulkArchive() {
+    if (selectedIds.size === 0) return
+    setBulkLoading(true)
+    try {
+      const res = await fetch('/api/admin/crm/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'archive_ids', ids: [...selectedIds] }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(json.message)
+        setLeads(prev => prev.filter(l => !selectedIds.has(l.id)))
+        clearSelection()
+      } else {
+        toast.error(json.error ?? 'Failed')
+      }
+    } catch { toast.error('Network error') }
+    finally { setBulkLoading(false) }
+  }
+
+  async function bulkUpdateStage(newStage: Stage) {
+    if (selectedIds.size === 0) return
+    setBulkLoading(true)
+    try {
+      const res = await fetch('/api/admin/crm/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_stage', ids: [...selectedIds], stage: newStage }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(json.message)
+        setLeads(prev => prev.map(l => selectedIds.has(l.id) ? { ...l, stage: newStage } : l))
+        clearSelection()
+      } else {
+        toast.error(json.error ?? 'Failed')
+      }
+    } catch { toast.error('Network error') }
+    finally { setBulkLoading(false); setBulkStageOpen(false) }
+  }
+
   const total     = leads.length
   const followDue = leads.filter(l => isPastDue(l.follow_up_at)).length
   const wonCount  = leads.filter(l => l.stage === 'closed_won').length
   const activeCount = leads.filter(l => l.stage === 'active_client').length
   const inPipeline = leads.filter(l => !['closed_won','closed_lost','active_client'].includes(l.stage)).length
-
-  // Paginated list — 50 per page (replace, not append)
-  const PAGE_SIZE = 50
-  const visibleLeads = leads.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE)
-  const hasMore = listPage * PAGE_SIZE < leads.length
-  const hasPrev = listPage > 1
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -501,7 +614,39 @@ export default function CRMClient() {
             </div>
           ) : view === 'list' ? (
             <div className="space-y-1">
-              {visibleLeads.map(lead => <LeadCard key={lead.id} lead={lead}/>)}
+              {/* Select-all row */}
+              <div className="flex items-center gap-2 px-1 py-1.5">
+                <button
+                  onClick={toggleSelectAll}
+                  className="shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {selectedIds.size === 0 ? (
+                    <Square size={18} className="text-gray-300 dark:text-gray-600" />
+                  ) : selectedIds.size === visibleLeads.length ? (
+                    <CheckSquare size={18} className="text-green-600 dark:text-green-400" />
+                  ) : (
+                    <MinusSquare size={18} className="text-green-600 dark:text-green-400" />
+                  )}
+                </button>
+                <span className="text-xs text-gray-400">
+                  {selectedIds.size > 0 ? (
+                    <>
+                      {selectedIds.size} selected
+                      {selectedIds.size < leads.length && (
+                        <button onClick={selectAllLeads} className="ml-2 text-green-600 dark:text-green-400 hover:underline font-medium">
+                          Select all {leads.length}
+                        </button>
+                      )}
+                      <button onClick={clearSelection} className="ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:underline">
+                        Clear
+                      </button>
+                    </>
+                  ) : (
+                    'Select all'
+                  )}
+                </span>
+              </div>
+              {visibleLeads.map(lead => <LeadCard key={lead.id} lead={lead} selected={selectedIds.has(lead.id)} onToggle={toggleSelect}/>)}
               {(hasPrev || hasMore) && (
                 <div className="flex items-center gap-2 mt-3">
                   <button
@@ -675,6 +820,63 @@ export default function CRMClient() {
           <Plus size={15}/> Add Lead
         </button>
       </div>
+
+      {/* ── Bulk Action Bar ── */}
+      {selectedIds.size > 0 && view === 'list' && (
+        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 bg-gray-900 dark:bg-gray-800 text-white rounded-2xl shadow-2xl border border-gray-700 px-5 py-3 flex items-center gap-3 max-w-lg w-[calc(100%-2rem)]">
+          <span className="text-sm font-semibold shrink-0">
+            {selectedIds.size} selected
+          </span>
+          <div className="flex-1" />
+          {/* Move to stage */}
+          <div className="relative">
+            <button
+              onClick={() => setBulkStageOpen(p => !p)}
+              disabled={bulkLoading}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
+            >
+              <TrendingUp size={13}/> Move Stage
+            </button>
+            {bulkStageOpen && (
+              <div className="absolute bottom-full mb-2 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl py-1 w-44 max-h-60 overflow-y-auto z-40">
+                {STAGES.map(s => (
+                  <button
+                    key={s.key}
+                    onClick={() => bulkUpdateStage(s.key)}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                  >
+                    <span className={cn('w-2 h-2 rounded-full', s.dot)} />
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Archive */}
+          <button
+            onClick={bulkArchive}
+            disabled={bulkLoading}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
+          >
+            <Archive size={13}/> Archive
+          </button>
+          {/* Delete */}
+          <button
+            onClick={bulkDelete}
+            disabled={bulkLoading}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            {bulkLoading ? <Loader2 size={13} className="animate-spin"/> : <Trash2 size={13}/>} Delete
+          </button>
+          {/* Close */}
+          <button
+            onClick={clearSelection}
+            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            <X size={15}/>
+          </button>
+        </div>
+      )}
 
       {showNew && <NewLeadModal onClose={()=>setShowNew(false)} onCreated={handleCreated}/>}
       {showCleanup && <CleanupModal onClose={()=>setShowCleanup(false)} onDone={() => { setShowCleanup(false); load() }}/>}

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { Users, AlertCircle, ChevronLeft, ChevronRight, Share2, Loader2, Info } from 'lucide-react'
 
@@ -32,17 +32,17 @@ function fmtDate(iso: string | null) {
 }
 
 const STATUS_CONFIG: Record<ReferralStatus, { label: string; color: string }> = {
-  active:     { label: 'Active',      color: 'bg-green-100 text-green-700' },
-  signed_up:  { label: 'Signed Up',   color: 'bg-blue-100 text-blue-700' },
-  clicked:    { label: 'Clicked',     color: 'bg-gray-100 text-gray-500' },
-  past_due:   { label: 'Past Due',    color: 'bg-amber-100 text-amber-700' },
-  canceled:   { label: 'Canceled',    color: 'bg-red-100 text-red-500' },
-  refunded:   { label: 'Refunded',    color: 'bg-red-100 text-red-500' },
-  chargeback: { label: 'Chargeback',  color: 'bg-red-100 text-red-600' },
+  active:     { label: 'Active',      color: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
+  signed_up:  { label: 'Signed Up',   color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' },
+  clicked:    { label: 'Clicked',     color: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 dark:text-gray-500' },
+  past_due:   { label: 'Past Due',    color: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' },
+  canceled:   { label: 'Canceled',    color: 'bg-red-100 dark:bg-red-900/40 text-red-500' },
+  refunded:   { label: 'Refunded',    color: 'bg-red-100 dark:bg-red-900/40 text-red-500' },
+  chargeback: { label: 'Chargeback',  color: 'bg-red-100 dark:bg-red-900/40 text-red-600' },
 }
 
 function StatusBadge({ status }: { status: ReferralStatus }) {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, color: 'bg-gray-100 text-gray-500' }
+  const cfg = STATUS_CONFIG[status] ?? { label: status, color: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 dark:text-gray-500' }
   return (
     <span className={`inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded-full uppercase ${cfg.color}`}>
       {cfg.label}
@@ -54,27 +54,27 @@ function DealTypeBadge({ dealType, locked, approved }: { dealType: DealType; loc
   if (dealType === 'affiliate_closed') {
     if (approved === true) {
       return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 uppercase">
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 uppercase">
           Closed · 30% ✓
         </span>
       )
     }
     if (approved === false) {
       return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 uppercase">
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 uppercase">
           Closed · Rejected
         </span>
       )
     }
     // null = pending approval or approval not required
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 uppercase">
+      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 uppercase">
         Closed · 30%{locked ? '' : ' (pending)'}
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-500 uppercase">
+    <span className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-indigo-500 dark:text-indigo-400 uppercase">
       Referral · 10%
     </span>
   )
@@ -128,7 +128,7 @@ function DealTypeSelector({
           className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold border transition-colors flex items-center gap-1 ${
             selected === 'referral_only'
               ? 'bg-indigo-600 text-white border-indigo-600'
-              : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+              : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 dark:text-gray-500 border-gray-300 dark:border-gray-600 hover:border-indigo-400 hover:text-indigo-600 dark:text-indigo-400'
           }`}
         >
           {saving && selected !== 'referral_only' ? null : null}
@@ -140,7 +140,7 @@ function DealTypeSelector({
           className={`text-[11px] px-2.5 py-1 rounded-lg font-semibold border transition-colors flex items-center gap-1 ${
             selected === 'affiliate_closed'
               ? 'bg-purple-600 text-white border-purple-600'
-              : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400 hover:text-purple-600'
+              : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 dark:text-gray-500 border-gray-300 dark:border-gray-600 hover:border-purple-400 hover:text-purple-600'
           }`}
         >
           {saving ? <Loader2 size={10} className="animate-spin" /> : null}
@@ -200,11 +200,11 @@ export default function AffiliateReferralsPage() {
     return (
       <div className="pt-16 lg:pt-0 flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 bg-red-100 dark:bg-red-900/40 rounded-2xl flex items-center justify-center mx-auto mb-3">
             <AlertCircle size={22} className="text-red-500" />
           </div>
-          <p className="text-sm font-semibold text-gray-700">Failed to load referrals</p>
-          <p className="text-xs text-gray-400 mt-1">{error}</p>
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Failed to load referrals</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{error}</p>
         </div>
       </div>
     )
@@ -215,16 +215,16 @@ export default function AffiliateReferralsPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Your Referrals</h1>
-        <p className="text-sm text-gray-500 mt-1">Track everyone who clicked your link or signed up.</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Your Referrals</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Track everyone who clicked your link or signed up.</p>
       </div>
 
       {/* Deal Type Info Banner */}
-      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 flex gap-3 items-start">
-        <Info size={18} className="text-indigo-500 shrink-0 mt-0.5" />
-        <div className="text-sm text-indigo-800 space-y-0.5">
+      <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-800 rounded-2xl px-5 py-4 flex gap-3 items-start">
+        <Info size={18} className="text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
+        <div className="text-sm text-indigo-800 dark:text-indigo-300 space-y-0.5">
           <p className="font-semibold">How deal types work</p>
-          <p className="text-indigo-600 text-xs">
+          <p className="text-indigo-600 dark:text-indigo-400 text-xs">
             <strong>Referral (10%):</strong> SourcifyLending closes the deal for you. &nbsp;
             <strong>I Closed It (30%):</strong> You handled the full sales process yourself.
             Deal type locks permanently after the client&apos;s first payment.
@@ -235,48 +235,48 @@ export default function AffiliateReferralsPage() {
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Total Referrals', value: total,           color: 'text-gray-900' },
-          { label: 'Active',          value: summary.active,  color: 'text-green-600' },
+          { label: 'Total Referrals', value: total,           color: 'text-gray-900 dark:text-gray-100' },
+          { label: 'Active',          value: summary.active,  color: 'text-green-600 dark:text-green-400' },
           { label: 'Signed Up',       value: summary.signedUp, color: 'text-blue-600' },
           { label: 'Canceled',        value: summary.canceled, color: 'text-red-500' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 text-center">
+          <div key={label} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm px-5 py-4 text-center">
             <div className={`text-2xl font-bold ${color}`}>{value}</div>
-            <div className="text-xs text-gray-400 mt-0.5">{label}</div>
+            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{label}</div>
           </div>
         ))}
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-bold text-gray-900 flex items-center gap-2">
-            <Users size={17} className="text-indigo-600" />
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <h2 className="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <Users size={17} className="text-indigo-600 dark:text-indigo-400" />
             Referral List
           </h2>
-          <span className="text-xs text-gray-400">{total} total</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">{total} total</span>
         </div>
 
         {loading ? (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-gray-50 dark:divide-gray-800">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="px-5 py-4 flex items-center gap-4">
-                <div className="w-8 h-8 bg-gray-100 rounded-full animate-pulse" />
+                <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-full animate-pulse" />
                 <div className="flex-1 space-y-1.5">
-                  <div className="h-3 bg-gray-100 rounded-full w-32 animate-pulse" />
-                  <div className="h-2.5 bg-gray-100 rounded-full w-48 animate-pulse" />
+                  <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full w-32 animate-pulse" />
+                  <div className="h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full w-48 animate-pulse" />
                 </div>
-                <div className="h-5 w-16 bg-gray-100 rounded-full animate-pulse" />
+                <div className="h-5 w-16 bg-gray-100 dark:bg-gray-700 rounded-full animate-pulse" />
               </div>
             ))}
           </div>
         ) : referrals.length === 0 ? (
           <div className="py-16 text-center">
-            <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <Share2 size={22} className="text-gray-400" />
+            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <Share2 size={22} className="text-gray-400 dark:text-gray-500" />
             </div>
-            <p className="text-sm font-semibold text-gray-600">No referrals yet</p>
-            <p className="text-xs text-gray-400 mt-1">Share your referral link to start tracking!</p>
+            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 dark:text-gray-500">No referrals yet</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Share your referral link to start tracking!</p>
           </div>
         ) : (
           <>
@@ -284,32 +284,32 @@ export default function AffiliateReferralsPage() {
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Lead</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Program</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Deal Type</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Created</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Last Payment</th>
+                  <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Lead</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Program</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Deal Type</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Status</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Created</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Last Payment</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                   {referrals.map((r) => (
-                    <tr key={r.id} className="hover:bg-gray-50 transition-colors align-top">
+                    <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors align-top">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                            <span className="text-xs font-bold text-indigo-600">
+                          <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/40 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
                               {(r.lead_name || 'A').charAt(0).toUpperCase()}
                             </span>
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900">{r.lead_name || '—'}</p>
-                            <p className="text-xs text-gray-400">{r.lead_email || '—'}</p>
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">{r.lead_name || '—'}</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500">{r.lead_email || '—'}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600 text-xs capitalize align-top pt-4">
+                      <td className="px-4 py-3.5 text-gray-600 dark:text-gray-400 dark:text-gray-500 text-xs capitalize align-top pt-4">
                         {r.program_type ? r.program_type.replace('_', ' ') : '—'}
                       </td>
                       <td className="px-4 py-3.5 align-top">
@@ -325,14 +325,14 @@ export default function AffiliateReferralsPage() {
                           onUpdated={handleDealTypeUpdated}
                         />
                         {r.deal_type_locked && (
-                          <p className="text-[10px] text-gray-400 mt-1">Locked after payment</p>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Locked after payment</p>
                         )}
                       </td>
                       <td className="px-4 py-3.5 align-top pt-4">
                         <StatusBadge status={r.referral_status} />
                       </td>
-                      <td className="px-4 py-3.5 text-xs text-gray-500 align-top pt-4">{fmtDate(r.created_at)}</td>
-                      <td className="px-4 py-3.5 text-xs text-gray-500 align-top pt-4">{fmtDate(r.last_payment_at)}</td>
+                      <td className="px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 align-top pt-4">{fmtDate(r.created_at)}</td>
+                      <td className="px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 align-top pt-4">{fmtDate(r.last_payment_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -340,25 +340,25 @@ export default function AffiliateReferralsPage() {
             </div>
 
             {/* Mobile cards */}
-            <div className="sm:hidden divide-y divide-gray-50">
+            <div className="sm:hidden divide-y divide-gray-50 dark:divide-gray-800">
               {referrals.map((r) => (
                 <div key={r.id} className="px-4 py-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
-                        <span className="text-sm font-bold text-indigo-600">
+                      <div className="w-9 h-9 bg-indigo-100 dark:bg-indigo-900/40 rounded-full flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
                           {(r.lead_name || 'A').charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900 text-sm">{r.lead_name || '—'}</p>
-                        <p className="text-xs text-gray-400">{r.lead_email || '—'}</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{r.lead_name || '—'}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">{r.lead_email || '—'}</p>
                       </div>
                     </div>
                     <StatusBadge status={r.referral_status} />
                   </div>
                   <div className="mt-2 pl-12 space-y-2">
-                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                    <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
                       <span>{r.program_type ? r.program_type.replace('_', ' ') : '—'}</span>
                       <span>·</span>
                       <span>{fmtDate(r.created_at)}</span>
@@ -376,7 +376,7 @@ export default function AffiliateReferralsPage() {
                         onUpdated={handleDealTypeUpdated}
                       />
                       {r.deal_type_locked && (
-                        <p className="text-[10px] text-gray-400 mt-1">Locked after payment</p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Locked after payment</p>
                       )}
                     </div>
                   </div>
@@ -388,21 +388,21 @@ export default function AffiliateReferralsPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+          <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1 || loading}
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronLeft size={16} /> Prev
             </button>
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-gray-400 dark:text-gray-500">
               Page {page} of {totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages || loading}
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Next <ChevronRight size={16} />
             </button>

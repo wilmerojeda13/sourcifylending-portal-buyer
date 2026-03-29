@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
@@ -80,14 +80,14 @@ export default function AffiliateDashboardPage() {
     return (
       <div className="space-y-6 pt-16 lg:pt-0">
         {/* Skeleton */}
-        <div className="h-8 w-48 bg-gray-200 rounded-xl animate-pulse" />
-        <div className="h-28 bg-gray-200 rounded-2xl animate-pulse" />
+        <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+        <div className="h-28 bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 bg-gray-200 rounded-2xl animate-pulse" />
+            <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse" />
           ))}
         </div>
-        <div className="h-40 bg-gray-200 rounded-2xl animate-pulse" />
+        <div className="h-40 bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse" />
       </div>
     )
   }
@@ -96,11 +96,11 @@ export default function AffiliateDashboardPage() {
     return (
       <div className="pt-16 lg:pt-0 flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 bg-red-100 dark:bg-red-900/40 rounded-2xl flex items-center justify-center mx-auto mb-3">
             <AlertCircle size={22} className="text-red-500" />
           </div>
-          <p className="text-sm font-semibold text-gray-700">Failed to load dashboard</p>
-          <p className="text-xs text-gray-400 mt-1">{error}</p>
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Failed to load dashboard</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{error}</p>
         </div>
       </div>
     )
@@ -111,10 +111,10 @@ export default function AffiliateDashboardPage() {
 
   const freeAccessColor =
     stats.freeAccessStatus === 'unlocked'
-      ? 'bg-green-50 border-green-200'
+      ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800'
       : stats.freeAccessStatus === 'qualifying'
-      ? 'bg-amber-50 border-amber-200'
-      : 'bg-gray-50 border-gray-200'
+      ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
+      : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
 
   const freeAccessBarColor =
     stats.freeAccessStatus === 'unlocked'
@@ -129,36 +129,36 @@ export default function AffiliateDashboardPage() {
       {/* Welcome */}
       <div>
         <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Hi {affiliate.name.split(' ')[0]}! 👋
           </h1>
           {stats?.is_demo && (
-            <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-semibold">
+            <span className="inline-flex items-center gap-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-3 py-1 rounded-full text-xs font-semibold">
               <FlaskConical size={12} />
               Demo Account
             </span>
           )}
         </div>
-        <p className="text-sm text-gray-500 mt-1">Here&apos;s your affiliate overview.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Here&apos;s your affiliate overview.</p>
       </div>
 
       {/* Referral Link Card */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h2 className="font-bold text-gray-900">Your Referral Link</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <h2 className="font-bold text-gray-900 dark:text-gray-100">Your Referral Link</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
               Share this link to earn commissions. Code:{' '}
-              <span className="font-mono font-bold text-indigo-600">{affiliate.referral_code}</span>
+              <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{affiliate.referral_code}</span>
             </p>
           </div>
-          <span className="text-xs font-bold px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full uppercase">
+          <span className="text-xs font-bold px-2 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 rounded-full uppercase">
             Active
           </span>
         </div>
 
         <div className="flex items-center gap-3 mt-4">
-          <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 font-mono text-sm text-gray-700 truncate">
+          <div className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 font-mono text-sm text-gray-700 dark:text-gray-300 truncate">
             {referralLink}
           </div>
           <button
@@ -188,39 +188,39 @@ export default function AffiliateDashboardPage() {
             value: stats.totalClicks.toLocaleString(),
             icon: MousePointerClick,
             color: 'text-blue-600',
-            bg: 'bg-blue-50',
+            bg: 'bg-blue-50 dark:bg-blue-950/30',
           },
           {
             label: 'Active Clients',
             value: stats.activeReferrals.toLocaleString(),
             icon: Users,
-            color: 'text-green-600',
-            bg: 'bg-green-50',
+            color: 'text-green-600 dark:text-green-400',
+            bg: 'bg-green-50 dark:bg-green-950/30',
           },
           {
             label: 'Total Earned',
             value: fmt(stats.totalEarned),
             icon: DollarSign,
-            color: 'text-indigo-600',
-            bg: 'bg-indigo-50',
+            color: 'text-indigo-600 dark:text-indigo-400',
+            bg: 'bg-indigo-50 dark:bg-indigo-950/30',
           },
           {
             label: 'Pending',
             value: fmt(stats.pendingCommissions),
             icon: Clock,
-            color: 'text-amber-600',
-            bg: 'bg-amber-50',
+            color: 'text-amber-600 dark:text-amber-400',
+            bg: 'bg-amber-50 dark:bg-amber-950/30',
           },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div
             key={label}
-            className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-5"
+            className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm px-5 py-5"
           >
             <div className={`w-9 h-9 ${bg} rounded-xl flex items-center justify-center mb-3`}>
               <Icon size={18} className={color} />
             </div>
-            <div className="text-xl font-bold text-gray-900 leading-tight">{value}</div>
-            <div className="text-xs text-gray-400 mt-0.5">{label}</div>
+            <div className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">{value}</div>
+            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{label}</div>
           </div>
         ))}
       </div>
@@ -229,15 +229,15 @@ export default function AffiliateDashboardPage() {
       <div className={`rounded-2xl border p-6 ${freeAccessColor}`}>
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+            <h2 className="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
               {stats.freeAccessStatus === 'unlocked' ? (
-                <Unlock size={18} className="text-green-600" />
+                <Unlock size={18} className="text-green-600 dark:text-green-400" />
               ) : (
-                <Lock size={18} className="text-gray-400" />
+                <Lock size={18} className="text-gray-400 dark:text-gray-500" />
               )}
               Program B Free Access
             </h2>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
               Refer {stats.threshold} active clients to unlock free Program B access for yourself.
             </p>
           </div>
@@ -252,7 +252,7 @@ export default function AffiliateDashboardPage() {
             </span>
           )}
           {stats.freeAccessStatus === 'locked' && (
-            <span className="shrink-0 text-xs font-bold px-2.5 py-1 bg-gray-300 text-gray-700 rounded-full uppercase">
+            <span className="shrink-0 text-xs font-bold px-2.5 py-1 bg-gray-300 text-gray-700 dark:text-gray-300 rounded-full uppercase">
               Locked
             </span>
           )}
@@ -260,13 +260,13 @@ export default function AffiliateDashboardPage() {
 
         {/* Progress bar */}
         <div className="mb-2">
-          <div className="flex items-center justify-between text-xs text-gray-600 mb-1.5">
+          <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-1.5">
             <span>
               {stats.activeCount} / {stats.threshold} active clients
             </span>
             <span>{progressPct}%</span>
           </div>
-          <div className="h-2.5 bg-white/80 rounded-full border border-gray-200">
+          <div className="h-2.5 bg-white dark:bg-gray-900/80 rounded-full border border-gray-200 dark:border-gray-700">
             <div
               className={`h-2.5 rounded-full transition-all duration-500 ${freeAccessBarColor}`}
               style={{ width: `${progressPct}%` }}
@@ -275,19 +275,19 @@ export default function AffiliateDashboardPage() {
         </div>
 
         {stats.freeAccessStatus === 'qualifying' && stats.daysRemaining !== null && (
-          <p className="text-xs font-medium text-amber-700 mt-2">
+          <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mt-2">
             {stats.daysRemaining === 0
               ? 'Unlock processing — check back soon!'
               : `${stats.daysRemaining} day${stats.daysRemaining !== 1 ? 's' : ''} remaining in qualification period`}
           </p>
         )}
         {stats.freeAccessStatus === 'unlocked' && (
-          <p className="text-xs font-medium text-green-700 mt-2">
+          <p className="text-xs font-medium text-green-700 dark:text-green-400 mt-2">
             Congratulations! Your Program B access is active.
           </p>
         )}
         {stats.freeAccessStatus === 'locked' && (
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-2">
             You need {stats.threshold - stats.activeCount} more active{' '}
             {stats.threshold - stats.activeCount === 1 ? 'client' : 'clients'} to start qualifying.
           </p>
@@ -298,44 +298,44 @@ export default function AffiliateDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Link
           href="/affiliate/referrals"
-          className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:border-indigo-200 transition-all group flex items-center gap-4"
+          className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-700 transition-all group flex items-center gap-4"
         >
-          <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
-            <Users size={20} className="text-indigo-600" />
+          <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl flex items-center justify-center">
+            <Users size={20} className="text-indigo-600 dark:text-indigo-400" />
           </div>
           <div className="flex-1">
-            <p className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
+            <p className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-indigo-700 dark:text-indigo-400 transition-colors">
               View Referrals
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
               {stats.totalReferrals} total · {stats.activeReferrals} active
             </p>
           </div>
-          <ChevronRight size={16} className="text-gray-400 group-hover:text-indigo-500 transition-colors" />
+          <ChevronRight size={16} className="text-gray-400 dark:text-gray-500 group-hover:text-indigo-500 dark:text-indigo-400 transition-colors" />
         </Link>
 
         <Link
           href="/affiliate/commissions"
-          className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:border-indigo-200 transition-all group flex items-center gap-4"
+          className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-700 transition-all group flex items-center gap-4"
         >
-          <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
-            <TrendingUp size={20} className="text-green-600" />
+          <div className="w-10 h-10 bg-green-50 dark:bg-green-950/30 rounded-xl flex items-center justify-center">
+            <TrendingUp size={20} className="text-green-600 dark:text-green-400" />
           </div>
           <div className="flex-1">
-            <p className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">
+            <p className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-indigo-700 dark:text-indigo-400 transition-colors">
               Commission Ledger
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
               {fmt(stats.approvedCommissions)} approved · {fmt(stats.paidCommissions)} paid
             </p>
           </div>
-          <ChevronRight size={16} className="text-gray-400 group-hover:text-indigo-500 transition-colors" />
+          <ChevronRight size={16} className="text-gray-400 dark:text-gray-500 group-hover:text-indigo-500 dark:text-indigo-400 transition-colors" />
         </Link>
       </div>
 
       {/* Payouts */}
       <div>
-        <h2 className="text-base font-bold text-gray-900 mb-3">Payouts</h2>
+        <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-3">Payouts</h2>
         <PayoutSection />
       </div>
     </div>
@@ -384,8 +384,8 @@ function PayoutSection() {
 
   if (loadingPayout) {
     return (
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-        <div className="flex items-center gap-2 text-gray-400 text-sm">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500 text-sm">
           <Loader2 size={14} className="animate-spin" /> Loading payout info…
         </div>
       </div>
@@ -398,17 +398,17 @@ function PayoutSection() {
       {!isConnected && (
         <div className={`rounded-2xl border p-5 flex items-start justify-between gap-4 flex-wrap ${
           isPending
-            ? 'bg-amber-50 border-amber-200'
-            : 'bg-indigo-50 border-indigo-200'
+            ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800'
+            : 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-700'
         }`}>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <BanknoteIcon size={18} className={isPending ? 'text-amber-600' : 'text-indigo-600'} />
-              <span className={`font-bold text-sm ${isPending ? 'text-amber-900' : 'text-indigo-900'}`}>
+              <BanknoteIcon size={18} className={isPending ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-600 dark:text-indigo-400'} />
+              <span className={`font-bold text-sm ${isPending ? 'text-amber-900 dark:text-amber-200' : 'text-indigo-900 dark:text-indigo-200'}`}>
                 {isPending ? 'Complete Your Payout Setup' : 'Connect Your Bank Account'}
               </span>
             </div>
-            <p className={`text-xs ${isPending ? 'text-amber-700' : 'text-indigo-700'}`}>
+            <p className={`text-xs ${isPending ? 'text-amber-700 dark:text-amber-400' : 'text-indigo-700 dark:text-indigo-400'}`}>
               {isPending
                 ? 'Your Stripe account is set up but needs a few more details before payouts can be sent.'
                 : 'Connect your bank account to receive automatic monthly commission payouts.'}
@@ -436,52 +436,52 @@ function PayoutSection() {
             label: 'Available Balance',
             value: fmtCents(availableCents),
             sub: meetsMinimum && isConnected ? 'Will pay out on ' + nextPayout : availableCents > 0 ? `Min. $${(payoutData?.minimum_payout_cents ?? 10000) / 100} needed` : 'Nothing available yet',
-            color: meetsMinimum && isConnected ? 'text-green-600' : 'text-gray-900',
+            color: meetsMinimum && isConnected ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100',
           },
           {
             label: 'In Hold Period',
             value: fmtCents(payoutData?.balances.pending_cents ?? 0),
             sub: 'Released after 7 days',
-            color: 'text-amber-600',
+            color: 'text-amber-600 dark:text-amber-400',
           },
           {
             label: 'Total Paid Out',
             value: fmtCents(payoutData?.balances.paid_cents ?? 0),
             sub: 'All time',
-            color: 'text-indigo-600',
+            color: 'text-indigo-600 dark:text-indigo-400',
           },
           {
             label: 'Next Payout',
             value: isConnected ? nextPayout : '—',
             sub: isConnected ? (meetsMinimum ? 'You qualify ✓' : `Need ${fmtCents((payoutData?.minimum_payout_cents ?? 10000) - availableCents)} more`) : 'Connect to enable',
-            color: 'text-gray-900',
+            color: 'text-gray-900 dark:text-gray-100',
           },
         ].map(({ label, value, sub, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-4 py-4">
+          <div key={label} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-4">
             <div className={`text-lg font-bold ${color}`}>{value}</div>
-            <div className="text-xs text-gray-500 mt-0.5 font-medium">{label}</div>
-            <div className="text-[10px] text-gray-400 mt-0.5">{sub}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5 font-medium">{label}</div>
+            <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{sub}</div>
           </div>
         ))}
       </div>
 
       {/* Recent Payouts */}
       {(payoutData?.payouts ?? []).length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <span className="text-sm font-semibold text-gray-700">Recent Payouts</span>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Recent Payouts</span>
           </div>
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-gray-50 dark:divide-gray-800">
             {payoutData!.payouts.slice(0, 5).map(p => (
               <div key={p.id} className="px-5 py-3 flex items-center justify-between gap-4">
                 <div>
-                  <div className="text-sm font-semibold text-gray-900">{fmtCents(p.amount_cents)}</div>
-                  <div className="text-xs text-gray-400">{fmtDate(p.paid_at ?? p.created_at)}</div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{fmtCents(p.amount_cents)}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500">{fmtDate(p.paid_at ?? p.created_at)}</div>
                 </div>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                  p.status === 'paid' ? 'bg-green-100 text-green-700' :
-                  p.status === 'failed' ? 'bg-red-100 text-red-600' :
-                  'bg-amber-100 text-amber-700'
+                  p.status === 'paid' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' :
+                  p.status === 'failed' ? 'bg-red-100 dark:bg-red-900/40 text-red-600' :
+                  'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400'
                 }`}>{p.status}</span>
               </div>
             ))}

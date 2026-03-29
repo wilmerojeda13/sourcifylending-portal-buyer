@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import {
@@ -24,11 +24,11 @@ interface Lead {
 }
 
 const STATUS_CONFIG = {
-  lead_created:    { label: 'Lead Created',    icon: Clock,         color: 'bg-gray-100 text-gray-600',    dot: 'bg-gray-400' },
-  invite_sent:     { label: 'Invite Sent',     icon: MailCheck,     color: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-500' },
-  account_created: { label: 'Account Created', icon: CheckCircle,   color: 'bg-indigo-100 text-indigo-700',dot: 'bg-indigo-500' },
-  active:          { label: 'Active Client',   icon: CheckCircle,   color: 'bg-green-100 text-green-700',  dot: 'bg-green-500' },
-  cancelled:       { label: 'Cancelled',        icon: XCircle,       color: 'bg-red-100 text-red-600',      dot: 'bg-red-400' },
+  lead_created:    { label: 'Lead Created',    icon: Clock,         color: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 dark:text-gray-500',    dot: 'bg-gray-400' },
+  invite_sent:     { label: 'Invite Sent',     icon: MailCheck,     color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400',    dot: 'bg-blue-500' },
+  account_created: { label: 'Account Created', icon: CheckCircle,   color: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400',dot: 'bg-indigo-500' },
+  active:          { label: 'Active Client',   icon: CheckCircle,   color: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400',  dot: 'bg-green-500' },
+  cancelled:       { label: 'Cancelled',        icon: XCircle,       color: 'bg-red-100 dark:bg-red-900/40 text-red-600',      dot: 'bg-red-400' },
 } as const
 
 const STATUS_STEPS = ['lead_created', 'invite_sent', 'account_created', 'active'] as const
@@ -45,8 +45,8 @@ function StatusBadge({ status }: { status: Lead['status'] }) {
 
 function DealTypeBadge({ dealType }: { dealType: Lead['deal_type'] }) {
   return dealType === 'affiliate_closed'
-    ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 uppercase">I Closed · 30%</span>
-    : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase">Referral · 10%</span>
+    ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 uppercase">I Closed · 30%</span>
+    : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase">Referral · 10%</span>
 }
 
 function fmtDate(s: string | null) {
@@ -65,9 +65,9 @@ function StatusProgress({ status }: { status: Lead['status'] }) {
         const done = i <= currentIdx
         return (
           <div key={step} className="flex items-center gap-1">
-            <div className={`w-2 h-2 rounded-full transition-colors ${done ? 'bg-green-500' : 'bg-gray-200'}`} />
+            <div className={`w-2 h-2 rounded-full transition-colors ${done ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
             {i < STATUS_STEPS.length - 1 && (
-              <div className={`w-4 h-0.5 ${i < currentIdx ? 'bg-green-500' : 'bg-gray-200'}`} />
+              <div className={`w-4 h-0.5 ${i < currentIdx ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
             )}
           </div>
         )
@@ -187,8 +187,8 @@ export default function LeadsPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Prospects</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Add leads, send invites, and track their progress</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Prospects</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">Add leads, send invites, and track their progress</p>
         </div>
         <button
           onClick={() => { setShowForm(true); setFormError('') }}
@@ -202,8 +202,8 @@ export default function LeadsPage() {
       {inviteMsg && (
         <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium border ${
           inviteMsg.ok
-            ? 'bg-green-50 border-green-200 text-green-800'
-            : 'bg-red-50 border-red-200 text-red-800'
+            ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
+            : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
         }`}>
           {inviteMsg.ok ? <MailCheck size={16} /> : <XCircle size={16} />}
           {inviteMsg.msg}
@@ -213,20 +213,20 @@ export default function LeadsPage() {
       {/* Stats strip */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Total Prospects', value: summaryStats.total, color: 'text-gray-900' },
+          { label: 'Total Prospects', value: summaryStats.total, color: 'text-gray-900 dark:text-gray-100' },
           { label: 'Invite Sent', value: summaryStats.invite_sent, color: 'text-blue-600' },
-          { label: 'Active Clients', value: summaryStats.converted, color: 'text-green-600' },
+          { label: 'Active Clients', value: summaryStats.converted, color: 'text-green-600 dark:text-green-400' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-4 py-4 text-center">
+          <div key={label} className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-4 text-center">
             <div className={`text-2xl font-bold ${color}`}>{value}</div>
-            <div className="text-xs text-gray-400 mt-0.5">{label}</div>
+            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{label}</div>
           </div>
         ))}
       </div>
 
       {/* Info banner */}
-      <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3 text-sm text-indigo-800">
-        <Info size={16} className="shrink-0 mt-0.5 text-indigo-500" />
+      <div className="flex items-start gap-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-800 rounded-2xl px-4 py-3 text-sm text-indigo-800 dark:text-indigo-300">
+        <Info size={16} className="shrink-0 mt-0.5 text-indigo-500 dark:text-indigo-400" />
         <div>
           <span className="font-semibold">How this works:</span> Add a prospect, choose your deal type, and send them a personalized invite link. When they sign up through your link, they&apos;re automatically tracked under your account. You earn commission when they become a paying client.
         </div>
@@ -248,7 +248,7 @@ export default function LeadsPage() {
             className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
               statusFilter === value
                 ? 'bg-indigo-600 text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'
             }`}
           >
             {label}
@@ -257,40 +257,40 @@ export default function LeadsPage() {
       </div>
 
       {/* Leads list */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
             <Loader2 size={24} className="animate-spin mb-3" />
             <span className="text-sm">Loading prospects…</span>
           </div>
         ) : leads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
             <UserPlus size={32} className="mb-3 opacity-40" />
-            <p className="text-sm font-medium text-gray-500">No prospects yet</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500">No prospects yet</p>
             <p className="text-xs mt-1">Click "Add Prospect" to get started</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {leads.map(lead => (
               <div key={lead.id}>
                 {/* Lead row */}
                 <div
-                  className="px-5 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                  className="px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                   onClick={() => setExpanded(expanded === lead.id ? null : lead.id)}
                 >
                   <div className="flex items-center justify-between gap-4 flex-wrap">
                     {/* Left: name + email */}
                     <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center shrink-0">
-                        <span className="text-sm font-bold text-indigo-700">
+                      <div className="w-9 h-9 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-indigo-700 dark:text-indigo-400">
                           {lead.full_name.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-gray-900 text-sm">{lead.full_name}</div>
-                        <div className="text-xs text-gray-500">{lead.email}</div>
+                        <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{lead.full_name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">{lead.email}</div>
                         {lead.business_name && (
-                          <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                          <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 mt-0.5">
                             <Building2 size={10} /> {lead.business_name}
                           </div>
                         )}
@@ -314,7 +314,7 @@ export default function LeadsPage() {
                           disabled={inviteLoading === lead.id}
                           className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
                             lead.invite_sent_count > 0
-                              ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:bg-gray-700'
                               : 'bg-indigo-600 text-white hover:bg-indigo-700'
                           } disabled:opacity-60`}
                         >
@@ -331,12 +331,12 @@ export default function LeadsPage() {
 
                       {/* Invite count badge */}
                       {lead.invite_sent_count >= 3 && lead.status === 'invite_sent' && (
-                        <span className="text-[10px] text-gray-400 font-medium">Max invites sent</span>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">Max invites sent</span>
                       )}
 
                       <button
                         onClick={e => { e.stopPropagation(); setExpanded(expanded === lead.id ? null : lead.id) }}
-                        className="text-gray-400 hover:text-gray-600 p-1"
+                        className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-1"
                       >
                         {expanded === lead.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </button>
@@ -346,38 +346,38 @@ export default function LeadsPage() {
 
                 {/* Expanded detail */}
                 {expanded === lead.id && (
-                  <div className="bg-gray-50 border-t border-gray-100 px-5 py-4">
+                  <div className="bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-800 px-5 py-4">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                       <div>
-                        <div className="text-gray-400 font-medium mb-1 uppercase tracking-wide text-[10px]">Created</div>
-                        <div className="text-gray-700">{fmtDate(lead.created_at) ?? '—'}</div>
+                        <div className="text-gray-400 dark:text-gray-500 font-medium mb-1 uppercase tracking-wide text-[10px]">Created</div>
+                        <div className="text-gray-700 dark:text-gray-300">{fmtDate(lead.created_at) ?? '—'}</div>
                       </div>
                       <div>
-                        <div className="text-gray-400 font-medium mb-1 uppercase tracking-wide text-[10px]">Invite Sent</div>
-                        <div className="text-gray-700">
+                        <div className="text-gray-400 dark:text-gray-500 font-medium mb-1 uppercase tracking-wide text-[10px]">Invite Sent</div>
+                        <div className="text-gray-700 dark:text-gray-300">
                           {lead.invite_sent_at
-                            ? <>{fmtDate(lead.invite_sent_at)} <span className="text-gray-400">({lead.invite_sent_count}× sent)</span></>
+                            ? <>{fmtDate(lead.invite_sent_at)} <span className="text-gray-400 dark:text-gray-500">({lead.invite_sent_count}× sent)</span></>
                             : 'Not yet sent'}
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-400 font-medium mb-1 uppercase tracking-wide text-[10px]">Account Created</div>
-                        <div className="text-gray-700">{fmtDate(lead.account_created_at) ?? '—'}</div>
+                        <div className="text-gray-400 dark:text-gray-500 font-medium mb-1 uppercase tracking-wide text-[10px]">Account Created</div>
+                        <div className="text-gray-700 dark:text-gray-300">{fmtDate(lead.account_created_at) ?? '—'}</div>
                       </div>
                       <div>
-                        <div className="text-gray-400 font-medium mb-1 uppercase tracking-wide text-[10px]">Converted</div>
-                        <div className="text-gray-700">{fmtDate(lead.converted_at) ?? '—'}</div>
+                        <div className="text-gray-400 dark:text-gray-500 font-medium mb-1 uppercase tracking-wide text-[10px]">Converted</div>
+                        <div className="text-gray-700 dark:text-gray-300">{fmtDate(lead.converted_at) ?? '—'}</div>
                       </div>
                       {lead.phone && (
                         <div>
-                          <div className="text-gray-400 font-medium mb-1 uppercase tracking-wide text-[10px]">Phone</div>
-                          <div className="text-gray-700">{lead.phone}</div>
+                          <div className="text-gray-400 dark:text-gray-500 font-medium mb-1 uppercase tracking-wide text-[10px]">Phone</div>
+                          <div className="text-gray-700 dark:text-gray-300">{lead.phone}</div>
                         </div>
                       )}
                       {lead.notes && (
                         <div className="col-span-2 sm:col-span-4">
-                          <div className="text-gray-400 font-medium mb-1 uppercase tracking-wide text-[10px]">Notes</div>
-                          <div className="text-gray-700 bg-white border border-gray-200 rounded-lg px-3 py-2">{lead.notes}</div>
+                          <div className="text-gray-400 dark:text-gray-500 font-medium mb-1 uppercase tracking-wide text-[10px]">Notes</div>
+                          <div className="text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2">{lead.notes}</div>
                         </div>
                       )}
                     </div>
@@ -392,12 +392,12 @@ export default function LeadsPage() {
       {/* Add Lead Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-xl w-full max-w-lg">
-            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                <UserPlus size={18} className="text-indigo-600" /> Add Prospect
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl w-full max-w-lg">
+            <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <h2 className="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <UserPlus size={18} className="text-indigo-600 dark:text-indigo-400" /> Add Prospect
               </h2>
-              <button onClick={() => { setShowForm(false); resetForm() }} className="text-gray-400 hover:text-gray-700 text-xl leading-none">
+              <button onClick={() => { setShowForm(false); resetForm() }} className="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 text-xl leading-none">
                 <X size={20} />
               </button>
             </div>
@@ -406,89 +406,89 @@ export default function LeadsPage() {
 
               {/* Full Name */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Full Name *</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Full Name *</label>
                 <input
                   type="text"
                   value={formData.full_name}
                   onChange={e => setFormData(d => ({ ...d, full_name: e.target.value }))}
                   placeholder="Jane Smith"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600"
                 />
               </div>
 
               {/* Email */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Email Address *</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Email Address *</label>
                 <div className="relative">
-                  <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                   <input
                     type="email"
                     value={formData.email}
                     onChange={e => setFormData(d => ({ ...d, email: e.target.value }))}
                     placeholder="jane@example.com"
-                    className="w-full pl-9 pr-4 border border-gray-200 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full pl-9 pr-4 border border-gray-200 dark:border-gray-700 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600"
                   />
                 </div>
               </div>
 
               {/* Phone */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Phone <span className="text-gray-400 font-normal">(optional)</span></label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Phone <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label>
                 <div className="relative">
-                  <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                   <input
                     type="tel"
                     value={formData.phone}
                     onChange={e => setFormData(d => ({ ...d, phone: e.target.value }))}
                     placeholder="+1 (555) 000-0000"
-                    className="w-full pl-9 pr-4 border border-gray-200 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full pl-9 pr-4 border border-gray-200 dark:border-gray-700 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600"
                   />
                 </div>
               </div>
 
               {/* Business Name */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Business Name <span className="text-gray-400 font-normal">(optional)</span></label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Business Name <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label>
                 <div className="relative">
-                  <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                   <input
                     type="text"
                     value={formData.business_name}
                     onChange={e => setFormData(d => ({ ...d, business_name: e.target.value }))}
                     placeholder="Acme Corp"
-                    className="w-full pl-9 pr-4 border border-gray-200 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full pl-9 pr-4 border border-gray-200 dark:border-gray-700 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600"
                   />
                 </div>
               </div>
 
               {/* Deal Type */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">Deal Type *</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Deal Type *</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setFormData(d => ({ ...d, deal_type: 'referral_only' }))}
                     className={`p-3 rounded-xl border-2 text-left transition-all ${
                       formData.deal_type === 'referral_only'
-                        ? 'border-indigo-500 bg-indigo-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-indigo-500 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                   >
-                    <div className="font-semibold text-sm text-gray-900">Referral</div>
-                    <div className="text-xs text-gray-500 mt-0.5">I&apos;m referring them</div>
-                    <div className="text-xs font-bold text-indigo-600 mt-1">10% commission</div>
+                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">Referral</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">I&apos;m referring them</div>
+                    <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-1">10% commission</div>
                   </button>
                   <button
                     type="button"
                     onClick={() => setFormData(d => ({ ...d, deal_type: 'affiliate_closed' }))}
                     className={`p-3 rounded-xl border-2 text-left transition-all ${
                       formData.deal_type === 'affiliate_closed'
-                        ? 'border-purple-500 bg-purple-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-purple-500 dark:border-purple-400 bg-purple-50 dark:bg-purple-950/30'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                   >
-                    <div className="font-semibold text-sm text-gray-900">I&apos;ll Close It</div>
-                    <div className="text-xs text-gray-500 mt-0.5">I&apos;m handling the sale</div>
+                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">I&apos;ll Close It</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">I&apos;m handling the sale</div>
                     <div className="text-xs font-bold text-purple-600 mt-1">30% commission</div>
                   </button>
                 </div>
@@ -496,30 +496,30 @@ export default function LeadsPage() {
 
               {/* Notes */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                  <span className="flex items-center gap-1"><StickyNote size={12} /> Notes <span className="text-gray-400 font-normal">(optional)</span></span>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                  <span className="flex items-center gap-1"><StickyNote size={12} /> Notes <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></span>
                 </label>
                 <textarea
                   value={formData.notes}
                   onChange={e => setFormData(d => ({ ...d, notes: e.target.value }))}
                   placeholder="Any context about this prospect..."
                   rows={3}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                  className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-600 resize-none"
                 />
               </div>
 
               {formError && (
-                <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-xs text-red-700">
+                <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2.5 text-xs text-red-700 dark:text-red-400">
                   {formError}
                 </div>
               )}
             </div>
 
             {/* Actions */}
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex gap-3">
               <button
                 onClick={() => { setShowForm(false); resetForm() }}
-                className="flex-1 border border-gray-200 text-gray-700 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors"
+                className="flex-1 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 Cancel
               </button>
