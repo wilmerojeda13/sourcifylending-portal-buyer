@@ -11,15 +11,13 @@ const AGREEMENT_VERSION = 'v1.0'
 
 const PROGRAM_DETAILS: Record<ProgramId, { price: string; setupFee?: string; monthlyFee: string; headline: string }> = {
   program_a: {
-    setupFee: '$1,500 one-time setup fee',
-    monthlyFee: '$399/month',
-    price: '$1,500 today, then $399/month starting Day 31',
+    monthlyFee: '$449/month',
+    price: '$449/month — no setup fee',
     headline: '0% Intro APR Advisory',
   },
   program_b: {
-    setupFee: '$997 one-time setup fee',
-    monthlyFee: '$199/month',
-    price: '$997 today, then $199/month starting Day 31',
+    monthlyFee: '$249/month',
+    price: '$249/month — no setup fee',
     headline: 'Business Credit Builder',
   },
   program_c: {
@@ -44,13 +42,13 @@ RESULTS ARE NOT GUARANTEED. SourcifyLending does not guarantee, promise, or warr
 Upon enrollment, Client will be assigned to a program based on the results of the free financial readiness analyzer. Program assignment is determined by the Company and may be updated at our discretion based on Client's evolving profile. Services are delivered digitally through the SourcifyLending client portal and include access to an AI fulfillment agent, task management tools, document management, progress tracking, and report generation, as applicable to the assigned program.
 
 4. FEES AND PAYMENT TERMS
-Client agrees to pay all fees associated with their assigned program as disclosed at enrollment. Program A (0% Intro APR Advisory): $1,500 one-time setup fee charged at enrollment, followed by $399 per month beginning 30 days after the setup fee is processed. Program B (Business Credit Builder): $997 one-time setup fee charged at enrollment, followed by $199 per month beginning 30 days after the setup fee is processed. Program C (Capital Monitoring Membership): $97 per month beginning at enrollment, billed on a recurring monthly basis. All payments are processed securely through Stripe. By providing a payment method, you authorize SourcifyLending to charge the applicable fees on the schedule described above.
+Client agrees to pay all fees associated with their assigned program as disclosed at enrollment. Program A (0% Intro APR Advisory): $449 per month beginning at enrollment, billed on a recurring monthly basis. Program B (Business Credit Builder): $249 per month beginning at enrollment, billed on a recurring monthly basis. Program C (Capital Monitoring Membership): $97 per month beginning at enrollment, billed on a recurring monthly basis. All payments are processed securely through Stripe. By providing a payment method, you authorize SourcifyLending to charge the applicable fees on the schedule described above.
 
 5. SUBSCRIPTION AND CANCELLATION POLICY
 Subscriptions renew automatically on a monthly basis. Client may cancel at any time by accessing the billing portal within the SourcifyLending client portal or by contacting us in writing. Cancellation takes effect at the end of the current billing period. No partial refunds are issued for unused days within a billing period. Upon cancellation, portal access is restricted and task progress is paused. All data and progress records are retained and will be restored upon reactivation.
 
 6. REFUND POLICY
-Setup fees (Programs A and B) are non-refundable once processed. Monthly subscription fees are non-refundable for periods already billed. Exceptions may be considered at the sole discretion of the Company in cases of documented technical failure attributable solely to SourcifyLending. To request a review, contact support in writing within 7 days of the disputed charge.
+Monthly subscription fees are non-refundable for periods already billed. Exceptions may be considered at the sole discretion of the Company in cases of documented technical failure attributable solely to SourcifyLending. To request a review, contact support in writing within 7 days of the disputed charge.
 
 7. CLIENT RESPONSIBILITIES
 Client agrees to: (a) provide accurate, complete, and truthful information throughout the advisory process; (b) promptly complete assigned tasks and respond to guidance provided through the portal; (c) not misrepresent their financial situation, business status, or creditworthiness to any third party as part of or in connection with our services; (d) independently verify all recommendations before acting on them; and (e) maintain the confidentiality of their portal credentials.
@@ -217,9 +215,6 @@ export default function EnrollPage() {
               <p className="text-green-700 font-semibold text-sm mt-1">{details.price}</p>
             </div>
             <div className="text-right shrink-0">
-              {details.setupFee && (
-                <p className="text-xs text-gray-500">Setup: {details.setupFee}</p>
-              )}
               <p className="text-xs text-gray-500">Monthly: {details.monthlyFee}</p>
             </div>
           </div>

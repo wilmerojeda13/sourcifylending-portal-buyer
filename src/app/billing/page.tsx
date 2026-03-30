@@ -34,8 +34,8 @@ const PROGRAM_NAMES: Record<string, string> = {
 }
 
 const PROGRAM_PRICES: Record<string, string> = {
-  program_a: '$399/month',
-  program_b: '$199/month',
+  program_a: '$449/month',
+  program_b: '$249/month',
   program_c: '$97/month',
 }
 
@@ -447,8 +447,8 @@ export default function BillingPage() {
           </div>
 
           {[
-            { key: 'program_a', badge: '$1,500 setup', monthly: 'then $399/month', desc: 'Build high-limit 0% intro APR credit card stack for business or personal capital', badgeColor: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' },
-            { key: 'program_b', badge: '$997 setup', monthly: 'then $199/month', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badgeColor: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
+            { key: 'program_a', badge: 'No setup fee', monthly: '$449/month', desc: 'Build high-limit 0% intro APR credit card stack for business or personal capital', badgeColor: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' },
+            { key: 'program_b', badge: 'No setup fee', monthly: '$249/month', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badgeColor: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
             { key: 'program_c', badge: 'No setup fee', monthly: '$97/month', desc: 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan', badgeColor: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400' },
           ].map(({ key, badge, monthly, desc, badgeColor }) => (
             <div key={key} className="card border-2 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-colors">
