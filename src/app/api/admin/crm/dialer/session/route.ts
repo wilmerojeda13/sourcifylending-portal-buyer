@@ -3,6 +3,7 @@ import twilio from 'twilio'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { buildDialerConferenceName } from '@/lib/crm-dialer'
 import { loadSessionAttempts, syncDialerSessionState } from '@/lib/crm-dialer-attempts'
+import { normalizePhone } from '@/modules/voice-agent/utils/phone'
 
 type SessionRow = {
   id: string
@@ -10,6 +11,7 @@ type SessionRow = {
   agent_name: string
   rep_phone_number: string
   session_status: string
+  rep_state?: string | null
   conference_name: string
   twilio_agent_call_sid: string | null
   twilio_conference_sid: string | null
@@ -19,6 +21,8 @@ type SessionRow = {
   started_at: string | null
   answered_at: string | null
   ended_at: string | null
+  target_parallel_lines?: number | null
+  rep_session_mode?: string | null
   metadata: Record<string, unknown> | null
 }
 
@@ -76,29 +80,6 @@ export async function GET() {
   })
 }
 
-import { normalizePhone } from '@/modules/voice-agent/utils/phone'
-
-type SessionRow = {
-  id: string
-  agent_user_id: string
-  agent_name: string
-  rep_phone_number: string
-  session_status: string
-  rep_state?: string | null
-  conference_name: string
-  twilio_agent_call_sid: string | null
-  twilio_conference_sid: string | null
-  current_lead_id: string | null
-  current_crm_call_id: string | null
-  last_error: string | null
-  started_at: string | null
-  answered_at: string | null
-  ended_at: string | null
-  target_parallel_lines?: number | null
-  rep_session_mode?: string | null
-  metadata: Record<string, unknown> | null
-}
-...
 export async function POST(req: NextRequest) {
   const admin = await assertAdmin()
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
