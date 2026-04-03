@@ -39,7 +39,7 @@ const STATUS_TABS: { value: FlagStatus; label: string; color: string }[] = [
 ]
 
 const SUB_NAV = [
-  { label: 'Affiliates', href: '/admin/affiliates' },
+  { label: 'Partners', href: '/admin/affiliates' },
   { label: 'Commissions', href: '/admin/affiliates/commissions' },
   { label: 'Settings', href: '/admin/affiliates/settings' },
   { label: 'Resources', href: '/admin/affiliates/resources' },
@@ -107,11 +107,11 @@ export default function FlagsPage() {
             <ChevronLeft size={14} /> Admin
           </Link>
           <span className="text-gray-300">/</span>
-          <Link href="/admin/affiliates" className="text-sm text-gray-500 hover:text-gray-700">Affiliates</Link>
+          <Link href="/admin/affiliates" className="text-sm text-gray-500 hover:text-gray-700">Partners</Link>
           <span className="text-gray-300">/</span>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Fraud Flags & Reviews</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Review and action affiliate fraud flags</p>
+            <p className="text-sm text-gray-500 mt-0.5">Review and action partner-program fraud flags</p>
           </div>
         </div>
 
@@ -121,7 +121,7 @@ export default function FlagsPage() {
             <Link key={href} href={href}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${active
                 ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                : 'text-gray-600 hover:text-green-700 hover:bg-green-50'
               }`}
             >
               {label}
@@ -138,7 +138,7 @@ export default function FlagsPage() {
                 onClick={() => setActiveTab(value)}
                 className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors capitalize border-b-2 ${activeTab === value
                   ? `border-indigo-600 text-indigo-700 bg-indigo-50/50`
-                  : 'border-transparent text-gray-500 hover:text-gray-800'
+                : 'border-transparent text-gray-500 hover:text-green-700'
                 }`}
               >
                 <span className={activeTab === value ? 'text-indigo-700' : color}>{label}</span>
@@ -200,7 +200,7 @@ export default function FlagsPage() {
                         {/* Details */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                           <div>
-                            <p className="text-xs text-gray-400 mb-0.5">Affiliate</p>
+                            <p className="text-xs text-gray-400 mb-0.5">Partner</p>
                             <Link href={`/admin/affiliates/${flag.affiliate_id}`}
                               className="font-semibold text-indigo-700 hover:underline text-sm"
                               onClick={e => e.stopPropagation()}

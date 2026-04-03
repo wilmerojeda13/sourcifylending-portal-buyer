@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams()
@@ -148,6 +149,7 @@ export default function ResetPasswordPage() {
         <div className="text-center mb-8">
           <Link href="/" className="text-2xl font-bold text-green-600">SourcifyLending</Link>
           <p className="text-gray-500 mt-1 text-sm">Reset your password</p>
+          <PublicLegalLinks className="mt-3 text-xs text-gray-400" />
         </div>
         <Suspense fallback={
           <div className="card shadow-sm text-center">
@@ -160,3 +162,4 @@ export default function ResetPasswordPage() {
     </div>
   )
 }
+// PUBLIC_FORM_COMPLIANCE_OK

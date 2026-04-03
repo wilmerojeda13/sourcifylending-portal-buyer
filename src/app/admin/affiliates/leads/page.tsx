@@ -14,7 +14,7 @@ interface Lead {
   email: string
   phone: string | null
   business_name: string | null
-  deal_type: 'referral_only' | 'affiliate_closed'
+  deal_type: 'referral_only' | 'affiliate_closed' | 'partner_assisted'
   status: 'lead_created' | 'invite_sent' | 'account_created' | 'active' | 'cancelled'
   invite_sent_at: string | null
   invite_sent_count: number
@@ -47,9 +47,13 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function DealTypeBadge({ dealType }: { dealType: string }) {
+  if (dealType === 'partner_assisted') {
+    return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 uppercase">Partner-Assisted · 80/20</span>
+  }
+
   return dealType === 'affiliate_closed'
-    ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 uppercase">Closed · 30%</span>
-    : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase">Referral · 10%</span>
+    ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 uppercase">Legacy Closed · 30%</span>
+    : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase">Legacy Referral · 10%</span>
 }
 
 function fmtDate(s: string | null) {
@@ -96,19 +100,19 @@ export default function AdminLeadsPage() {
         {/* Header */}
         <div className="flex items-center gap-3">
           <Link href="/admin/affiliates" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-            <ChevronLeft size={14} /> Affiliates
+            <ChevronLeft size={14} /> Partners
           </Link>
           <span className="text-gray-300">/</span>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Affiliate Leads</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Prospects submitted by affiliates and their conversion status</p>
+            <h1 className="text-2xl font-bold text-gray-900">Partner Clients</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Clients submitted by partners and their onboarding / conversion status</p>
           </div>
         </div>
 
         {/* Sub-nav */}
         <div className="flex items-center gap-2 flex-wrap text-sm">
           {[
-            { label: 'Affiliates', href: '/admin/affiliates' },
+            { label: 'Partners', href: '/admin/affiliates' },
             { label: 'Commissions', href: '/admin/affiliates/commissions' },
             { label: 'Leads', href: '/admin/affiliates/leads', active: true },
             { label: 'Applications', href: '/admin/affiliates/applications' },
@@ -120,7 +124,7 @@ export default function AdminLeadsPage() {
               href={href}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${active
                 ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                : 'text-gray-600 hover:text-green-700 hover:bg-green-50'
               }`}
             >
               {label}
@@ -141,7 +145,7 @@ export default function AdminLeadsPage() {
           })}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-4 py-4 text-center">
             <div className="text-xl font-bold text-gray-900">{total}</div>
-            <div className="text-xs text-gray-400 mt-0.5">Total Leads</div>
+            <div className="text-xs text-gray-400 mt-0.5">Total Client Records</div>
           </div>
         </div>
 
@@ -177,7 +181,7 @@ export default function AdminLeadsPage() {
         {/* Table */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100">
-            <span className="text-sm font-semibold text-gray-700">{total} lead{total !== 1 ? 's' : ''}</span>
+            <span className="text-sm font-semibold text-gray-700">{total} client record{total !== 1 ? 's' : ''}</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

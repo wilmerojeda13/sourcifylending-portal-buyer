@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import MembersTable from './MembersTable'
+import { excludeChildBusinessProfiles } from '@/lib/business-memberships'
 
 export default async function AdminMembersPage() {
   const authClient = await createClient()
@@ -13,10 +14,10 @@ export default async function AdminMembersPage() {
   if (!adminCheck?.is_admin) redirect('/dashboard')
 
   // Load profiles + subscriptions + memberships in parallel
-  const [{ data: profiles }, { data: subscriptions }, { data: allMemberships }] = await Promise.all([
+  const [{ data: profiles }, { data: subscriptions }, { data: allMemberships }, { data: businessMemberships }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, email, business_name, subscription_status, assigned_program, current_stage, portal_blocked, is_demo, created_at')
+      .select('id, full_name, email, business_name, subscription_status, assigned_program, current_stage, portal_blocked, suspicious_signup, suspicious_signup_reason, signup_risk_score, is_demo, created_at')
       .order('created_at', { ascending: false }),
     supabase
       .from('subscriptions')
@@ -25,7 +26,13 @@ export default async function AdminMembersPage() {
       .from('memberships')
       .select('user_id, program_code, status')
       .eq('status', 'active'),
+    supabase
+      .from('profile_business_memberships')
+      .select('user_id, business_profile_id')
+      .eq('status', 'active'),
   ])
+
+  const primaryProfiles = excludeChildBusinessProfiles(profiles ?? [], businessMemberships ?? [])
 
   const subMap = new Map((subscriptions ?? []).map((s) => [s.user_id, s]))
 
@@ -36,7 +43,15 @@ export default async function AdminMembersPage() {
     membershipMap.get(m.user_id)!.push(m.program_code)
   }
 
-  const members = (profiles ?? []).map((p) => {
+  const businessCountMap = new Map<string, number>()
+  for (const membership of businessMemberships ?? []) {
+    businessCountMap.set(
+      membership.user_id,
+      (businessCountMap.get(membership.user_id) ?? 0) + 1,
+    )
+  }
+
+  const members = primaryProfiles.map((p) => {
     const sub = subMap.get(p.id)
     return {
       id: p.id,
@@ -48,12 +63,16 @@ export default async function AdminMembersPage() {
       active_programs: membershipMap.get(p.id) ?? [],
       current_stage: p.current_stage ?? null,
       portal_blocked: p.portal_blocked ?? false,
+      suspicious_signup: p.suspicious_signup ?? false,
+      suspicious_signup_reason: p.suspicious_signup_reason ?? null,
+      signup_risk_score: p.signup_risk_score ?? null,
       is_demo: p.is_demo ?? false,
       created_at: p.created_at,
       stripe_subscription_id: sub?.stripe_subscription_id ?? null,
       stripe_customer_id: sub?.stripe_customer_id ?? null,
       stripe_status: sub?.status ?? null,
       current_period_end: sub?.current_period_end ?? null,
+      business_count: businessCountMap.get(p.id) ?? 1,
     }
   })
 
@@ -64,6 +83,7 @@ export default async function AdminMembersPage() {
     canceled: members.filter((m) => m.subscription_status === 'canceled').length,
     inactive: members.filter((m) => m.subscription_status === 'inactive').length,
     blocked: members.filter((m) => m.portal_blocked).length,
+    suspicious: members.filter((m) => m.suspicious_signup).length,
   }
 
   return (
@@ -98,7 +118,7 @@ export default async function AdminMembersPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-7 gap-3">
           {[
             { label: 'Total', value: stats.total, color: 'text-gray-900 dark:text-white' },
             { label: 'Active', value: stats.active, color: 'text-green-600' },
@@ -106,6 +126,7 @@ export default async function AdminMembersPage() {
             { label: 'Canceled', value: stats.canceled, color: 'text-red-500' },
             { label: 'Inactive', value: stats.inactive, color: 'text-gray-400' },
             { label: 'Blocked', value: stats.blocked, color: 'text-red-700' },
+            { label: 'Suspicious', value: stats.suspicious, color: 'text-amber-700' },
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 px-4 py-3 text-center shadow-sm dark:shadow-gray-900">
               <div className={`text-2xl font-bold ${color}`}>{value}</div>

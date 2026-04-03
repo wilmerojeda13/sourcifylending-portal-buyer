@@ -1,22 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getOrCreateActiveConversation } from '@/lib/ai-memory'
+import { getBusinessContext } from '@/lib/business-context'
 
 // GET — load or create active conversation + its messages
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { id: conversationId, isNew, wasRolledOver } = await getOrCreateActiveConversation(user.id)
+    const { id: conversationId, isNew, wasRolledOver } = await getOrCreateActiveConversation(context.activeBusinessId)
 
     // Load prior messages for this conversation
     const { data: messages } = await supabase
       .from('ai_messages')
       .select('id, role, content, created_at')
       .eq('conversation_id', conversationId)
-      .eq('user_id', user.id)
+      .eq('user_id', context.activeBusinessId)
       .order('created_at', { ascending: true })
       .limit(100)
 
@@ -26,7 +29,7 @@ export async function GET() {
       const { data: memProfile } = await supabase
         .from('ai_memory_profiles')
         .select('last_summary')
-        .eq('user_id', user.id)
+        .eq('user_id', context.activeBusinessId)
         .maybeSingle()
       priorSummary = memProfile?.last_summary ?? null
     }
@@ -56,6 +59,8 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { conversation_id, role, content } = await req.json()
   if (!conversation_id || !role || !content) {
@@ -71,7 +76,7 @@ export async function POST(req: NextRequest) {
     .from('ai_messages')
     .insert({
       conversation_id,
-      user_id: user.id,
+      user_id: context.activeBusinessId,
       role,
       content,
       token_estimate: tokenEstimate,

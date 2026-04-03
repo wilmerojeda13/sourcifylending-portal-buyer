@@ -25,6 +25,17 @@ export interface CalendarSlot {
   timezone: string
 }
 
+export interface CalendarEventItem {
+  id: string
+  summary: string
+  description?: string | null
+  start: string
+  end: string
+  status?: string | null
+  htmlLink?: string | null
+  source: 'google'
+}
+
 async function getAccessToken(settings: CalendarSettings): Promise<string> {
   const clientId     = settings?.google_client_id     || process.env.GOOGLE_CLIENT_ID
   const clientSecret = settings?.google_client_secret || process.env.GOOGLE_CLIENT_SECRET
@@ -152,4 +163,56 @@ export async function createCalendarEvent(settings: CalendarSettings, details: {
   const created = await res.json()
   if (!res.ok) throw new Error(`Event creation failed: ${created.error?.message || res.status}`)
   return created
+}
+
+export async function listCalendarEvents(
+  settings: CalendarSettings,
+  options?: {
+    timeMin?: string
+    timeMax?: string
+    maxResults?: number
+  }
+): Promise<CalendarEventItem[]> {
+  const accessToken = await getAccessToken(settings)
+  const calendarId = settings?.google_calendar_id || 'primary'
+  const params = new URLSearchParams({
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    timeMin: options?.timeMin || new Date().toISOString(),
+    maxResults: String(options?.maxResults || 100),
+  })
+
+  if (options?.timeMax) {
+    params.set('timeMax', options.timeMax)
+  }
+
+  const calIdEncoded = encodeURIComponent(calendarId)
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${calIdEncoded}/events?${params.toString()}`
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
+  const data = await res.json()
+
+  if (!res.ok) {
+    throw new Error(`Events fetch failed: ${data.error?.message || res.status}`)
+  }
+
+  return (data.items || [])
+    .filter((item: Record<string, unknown>) => {
+      const start = item.start as Record<string, string> | undefined
+      const end = item.end as Record<string, string> | undefined
+      return Boolean(start?.dateTime || start?.date) && Boolean(end?.dateTime || end?.date)
+    })
+    .map((item: Record<string, unknown>) => {
+      const start = item.start as Record<string, string>
+      const end = item.end as Record<string, string>
+      return {
+        id: String(item.id || crypto.randomUUID()),
+        summary: String(item.summary || 'Google Calendar Event'),
+        description: typeof item.description === 'string' ? item.description : null,
+        start: start.dateTime || start.date || '',
+        end: end.dateTime || end.date || '',
+        status: typeof item.status === 'string' ? item.status : null,
+        htmlLink: typeof item.htmlLink === 'string' ? item.htmlLink : null,
+        source: 'google' as const,
+      }
+    })
 }

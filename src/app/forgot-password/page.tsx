@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -93,9 +94,11 @@ export default function ForgotPasswordPage() {
             <Link href="/login" className="text-sm text-gray-500 hover:text-green-600">
               ← Back to Sign In
             </Link>
+            <PublicLegalLinks className="mt-3 text-xs text-gray-400" />
           </div>
         </div>
       </div>
     </div>
   )
 }
+// PUBLIC_FORM_COMPLIANCE_OK

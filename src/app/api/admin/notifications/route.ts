@@ -53,6 +53,13 @@ export async function GET() {
     .select('*', { count: 'exact', head: true })
     .eq('is_read', false)
 
+  console.log('[admin/notifications] GET', {
+    adminUserId: user.id,
+    role: 'admin',
+    unreadCount: unread_count ?? 0,
+    notificationCount: notifications?.length ?? 0,
+  })
+
   return NextResponse.json({ notifications: notifications ?? [], unread_count: unread_count ?? 0 })
 }
 

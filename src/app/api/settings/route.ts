@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getBusinessContext } from '@/lib/business-context'
 
 // ─── GET — current profile data for settings form ────────────────────────────
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('full_name, email, business_name, entity_type, industry, phone')
-    .eq('id', user.id)
+    .eq('id', context.activeBusinessId)
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -32,6 +35,8 @@ export async function PATCH(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
 
@@ -58,7 +63,7 @@ export async function PATCH(req: NextRequest) {
   const { error } = await supabase
     .from('profiles')
     .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', user.id)
+    .eq('id', context.activeBusinessId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

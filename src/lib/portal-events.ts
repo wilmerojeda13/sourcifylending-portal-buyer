@@ -15,6 +15,31 @@ export interface PortalEventOptions {
   sendEmail?: boolean
 }
 
+async function insertLegacyPortalEvent(supabase: Awaited<ReturnType<typeof createServiceClient>>, opts: PortalEventOptions) {
+  if (!opts.userId) {
+    return { data: null, error: new Error('legacy_portal_events_requires_user_id') }
+  }
+
+  return supabase
+    .from('portal_events')
+    .insert({
+      user_id: opts.userId,
+      action_type: opts.eventType,
+      result: opts.severity ?? 'info',
+      metadata: {
+        title: opts.title,
+        message: opts.message ?? null,
+        event_category: opts.category,
+        severity: opts.severity ?? 'info',
+        created_by: opts.createdBy ?? null,
+        ...(opts.metadata ?? {}),
+      },
+      created_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single()
+}
+
 const HIGH_PRIORITY_EVENTS = [
   'account_created',
   'subscription_created',
@@ -26,6 +51,9 @@ const HIGH_PRIORITY_EVENTS = [
   'subscription_canceled',
   'delegate_invited',
   'invite_sent',
+  'signup_requested',
+  'analyzer_completed',
+  'new_lead_analyzer',
   'underwriting_completed',
   'underwriting_disqualified',
   'checkout_completed',
@@ -68,7 +96,7 @@ async function sendAdminEmail(title: string, message: string | undefined, metada
     </div>
   `
 
-  await fetch('https://api.resend.com/emails', {
+  const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -78,6 +106,18 @@ async function sendAdminEmail(title: string, message: string | undefined, metada
       html,
     }),
   })
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '')
+    console.error('[portal-events] Resend admin email failed', {
+      status: response.status,
+      statusText: response.statusText,
+      title,
+      userId,
+      severity,
+      errorText,
+    })
+  }
 }
 
 export async function logPortalEvent(opts: PortalEventOptions): Promise<void> {
@@ -97,7 +137,7 @@ export async function logPortalEvent(opts: PortalEventOptions): Promise<void> {
     const supabase = await createServiceClient()
 
     // Insert into portal_events
-    const { data: eventRow, error: eventError } = await supabase
+    let { data: eventRow, error: eventError } = await supabase
       .from('portal_events')
       .insert({
         user_id: userId ?? null,
@@ -113,19 +153,33 @@ export async function logPortalEvent(opts: PortalEventOptions): Promise<void> {
       .select('id')
       .single()
 
+    if (eventError?.code === '42703' || eventError?.message?.includes('portal_events')) {
+      const legacyInsert = await insertLegacyPortalEvent(supabase, opts)
+      eventRow = legacyInsert.data
+      eventError = legacyInsert.error
+    }
+
     if (eventError || !eventRow) {
       console.error('[portal-events] Failed to insert portal_event:', eventError)
       return
     }
 
     // Insert into admin_notifications
-    await supabase.from('admin_notifications').insert({
+    const { error: notificationError } = await supabase.from('admin_notifications').insert({
       event_id: eventRow.id,
       notification_type: 'in_app',
       is_read: false,
       sent_at: new Date().toISOString(),
       delivery_status: 'delivered',
     })
+
+    if (notificationError) {
+      console.error('[portal-events] Failed to insert admin_notification:', notificationError, {
+        eventType,
+        title,
+        userId,
+      })
+    }
 
     // Determine whether to send email
     const isHighPriority = HIGH_PRIORITY_EVENTS.includes(eventType)

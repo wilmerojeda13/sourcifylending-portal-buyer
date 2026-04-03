@@ -9,9 +9,10 @@ import {
 } from 'lucide-react'
 
 type EventSeverity = 'info' | 'success' | 'warning' | 'critical'
-type EventCategory = 'accounts' | 'billing' | 'subscriptions' | 'support' | 'documents' | 'funding' | 'reports'
+type EventCategory = 'accounts' | 'billing' | 'subscriptions' | 'support' | 'documents' | 'funding' | 'reports' | 'leads' | 'alerts'
 
 interface PortalEvent {
+  notification_id: string
   id: string
   user_id: string | null
   event_type: string
@@ -22,6 +23,7 @@ interface PortalEvent {
   severity: EventSeverity
   created_by: string | null
   created_at: string
+  is_read: boolean
   profiles?: {
     full_name: string | null
     email: string | null
@@ -54,6 +56,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   documents: <FileText size={16} className="text-gray-500" />,
   funding: <TrendingUp size={16} className="text-emerald-600" />,
   reports: <BarChart2 size={16} className="text-indigo-600" />,
+  alerts: <AlertTriangle size={16} className="text-red-600" />,
 }
 
 const SEVERITY_COLORS: Record<EventSeverity, string> = {
@@ -98,13 +101,17 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
       if (cat !== 'all') params.set('category', cat)
       const res = await fetch(`/api/admin/activity?${params}`)
       const data = await res.json()
-      if (res.ok && data.events) setEvents(data.events)
-
-      const nRes = await fetch('/api/admin/notifications')
-      const nData = await nRes.json()
-      if (nRes.ok) setUnreadCount(nData.unread_count ?? 0)
-    } catch {
-      // silent fail
+      console.debug('[ActivityFeed] fetchEvents', {
+        activeCategory: cat,
+        eventCount: data.events?.length ?? 0,
+        unreadCount: data.unread_count ?? 0,
+      })
+      if (res.ok && data.events) {
+        setEvents(data.events)
+        setUnreadCount(data.unread_count ?? 0)
+      }
+    } catch (error) {
+      console.error('[ActivityFeed] fetchEvents failed', error)
     }
   }, [activeCategory])
 
@@ -122,15 +129,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
 
   async function handleCategoryChange(cat: string) {
     setActiveCategory(cat)
-    const params = new URLSearchParams({ limit: '100' })
-    if (cat !== 'all') params.set('category', cat)
-    try {
-      const res = await fetch(`/api/admin/activity?${params}`)
-      const data = await res.json()
-      if (res.ok && data.events) setEvents(data.events)
-    } catch {
-      // silent fail
-    }
+    await fetchEvents(cat)
   }
 
   async function markAllRead() {
@@ -142,6 +141,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
         body: JSON.stringify({ mark_all_read: true }),
       })
       setUnreadCount(0)
+      setEvents((prev) => prev.map((event) => ({ ...event, is_read: true })))
     } catch {
       // silent fail
     } finally {
@@ -244,6 +244,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
                     event.event_category === 'support' ? 'bg-amber-50 dark:bg-amber-900/30' :
                     event.event_category === 'documents' ? 'bg-gray-100 dark:bg-gray-700' :
                     event.event_category === 'funding' ? 'bg-emerald-50 dark:bg-emerald-900/30' :
+                    event.event_category === 'alerts' ? 'bg-red-50 dark:bg-red-900/30' :
                     'bg-indigo-50 dark:bg-indigo-900/30'
                   }`}>
                     {CATEGORY_ICONS[event.event_category] ?? <BarChart2 size={16} className="text-gray-400" />}
@@ -269,6 +270,11 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
                         )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                        {!event.is_read && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300">
+                            unread
+                          </span>
+                        )}
                         {showBadge && (
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${SEVERITY_COLORS[event.severity]}`}>
                             {event.severity}

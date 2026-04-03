@@ -1,13 +1,22 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowRight, ArrowLeft, CheckCircle, AlertTriangle, XCircle, ChevronRight, Lock, Eye, EyeOff, CalendarDays, Sparkles } from 'lucide-react'
+import { ArrowRight, ArrowLeft, CheckCircle, AlertTriangle, XCircle, ChevronRight, Lock, Eye, EyeOff, CalendarDays, Sparkles, BadgeDollarSign, Target, ShieldAlert } from 'lucide-react'
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton'
+import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
+import PublicMessagingConsent from '@/components/compliance/PublicMessagingConsent'
+import TurnstileWidget from '@/components/compliance/TurnstileWidget'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/Badge'
 import type { AnalyzerResult } from '@/types'
+import { CRM_INVITE_COOKIE } from '@/lib/crm-invites'
+import {
+  CompliancePayload,
+  CONSENT_TEXT_VERSION,
+  REQUIRED_MESSAGING_DISCLOSURE,
+} from '@/lib/public-form-compliance'
 
 const TOTAL_STEPS = 11
 
@@ -68,7 +77,10 @@ interface AnalyzerApiResult extends AnalyzerResult {
 }
 
 export default function AnalyzerPage() {
+  const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const crmInviteId = searchParams.get('crm_invite')
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [result, setResult] = useState<AnalyzerApiResult | null>(null)
@@ -83,6 +95,8 @@ export default function AnalyzerPage() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [contactError, setContactError] = useState('')
+  const [contactConsent, setContactConsent] = useState(false)
+  const [contactTurnstileToken, setContactTurnstileToken] = useState('')
 
   // Check auth on mount
   useEffect(() => {
@@ -104,13 +118,29 @@ export default function AnalyzerPage() {
     checkAuth()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (!crmInviteId) return
+    document.cookie = `${CRM_INVITE_COOKIE}=${encodeURIComponent(crmInviteId)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+    fetch(`/api/crm/invites/${crmInviteId}/engagement`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'analyzer_started', metadata: { page: 'analyzer' } }),
+    }).catch(() => {})
+  }, [crmInviteId])
+
   const current = QUESTIONS[step]
   const progress = (step / TOTAL_STEPS) * 100
 
   const setValue = (val: string) => setAnswers({ ...answers, [current.id]: val })
   const currentVal = answers[current.id] || ''
 
-  const submitAnalyzer = async (name: string, userEmail: string, userPhone?: string) => {
+  const submitAnalyzer = async (
+    name: string,
+    userEmail: string,
+    userPhone?: string,
+    compliance?: CompliancePayload,
+    turnstileToken?: string,
+  ) => {
     setLoading(true)
     try {
       const res = await fetch('/api/leads/analyzer', {
@@ -120,8 +150,11 @@ export default function AnalyzerPage() {
           full_name: name,
           email: userEmail,
           phone: userPhone || undefined,
+          turnstileToken: turnstileToken || null,
           business_name: answers.business_name || undefined,
           answers,
+          crm_invite_id: crmInviteId || null,
+          compliance,
         }),
       })
       const data = await res.json()
@@ -164,7 +197,16 @@ export default function AnalyzerPage() {
       return
     }
     if (!phone.trim()) { setContactError('Please enter your phone number.'); return }
-    await submitAnalyzer(fullName.trim(), email.trim(), phone.trim())
+    if (!contactConsent) { setContactError('SMS consent is required before submitting.'); return }
+    await submitAnalyzer(fullName.trim(), email.trim(), phone.trim(), {
+      enabled: true,
+      form_name: 'public_analyzer_contact_gate',
+      page_url: typeof window !== 'undefined' ? window.location.href : '/analyzer',
+      timestamp: new Date().toISOString(),
+      consent_text_version: CONSENT_TEXT_VERSION,
+      disclosure_text: REQUIRED_MESSAGING_DISCLOSURE,
+      consent_given: true,
+    }, contactTurnstileToken)
   }
 
   if (loading) {
@@ -188,6 +230,7 @@ export default function AnalyzerPage() {
         contactEmail={loggedInUser?.email || email}
         contactName={loggedInUser?.name || fullName}
         contactBusinessName={answers.business_name}
+        crmInviteId={crmInviteId}
         isLoggedIn={!!loggedInUser}
         loggedInUserName={loggedInUser?.name}
         loggedInAssignedProgram={loggedInUser?.assignedProgram}
@@ -274,6 +317,13 @@ export default function AnalyzerPage() {
                 {contactError && (
                   <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{contactError}</p>
                 )}
+
+                <PublicMessagingConsent
+                  checked={contactConsent}
+                  onChange={setContactConsent}
+                />
+
+                <TurnstileWidget token={contactTurnstileToken} onTokenChange={setContactTurnstileToken} />
               </div>
 
               <div className="mt-6 flex items-center justify-between">
@@ -285,7 +335,7 @@ export default function AnalyzerPage() {
                 </button>
                 <button
                   onClick={submitWithContact}
-                  disabled={!fullName.trim() || !email.trim() || !phone.trim()}
+                  disabled={!fullName.trim() || !email.trim() || !phone.trim() || !contactConsent || !turnstileEnabled || !contactTurnstileToken}
                   className="btn-primary px-7 py-3"
                 >
                   View My Results
@@ -415,6 +465,7 @@ export default function AnalyzerPage() {
     </div>
   )
 }
+// PUBLIC_FORM_COMPLIANCE_OK
 
 // ─── Results Component ────────────────────────────────────────────────────────
 function AnalyzerResults({
@@ -424,6 +475,7 @@ function AnalyzerResults({
   contactEmail,
   contactName,
   contactBusinessName,
+  crmInviteId,
   isLoggedIn,
   loggedInUserName,
   loggedInAssignedProgram: _loggedInAssignedProgram,
@@ -434,10 +486,12 @@ function AnalyzerResults({
   contactEmail?: string
   contactName?: string
   contactBusinessName?: string
+  crmInviteId?: string | null
   isLoggedIn?: boolean
   loggedInUserName?: string
   loggedInAssignedProgram?: string
 }) {
+  const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
   const router = useRouter()
   const supabase = createClient()
 
@@ -447,6 +501,8 @@ function AnalyzerResults({
   const [showPass, setShowPass] = useState(false)
   const [signupLoading, setSignupLoading] = useState(false)
   const [signupError, setSignupError] = useState('')
+  const [signupConsent, setSignupConsent] = useState(false)
+  const [signupTurnstileToken, setSignupTurnstileToken] = useState('')
 
   const BOOKING_URL = process.env.NEXT_PUBLIC_BOOKING_URL || null
 
@@ -459,6 +515,7 @@ function AnalyzerResults({
         contact_email: contactEmail ?? null,
         contact_name: contactName ?? null,
         business_name: contactBusinessName ?? null,
+        crm_invite_id: crmInviteId ?? null,
       }))
     } catch {
       // sessionStorage not available (private mode etc) — safe to ignore
@@ -477,10 +534,16 @@ function AnalyzerResults({
     program_c: 'Program C — Capital Monitoring Membership',
   }
 
+  const resultHeadline = `Based on your profile, you may be eligible for an estimated funding range of ${result.estimated_funding_range}.`
+
   const handleCreateFreeAccount = async () => {
     setSignupError('')
     if (!signupPassword || signupPassword.length < 8) {
       setSignupError('Password must be at least 8 characters.')
+      return
+    }
+    if (!signupConsent) {
+      setSignupError('SMS consent is required before creating the account.')
       return
     }
 
@@ -497,6 +560,17 @@ function AnalyzerResults({
           business_name: contactBusinessName || null,
           lead_id: leadId || null,
           analyzer_result: result,
+          crm_invite_id: crmInviteId || null,
+          turnstileToken: signupTurnstileToken,
+          compliance: {
+            enabled: true,
+            form_name: 'public_analyzer_create_account',
+            page_url: typeof window !== 'undefined' ? window.location.href : '/analyzer',
+            timestamp: new Date().toISOString(),
+            consent_text_version: CONSENT_TEXT_VERSION,
+            disclosure_text: REQUIRED_MESSAGING_DISCLOSURE,
+            consent_given: true,
+          } satisfies CompliancePayload,
         }),
       })
       const data = await res.json()
@@ -527,49 +601,88 @@ function AnalyzerResults({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100 px-4 py-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           <div className="w-7 h-7 bg-green-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-xs">SL</span>
           </div>
-          <span className="font-bold text-gray-900 text-sm">SourcifyLending Analyzer Results</span>
+          <span className="font-bold text-gray-900 dark:text-white text-sm">SourcifyLending Analyzer Results</span>
         </div>
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-8 space-y-5">
+        {/* Funding Estimate */}
+        <div className="card border-2 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/40">
+          <p className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide mb-2">Estimated Funding Range</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-green-900 dark:text-green-300 mb-3 break-words">{result.estimated_funding_range}</h2>
+          <p className="text-sm sm:text-base text-green-800 dark:text-green-100 leading-relaxed">{resultHeadline}</p>
+          <p className="text-sm text-green-700 dark:text-green-200 mt-3 leading-relaxed">{result.recommended_next_step}</p>
+          <p className="text-xs text-green-700/80 dark:text-green-300/80 mt-4 leading-relaxed">{result.disclaimer}</p>
+        </div>
+
         {/* Readiness Card */}
         <div className="card">
           <div className="flex items-start gap-4">
-            <div className="p-2.5 rounded-xl bg-gray-50 mt-0.5">{readinessIcon}</div>
+            <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 mt-0.5 shrink-0">{readinessIcon}</div>
             <div className="flex-1">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Readiness Status</p>
-              <div className="flex items-center gap-2 mb-2">
-                <h2 className="text-2xl font-bold text-gray-900">{result.readiness_status}</h2>
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Readiness Status</p>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white leading-tight">{result.readiness_status}</h2>
                 <StatusBadge status={result.readiness_status} />
               </div>
-              <p className="text-sm text-gray-600 leading-relaxed">{result.summary}</p>
+              <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
+                <Target size={14} className="text-green-600" />
+                Funding Readiness Score: {result.readiness_score}/100
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{result.summary}</p>
             </div>
           </div>
         </div>
 
+        {/* Snapshot Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="card">
+            <div className="flex items-center gap-2 mb-2">
+              <BadgeDollarSign size={18} className="text-green-600" />
+              <h3 className="font-bold text-gray-900 dark:text-white">Recommended Next Step</h3>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{result.recommended_next_step}</p>
+          </div>
+
+          <div className="card">
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldAlert size={18} className="text-yellow-600" />
+              <h3 className="font-bold text-gray-900 dark:text-white">Top 3 Funding Blockers</h3>
+            </div>
+            <ul className="space-y-2">
+              {result.top_blockers.map((blocker, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5 shrink-0" />
+                  {blocker}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
         {/* Program Recommendation */}
-        <div className="card border-2 border-green-200 bg-green-50/40">
-          <p className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-1">Recommended Program</p>
-          <h3 className="text-lg font-bold text-green-900 mb-2">{programNames[result.assigned_program]}</h3>
-          <p className="text-sm text-green-700 leading-relaxed">{result.recommendation}</p>
+        <div className="card border-2 border-green-200 dark:border-green-800 bg-green-50/40 dark:bg-green-950/30">
+          <p className="text-xs font-semibold text-green-500 dark:text-green-400 uppercase tracking-wide mb-1">Recommended Program</p>
+          <h3 className="text-lg font-bold text-green-900 dark:text-green-300 mb-2">{programNames[result.assigned_program]}</h3>
+          <p className="text-sm text-green-700 dark:text-green-200 leading-relaxed">{result.recommendation}</p>
         </div>
 
         {/* Risk Flags */}
         {result.risk_flags.length > 0 && (
           <div className="card">
-            <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
               <AlertTriangle size={18} className="text-yellow-500" />
               Risk Flags Identified ({result.risk_flags.length})
             </h3>
             <ul className="space-y-2">
               {result.risk_flags.map((flag, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-600">
+                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
                   <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5 shrink-0" />
                   {flag}
                 </li>
@@ -585,14 +698,14 @@ function AnalyzerResults({
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <CheckCircle size={22} className="text-green-600" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
               Your analysis has been saved
             </h3>
-            <p className="text-sm text-gray-500 mb-4 leading-relaxed">
-              {loggedInUserName ? `${loggedInUserName.split(' ')[0]}, your` : 'Your'} results are saved to your account and your AI roadmap is being generated. Head to your dashboard to see your next steps.
+            <p className="text-sm text-gray-500 dark:text-gray-300 mb-4 leading-relaxed">
+              {loggedInUserName ? `${loggedInUserName.split(' ')[0]}, your` : 'Your'} results are saved to your account. Head to your dashboard to review your readiness score, blockers, and next steps.
             </p>
             <Link href="/dashboard" className="btn-primary inline-flex items-center gap-2 px-6 py-3">
-              View Your Dashboard <ArrowRight size={16} />
+              {result.upgrade_cta} <ArrowRight size={16} />
             </Link>
           </div>
         ) : (
@@ -604,11 +717,11 @@ function AnalyzerResults({
                 <Sparkles size={16} className="text-green-600" />
                 <span className="text-xs font-bold text-green-600 uppercase tracking-wide">Free — No Credit Card</span>
               </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-1">
-                Save Your Results &amp; Access Your Free Portal
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                Save Your Results &amp; Unlock Your Next Step
               </h3>
-              <p className="text-sm text-gray-500 mb-4 leading-relaxed">
-                Create a free account to save your analysis, see your personalized roadmap preview, and access your prospect dashboard.
+              <p className="text-sm text-gray-500 dark:text-gray-300 mb-4 leading-relaxed">
+                Create a free account to save your analysis, review your estimated funding range, and continue into {programNames[result.assigned_program].split('—')[0].trim()}.
               </p>
 
               {!showSignupForm ? (
@@ -628,13 +741,13 @@ function AnalyzerResults({
                     onClick={() => setShowSignupForm(true)}
                     className="btn-primary w-full py-3.5 text-base"
                   >
-                    Create with Email <ArrowRight size={16} />
+                    {result.upgrade_cta} <ArrowRight size={16} />
                   </button>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex gap-2 text-sm text-gray-600 bg-gray-50 rounded-xl px-3 py-2.5">
-                    <span className="font-medium text-gray-900 truncate">{contactEmail}</span>
+                  <div className="flex gap-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2.5">
+                    <span className="font-medium text-gray-900 dark:text-white truncate">{contactEmail}</span>
                     <span className="text-gray-400 shrink-0">· pre-filled</span>
                   </div>
                   <div className="relative">
@@ -658,12 +771,18 @@ function AnalyzerResults({
                   {signupError && (
                     <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{signupError}</p>
                   )}
+                  <PublicMessagingConsent
+                    checked={signupConsent}
+                    onChange={setSignupConsent}
+                    className="rounded-2xl border border-gray-200 bg-gray-50 p-4"
+                  />
+                  <TurnstileWidget token={signupTurnstileToken} onTokenChange={setSignupTurnstileToken} />
                   <button
                     onClick={handleCreateFreeAccount}
-                    disabled={signupLoading || signupPassword.length < 8}
+                    disabled={signupLoading || signupPassword.length < 8 || !signupConsent || !turnstileEnabled || !signupTurnstileToken}
                     className="btn-primary w-full py-3.5"
                   >
-                    {signupLoading ? 'Creating account…' : 'Enter My Portal →'}
+                    {signupLoading ? 'Creating account…' : `${result.upgrade_cta} →`}
                   </button>
                   <p className="text-xs text-gray-400 text-center">
                     Already have an account?{' '}
@@ -681,14 +800,14 @@ function AnalyzerResults({
                   href={BOOKING_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="card border border-gray-200 hover:border-green-300 hover:bg-green-50/30 transition-all group text-center py-5"
+                  className="card border border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/30 dark:hover:bg-green-950/30 transition-all group text-center py-5"
                 >
                   <CalendarDays size={22} className="text-green-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                  <p className="font-bold text-gray-900 text-sm">Book a Strategy Call</p>
-                  <p className="text-xs text-gray-500 mt-1">Talk to an advisor about your results</p>
+                  <p className="font-bold text-gray-900 dark:text-white text-sm">Book a Strategy Call</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">Talk to an advisor about your results</p>
                 </a>
               ) : (
-                <div className="card border border-gray-200 text-center py-5">
+                <div className="card border border-gray-200 dark:border-gray-700 text-center py-5">
                   <CalendarDays size={22} className="text-gray-300 mx-auto mb-2" />
                   <p className="font-bold text-gray-400 text-sm">Strategy Call</p>
                   <p className="text-xs text-gray-400 mt-1">Coming soon</p>
@@ -698,18 +817,18 @@ function AnalyzerResults({
               {/* Join Paid Program */}
               <Link
                 href="/signup"
-                className="card border border-gray-200 hover:border-green-300 hover:bg-green-50/30 transition-all group text-center py-5"
+                className="card border border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/30 dark:hover:bg-green-950/30 transition-all group text-center py-5"
               >
                 <ChevronRight size={22} className="text-green-600 mx-auto mb-2 group-hover:translate-x-0.5 transition-transform" />
-                <p className="font-bold text-gray-900 text-sm">Start {programNames[result.assigned_program].split('—')[0].trim()}</p>
-                <p className="text-xs text-gray-500 mt-1">Full program access</p>
+                <p className="font-bold text-gray-900 dark:text-white text-sm">{result.upgrade_cta}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">Full program access</p>
               </Link>
             </div>
           </div>
         )}
 
-        <p className="text-xs text-gray-400 text-center leading-relaxed px-4">
-          This analysis is for informational purposes only. SourcifyLending does not guarantee approvals, credit limits, or funding outcomes. Individual results vary based on lender criteria and market conditions.
+        <p className="text-xs text-gray-400 dark:text-gray-500 text-center leading-relaxed px-4">
+          {result.disclaimer} SourcifyLending does not guarantee approvals, credit limits, or funding outcomes.
         </p>
       </main>
     </div>

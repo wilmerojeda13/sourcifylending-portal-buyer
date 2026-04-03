@@ -5,22 +5,22 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Nav */}
-      <header className="border-b border-gray-100 px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">SL</span>
+      <header className="border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3 max-w-6xl mx-auto">
+        <div className="flex items-center gap-2 min-w-0 shrink">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-green-600 rounded-lg flex items-center justify-center shrink-0">
+            <span className="text-white font-bold text-xs sm:text-sm">SL</span>
           </div>
-          <span className="font-bold text-gray-900">SourcifyLending</span>
+          <span className="font-bold text-sm sm:text-base text-gray-900 truncate whitespace-nowrap">SourcifyLending</span>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/partners" className="text-sm font-medium text-gray-500 hover:text-gray-900 px-3 py-2 hidden sm:inline">
-            Affiliates
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <Link href="/partners" className="brand-link text-sm font-medium px-3 py-2 hidden sm:inline">
+            Partners
           </Link>
-          <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">
+          <Link href="/login" className="brand-link text-xs sm:text-sm font-medium px-2 sm:px-3 py-2 whitespace-nowrap">
             Sign In
           </Link>
-          <Link href="/analyzer" className="btn-primary text-sm px-4 py-2.5">
-            Free Analyzer
+          <Link href="/get-started" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap">
+            Get Started
           </Link>
         </div>
       </header>
@@ -40,8 +40,8 @@ export default function HomePage() {
           from initial analysis to tradeline reporting, card acquisition, and funding readiness.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/analyzer" className="btn-primary text-base px-8 py-4">
-            Run Free Analyzer <ArrowRight size={18} />
+          <Link href="/get-started" className="btn-primary text-base px-8 py-4">
+            Get Started <ArrowRight size={18} />
           </Link>
           <Link href="/login" className="btn-secondary text-base px-8 py-4">
             Sign Into Portal
@@ -136,7 +136,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── AFFILIATE CTA SECTION ── */}
+      {/* ── PARTNER CTA SECTION ── */}
       <section className="bg-gray-50 py-16 px-6 border-t border-gray-100">
         <div className="max-w-5xl mx-auto">
           <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
@@ -145,35 +145,36 @@ export default function HomePage() {
               <div className="p-8 sm:p-10 flex flex-col justify-center">
                 <span className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold mb-5 w-fit">
                   <Users size={13} />
-                  Affiliate Program
+                  Partner Program
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 leading-snug">
-                  Refer Clients.<br />Earn Recurring Commissions.
+                  Close, onboard, and manage clients.<br />Use SourcifyLending as the platform.
                 </h2>
                 <p className="text-gray-500 text-sm leading-relaxed mb-5">
-                  Two ways to earn — whether you simply refer someone or personally close the deal.
-                  Commissions are recurring for as long as your client stays active.
+                  This is a partner-assisted model, not a passive referral program. Partners bring in the client,
+                  close the client, onboard the client, and stay the frontline relationship owner while
+                  SourcifyLending powers the infrastructure behind the scenes.
                 </p>
 
-                {/* Two-tier commission cards */}
+                {/* Partner compensation cards */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Referral Only</p>
-                    <p className="text-xl font-bold text-gray-900">10%</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Setup + recurring</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Program A / B Setup</p>
+                    <p className="text-xl font-bold text-gray-900">80%</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Collected setup fee payout</p>
                   </div>
                   <div className="bg-green-50 border border-green-200 rounded-xl p-3">
-                    <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">I Closed the Deal</p>
-                    <p className="text-xl font-bold text-green-700">30%</p>
-                    <p className="text-xs text-green-600 mt-0.5">Setup + recurring</p>
+                    <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">Monthly Revenue</p>
+                    <p className="text-xl font-bold text-green-700">20%</p>
+                    <p className="text-xs text-green-600 mt-0.5">Successful collected recurring revenue</p>
                   </div>
                 </div>
 
                 <ul className="space-y-2 mb-8">
                   {[
-                    'Commissions paid monthly via direct deposit',
-                    'Track every referral, invite, and conversion',
-                    'Add prospects directly from your affiliate portal',
+                    'Partner-assisted clients can carry setup fees for A and B because onboarding help is included',
+                    'Track partner clients, onboarding progress, and collected earnings from your portal',
+                    'Add and invite clients directly from your partner portal',
                     'Unlock free Program B access at 5 active clients',
                   ].map(item => (
                     <li key={item} className="flex items-center gap-2 text-sm text-gray-600">
@@ -184,7 +185,7 @@ export default function HomePage() {
                 </ul>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link href="/partners" className="btn-primary text-sm px-6 py-3">
-                    Become an Affiliate <ArrowRight size={16} />
+                    Become a Partner <ArrowRight size={16} />
                   </Link>
                   <Link href="/partners#how-it-works" className="btn-secondary text-sm px-6 py-3">
                     Learn More
@@ -197,15 +198,15 @@ export default function HomePage() {
                 {[
                   {
                     icon: DollarSign,
-                    label: 'Program A — Referral tier (10%)',
-                    value: '$389+ / yr',
-                    sub: 'Per active client referred',
+                    label: 'Program A partner-assisted',
+                    value: '$400 setup + $89.80/mo',
+                    sub: '80% of setup + 20% recurring',
                   },
                   {
                     icon: DollarSign,
-                    label: 'Program A — Closed deal tier (30%)',
-                    value: '$1,166+ / yr',
-                    sub: 'Per active client you closed',
+                    label: 'Program B partner-assisted',
+                    value: '$240 setup + $49.80/mo',
+                    sub: 'Collected revenue only',
                   },
                   {
                     icon: Users,
@@ -226,7 +227,7 @@ export default function HomePage() {
                   </div>
                 ))}
                 <p className="text-green-300 text-xs mt-2">
-                  Estimates based on Program A pricing ($1,500 setup / $199/mo). Actual earnings vary. No income guaranteed.
+                  Partner compensation is earned only on partner-assisted clients you close and onboard. No payout on failed, refunded, disputed, or reversed payments.
                 </p>
               </div>
             </div>
@@ -244,8 +245,8 @@ export default function HomePage() {
           <p className="text-green-200 mb-8 text-lg">
             Complete the 12-question analyzer and get your program recommendation in under 3 minutes.
           </p>
-          <Link href="/analyzer" className="inline-flex items-center gap-2 bg-white text-green-600 font-bold px-8 py-4 rounded-xl hover:bg-green-50 transition-colors text-base">
-            Start Free Analyzer <ArrowRight size={18} />
+          <Link href="/get-started" className="inline-flex items-center gap-2 bg-white text-green-600 font-bold px-8 py-4 rounded-xl hover:bg-green-50 transition-colors text-base">
+            Open Public Form <ArrowRight size={18} />
           </Link>
         </div>
       </section>
@@ -257,12 +258,14 @@ export default function HomePage() {
             © {new Date().getFullYear()} SourcifyLending. Results are not guaranteed. This platform does not promise approvals, specific credit limits, or funding outcomes.
           </p>
           <div className="flex items-center gap-5 text-sm text-gray-400">
-            <Link href="/analyzer" className="hover:text-gray-600 transition-colors">Free Analyzer</Link>
-            <Link href="/login" className="hover:text-gray-600 transition-colors">Client Login</Link>
-            <Link href="/partners" className="hover:text-gray-600 transition-colors font-medium text-green-600">
-              Become an Affiliate
+            <Link href="/get-started" className="brand-link-muted">Get Started</Link>
+            <Link href="/login" className="brand-link-muted">Client Login</Link>
+            <Link href="/privacy" className="brand-link-muted">Privacy</Link>
+            <Link href="/terms" className="brand-link-muted">Terms</Link>
+            <Link href="/partners" className="font-medium text-green-600 transition-colors hover:text-green-700">
+              Become a Partner
             </Link>
-            <Link href="/affiliate/login" className="hover:text-gray-600 transition-colors">Affiliate Login</Link>
+            <Link href="/affiliate/login" className="brand-link-muted">Partner Login</Link>
           </div>
         </div>
       </footer>

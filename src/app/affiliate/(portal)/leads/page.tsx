@@ -14,7 +14,7 @@ interface Lead {
   phone: string | null
   business_name: string | null
   notes: string | null
-  deal_type: 'referral_only' | 'affiliate_closed'
+  deal_type: 'referral_only' | 'affiliate_closed' | 'partner_assisted'
   status: 'lead_created' | 'invite_sent' | 'account_created' | 'active' | 'cancelled'
   invite_sent_at: string | null
   invite_sent_count: number
@@ -44,9 +44,9 @@ function StatusBadge({ status }: { status: Lead['status'] }) {
 }
 
 function DealTypeBadge({ dealType }: { dealType: Lead['deal_type'] }) {
-  return dealType === 'affiliate_closed'
-    ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 uppercase">I Closed · 30%</span>
-    : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase">Referral · 10%</span>
+  return dealType === 'referral_only'
+    ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase">Legacy Referral</span>
+    : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 uppercase">Partner-Assisted · 80/20</span>
 }
 
 function fmtDate(s: string | null) {
@@ -86,7 +86,7 @@ export default function LeadsPage() {
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     full_name: '', email: '', phone: '', business_name: '', notes: '',
-    deal_type: 'referral_only' as Lead['deal_type'],
+    deal_type: 'partner_assisted' as Lead['deal_type'],
   })
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
@@ -114,7 +114,7 @@ export default function LeadsPage() {
   useEffect(() => { fetchLeads() }, [fetchLeads])
 
   function resetForm() {
-    setFormData({ full_name: '', email: '', phone: '', business_name: '', notes: '', deal_type: 'referral_only' })
+    setFormData({ full_name: '', email: '', phone: '', business_name: '', notes: '', deal_type: 'partner_assisted' })
     setFormError('')
   }
 
@@ -187,8 +187,8 @@ export default function LeadsPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Prospects</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">Add leads, send invites, and track their progress</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Partner Clients</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">Add partner-assisted clients, send invites, and track their progress</p>
         </div>
         <button
           onClick={() => { setShowForm(true); setFormError('') }}
@@ -211,7 +211,7 @@ export default function LeadsPage() {
       )}
 
       {/* Stats strip */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: 'Total Prospects', value: summaryStats.total, color: 'text-gray-900 dark:text-gray-100' },
           { label: 'Invite Sent', value: summaryStats.invite_sent, color: 'text-blue-600' },
@@ -228,7 +228,7 @@ export default function LeadsPage() {
       <div className="flex items-start gap-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-800 rounded-2xl px-4 py-3 text-sm text-indigo-800 dark:text-indigo-300">
         <Info size={16} className="shrink-0 mt-0.5 text-indigo-500 dark:text-indigo-400" />
         <div>
-          <span className="font-semibold">How this works:</span> Add a prospect, choose your deal type, and send them a personalized invite link. When they sign up through your link, they&apos;re automatically tracked under your account. You earn commission when they become a paying client.
+          <span className="font-semibold">How this works:</span> Add a client you are closing and onboarding, send them a personalized invite link, and keep them under your partner workspace. Partner compensation is tied to successfully collected setup fees and recurring subscription revenue.
         </div>
       </div>
 
@@ -278,7 +278,7 @@ export default function LeadsPage() {
                   className="px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                   onClick={() => setExpanded(expanded === lead.id ? null : lead.id)}
                 >
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     {/* Left: name + email */}
                     <div className="flex items-start gap-3 min-w-0">
                       <div className="w-9 h-9 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center shrink-0">
@@ -304,7 +304,7 @@ export default function LeadsPage() {
                     </div>
 
                     {/* Right: deal type + actions */}
-                    <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
                       <DealTypeBadge dealType={lead.deal_type} />
 
                       {/* Invite / Resend button */}
@@ -391,8 +391,8 @@ export default function LeadsPage() {
 
       {/* Add Lead Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
               <h2 className="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <UserPlus size={18} className="text-indigo-600 dark:text-indigo-400" /> Add Prospect
@@ -464,7 +464,7 @@ export default function LeadsPage() {
               {/* Deal Type */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Deal Type *</label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setFormData(d => ({ ...d, deal_type: 'referral_only' }))}
@@ -474,22 +474,22 @@ export default function LeadsPage() {
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                   >
-                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">Referral</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">I&apos;m referring them</div>
-                    <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-1">10% commission</div>
+                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">Legacy Referral</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">Backward-compatible only</div>
+                    <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-1">Old referral rules</div>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormData(d => ({ ...d, deal_type: 'affiliate_closed' }))}
+                    onClick={() => setFormData(d => ({ ...d, deal_type: 'partner_assisted' }))}
                     className={`p-3 rounded-xl border-2 text-left transition-all ${
-                      formData.deal_type === 'affiliate_closed'
+                      formData.deal_type !== 'referral_only'
                         ? 'border-purple-500 dark:border-purple-400 bg-purple-50 dark:bg-purple-950/30'
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                   >
-                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">I&apos;ll Close It</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">I&apos;m handling the sale</div>
-                    <div className="text-xs font-bold text-purple-600 mt-1">30% commission</div>
+                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">Partner-Assisted</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">You close, onboard, and remain the frontline contact</div>
+                    <div className="text-xs font-bold text-purple-600 mt-1">80% setup + 20% recurring</div>
                   </button>
                 </div>
               </div>
@@ -516,7 +516,7 @@ export default function LeadsPage() {
             </div>
 
             {/* Actions */}
-            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex gap-3">
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => { setShowForm(false); resetForm() }}
                 className="flex-1 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"

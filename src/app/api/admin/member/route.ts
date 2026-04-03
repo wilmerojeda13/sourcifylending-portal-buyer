@@ -88,6 +88,9 @@ export async function PATCH(req: NextRequest) {
       account_state?: string
       nsf_flag?: boolean
       portal_blocked?: boolean
+      suspicious_signup?: boolean
+      suspicious_signup_reason?: string | null
+      signup_risk_score?: number | null
       admin_notes?: string | null
     }
 
@@ -118,6 +121,9 @@ export async function PATCH(req: NextRequest) {
     if (fields.account_state !== undefined) update.account_state = fields.account_state
     if (fields.nsf_flag !== undefined) update.nsf_flag = fields.nsf_flag
     if (fields.portal_blocked !== undefined) update.portal_blocked = fields.portal_blocked
+    if (fields.suspicious_signup !== undefined) update.suspicious_signup = fields.suspicious_signup
+    if (fields.suspicious_signup_reason !== undefined) update.suspicious_signup_reason = fields.suspicious_signup_reason
+    if (fields.signup_risk_score !== undefined) update.signup_risk_score = fields.signup_risk_score
     if (fields.admin_notes !== undefined) update.admin_notes = fields.admin_notes
 
     const { error: updateError } = await supabase
@@ -148,7 +154,9 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Determine event type for logging
-    const eventType = fields.portal_blocked === true
+    const eventType = fields.suspicious_signup === true
+      ? 'admin_profile_updated'
+      : fields.portal_blocked === true
       ? 'portal_blocked'
       : fields.portal_blocked === false
       ? 'portal_unblocked'

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton'
 import { Loader2, CheckCircle2, XCircle, Shield } from 'lucide-react'
 import toast from 'react-hot-toast'
+import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
 
 function AcceptInviteInner() {
   const searchParams = useSearchParams()
@@ -232,6 +233,7 @@ function AcceptInviteInner() {
         <p className="text-center text-xs text-gray-400 mt-4">
           You&apos;re accepting a delegate access invite from a SourcifyLending client.
         </p>
+        <PublicLegalLinks className="mt-3 text-center text-xs text-gray-400" />
       </div>
     </div>
   )
@@ -248,3 +250,4 @@ export default function AcceptInvitePage() {
     </Suspense>
   )
 }
+// PUBLIC_FORM_COMPLIANCE_OK

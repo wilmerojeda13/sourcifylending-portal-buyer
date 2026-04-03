@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronUp, Clock,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useBusinessContext } from '@/lib/use-business-context'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type BureauProfile = {
@@ -86,6 +87,7 @@ const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { mon
 const daysSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24))
 
 export default function BusinessCreditMonitoringClient() {
+  const { activeBusinessId } = useBusinessContext()
   const [bureauProfile, setBureauProfile] = useState<BureauProfile | null>(null)
   const [tradelines, setTradelines] = useState<Tradeline[]>([])
   const [loading, setLoading] = useState(true)
@@ -105,6 +107,10 @@ export default function BusinessCreditMonitoringClient() {
   })
 
   const loadData = useCallback(async () => {
+    if (!activeBusinessId) return
+    setLoading(true)
+    setBureauProfile(null)
+    setTradelines([])
     const [profileRes, tlRes] = await Promise.all([
       fetch('/api/business-credit-profile').then(r => r.json()),
       fetch('/api/business-tradelines').then(r => r.json()),
@@ -112,7 +118,7 @@ export default function BusinessCreditMonitoringClient() {
     setBureauProfile(profileRes.profile || null)
     setTradelines(tlRes.tradelines || [])
     setLoading(false)
-  }, [])
+  }, [activeBusinessId])
 
   useEffect(() => { loadData() }, [loadData])
 

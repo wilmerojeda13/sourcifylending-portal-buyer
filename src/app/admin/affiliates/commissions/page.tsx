@@ -48,7 +48,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 const SUB_NAV = [
-  { label: 'Affiliates', href: '/admin/affiliates' },
+  { label: 'Partners', href: '/admin/affiliates' },
   { label: 'Commissions', href: '/admin/affiliates/commissions', active: true },
   { label: 'Settings', href: '/admin/affiliates/settings' },
   { label: 'Resources', href: '/admin/affiliates/resources' },
@@ -161,8 +161,8 @@ export default function CommissionsPage() {
             </Link>
             <span className="text-gray-300">/</span>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Commission Management</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Review, approve, and pay affiliate commissions</p>
+              <h1 className="text-2xl font-bold text-gray-900">Partner Compensation</h1>
+              <p className="text-sm text-gray-500 mt-0.5">Review, approve, and pay partner compensation</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -191,7 +191,7 @@ export default function CommissionsPage() {
             <Link key={href} href={href}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${active
                 ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                : 'text-gray-600 hover:text-green-700 hover:bg-green-50'
               }`}
             >
               {label}
@@ -267,7 +267,7 @@ export default function CommissionsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  {['Affiliate', 'Client', 'Program', 'Type', 'Gross', 'Comm %', 'Amount', 'Status', 'Available', 'Paid Date', 'Actions'].map(h => (
+                  {['Partner', 'Client', 'Program', 'Type', 'Gross', 'Rate', 'Amount', 'Status', 'Available', 'Paid Date', 'Actions'].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-gray-500 px-4 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -275,11 +275,11 @@ export default function CommissionsPage() {
               <tbody className="divide-y divide-gray-50">
                 {loading ? (
                   <tr><td colSpan={11} className="px-4 py-12 text-center text-gray-400">
-                    <Loader2 size={20} className="animate-spin mx-auto mb-2" /> Loading commissions…
+                    <Loader2 size={20} className="animate-spin mx-auto mb-2" /> Loading partner compensation…
                   </td></tr>
                 ) : filtered.length === 0 ? (
                   <tr><td colSpan={11} className="px-4 py-12 text-center text-gray-400">
-                    <DollarSign size={24} className="mx-auto mb-2 opacity-40" /> No commissions found
+                    <DollarSign size={24} className="mx-auto mb-2 opacity-40" /> No compensation found
                   </td></tr>
                 ) : filtered.map(c => (
                   <tr key={c.id} className="hover:bg-gray-50">

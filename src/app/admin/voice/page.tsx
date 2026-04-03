@@ -160,7 +160,7 @@ export default async function VoiceDashboard() {
               <div className={`w-8 h-8 ${color} rounded-lg flex items-center justify-center shrink-0`}>
                 <Icon size={14} className="text-white" />
               </div>
-              <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{label}</span>
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-green-700">{label}</span>
               <ArrowRight size={14} className="text-gray-300 group-hover:text-gray-400 ml-auto" />
             </Link>
           ))}

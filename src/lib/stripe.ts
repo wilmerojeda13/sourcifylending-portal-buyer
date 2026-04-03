@@ -29,8 +29,8 @@ export const PROGRAM_INFO: Record<ProgramId, {
   monthlyFee: number
   hasSetup: boolean
 }> = {
-  program_a: { name: '0% Intro APR Advisory',        setupFee: null, monthlyFee: 449, hasSetup: false },
-  program_b: { name: 'Business Credit Builder',       setupFee: null, monthlyFee: 249, hasSetup: false },
+  program_a: { name: '0% Intro APR Advisory',        setupFee: 500, monthlyFee: 449, hasSetup: true },
+  program_b: { name: 'Business Credit Builder',      setupFee: 300, monthlyFee: 249, hasSetup: true },
   program_c: { name: 'Capital Monitoring Membership', setupFee: null, monthlyFee: 97,  hasSetup: false },
 }
 

@@ -1,34 +1,37 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel } from '@/lib/utils'
+import { getProgramPricing, normalizeAcquisitionPath } from '@/lib/partner-program'
+import { useBusinessContext } from '@/lib/use-business-context'
 import { CheckCircle, Loader2, ChevronDown, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { UserProfile, ProgramId } from '@/types'
 
-const AGREEMENT_VERSION = 'v1.0'
+const AGREEMENT_VERSION = 'v1.1'
 
-const PROGRAM_DETAILS: Record<ProgramId, { price: string; setupFee?: string; monthlyFee: string; headline: string }> = {
+const PROGRAM_DETAILS: Record<ProgramId, { headline: string }> = {
   program_a: {
-    monthlyFee: '$449/month',
-    price: '$449/month — no setup fee',
     headline: '0% Intro APR Advisory',
   },
   program_b: {
-    monthlyFee: '$249/month',
-    price: '$249/month — no setup fee',
     headline: 'Business Credit Builder',
   },
   program_c: {
-    monthlyFee: '$97/month',
-    price: '$97/month',
     headline: 'Capital Monitoring Membership',
   },
 }
 
-const AGREEMENT_TEXT = `SOURCIFYLENDING CLIENT ADVISORY AGREEMENT
-Version 1.0 | Effective Upon Electronic Acceptance
+function buildAgreementText(acquisitionPath: 'self_serve' | 'partner_assisted', program: ProgramId) {
+  const pricing = getProgramPricing(program, acquisitionPath)
+  const setupSentence = pricing.setupFeeCents > 0
+    ? ` Because you are enrolling as a Partner-Assisted client, your onboarding includes a one-time setup fee of $${(pricing.setupFeeCents / 100).toFixed(0)} plus your first monthly payment of $${(pricing.monthlyFeeCents / 100).toFixed(0)} due at signup.`
+    : ` Your plan does not include a setup fee. Your first monthly payment of $${(pricing.monthlyFeeCents / 100).toFixed(0)} is due at signup.`
+  const partnerSentence = acquisitionPath === 'partner_assisted'
+    ? ` If you were onboarded by a SourcifyLending partner, that partner may remain your frontline point of contact and may assist you inside the platform only to the extent you authorize. SourcifyLending controls the platform, infrastructure, billing rails, and service terms.`
+    : ''
+
+  return `SOURCIFYLENDING CLIENT ADVISORY AGREEMENT
+Version 1.1 | Effective Upon Electronic Acceptance
 
 This Client Advisory Agreement ("Agreement") is entered into between SourcifyLending ("Company," "we," or "us") and the individual or business entity electronically accepting this Agreement ("Client," "you," or "your"). By checking the acceptance box and proceeding to payment, you acknowledge that you have read, understood, and agreed to all terms below.
 
@@ -42,7 +45,7 @@ RESULTS ARE NOT GUARANTEED. SourcifyLending does not guarantee, promise, or warr
 Upon enrollment, Client will be assigned to a program based on the results of the free financial readiness analyzer. Program assignment is determined by the Company and may be updated at our discretion based on Client's evolving profile. Services are delivered digitally through the SourcifyLending client portal and include access to an AI fulfillment agent, task management tools, document management, progress tracking, and report generation, as applicable to the assigned program.
 
 4. FEES AND PAYMENT TERMS
-Client agrees to pay all fees associated with their assigned program as disclosed at enrollment. Program A (0% Intro APR Advisory): $449 per month beginning at enrollment, billed on a recurring monthly basis. Program B (Business Credit Builder): $249 per month beginning at enrollment, billed on a recurring monthly basis. Program C (Capital Monitoring Membership): $97 per month beginning at enrollment, billed on a recurring monthly basis. All payments are processed securely through Stripe. By providing a payment method, you authorize SourcifyLending to charge the applicable fees on the schedule described above.
+Client agrees to pay all fees associated with their assigned program as disclosed at enrollment. Self-Serve pricing is Program A: $449/month, Program B: $249/month, and Program C: $97/month with no setup fee. Partner-Assisted pricing is Program A: $500 setup plus $449/month, Program B: $300 setup plus $249/month, and Program C: $97/month with no setup fee.${setupSentence} All payments are processed securely through Stripe. By providing a payment method, you authorize SourcifyLending to charge the applicable fees on the schedule described above.
 
 5. SUBSCRIPTION AND CANCELLATION POLICY
 Subscriptions renew automatically on a monthly basis. Client may cancel at any time by accessing the billing portal within the SourcifyLending client portal or by contacting us in writing. Cancellation takes effect at the end of the current billing period. No partial refunds are issued for unused days within a billing period. Upon cancellation, portal access is restricted and task progress is paused. All data and progress records are retained and will be restored upon reactivation.
@@ -68,33 +71,22 @@ By entering into this Agreement, Client consents to receive communications from 
 12. MODIFICATIONS TO THIS AGREEMENT
 SourcifyLending reserves the right to modify this Agreement at any time. Clients will be notified of material changes via email and through the portal. Continued use of services following notification constitutes acceptance of the updated terms. Clients who do not agree to modifications may cancel their subscription prior to the effective date of changes.
 
-13. ENTIRE AGREEMENT
+13. PARTNER-ASSISTED SUPPORT
+Partners are independent relationship managers and are not authorized to alter SourcifyLending's terms, promise approvals, or guarantee funding outcomes.${partnerSentence}
+
+14. ENTIRE AGREEMENT
 This Agreement constitutes the entire agreement between Client and SourcifyLending with respect to the subject matter herein and supersedes all prior communications, representations, or agreements, whether oral or written. If any provision of this Agreement is found to be unenforceable, the remaining provisions shall remain in full force and effect.
 
 By checking the box below and proceeding to payment, you confirm that you are at least 18 years of age, have the legal authority to enter this Agreement on behalf of yourself or your business, and have read and agreed to all terms stated above.`
-
+}
 export default function EnrollPage() {
-  const router = useRouter()
-  const supabase = createClient()
   const scrollRef = useRef<HTMLDivElement>(null)
+  const { activeProfile, loading } = useBusinessContext()
 
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
   const [hasScrolled, setHasScrolled] = useState(false)
   const [accepted, setAccepted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (!p) { router.push('/dashboard'); return }
-      setProfile(p)
-      setLoading(false)
-    }
-    init()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const profile = activeProfile as UserProfile | null
 
   const handleScroll = () => {
     const el = scrollRef.current
@@ -176,6 +168,12 @@ export default function EnrollPage() {
 
   const program = profile.assigned_program
   const details = PROGRAM_DETAILS[program]
+  const acquisitionPath = normalizeAcquisitionPath(profile.acquisition_path)
+  const pricing = getProgramPricing(program, acquisitionPath)
+  const pricingSummary = pricing.setupFeeCents > 0
+    ? `$${pricing.setupFeeCents / 100} setup + $${pricing.monthlyFeeCents / 100}/month`
+    : `$${pricing.monthlyFeeCents / 100}/month`
+  const agreementText = buildAgreementText(acquisitionPath, program)
   const isActive = profile.subscription_status === 'active' || profile.subscription_status === 'trialing'
 
   if (isActive) {
@@ -212,10 +210,16 @@ export default function EnrollPage() {
             <div>
               <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Your Assigned Program</p>
               <h2 className="text-lg font-bold text-gray-900">{details.headline}</h2>
-              <p className="text-green-700 font-semibold text-sm mt-1">{details.price}</p>
+              <p className="text-green-700 font-semibold text-sm mt-1">{pricingSummary}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {acquisitionPath === 'partner_assisted' ? 'Partner-Assisted enrollment' : 'Self-Serve enrollment'}
+              </p>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-xs text-gray-500">Monthly: {details.monthlyFee}</p>
+              {pricing.setupFeeCents > 0 && (
+                <p className="text-xs text-gray-500">Setup: ${(pricing.setupFeeCents / 100).toFixed(0)}</p>
+              )}
+              <p className="text-xs text-gray-500">Monthly: ${(pricing.monthlyFeeCents / 100).toFixed(0)}/month</p>
             </div>
           </div>
         </div>
@@ -233,7 +237,7 @@ export default function EnrollPage() {
               onScroll={handleScroll}
               className="h-72 overflow-y-auto border border-gray-200 rounded-xl p-4 bg-gray-50 text-xs text-gray-700 leading-relaxed whitespace-pre-line font-mono"
             >
-              {AGREEMENT_TEXT}
+              {agreementText}
             </div>
 
             {!hasScrolled && (
@@ -263,7 +267,7 @@ export default function EnrollPage() {
               className="mt-0.5 w-4 h-4 accent-green-600 shrink-0"
             />
             <span className="text-sm text-gray-700 leading-snug">
-              I have read, understood, and agree to the SourcifyLending Client Advisory Agreement (Version 1.0). I understand that results are not guaranteed and that fees are non-refundable as described. I authorize SourcifyLending to charge my payment method as outlined above. This constitutes my electronic signature.
+              I have read, understood, and agree to the SourcifyLending Client Advisory Agreement (Version 1.1). I understand that results are not guaranteed and that fees are non-refundable as described. I authorize SourcifyLending to charge my payment method as outlined above. This constitutes my electronic signature.
             </span>
           </label>
 

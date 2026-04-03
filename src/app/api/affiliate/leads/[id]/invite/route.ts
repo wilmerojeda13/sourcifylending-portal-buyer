@@ -91,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Email service not configured' }, { status: 500 })
   }
 
-  const dealLabel = lead.deal_type === 'affiliate_closed' ? 'personalized consultation' : 'referral'
+  const dealLabel = lead.deal_type === 'referral_only' ? 'partner introduction' : 'partner-assisted onboarding'
   const emailHtml = buildInviteEmail(affiliate.name, lead.full_name, inviteLink, dealLabel)
 
   const emailRes = await fetch('https://api.resend.com/emails', {
@@ -157,20 +157,20 @@ function buildInviteEmail(affiliateName: string, leadName: string, inviteLink: s
             <td style="background:#ffffff;padding:36px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
               <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">Hi ${firstName},</p>
               <p style="margin:0 0 24px;font-size:15px;color:#4b5563;line-height:1.6;">
-                <strong style="color:#111827;">${affiliateName}</strong> has invited you to join SourcifyLending — a platform that helps business owners access capital to grow their businesses.
+                <strong style="color:#111827;">${affiliateName}</strong> invited you to join SourcifyLending through a partner-assisted onboarding path. They will help close, onboard, and support your account inside the platform.
               </p>
 
               <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px 24px;margin-bottom:28px;">
                 <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.05em;">What you'll get access to</p>
                 <ul style="margin:0;padding-left:18px;color:#374151;font-size:14px;line-height:1.8;">
                   <li>Business funding programs tailored to your situation</li>
-                  <li>Dedicated support throughout the process</li>
+                  <li>Partner-guided onboarding and implementation help</li>
                   <li>A transparent dashboard to track your progress</li>
                 </ul>
               </div>
 
               <p style="margin:0 0 28px;font-size:14px;color:#6b7280;line-height:1.6;">
-                Creating an account is free and takes less than a minute. No commitment required.
+                Creating an account takes less than a minute. Your partner-assisted pricing and onboarding path will be shown clearly before payment.
               </p>
 
               <!-- CTA Button -->

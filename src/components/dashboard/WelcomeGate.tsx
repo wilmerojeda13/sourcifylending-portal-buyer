@@ -122,7 +122,7 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
                 onChange={e => setNoRefundChecked(e.target.checked)}
                 className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 cursor-pointer bg-white dark:bg-gray-700"
               />
-              <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white">
+                      <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-green-700 dark:group-hover:text-green-300">
                 <strong>I understand all payments are non-refundable</strong> once portal access is granted. Service delivery begins immediately upon activation.
               </span>
             </label>
@@ -134,7 +134,7 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
                 onChange={e => setDisputeChecked(e.target.checked)}
                 className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 cursor-pointer bg-white dark:bg-gray-700"
               />
-              <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white">
+                      <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-green-700 dark:group-hover:text-green-300">
                 <strong>I agree to contact SourcifyLending first</strong> at support@sourcifylending.com before initiating any dispute with my card issuer, allowing 5 business days to resolve.
               </span>
             </label>

@@ -40,7 +40,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 const SUB_NAV = [
-  { label: 'Affiliates', href: '/admin/affiliates' },
+  { label: 'Partners', href: '/admin/affiliates' },
   { label: 'Commissions', href: '/admin/affiliates/commissions' },
   { label: 'Settings', href: '/admin/affiliates/settings' },
   { label: 'Resources', href: '/admin/affiliates/resources', active: true },
@@ -166,8 +166,8 @@ export default function ResourcesPage() {
             </Link>
             <span className="text-gray-300">/</span>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Affiliate Resource Center — Admin</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Create and manage affiliate resource content</p>
+              <h1 className="text-2xl font-bold text-gray-900">Partner Resource Center — Admin</h1>
+              <p className="text-sm text-gray-500 mt-0.5">Create and manage partner resource content</p>
             </div>
           </div>
           <button
@@ -184,7 +184,7 @@ export default function ResourcesPage() {
             <Link key={href} href={href}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${active
                 ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                : 'text-gray-600 hover:text-green-700 hover:bg-green-50'
               }`}
             >
               {label}
@@ -288,7 +288,7 @@ export default function ResourcesPage() {
                         slug: editTarget ? f.slug : autoSlug(e.target.value),
                       }))
                     }}
-                    placeholder="Getting Started with Sourcify"
+                    placeholder="Getting Started as a Sourcify Partner"
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                   />
                 </div>

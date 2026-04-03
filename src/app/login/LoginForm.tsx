@@ -5,6 +5,7 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { createClient } from '@/lib/supabase/client'
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton'
+import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
 
 export default function LoginForm() {
 
@@ -114,7 +115,9 @@ export default function LoginForm() {
             Run the free analyzer first
           </Link>
         </p>
+        <PublicLegalLinks className="text-xs text-gray-400" />
       </div>
     </div>
   )
 }
+// PUBLIC_FORM_COMPLIANCE_OK

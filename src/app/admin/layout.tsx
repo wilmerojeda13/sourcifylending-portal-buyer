@@ -14,12 +14,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <>
-      {/* Notification bell — fixed top-right, visible on all admin pages */}
-      <div className="fixed top-4 right-4 z-40">
-        <AdminNotificationBell />
+      <div id="admin-shell-floaters">
+        <div className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6">
+          <AdminNotificationBell />
+        </div>
+        <AdminAIPanel />
       </div>
       {children}
-      <AdminAIPanel />
     </>
   )
 }

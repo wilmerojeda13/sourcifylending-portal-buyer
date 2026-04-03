@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Building2, CheckCircle2, Circle, ChevronDown, ChevronUp, Save, Loader2, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useBusinessContext } from '@/lib/use-business-context'
 
 // ─── Credibility Checklist Definition ────────────────────────────────────────
 const CHECKLIST_ITEMS = [
@@ -63,6 +64,7 @@ const DEFAULT_PROFILE: BureauProfile = {
 }
 
 export default function BusinessCreditSetupClient() {
+  const { activeBusinessId } = useBusinessContext()
   const [profile, setProfile] = useState<BureauProfile>(DEFAULT_PROFILE)
   const [checklist, setChecklist] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
@@ -70,6 +72,10 @@ export default function BusinessCreditSetupClient() {
   const [showBureauForm, setShowBureauForm] = useState(false)
 
   useEffect(() => {
+    if (!activeBusinessId) return
+    setLoading(true)
+    setProfile(DEFAULT_PROFILE)
+    setChecklist({})
     Promise.all([
       fetch('/api/business-credit-profile').then(r => r.json()),
       fetch('/api/business-credibility').then(r => r.json()),
@@ -82,7 +88,7 @@ export default function BusinessCreditSetupClient() {
       setChecklist(completed)
       setLoading(false)
     })
-  }, [])
+  }, [activeBusinessId])
 
   const toggleChecklist = async (key: ItemKey) => {
     const newVal = !checklist[key]

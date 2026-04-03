@@ -100,12 +100,12 @@ export default function AdminPayoutsPage() {
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <Link href="/admin/affiliates" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-              <ChevronLeft size={14} /> Affiliates
+              <ChevronLeft size={14} /> Partners
             </Link>
             <span className="text-gray-300">/</span>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Payouts</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Stripe Connect affiliate commission payouts</p>
+              <p className="text-sm text-gray-500 mt-0.5">Stripe Connect partner compensation payouts</p>
             </div>
           </div>
           <button
@@ -121,7 +121,7 @@ export default function AdminPayoutsPage() {
         {/* Sub-nav */}
         <div className="flex items-center gap-2 flex-wrap text-sm">
           {[
-            { label: 'Affiliates', href: '/admin/affiliates' },
+            { label: 'Partners', href: '/admin/affiliates' },
             { label: 'Commissions', href: '/admin/affiliates/commissions' },
             { label: 'Leads', href: '/admin/affiliates/leads' },
             { label: 'Payouts', href: '/admin/affiliates/payouts', active: true },
@@ -129,7 +129,7 @@ export default function AdminPayoutsPage() {
             { label: 'Flags', href: '/admin/affiliates/flags' },
           ].map(({ label, href, active }) => (
             <Link key={href} href={href}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${active ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}>
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${active ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-green-700 hover:bg-green-50'}`}>
               {label}
             </Link>
           ))}
@@ -153,7 +153,7 @@ export default function AdminPayoutsPage() {
                   r.status === 'paid' ? 'bg-green-50' : r.status === 'failed' ? 'bg-red-50' : 'bg-gray-50'
                 }`}>
                   <div>
-                    <span className="font-medium text-gray-900">{r.affiliate_name}</span>
+                  <span className="font-medium text-gray-900">{r.affiliate_name}</span>
                     {r.reason && <span className="ml-2 text-gray-400 text-xs">— {r.reason}</span>}
                   </div>
                   <div className="flex items-center gap-2">
@@ -195,7 +195,7 @@ export default function AdminPayoutsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  {['Affiliate', 'Amount', 'Status', 'Triggered By', 'Transfer ID', 'Paid', 'Created'].map(h => (
+                  {['Partner', 'Amount', 'Status', 'Triggered By', 'Transfer ID', 'Paid', 'Created'].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-gray-500 px-4 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>

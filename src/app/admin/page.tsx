@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3, GitBranch, PhoneCall, PlayCircle, ContactRound } from 'lucide-react'
+import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3, GitBranch, PhoneCall, PlayCircle, ContactRound, SearchCheck, ShieldCheck } from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
+import { excludeChildBusinessProfiles } from '@/lib/business-memberships'
 import dynamic from 'next/dynamic'
 import SeedDemoButton from './SeedDemoButton'
 import SendRemindersButton from './SendRemindersButton'
@@ -40,7 +41,7 @@ export default async function AdminHubPage() {
   if (!adminCheck?.is_admin) redirect('/dashboard')
 
   // Parallel data fetch
-  const [{ data: profiles }, { data: recentActivity }, { count: unreadNotifCount }] = await Promise.all([
+  const [{ data: profiles }, { data: recentActivity }, { count: unreadNotifCount }, { data: businessMemberships }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, full_name, email, business_name, subscription_status, assigned_program, portal_blocked, created_at')
@@ -54,9 +55,13 @@ export default async function AdminHubPage() {
       .from('admin_notifications')
       .select('*', { count: 'exact', head: true })
       .eq('is_read', false),
+    supabase
+      .from('profile_business_memberships')
+      .select('user_id, business_profile_id')
+      .eq('status', 'active'),
   ])
 
-  const all = profiles ?? []
+  const all = excludeChildBusinessProfiles(profiles ?? [], businessMemberships ?? [])
 
   const stats = {
     total: all.length,
@@ -133,10 +138,11 @@ export default async function AdminHubPage() {
     },
     {
       href: '/admin/activity',
-      label: 'Activity Feed',
-      desc: 'Real-time client activity and alerts',
+      label: 'Notifications & Activity',
+      desc: 'Central admin alerts, unread notifications, and activity feed',
       icon: Bell,
       color: 'bg-amber-500',
+      count: unreadNotifCount ?? 0,
     },
     {
       href: '/admin/intelligence',
@@ -144,6 +150,20 @@ export default async function AdminHubPage() {
       desc: 'Approval rates, performance data, and AI learning',
       icon: BarChart3,
       color: 'bg-indigo-600',
+    },
+    {
+      href: '/admin/content',
+      label: 'Content OS',
+      desc: 'SEO, AI-search content, indexing, freshness, and attribution control',
+      icon: SearchCheck,
+      color: 'bg-emerald-600',
+    },
+    {
+      href: '/admin/compliance',
+      label: 'Compliance Audit',
+      desc: 'Consent records, form abuse blocks, and signup automation failures',
+      icon: ShieldCheck,
+      color: 'bg-slate-700',
     },
     {
       href: '/admin/affiliates',
@@ -158,6 +178,13 @@ export default async function AdminHubPage() {
       desc: 'Outbound AI calling, lead lists, live calls, analytics, and scripts',
       icon: PhoneCall,
       color: 'bg-violet-600',
+    },
+    {
+      href: '/admin/profile',
+      label: 'Admin Dialer Profile',
+      desc: 'Manage the phone number Twilio calls when you enter Ready mode in the CRM dialer.',
+      icon: ShieldCheck,
+      color: 'bg-emerald-700',
     },
     {
       href: '/admin/training',
@@ -176,18 +203,18 @@ export default async function AdminHubPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gray-50 px-4 py-4 sm:px-6 sm:py-6">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
 
         {/* Header */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Admin Dashboard</h1>
             <p className="text-sm text-gray-500 mt-1">Super admin control panel — {user.email}</p>
           </div>
           <Link
             href="/dashboard"
-            className="shrink-0 text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
+            className="inline-flex w-fit shrink-0 text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
           >
             ← Member Dashboard
           </Link>
@@ -215,7 +242,7 @@ export default async function AdminHubPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Program Breakdown */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-5">
             <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
               <BarChart2 size={18} className="text-green-600" /> Program Breakdown
             </h2>
@@ -247,12 +274,12 @@ export default async function AdminHubPage() {
           </div>
 
           {/* Admin Nav Cards + Seed */}
-          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 content-start">
+          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 content-start">
             {navCards.map(({ href, label, desc, icon: Icon, color, count }) => (
               <Link
                 key={href}
                 href={href}
-                className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 hover:shadow-md hover:border-gray-300 transition-all group"
+                className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-5 hover:shadow-md hover:border-gray-300 transition-all group"
               >
                 <div className={`w-10 h-10 ${color} rounded-xl flex items-center justify-center mb-3`}>
                   <Icon size={20} className="text-white" />
@@ -274,7 +301,7 @@ export default async function AdminHubPage() {
 
         {/* Recent Signups */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 py-4 sm:px-5 border-b border-gray-100 flex items-center justify-between gap-3">
             <h2 className="font-bold text-gray-900 flex items-center gap-2">
               <Users size={18} className="text-blue-600" /> Recent Signups
             </h2>
@@ -287,7 +314,7 @@ export default async function AdminHubPage() {
               <Link
                 key={p.id}
                 href={`/admin/members/${p.id}`}
-                className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition-colors"
+                className="flex flex-col gap-2 px-4 py-3 hover:bg-gray-50 transition-colors sm:flex-row sm:items-center sm:gap-4 sm:px-5"
               >
                 <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
                   <span className="text-xs font-bold text-gray-600">
@@ -298,7 +325,7 @@ export default async function AdminHubPage() {
                   <p className="text-sm font-semibold text-gray-900 truncate">{p.full_name || 'Unknown'}</p>
                   <p className="text-xs text-gray-400 truncate">{p.email}</p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   {p.portal_blocked && (
                     <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full uppercase">
                       Blocked
@@ -326,7 +353,7 @@ export default async function AdminHubPage() {
 
         {/* Recent Activity Log */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 py-4 sm:px-5 border-b border-gray-100 flex items-center justify-between gap-3">
             <h2 className="font-bold text-gray-900 flex items-center gap-2">
               <FileText size={18} className="text-gray-500" /> Recent Activity
               {(unreadNotifCount ?? 0) > 0 && (
@@ -341,19 +368,19 @@ export default async function AdminHubPage() {
           </div>
           <div className="divide-y divide-gray-50">
             {(recentActivity ?? []).map((log) => (
-              <div key={log.id} className="flex items-start gap-3 px-5 py-3">
+              <div key={log.id} className="flex items-start gap-3 px-4 py-3 sm:px-5">
                 <div className="w-2 h-2 bg-green-400 rounded-full mt-2 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <span className="text-xs font-semibold text-gray-700 capitalize">
+                  <span className="block text-xs font-semibold text-gray-700 capitalize">
                     {log.event_type.replace(/_/g, ' ')}
                   </span>
                   {log.event_data && Object.keys(log.event_data).length > 0 && (
-                    <span className="text-xs text-gray-400 ml-2 truncate">
+                    <span className="mt-1 block text-xs text-gray-400">
                       {formatActivityMeta(log.event_data)}
                     </span>
                   )}
                 </div>
-                <span className="text-xs text-gray-300 shrink-0">
+                <span className="shrink-0 text-[11px] text-gray-300 text-right">
                   {new Date(log.created_at).toLocaleString()}
                 </span>
               </div>

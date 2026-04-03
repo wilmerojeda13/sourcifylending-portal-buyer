@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getBusinessContext } from '@/lib/business-context'
 import Anthropic from '@anthropic-ai/sdk'
 import {
   checkAIUsage,
@@ -70,6 +71,10 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const context = await getBusinessContext()
+    if (!context) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const body = await req.json()
     const { messages, action_type, page_context } = body as {
@@ -118,18 +123,18 @@ export async function POST(req: NextRequest) {
       { data: activeDisputes },
       { data: approvedFunding },
     ] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).single(),
-      supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
-      supabase.from('documents').select('document_type,review_status,file_name').eq('user_id', user.id),
-      supabase.from('reports').select('report_type,title,generated_at').eq('user_id', user.id).order('generated_at', { ascending: false }).limit(5),
+      supabase.from('profiles').select('*').eq('id', context.activeBusinessId).single(),
+      supabase.from('tasks').select('*').eq('user_id', context.activeBusinessId).order('sort_order'),
+      supabase.from('documents').select('document_type,review_status,file_name').eq('user_id', context.activeBusinessId),
+      supabase.from('reports').select('report_type,title,generated_at').eq('user_id', context.activeBusinessId).order('generated_at', { ascending: false }).limit(5),
       // AI memory profile — structured persistent memory
-      supabase.from('ai_memory_profiles').select('*').eq('user_id', user.id).single().then(r => r),
+      supabase.from('ai_memory_profiles').select('*').eq('user_id', context.activeBusinessId).single().then(r => r),
       // Recent account events — last 10
-      supabase.from('ai_memory_events').select('event_type,event_title,event_details,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10).then(r => r),
+      supabase.from('ai_memory_events').select('event_type,event_title,event_details,created_at').eq('user_id', context.activeBusinessId).order('created_at', { ascending: false }).limit(10).then(r => r),
       // Active credit disputes
-      supabase.from('credit_disputes').select('bureau,item_disputed,status,investigation_deadline').eq('user_id', user.id).in('status', ['Sent', 'Under Investigation', 'Escalated']).then(r => r),
+      supabase.from('credit_disputes').select('bureau,item_disputed,status,investigation_deadline').eq('user_id', context.activeBusinessId).in('status', ['Sent', 'Under Investigation', 'Escalated']).then(r => r),
       // Total approved funding
-      supabase.from('funding_approvals').select('approved_amount,approved_limit,approval_type,issuer_name,approval_date').eq('user_id', user.id).eq('status', 'Approved').then(r => r),
+      supabase.from('funding_approvals').select('approved_amount,approved_limit,approval_type,issuer_name,approval_date').eq('user_id', context.activeBusinessId).eq('status', 'Approved').then(r => r),
     ])
 
     // Fetch opportunities for this user's program (top 10 by priority)

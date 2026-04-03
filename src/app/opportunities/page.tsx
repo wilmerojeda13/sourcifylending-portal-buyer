@@ -1,24 +1,14 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import { getProgramShortLabel } from '@/lib/utils'
 import OpportunitiesClient from './OpportunitiesClient'
 import UnderwritingGateBanner from '@/components/dashboard/UnderwritingGateBanner'
 import type { AccountOpportunity } from '@/types'
+import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function OpportunitiesPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
 
   // ── Underwriting gate — must have a current (non-expired) review to see opportunities ──
   const uwNextDue = profile?.underwriting_next_due_at
@@ -29,19 +19,13 @@ export default async function OpportunitiesPage() {
     (!uwNextDue || new Date(uwNextDue) < new Date())
 
   if (needsUnderwriting) {
-    const [{ data: uwNotifs }, uwMembershipsResult] = await Promise.all([
-      supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
-      supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
-    ])
-    const uwAllPrograms = (uwMembershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-    const uwActivePrograms = uwAllPrograms.length > 0 ? uwAllPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
     return (
       <PortalLayout
         userName={profile?.full_name || user.email || 'Client'}
         programLabel={getProgramShortLabel(profile?.assigned_program)}
-        notificationCount={uwNotifs?.length || 0}
+        notificationCount={notificationCount}
         assignedProgram={profile?.assigned_program}
-        allPrograms={uwActivePrograms}
+        allPrograms={activePrograms}
       >
         <div className="mb-6">
           <h1 className="page-title">Funding Opportunities</h1>
@@ -60,8 +44,7 @@ export default async function OpportunitiesPage() {
     )
   }
 
-  const [{ data: notifications }, { data: opportunities }, { data: rawStatuses }, membershipsResult] = await Promise.all([
-    supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
+  const [{ data: opportunities }, { data: rawStatuses }] = await Promise.all([
     supabase
       .from('account_opportunities')
       .select('*')
@@ -71,12 +54,8 @@ export default async function OpportunitiesPage() {
     supabase
       .from('opportunity_user_status')
       .select('opportunity_id, status')
-      .eq('user_id', user.id),
-    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
+      .eq('user_id', activeBusinessId),
   ])
-
-  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   // Build a map of opportunityId → status for fast lookup in the client
   const userStatuses: Record<string, string> = Object.fromEntries(
@@ -91,7 +70,7 @@ export default async function OpportunitiesPage() {
     <PortalLayout
       userName={profile?.full_name || user.email || 'Client'}
       programLabel={getProgramShortLabel(profile?.assigned_program)}
-      notificationCount={notifications?.length || 0}
+      notificationCount={notificationCount}
       assignedProgram={profile?.assigned_program}
       allPrograms={activePrograms}
     >

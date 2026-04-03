@@ -20,8 +20,8 @@ export async function GET() {
     // Run queries in parallel
     const [clicksResult, referralsResult, commissionsResult] = await Promise.all([
       supabase.from('affiliate_clicks').select('id', { count: 'exact', head: true }).eq('affiliate_id', affiliate.id),
-      supabase.from('affiliate_referrals').select('referral_status, subscription_active').eq('affiliate_id', affiliate.id),
-      supabase.from('affiliate_commissions').select('commission_amount, status').eq('affiliate_id', affiliate.id),
+      supabase.from('affiliate_referrals').select('referral_status, subscription_active, acquisition_path').eq('affiliate_id', affiliate.id),
+      supabase.from('affiliate_commissions').select('commission_amount, status, revenue_component').eq('affiliate_id', affiliate.id),
     ])
 
     const totalClicks = clicksResult.count ?? 0
@@ -35,6 +35,12 @@ export async function GET() {
     const pendingCommissions = commissions.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.commission_amount, 0)
     const approvedCommissions = commissions.filter(c => c.status === 'approved').reduce((sum, c) => sum + c.commission_amount, 0)
     const paidCommissions = commissions.filter(c => c.status === 'paid').reduce((sum, c) => sum + c.commission_amount, 0)
+    const setupEarnings = commissions
+      .filter(c => c.status !== 'reversed' && c.revenue_component === 'setup_fee')
+      .reduce((sum, c) => sum + c.commission_amount, 0)
+    const recurringEarnings = commissions
+      .filter(c => c.status !== 'reversed' && c.revenue_component !== 'setup_fee')
+      .reduce((sum, c) => sum + c.commission_amount, 0)
 
     // Free access status
     let freeAccessStatus: 'locked' | 'qualifying' | 'unlocked' = 'locked'
@@ -59,6 +65,8 @@ export async function GET() {
         pendingCommissions,
         approvedCommissions,
         paidCommissions,
+        setupEarnings,
+        recurringEarnings,
         freeAccessStatus,
         activeCount,
         daysRemaining,

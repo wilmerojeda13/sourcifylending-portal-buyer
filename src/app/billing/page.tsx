@@ -4,6 +4,8 @@ import PortalLayout from '@/components/layout/PortalLayout'
 import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/Badge'
+import { formatPricingLabel, getProgramPricing, normalizeAcquisitionPath } from '@/lib/partner-program'
+import { useBusinessContext } from '@/lib/use-business-context'
 import {
   CreditCard, CheckCircle, Shield, Loader2, Zap, Building2,
   BarChart3, Calendar, Plus, ExternalLink, Lock,
@@ -31,12 +33,6 @@ const PROGRAM_NAMES: Record<string, string> = {
   program_a: 'Program A — 0% APR Card Strategy',
   program_b: 'Program B — Business Credit Builder',
   program_c: 'Program C — Capital Monitoring',
-}
-
-const PROGRAM_PRICES: Record<string, string> = {
-  program_a: '$449/month',
-  program_b: '$249/month',
-  program_c: '$97/month',
 }
 
 const PROGRAM_FEATURES: Record<string, string[]> = {
@@ -92,6 +88,7 @@ function getAvailableAddOns(activeMemberships: Membership[]): string[] {
 
 export default function BillingPage() {
   const supabase = createClient()
+  const { activeBusinessId } = useBusinessContext()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null)
   const [memberships, setMemberships] = useState<Membership[]>([])
@@ -101,17 +98,18 @@ export default function BillingPage() {
   const [portalLoading, setPortalLoading] = useState(false)
   const [addingOn, setAddingOn] = useState<string | null>(null)
   const [selectingPlan, setSelectingPlan] = useState<string | null>(null)
+  const [subscriptionRequiredFlow, setSubscriptionRequiredFlow] = useState(false)
+  const [newBusinessFlow, setNewBusinessFlow] = useState(false)
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!activeBusinessId) return
       const [{ data: p }, { data: sub }, { data: mem }, { data: arr }, { data: records }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('subscriptions').select('stripe_customer_id').eq('user_id', user.id).maybeSingle(),
-        supabase.from('memberships').select('*').eq('user_id', user.id).eq('status', 'active'),
-        supabase.from('payment_arrangements').select('*').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
-        supabase.from('payment_records').select('amount').eq('user_id', user.id),
+        supabase.from('profiles').select('*').eq('id', activeBusinessId).single(),
+        supabase.from('subscriptions').select('stripe_customer_id').eq('user_id', activeBusinessId).maybeSingle(),
+        supabase.from('memberships').select('*').eq('user_id', activeBusinessId).eq('status', 'active'),
+        supabase.from('payment_arrangements').select('*').eq('user_id', activeBusinessId).eq('is_active', true).maybeSingle(),
+        supabase.from('payment_records').select('amount').eq('user_id', activeBusinessId),
       ])
       setProfile(p)
       setStripeCustomerId(sub?.stripe_customer_id ?? null)
@@ -121,11 +119,13 @@ export default function BillingPage() {
       setLoading(false)
     }
     init()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeBusinessId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check for add-on success/cancel from URL params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    setSubscriptionRequiredFlow(params.get('subscription_required') === '1')
+    setNewBusinessFlow(params.get('new_business') === '1')
     if (params.get('add_on') === 'success') {
       toast.success('Add-on membership activated!')
       window.history.replaceState({}, '', '/billing')
@@ -136,6 +136,7 @@ export default function BillingPage() {
   }, [])
 
   const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+  const acquisitionPath = normalizeAcquisitionPath(profile?.acquisition_path)
   const canManageBilling = isActive && !!stripeCustomerId
   const availableAddOns = getAvailableAddOns(memberships)
 
@@ -181,12 +182,10 @@ export default function BillingPage() {
   const handleSelectAndEnroll = async (selectedProgram: string) => {
     setSelectingPlan(selectedProgram)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { toast.error('Please log in first'); return }
       const { error } = await supabase
         .from('profiles')
         .update({ assigned_program: selectedProgram, updated_at: new Date().toISOString() })
-        .eq('id', user.id)
+        .eq('id', activeBusinessId)
       if (error) { toast.error('Failed to select program. Please try again.'); return }
       window.location.href = '/enroll'
     } catch {
@@ -208,7 +207,7 @@ export default function BillingPage() {
   }
 
   // Delegates cannot access billing
-  if ((profile as Record<string, unknown>)?.is_delegate) {
+  if ((profile as unknown as { is_delegate?: boolean } | null)?.is_delegate) {
     return (
       <PortalLayout
         userName={profile?.full_name || ''}
@@ -234,6 +233,16 @@ export default function BillingPage() {
   }
 
   const program = profile?.assigned_program || null
+  const pathLabel = acquisitionPath === 'partner_assisted' ? 'Partner-Assisted' : 'Self-Serve'
+  const pricingText = (programCode: string) => {
+    if (programCode !== 'program_a' && programCode !== 'program_b' && programCode !== 'program_c') return ''
+    return formatPricingLabel(programCode, acquisitionPath)
+  }
+  const pricingBadge = (programCode: string) => {
+    if (programCode !== 'program_a' && programCode !== 'program_b' && programCode !== 'program_c') return ''
+    const pricing = getProgramPricing(programCode, acquisitionPath)
+    return pricing.setupFeeCents > 0 ? `Includes $${pricing.setupFeeCents / 100} onboarding setup` : 'No setup fee'
+  }
 
   return (
     <PortalLayout
@@ -253,6 +262,24 @@ export default function BillingPage() {
         <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Manage your SourcifyLending memberships</p>
       </div>
 
+      {(subscriptionRequiredFlow || (!isActive && newBusinessFlow)) && (
+        <div className="card mb-6 border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/20">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-900/40">
+              <Lock size={18} className="text-amber-700 dark:text-amber-300" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                {newBusinessFlow ? 'New business created' : 'Subscription required'}
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-amber-800 dark:text-amber-300">
+                This business needs its own subscription before portal tools unlock. One paid subscription only applies to one business under the current plan structure.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Active Memberships ─────────────────────────────────────────────── */}
       {memberships.length > 0 && (
         <div className="mb-6">
@@ -267,7 +294,8 @@ export default function BillingPage() {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[m.program_code] ?? m.program_code}</p>
-                      <p className="text-green-600 font-bold text-sm">{PROGRAM_PRICES[m.program_code]}</p>
+                      <p className="text-green-600 font-bold text-sm">{pricingText(m.program_code)}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{pathLabel} pricing</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -308,7 +336,8 @@ export default function BillingPage() {
               </div>
               <div>
                 <p className="font-semibold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[program]}</p>
-                <p className="text-green-600 font-bold text-sm">{PROGRAM_PRICES[program]}</p>
+                <p className="text-green-600 font-bold text-sm">{pricingText(program)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{pathLabel} pricing</p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -387,7 +416,7 @@ export default function BillingPage() {
                     </div>
                     <div>
                       <p className="font-bold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[addon]}</p>
-                      <p className="text-purple-600 dark:text-purple-400 font-bold text-sm">{PROGRAM_PRICES[addon]}</p>
+                      <p className="text-purple-600 dark:text-purple-400 font-bold text-sm">{pricingText(addon)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
                         {addon === 'program_c' && 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan.'}
                       </p>
@@ -425,7 +454,8 @@ export default function BillingPage() {
                   : `Subscribe to unlock full AI fulfillment, task tracking, document management, and reports for ${getProgramShortLabel(program)}.`
                 }
               </p>
-              <p className="text-white font-bold text-xl mb-4">{PROGRAM_PRICES[program]}</p>
+              <p className="text-white font-bold text-xl mb-1">{pricingText(program)}</p>
+              <p className="text-green-200 text-xs mb-4">{pathLabel} billing path</p>
               <button
                 onClick={() => window.location.href = '/enroll'}
                 className="bg-white text-green-700 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors inline-flex items-center gap-2"
@@ -443,14 +473,14 @@ export default function BillingPage() {
         <div className="space-y-4">
           <div className="text-center mb-2">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Choose Your Program</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select a plan and proceed directly to payment</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select a plan and proceed directly to payment under your {pathLabel.toLowerCase()} pricing path.</p>
           </div>
 
           {[
-            { key: 'program_a', badge: 'No setup fee', monthly: '$449/month', desc: 'Build high-limit 0% intro APR credit card stack for business or personal capital', badgeColor: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' },
-            { key: 'program_b', badge: 'No setup fee', monthly: '$249/month', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badgeColor: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
-            { key: 'program_c', badge: 'No setup fee', monthly: '$97/month', desc: 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan', badgeColor: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400' },
-          ].map(({ key, badge, monthly, desc, badgeColor }) => (
+            { key: 'program_a', desc: 'Build high-limit 0% intro APR credit card stack for business or personal capital', badgeColor: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' },
+            { key: 'program_b', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badgeColor: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
+            { key: 'program_c', desc: 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan', badgeColor: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400' },
+          ].map(({ key, desc, badgeColor }) => (
             <div key={key} className="card border-2 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-colors">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-start gap-3">
@@ -461,8 +491,8 @@ export default function BillingPage() {
                     <p className="font-bold text-gray-900 dark:text-white">{PROGRAM_NAMES[key]}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeColor}`}>{badge}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{monthly}</span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeColor}`}>{pricingBadge(key)}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{pricingText(key)}</span>
                     </div>
                   </div>
                 </div>

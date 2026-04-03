@@ -1,11 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
 import PortalLayout from '@/components/layout/PortalLayout'
-import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel, formatDateTime } from '@/lib/utils'
 import { BarChart2, FileText, Plus, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Report, ReportType, UserProfile } from '@/types'
 import toast from 'react-hot-toast'
+import { useBusinessContext } from '@/lib/use-business-context'
 
 const REPORT_TYPES: { value: ReportType; label: string; desc: string }[] = [
   { value: 'credit_readiness_summary', label: 'Credit Readiness Summary', desc: 'Overview of your current credit position and readiness indicators' },
@@ -16,7 +16,7 @@ const REPORT_TYPES: { value: ReportType; label: string; desc: string }[] = [
 ]
 
 export default function ReportsPage() {
-  const supabase = createClient()
+  const { activeBusinessId } = useBusinessContext()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
@@ -28,22 +28,22 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const [{ data: p }, { data: r }, membershipsResult] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('reports').select('*').eq('user_id', user.id).order('generated_at', { ascending: false }),
-        supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
-      ])
-      setProfile(p)
-      setReports(r || [])
-      setIsActive(p?.subscription_status === 'active' || p?.subscription_status === 'trialing')
-      const mPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-      setActivePrograms(mPrograms.length > 0 ? mPrograms : (p?.assigned_program ? [p.assigned_program] : []))
+      if (!activeBusinessId) return
+      const res = await fetch('/api/reports', { cache: 'no-store' })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to load reports')
+        setLoading(false)
+        return
+      }
+      setProfile(data.profile ?? null)
+      setReports(data.reports || [])
+      setIsActive(Boolean(data.is_active))
+      setActivePrograms(data.active_programs ?? [])
       setLoading(false)
     }
     init()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeBusinessId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateReport = async () => {
     setGenerating(true)

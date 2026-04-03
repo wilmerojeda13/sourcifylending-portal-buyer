@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { AlertTriangle, Users, DollarSign, HeartPulse } from 'lucide-react'
 import ClientManagementTable from './ClientManagementTable'
+import { excludeChildBusinessProfiles } from '@/lib/business-memberships'
 
 const CREDIT_ACCOUNT_TYPES = [
   '0% APR Card',
@@ -33,7 +34,7 @@ export default async function AdminOperationsPage() {
   if (!adminCheck?.is_admin) redirect('/dashboard')
 
   // Parallel fetch all data
-  const [profilesRes, tasksRes, activityRes, fundingRes, assignmentsRes] = await Promise.all([
+  const [profilesRes, tasksRes, activityRes, fundingRes, assignmentsRes, businessMembershipsRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, full_name, email, business_name, subscription_status, assigned_program, current_stage, progress_percentage, portal_blocked, is_demo, created_at')
@@ -48,9 +49,10 @@ export default async function AdminOperationsPage() {
       .select('user_id, approved_amount, approved_limit, approval_type, status')
       .eq('status', 'Approved'),
     supabase.from('support_assignments').select('*'),
+    supabase.from('profile_business_memberships').select('user_id, business_profile_id').eq('status', 'active'),
   ])
 
-  const profiles = profilesRes.data ?? []
+  const profiles = excludeChildBusinessProfiles(profilesRes.data ?? [], businessMembershipsRes.data ?? [])
   const tasks = tasksRes.data ?? []
   const activityLogs = activityRes.data ?? []
   const fundingApprovals = fundingRes.data ?? []
@@ -147,16 +149,16 @@ export default async function AdminOperationsPage() {
   }))
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50 px-4 py-4 sm:px-6 sm:py-6">
+      <div className="max-w-7xl mx-auto space-y-5 sm:space-y-6">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Client Operations</h1>
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Client Operations</h1>
             <p className="text-sm text-gray-500 mt-1">Client health, support assignments, and funding overview</p>
           </div>
-          <Link href="/admin" className="text-sm text-gray-500 hover:text-gray-700 underline">
+          <Link href="/admin" className="inline-flex w-fit text-sm text-gray-500 hover:text-gray-700 underline">
             ← Admin Hub
           </Link>
         </div>

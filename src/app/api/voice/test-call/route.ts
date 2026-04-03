@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { buildVapiAssistant } from '@/lib/vapi'
+import { evaluateLeadCallWindow, inferLeadPhoneIntelligence } from '@/lib/crm-call-compliance'
 
 async function requireAdmin() {
   const authClient = await createClient()
@@ -15,15 +16,6 @@ async function requireAdmin() {
   const { data: p } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
   if (!p?.is_admin) return { error: 'Forbidden', status: 403, supabase: null }
   return { error: null, status: 200, supabase }
-}
-
-/** Normalize phone to E.164 (basic US handling) */
-function toE164(raw: string): string | null {
-  const digits = raw.replace(/\D/g, '')
-  if (digits.length === 10) return `+1${digits}`
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
-  if (digits.length > 7) return `+${digits}`
-  return null
 }
 
 export async function POST(req: NextRequest) {
@@ -40,8 +32,33 @@ export async function POST(req: NextRequest) {
 
   if (!phone) return NextResponse.json({ error: 'Phone number is required' }, { status: 400 })
 
-  const phoneE164 = toE164(phone)
-  if (!phoneE164) return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 })
+  const phoneIntelligence = await inferLeadPhoneIntelligence(phone)
+  if (!phoneIntelligence.phone_e164) return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 })
+
+  const callWindow = evaluateLeadCallWindow(phoneIntelligence)
+  if (callWindow.status !== 'callable_now') {
+    const { error: logError } = await supabase.from('crm_call_compliance_logs').insert({
+      lead_id: null,
+      original_phone: phone,
+      normalized_phone: phoneIntelligence.diagnostics.normalized_phone,
+      phone_e164: phoneIntelligence.phone_e164,
+      likely_timezone: phoneIntelligence.likely_timezone,
+      local_time_at_recipient: callWindow.recipientLocalTime,
+      rule_applied: callWindow.ruleApplied,
+      blocked_reason: callWindow.blockedReason ?? 'unknown_timezone',
+      parse_result: phoneIntelligence.diagnostics.parse_result,
+      libphonenumber_result: phoneIntelligence.diagnostics.libphonenumber_result,
+      fallback_result: phoneIntelligence.diagnostics.fallback_result,
+      final_reason: phoneIntelligence.diagnostics.final_reason,
+      timezone_source: phoneIntelligence.timezone_source,
+    })
+    if (logError) {
+      console.warn('[voice test-call] failed to write compliance log', logError)
+    }
+    return NextResponse.json({ error: callWindow.message }, { status: 400 })
+  }
+
+  const phoneE164 = phoneIntelligence.phone_e164
 
   const vapiApiKey = process.env.VAPI_API_KEY
   if (!vapiApiKey) return NextResponse.json({ error: 'VAPI_API_KEY not configured' }, { status: 500 })

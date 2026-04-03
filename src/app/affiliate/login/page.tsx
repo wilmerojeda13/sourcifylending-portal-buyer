@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react'
+import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
 
 const DEMO_EMAIL = 'affiliate@sourcifylending.com'
 const DEMO_PASSWORD = 'AffiliateDemo123!'
@@ -62,33 +63,37 @@ export default function AffiliateLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-4 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 sm:p-5">
       <div className="w-full max-w-md">
 
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-white font-bold text-xl">SL</span>
+        <div className="mb-6 text-center sm:mb-8">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 shadow-lg sm:mb-4 sm:h-14 sm:w-14">
+            <span className="text-lg font-bold text-white sm:text-xl">SL</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">SourcifyLending</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Affiliate Portal</p>
+          <h1 className="text-[1.7rem] font-bold leading-tight text-gray-900 dark:text-gray-100 sm:text-2xl">
+            SourcifyLending
+          </h1>
+          <p className="mt-1.5 text-[13px] leading-5 text-gray-500 dark:text-gray-400 sm:mt-1 sm:text-sm">
+            Partner Portal
+          </p>
         </div>
 
         {/* Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-8">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">Partner Login</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-6">Sign in to your affiliate account</p>
+        <div className="rounded-2xl border border-gray-200 bg-white px-5 py-6 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-8">
+          <h2 className="mb-1 text-[1.05rem] font-bold leading-tight text-gray-900 dark:text-gray-100 sm:text-lg">Partner Login</h2>
+          <p className="mb-5 text-[13px] leading-5 text-gray-500 dark:text-gray-400 sm:mb-6 sm:text-sm">Sign in to your partner account</p>
 
           {error && (
-            <div className="mb-5 flex items-start gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
-              <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+            <div className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-950/30">
+              <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-500" />
+              <p className="text-[13px] leading-5 text-red-700 dark:text-red-400 sm:text-sm">{error}</p>
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label className="mb-1.5 block text-[13px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm">
                 Email address
               </label>
               <input
@@ -98,12 +103,12 @@ export default function AffiliateLoginPage() {
                 required
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-shadow"
+                className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:focus:ring-indigo-400"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label className="mb-1.5 block text-[13px] font-medium text-gray-700 dark:text-gray-300 sm:text-sm">
                 Password
               </label>
               <div className="relative">
@@ -114,12 +119,12 @@ export default function AffiliateLoginPage() {
                   required
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-shadow pr-10"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 pr-10 text-sm transition-shadow focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:focus:ring-indigo-400"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -129,7 +134,7 @@ export default function AffiliateLoginPage() {
             <div className="flex items-center justify-end">
               <Link
                 href="/forgot-password"
-                className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:text-indigo-400 hover:underline"
+                className="text-xs text-indigo-600 hover:text-indigo-700 hover:underline dark:text-indigo-400"
               >
                 Forgot password?
               </Link>
@@ -138,7 +143,7 @@ export default function AffiliateLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-6 py-3 rounded-xl hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -163,35 +168,37 @@ export default function AffiliateLoginPage() {
           <button
             type="button"
             onClick={loadDemoCredentials}
-            className="w-full flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 dark:text-gray-500 text-sm font-medium px-6 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:bg-gray-800"
           >
             👁 View Demo Account
           </button>
           {demoLoaded && (
-            <p className="mt-2 text-center text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+            <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-[11px] leading-4 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400 sm:text-xs">
               Demo credentials loaded — click Sign In to continue
             </p>
           )}
         </div>
 
         {/* Footer links */}
-        <div className="mt-6 text-center space-y-2">
-          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">
-            Want to become an affiliate?{' '}
+        <div className="mt-5 space-y-2 text-center sm:mt-6">
+          <p className="text-[13px] leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">
+            Want to become a partner?{' '}
             <a
               href="mailto:abel@sourcifylending.com"
-              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:text-indigo-400 font-medium hover:underline"
+              className="font-medium text-indigo-600 hover:text-indigo-700 hover:underline dark:text-indigo-400"
             >
               Contact us
             </a>
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500">
-            <Link href="/affiliate/signup" className="hover:text-gray-600 dark:hover:text-gray-300 hover:underline">
-              Apply to become an affiliate →
+            <Link href="/affiliate/signup" className="hover:text-gray-600 hover:underline dark:hover:text-gray-300">
+              Apply to become a partner →
             </Link>
           </p>
+          <PublicLegalLinks className="text-xs text-gray-400 dark:text-gray-500" />
         </div>
       </div>
     </div>
   )
 }
+// PUBLIC_FORM_COMPLIANCE_OK

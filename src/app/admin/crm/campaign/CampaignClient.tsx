@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  ChevronLeft, Bot, Loader2, Phone, Clock, Webhook,
-  CheckCircle2, AlertCircle, Info, Zap, Users,
+  ChevronLeft, Bot, Loader2, Phone, Webhook,
+  CheckCircle2, Info, Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -36,10 +36,21 @@ const STAGE_OPTIONS = [
 const WEBHOOK_URL = 'https://sourcifylending.com/api/webhooks/vapi'
 
 interface LaunchResult {
+  total_selected: number
   total: number
+  callable_now: number
+  blocked_by_timezone: number
+  unknown_timezone: number
   succeeded: number
   failed: number
   message: string
+}
+
+interface CampaignPreview {
+  total_selected: number
+  callable_now: number
+  blocked_by_timezone: number
+  unknown_timezone: number
 }
 
 export default function CampaignClient() {
@@ -50,6 +61,8 @@ export default function CampaignClient() {
   const [loadingCount, setLoadingCount] = useState(false)
   const [launching, setLaunching] = useState(false)
   const [result, setResult] = useState<LaunchResult | null>(null)
+  const [preview, setPreview] = useState<CampaignPreview | null>(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
 
   // Test call state
   const [testPhone, setTestPhone] = useState('')
@@ -73,6 +86,29 @@ export default function CampaignClient() {
   }, [stage])
 
   useEffect(() => { fetchCount() }, [fetchCount])
+
+  const fetchPreview = useCallback(async () => {
+    setLoadingPreview(true)
+    try {
+      const res = await fetch('/api/admin/crm/campaign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage, preview_only: true }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setPreview(json)
+      } else {
+        setPreview(null)
+      }
+    } catch {
+      setPreview(null)
+    } finally {
+      setLoadingPreview(false)
+    }
+  }, [stage])
+
+  useEffect(() => { fetchPreview() }, [fetchPreview])
 
   async function sendTestCall() {
     if (!testPhone.trim()) { toast.error('Enter a phone number'); return }
@@ -98,9 +134,20 @@ export default function CampaignClient() {
 
   async function launch() {
     if (!leadCount) { toast.error('No leads to call'); return }
-    const callCount = Math.min(leadCount, 500)
+    const previewRes = await fetch('/api/admin/crm/campaign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stage, preview_only: true }),
+    })
+    const previewJson = await previewRes.json()
+    if (!previewRes.ok) {
+      toast.error(previewJson.error ?? 'Failed to analyze campaign')
+      return
+    }
+    setPreview(previewJson)
+
     const confirmed = window.confirm(
-      `Launch AI voice campaign for up to ${callCount.toLocaleString()} leads?\n\nThis will immediately begin calling leads via VAPI.\n\nCampaigns are capped at 500 leads per run — run again to continue.`
+      `Launch AI voice campaign?\n\nTotal selected: ${(previewJson.total_selected ?? 0).toLocaleString()}\nCallable now: ${(previewJson.callable_now ?? 0).toLocaleString()}\nBlocked by timezone: ${(previewJson.blocked_by_timezone ?? 0).toLocaleString()}\nUnknown timezone: ${(previewJson.unknown_timezone ?? 0).toLocaleString()}\n\nOnly callable leads will be sent to VAPI. Campaigns are capped at 500 leads per run.`
     )
     if (!confirmed) return
 
@@ -130,22 +177,22 @@ export default function CampaignClient() {
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Top bar */}
       <div className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <Link
             href="/admin/crm"
-            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors shrink-0"
           >
             <ChevronLeft size={16}/> CRM
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center justify-center gap-2 text-center">
             <Bot size={18} className="text-green-400"/>
-            <span className="font-semibold text-sm">AI Voice Campaign</span>
+            <span className="font-semibold text-sm truncate">AI Voice Campaign</span>
           </div>
-          <div className="w-16"/> {/* spacer */}
+          <div className="w-12 shrink-0"/> {/* spacer */}
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-5 sm:space-y-6">
 
         {/* Header */}
         <div className="text-center space-y-2">
@@ -160,7 +207,7 @@ export default function CampaignClient() {
 
         {/* Lead count summary */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div className="text-center">
               <div className="flex items-center justify-center gap-1.5 mb-1">
                 {loadingCount
@@ -175,9 +222,37 @@ export default function CampaignClient() {
               <p className="text-xs text-gray-500">Max per call</p>
             </div>
           </div>
-          <p className="text-[11px] text-gray-600 text-center mt-3">
+          <p className="text-[11px] leading-relaxed text-gray-600 text-center mt-3">
             Campaigns run up to 500 leads at a time. Run again to continue calling remaining leads.
           </p>
+        </div>
+
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <p className="text-sm font-semibold text-gray-200">Call Window Summary</p>
+              <p className="text-xs text-gray-500 mt-1">Only callable leads will be launched. Unknown timezones are skipped for review.</p>
+            </div>
+            {loadingPreview && <Loader2 size={16} className="animate-spin text-gray-500" />}
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-gray-800 bg-gray-950 px-4 py-3 text-center">
+              <p className="text-lg font-bold text-white">{preview?.total_selected?.toLocaleString() ?? '—'}</p>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Selected</p>
+            </div>
+            <div className="rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-center">
+              <p className="text-lg font-bold text-green-300">{preview?.callable_now?.toLocaleString() ?? '—'}</p>
+              <p className="text-[11px] text-green-200/80 uppercase tracking-wide">Callable</p>
+            </div>
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-center">
+              <p className="text-lg font-bold text-amber-300">{preview?.blocked_by_timezone?.toLocaleString() ?? '—'}</p>
+              <p className="text-[11px] text-amber-200/80 uppercase tracking-wide">Blocked</p>
+            </div>
+            <div className="rounded-xl border border-gray-700 bg-gray-950 px-4 py-3 text-center">
+              <p className="text-lg font-bold text-gray-200">{preview?.unknown_timezone?.toLocaleString() ?? '—'}</p>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wide">Unknown TZ</p>
+            </div>
+          </div>
         </div>
 
         {/* Form card */}
@@ -204,7 +279,7 @@ export default function CampaignClient() {
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
               Max Call Duration (minutes)
             </label>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 type="number"
                 min={1}
@@ -213,7 +288,7 @@ export default function CampaignClient() {
                 onChange={e => setMaxDuration(Number(e.target.value) || 2)}
                 className="w-24 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-green-500/50"
               />
-              <div className="flex gap-2">
+              <div className="grid grid-cols-4 gap-2 sm:flex">
                 {[1, 2, 3, 5].map(n => (
                   <button
                     key={n}
@@ -297,7 +372,7 @@ export default function CampaignClient() {
           <p className="text-xs text-gray-500 mb-3">
             Send a single test call to verify your VAPI assistant is working before launching a campaign.
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input
               type="tel"
               value={testPhone}
@@ -309,7 +384,7 @@ export default function CampaignClient() {
               onClick={sendTestCall}
               disabled={testCalling}
               className={cn(
-                'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap',
+                'flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap',
                 testCalling
                   ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                   : 'bg-green-600 hover:bg-green-500 text-white'
@@ -329,14 +404,26 @@ export default function CampaignClient() {
               <p className="font-semibold text-green-300">Campaign Launched!</p>
             </div>
             <p className="text-sm text-gray-300">{result.message}</p>
-            <div className="flex gap-4 mt-3">
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:flex sm:gap-4">
               <div className="text-center">
-                <p className="text-lg font-bold text-white">{result.total}</p>
-                <p className="text-[11px] text-gray-500">Total</p>
+                <p className="text-lg font-bold text-white">{result.total_selected}</p>
+                <p className="text-[11px] text-gray-500">Selected</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-green-400">{result.callable_now}</p>
+                <p className="text-[11px] text-gray-500">Callable</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-amber-400">{result.blocked_by_timezone}</p>
+                <p className="text-[11px] text-gray-500">Blocked</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-gray-300">{result.unknown_timezone}</p>
+                <p className="text-[11px] text-gray-500">Unknown TZ</p>
               </div>
               <div className="text-center">
                 <p className="text-lg font-bold text-green-400">{result.succeeded}</p>
-                <p className="text-[11px] text-gray-500">Succeeded</p>
+                <p className="text-[11px] text-gray-500">Queued</p>
               </div>
               {result.failed > 0 && (
                 <div className="text-center">

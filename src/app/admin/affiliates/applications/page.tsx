@@ -90,15 +90,15 @@ export default function AffiliateApplicationsPage() {
     <div className="space-y-6">
       {/* Back nav */}
       <div className="flex items-center gap-2 text-sm text-gray-500">
-        <a href="/admin/affiliates" className="hover:text-gray-900">Affiliates</a>
+              <a href="/admin/affiliates" className="hover:text-green-700">Affiliates</a>
         <span>/</span>
         <span className="text-gray-900 font-medium">Applications</span>
       </div>
 
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Affiliate Applications</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Review and approve affiliate program applications</p>
+          <h1 className="text-xl font-bold text-gray-900">Partner Applications</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Review and approve partner-program applications</p>
         </div>
       </div>
 
@@ -138,7 +138,7 @@ export default function AffiliateApplicationsPage() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center text-gray-400">
           <Clock size={32} className="mx-auto mb-3 opacity-40" />
           <p className="font-medium text-gray-600">No applications found</p>
-          <p className="text-sm mt-1">New applications will appear here when submitted via the /partners page.</p>
+          <p className="text-sm mt-1">New partner applications will appear here when submitted via the /partners page.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -182,7 +182,7 @@ export default function AffiliateApplicationsPage() {
                         ['Phone', app.phone || '—'],
                         ['Company', app.company_name || '—'],
                         ['Website / Social', app.website_or_social || '—'],
-                        ['Prior Referral Experience', app.referral_experience ? 'Yes' : 'No'],
+                        ['Prior Closing / Onboarding Experience', app.referral_experience ? 'Yes' : 'No'],
                         ['Est. Monthly Volume', app.monthly_referral_estimate || '—'],
                         ['Marketing Channels', (app.marketing_channels || []).join(', ') || '—'],
                       ].map(([label, value]) => (
@@ -261,7 +261,7 @@ export default function AffiliateApplicationsPage() {
                           href="/admin/affiliates"
                           className="flex items-center gap-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-xs font-semibold px-4 py-2 rounded-xl transition-colors"
                         >
-                          Add as Affiliate →
+                          Add as Partner →
                         </a>
                       )}
                     </div>

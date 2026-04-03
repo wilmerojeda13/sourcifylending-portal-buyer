@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
 
 interface Props {
   token: string
@@ -154,8 +155,10 @@ export default function ClaimAccountClient({ token, fullName, email, businessNam
             Contact support
           </a>
         </p>
+        <PublicLegalLinks className="mt-3 text-center text-xs text-gray-400" />
 
       </div>
     </div>
   )
 }
+// PUBLIC_FORM_COMPLIANCE_OK

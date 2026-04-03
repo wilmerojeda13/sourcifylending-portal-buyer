@@ -23,37 +23,98 @@ export async function GET(req: NextRequest) {
   const supabase = await createServiceClient()
 
   let query = supabase
-    .from('portal_events')
+    .from('admin_notifications')
     .select(`
       id,
-      user_id,
-      event_type,
-      event_category,
-      title,
-      message,
-      metadata,
-      severity,
-      created_by,
       created_at,
-      profiles (
-        full_name,
-        email,
-        business_name
+      is_read,
+      notification_type,
+      portal_events (
+        id,
+        user_id,
+        event_type,
+        event_category,
+        title,
+        message,
+        metadata,
+        severity,
+        created_by,
+        created_at,
+        profiles (
+          full_name,
+          email,
+          business_name
+        )
       )
     `)
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (category && category !== 'all') {
-    query = query.eq('event_category', category)
-  }
-
-  const { data: events, error } = await query
+  const [{ data: notifications, error }, { count: unreadCount }] = await Promise.all([
+    query,
+    supabase
+      .from('admin_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_read', false),
+  ])
 
   if (error) {
     console.error('[admin/activity] GET error:', error)
     return NextResponse.json({ error: 'Failed to fetch activity' }, { status: 500 })
   }
 
-  return NextResponse.json({ events: events ?? [] })
+  const normalizedEvents = (notifications ?? []).map((notification) => {
+    const portalEvent = Array.isArray(notification.portal_events)
+      ? notification.portal_events[0]
+      : notification.portal_events
+
+    if (!portalEvent) {
+      return {
+        notification_id: notification.id,
+        id: notification.id,
+        user_id: null,
+        event_type: notification.notification_type ?? 'notification',
+        event_category: 'alerts',
+        title: 'Admin alert',
+        message: 'A notification was created without a linked activity event.',
+        metadata: null,
+        severity: 'info',
+        created_by: null,
+        created_at: notification.created_at,
+        is_read: notification.is_read,
+        profiles: null,
+      }
+    }
+
+    return {
+      notification_id: notification.id,
+      id: portalEvent.id,
+      user_id: portalEvent.user_id,
+      event_type: portalEvent.event_type,
+      event_category: portalEvent.event_category,
+      title: portalEvent.title,
+      message: portalEvent.message,
+      metadata: portalEvent.metadata,
+      severity: portalEvent.severity,
+      created_by: portalEvent.created_by,
+      created_at: portalEvent.created_at,
+      is_read: notification.is_read,
+      profiles: Array.isArray(portalEvent.profiles) ? portalEvent.profiles[0] ?? null : portalEvent.profiles ?? null,
+    }
+  })
+
+  const events = category && category !== 'all'
+    ? normalizedEvents.filter((event) => event.event_category === category)
+    : normalizedEvents
+
+  console.log('[admin/activity] GET', {
+    adminUserId: user.id,
+    role: 'admin',
+    category: category ?? 'all',
+    limit,
+    unreadCount: unreadCount ?? 0,
+    eventCount: events.length,
+  })
+
+  return NextResponse.json({ events, unread_count: unreadCount ?? 0 })
 }

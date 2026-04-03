@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { checkAIUsage, recordAIUsage } from '@/lib/ai-usage'
 import { logMemoryEvent, updateMemoryProfile } from '@/lib/ai-memory'
+import { getBusinessContext } from '@/lib/business-context'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -333,6 +334,8 @@ export async function POST(req: NextRequest) {
     const authClient = await createClient()
     const { data: { user } } = await authClient.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const context = await getBusinessContext()
+    if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await req.json()
     const { document_id } = body
@@ -346,11 +349,11 @@ export async function POST(req: NextRequest) {
       supabase.from('documents')
         .select('*')
         .eq('document_id', document_id)
-        .eq('user_id', user.id)
+        .eq('user_id', context.activeBusinessId)
         .single(),
       supabase.from('profiles')
         .select('assigned_program, current_stage, business_name, entity_type, credit_score_range, utilization_range, inquiry_range')
-        .eq('id', user.id)
+        .eq('id', context.activeBusinessId)
         .single(),
     ])
 
@@ -460,10 +463,10 @@ export async function POST(req: NextRequest) {
       : []
 
     if (checklistKeys.length > 0) {
-      await Promise.all(
+        await Promise.all(
         checklistKeys.map((itemKey) =>
-          supabase.from('business_credibility').upsert(
-            { user_id: user.id, item_key: itemKey, is_complete: true, completed_at: now, updated_at: now },
+          supabase.from('business_credibility_checklist').upsert(
+            { user_id: context.activeBusinessId, item_key: itemKey, is_complete: true, completed_at: now, updated_at: now },
             { onConflict: 'user_id,item_key' }
           )
         )
@@ -478,7 +481,7 @@ export async function POST(req: NextRequest) {
         const { data: matchingTasks } = await supabase
           .from('tasks')
           .select('task_id, title')
-          .eq('user_id', user.id)
+          .eq('user_id', context.activeBusinessId)
           .eq('status', 'pending')
           .or(keywords.map(k => `title.ilike.%${k}%`).join(','))
 
@@ -535,7 +538,7 @@ export async function POST(req: NextRequest) {
 
       // Update business_credit_profile table
       if (creditProfileUpdates) {
-        const bcp: Record<string, unknown> = { user_id: user.id, updated_at: now }
+        const bcp: Record<string, unknown> = { user_id: context.activeBusinessId, updated_at: now }
         if (creditProfileUpdates.duns_number) bcp.duns_number = creditProfileUpdates.duns_number
         if (creditProfileUpdates.duns_status) bcp.duns_status = creditProfileUpdates.duns_status
         if (creditProfileUpdates.experian_status) bcp.experian_status = creditProfileUpdates.experian_status
@@ -564,7 +567,7 @@ export async function POST(req: NextRequest) {
     // Apply all profile updates in one call
     const allProfileUpdates = { ...profileTextUpdates, ...profileJsonUpdates }
     if (Object.keys(allProfileUpdates).length > 0) {
-      await supabase.from('profiles').update(allProfileUpdates).eq('id', user.id)
+      await supabase.from('profiles').update(allProfileUpdates).eq('id', context.activeBusinessId)
       updates.profileFieldsUpdated = Object.keys(allProfileUpdates)
     }
 
@@ -594,7 +597,7 @@ export async function POST(req: NextRequest) {
     // ── Audit log (fire-and-forget) ───────────────────────────────────────────
     void supabase.from('document_audit_log').insert({
       document_id,
-      user_id: user.id,
+      user_id: context.activeBusinessId,
       program,
       detected_type: detectedType,
       extracted_fields: extracted,
@@ -626,7 +629,7 @@ export async function POST(req: NextRequest) {
     if (analysis.next_step_guidance) memoryParts.push(`Next: ${analysis.next_step_guidance}`)
 
     logMemoryEvent(
-      user.id,
+      context.activeBusinessId,
       'document_reviewed',
       memoryTitle,
       memoryParts.join(' | '),
@@ -634,7 +637,7 @@ export async function POST(req: NextRequest) {
     ).catch(() => {})
 
     // Persist next steps and business name to memory profile
-    updateMemoryProfile(user.id, {
+    updateMemoryProfile(context.activeBusinessId, {
       ...(analysis.next_step_guidance ? { next_steps: analysis.next_step_guidance as string } : {}),
       ...(!profile?.business_name && extracted.business_name ? { business_name: extracted.business_name } : {}),
     }).catch(() => {})

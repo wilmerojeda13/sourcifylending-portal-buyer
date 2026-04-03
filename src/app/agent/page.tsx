@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel } from '@/lib/utils'
 import type { ChatMessage, UserProfile } from '@/types'
 import { v4 as uuidv4 } from 'uuid'
+import { useBusinessContext } from '@/lib/use-business-context'
 
 const QUICK_PROMPTS = [
   "I'm lost — what do I do next?",
@@ -27,6 +28,7 @@ export default function AgentPageWrapper() {
 
 function AgentPage() {
   const supabase = createClient()
+  const { activeBusinessId } = useBusinessContext()
   const searchParams = useSearchParams()
   const autoPrompt = searchParams.get('prompt')
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -53,13 +55,12 @@ function AgentPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!activeBusinessId) return
 
       const [{ data: p }, convRes, { data: nextTaskData }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        supabase.from('profiles').select('*').eq('id', activeBusinessId).single(),
         fetch('/api/agent/conversation'),
-        supabase.from('tasks').select('title, stage').eq('user_id', user.id).eq('status', 'pending').order('sort_order').limit(1).maybeSingle(),
+        supabase.from('tasks').select('title, stage').eq('user_id', activeBusinessId).eq('status', 'pending').order('sort_order').limit(1).maybeSingle(),
       ])
 
       setProfile(p)
@@ -111,7 +112,7 @@ function AgentPage() {
       setInitializing(false)
     }
     init()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeBusinessId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const persistMessage = useCallback(async (role: 'user' | 'assistant', content: string) => {
     if (!conversationId) return

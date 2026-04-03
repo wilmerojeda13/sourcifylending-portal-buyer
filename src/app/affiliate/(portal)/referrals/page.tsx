@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Users, AlertCircle, ChevronLeft, ChevronRight, Share2, Loader2, Info } from 'lucide-react'
 
 type ReferralStatus = 'clicked' | 'signed_up' | 'active' | 'past_due' | 'canceled' | 'refunded' | 'chargeback'
-type DealType = 'referral_only' | 'affiliate_closed'
+type DealType = 'referral_only' | 'affiliate_closed' | 'partner_assisted'
 
 interface Referral {
   id: string
@@ -51,6 +51,14 @@ function StatusBadge({ status }: { status: ReferralStatus }) {
 }
 
 function DealTypeBadge({ dealType, locked, approved }: { dealType: DealType; locked: boolean; approved: boolean | null }) {
+  if (dealType === 'partner_assisted') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 uppercase">
+        Partner-Assisted · 80/20
+      </span>
+    )
+  }
+
   if (dealType === 'affiliate_closed') {
     if (approved === true) {
       return (
@@ -75,7 +83,7 @@ function DealTypeBadge({ dealType, locked, approved }: { dealType: DealType; loc
   }
   return (
     <span className="inline-flex items-center text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-indigo-500 dark:text-indigo-400 uppercase">
-      Referral · 10%
+      Legacy Referral · 10%
     </span>
   )
 }
@@ -95,7 +103,7 @@ function DealTypeSelector({
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<DealType>(currentDealType)
 
-  if (locked) return null
+  if (locked || currentDealType === 'partner_assisted') return null
 
   async function handleChange(newType: DealType) {
     if (newType === selected) return
@@ -132,7 +140,7 @@ function DealTypeSelector({
           }`}
         >
           {saving && selected !== 'referral_only' ? null : null}
-          Referral (10%)
+          Legacy Referral (10%)
         </button>
         <button
           onClick={() => handleChange('affiliate_closed')}
@@ -144,7 +152,7 @@ function DealTypeSelector({
           }`}
         >
           {saving ? <Loader2 size={10} className="animate-spin" /> : null}
-          I Closed It (30%)
+          Legacy Closed (30%)
         </button>
       </div>
     </div>
@@ -215,19 +223,18 @@ export default function AffiliateReferralsPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Your Referrals</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Track everyone who clicked your link or signed up.</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Partner Client Conversions</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Track clients tied to your partner relationship and any legacy referral records.</p>
       </div>
 
       {/* Deal Type Info Banner */}
       <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-800 rounded-2xl px-5 py-4 flex gap-3 items-start">
         <Info size={18} className="text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
         <div className="text-sm text-indigo-800 dark:text-indigo-300 space-y-0.5">
-          <p className="font-semibold">How deal types work</p>
+          <p className="font-semibold">How partner records work</p>
           <p className="text-indigo-600 dark:text-indigo-400 text-xs">
-            <strong>Referral (10%):</strong> SourcifyLending closes the deal for you. &nbsp;
-            <strong>I Closed It (30%):</strong> You handled the full sales process yourself.
-            Deal type locks permanently after the client&apos;s first payment.
+            <strong>Partner-Assisted (80/20):</strong> You closed and onboarded the client and remain the frontline relationship owner. &nbsp;
+            <strong>Legacy Referral / I Closed It:</strong> Older records are still shown for historical tracking only.
           </p>
         </div>
       </div>
@@ -235,7 +242,7 @@ export default function AffiliateReferralsPage() {
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Total Referrals', value: total,           color: 'text-gray-900 dark:text-gray-100' },
+          { label: 'Total Records', value: total,           color: 'text-gray-900 dark:text-gray-100' },
           { label: 'Active',          value: summary.active,  color: 'text-green-600 dark:text-green-400' },
           { label: 'Signed Up',       value: summary.signedUp, color: 'text-blue-600' },
           { label: 'Canceled',        value: summary.canceled, color: 'text-red-500' },
@@ -252,7 +259,7 @@ export default function AffiliateReferralsPage() {
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <h2 className="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <Users size={17} className="text-indigo-600 dark:text-indigo-400" />
-            Referral List
+            Partner Client List
           </h2>
           <span className="text-xs text-gray-400 dark:text-gray-500">{total} total</span>
         </div>
@@ -275,8 +282,8 @@ export default function AffiliateReferralsPage() {
             <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <Share2 size={22} className="text-gray-400 dark:text-gray-500" />
             </div>
-            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 dark:text-gray-500">No referrals yet</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Share your referral link to start tracking!</p>
+            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 dark:text-gray-500">No partner clients yet</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Add or invite a partner-assisted client to start tracking activity here.</p>
           </div>
         ) : (
           <>
@@ -357,8 +364,8 @@ export default function AffiliateReferralsPage() {
                     </div>
                     <StatusBadge status={r.referral_status} />
                   </div>
-                  <div className="mt-2 pl-12 space-y-2">
-                    <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
+                  <div className="mt-2 pl-0 sm:pl-12 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
                       <span>{r.program_type ? r.program_type.replace('_', ' ') : '—'}</span>
                       <span>·</span>
                       <span>{fmtDate(r.created_at)}</span>

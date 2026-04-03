@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { upsertAnalyzerCrmLead } from '@/lib/analyzer-crm'
+import { markCrmInviteEvent } from '@/lib/crm-invites'
 import type { AnalyzerResult } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -16,9 +18,10 @@ export async function POST(req: NextRequest) {
       lead_id?: string | null
       contact_name?: string | null
       business_name?: string | null
+      crm_invite_id?: string | null
     }
 
-    const { result, lead_id, contact_name, business_name } = body
+    const { result, lead_id, contact_name, business_name, crm_invite_id } = body
 
     if (!result?.assigned_program || !result?.readiness_status) {
       return NextResponse.json({ error: 'Invalid analyzer result' }, { status: 400 })
@@ -26,6 +29,7 @@ export async function POST(req: NextRequest) {
 
     const serviceClient = await createServiceClient()
     const now = new Date().toISOString()
+    const normalizedEmail = user.email?.toLowerCase().trim() ?? null
 
     // Only apply if profile doesn't already have a result saved (idempotency)
     const { data: profile } = await serviceClient
@@ -40,6 +44,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Apply analyzer results to profile
+    let resolvedLeadId = lead_id ?? null
+    if (!resolvedLeadId && normalizedEmail) {
+      const { data: existingLead } = await serviceClient
+        .from('leads')
+        .select('id')
+        .eq('email', normalizedEmail)
+        .eq('source', 'free_analyzer')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      resolvedLeadId = existingLead?.id ?? null
+    }
+
     await serviceClient.from('profiles').update({
       assigned_program: result.assigned_program,
       readiness_status: result.readiness_status,
@@ -48,17 +65,53 @@ export async function POST(req: NextRequest) {
       // Fill in name/business only if not already set
       ...(contact_name && !profile?.full_name ? { full_name: contact_name } : {}),
       ...(business_name && !profile?.business_name ? { business_name } : {}),
-      ...(lead_id ? { lead_id } : {}),
+      ...(resolvedLeadId ? { lead_id: resolvedLeadId } : {}),
       updated_at: now,
     }).eq('id', user.id)
 
     // Link lead → user if provided
-    if (lead_id) {
+    if (resolvedLeadId) {
       await serviceClient
         .from('leads')
         .update({ converted_to_user_id: user.id })
-        .eq('id', lead_id)
+        .eq('id', resolvedLeadId)
         .is('converted_to_user_id', null) // Only if not already linked
+    } else if (normalizedEmail) {
+      await serviceClient
+        .from('leads')
+        .update({ converted_to_user_id: user.id })
+        .eq('email', normalizedEmail)
+        .eq('source', 'free_analyzer')
+        .is('converted_to_user_id', null)
+    }
+
+    if (normalizedEmail) {
+      try {
+        await upsertAnalyzerCrmLead({
+          supabase: serviceClient,
+          fullName: contact_name || profile?.full_name || user.user_metadata?.full_name || normalizedEmail,
+          email: normalizedEmail,
+          businessName: business_name || profile?.business_name || null,
+          input: {
+            business_name: business_name || profile?.business_name || '',
+            business_age: '',
+            entity_type: '',
+            industry: '',
+            monthly_revenue_range: '',
+            monthly_deposit_range: '',
+            nsf_last_90_days: false,
+            credit_score_range: '',
+            utilization_range: '',
+            inquiry_count_last_90_days: '',
+            business_credit_reporting_status: '',
+            primary_goal: 'build_ein_credit',
+          },
+          result,
+          syncMode: 'identity',
+        })
+      } catch (crmErr) {
+        console.error('CRM lead sync during analyzer claim failed (non-fatal):', crmErr)
+      }
     }
 
     // Log activity
@@ -72,6 +125,15 @@ export async function POST(req: NextRequest) {
       },
       created_at: now,
     })
+
+    if (crm_invite_id) {
+      await markCrmInviteEvent(serviceClient, {
+        inviteId: crm_invite_id,
+        status: 'analyzer_submitted',
+        createdBy: 'claim_analyzer_result',
+        metadata: { source: 'claim_analyzer_result' },
+      }).catch(() => {})
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

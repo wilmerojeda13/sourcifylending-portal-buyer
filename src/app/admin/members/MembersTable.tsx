@@ -10,11 +10,15 @@ interface MemberRow {
   full_name: string
   email: string
   business_name: string | null
+  business_count: number
   subscription_status: string
   assigned_program: ProgramId | null
   active_programs: string[]
   current_stage: string | null
   portal_blocked: boolean
+  suspicious_signup: boolean
+  suspicious_signup_reason: string | null
+  signup_risk_score: number | null
   is_demo: boolean
   created_at: string
   stripe_subscription_id: string | null
@@ -61,6 +65,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
   const [resendingInvite, setResendingInvite] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterRisk, setFilterRisk] = useState('')
 
   // Create user modal
   const [showCreate, setShowCreate] = useState(false)
@@ -87,16 +92,20 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
       const data = await res.json()
       if (!res.ok) { setCreateError(data.error || 'Failed to create user'); return }
       setCreateResult({ temp_password: data.temp_password })
-      setRows((prev) => [{
-        id: data.user_id,
-        full_name: createForm.full_name,
-        email: createForm.email,
-        business_name: null,
-        subscription_status: createForm.subscription_status,
+        setRows((prev) => [{
+          id: data.user_id,
+          full_name: createForm.full_name,
+          email: createForm.email,
+          business_name: null,
+          business_count: 1,
+          subscription_status: createForm.subscription_status,
         assigned_program: (createForm.assigned_program as ProgramId) || null,
         active_programs: [],
         current_stage: null,
         portal_blocked: false,
+        suspicious_signup: false,
+        suspicious_signup_reason: null,
+        signup_risk_score: null,
         is_demo: false,
         created_at: new Date().toISOString(),
         stripe_subscription_id: null,
@@ -122,7 +131,11 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
     const q = search.toLowerCase()
     const matchSearch = !q || m.full_name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q) || (m.business_name ?? '').toLowerCase().includes(q)
     const matchStatus = !filterStatus || m.subscription_status === filterStatus
-    return matchSearch && matchStatus
+    const matchRisk =
+      !filterRisk ||
+      (filterRisk === 'suspicious' && m.suspicious_signup) ||
+      (filterRisk === 'blocked' && m.portal_blocked)
+    return matchSearch && matchStatus && matchRisk
   })
 
   async function resendInvite(userId: string) {
@@ -208,6 +221,30 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
       alert('Cancellation failed')
     } finally {
       setCanceling(null)
+    }
+  }
+
+  async function updateSecurityFlags(
+    userId: string,
+    updates: {
+      portal_blocked?: boolean
+      suspicious_signup?: boolean
+      suspicious_signup_reason?: string | null
+    },
+  ) {
+    setSaving(userId + '_security')
+    try {
+      const res = await fetch('/api/admin/member', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, ...updates }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      setRows((prev) => prev.map((row) => row.id === userId ? { ...row, ...updates } : row))
+    } catch {
+      alert('Failed to update account security flags')
+    } finally {
+      setSaving(null)
     }
   }
 
@@ -323,6 +360,15 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
+        <select
+          value={filterRisk}
+          onChange={(e) => setFilterRisk(e.target.value)}
+          className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All risk states</option>
+          <option value="suspicious">Suspicious</option>
+          <option value="blocked">Blocked</option>
+        </select>
         <span className="text-sm text-gray-400 dark:text-gray-500 self-center">{filtered.length} member{filtered.length !== 1 ? 's' : ''}</span>
         <button
           onClick={() => setShowCreate(true)}
@@ -351,15 +397,26 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
                 >
                   {m.full_name}
                 </Link>
+                <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                  — {m.business_count} {m.business_count === 1 ? 'business' : 'businesses'}
+                </span>
                 {m.is_demo && (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 rounded-full uppercase">Demo</span>
                 )}
                 {m.portal_blocked && (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 rounded-full uppercase">Blocked</span>
                 )}
+                {m.suspicious_signup && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 rounded-full uppercase">Suspicious</span>
+                )}
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{m.email}</div>
               {m.business_name && <div className="text-xs text-gray-400 dark:text-gray-500 truncate">{m.business_name}</div>}
+              {m.suspicious_signup_reason && (
+                <div className="text-[11px] text-amber-600 dark:text-amber-400 truncate">
+                  {m.suspicious_signup_reason}{m.signup_risk_score !== null ? ` · risk ${m.signup_risk_score}` : ''}
+                </div>
+              )}
             </div>
 
             {/* Badges */}
@@ -420,6 +477,23 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
                 className="text-xs bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-lg border border-blue-200 dark:border-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
               >
                 {resendingInvite === m.id ? 'Sending…' : 'Resend'}
+              </button>
+              <button
+                onClick={() => updateSecurityFlags(m.id, {
+                  suspicious_signup: !m.suspicious_signup,
+                  suspicious_signup_reason: m.suspicious_signup ? null : (m.suspicious_signup_reason ?? 'Marked suspicious by admin review'),
+                })}
+                disabled={saving === m.id + '_security'}
+                className="hidden sm:block text-xs bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+              >
+                {m.suspicious_signup ? 'Clear Flag' : 'Mark Suspicious'}
+              </button>
+              <button
+                onClick={() => updateSecurityFlags(m.id, { portal_blocked: !m.portal_blocked })}
+                disabled={saving === m.id + '_security'}
+                className="hidden sm:block text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 disabled:opacity-50 transition-colors whitespace-nowrap"
+              >
+                {m.portal_blocked ? 'Unblock' : 'Block'}
               </button>
               <Link href={`/admin/members/${m.id}`} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
                 <ChevronRight size={16} />

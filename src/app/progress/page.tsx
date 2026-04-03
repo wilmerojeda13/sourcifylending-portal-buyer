@@ -2,13 +2,13 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
-import { createClient } from '@/lib/supabase/client'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/Badge'
 import { getProgramShortLabel, formatDate } from '@/lib/utils'
 import { CheckCircle, Clock, Lock, AlertTriangle, FileText, List, LayoutGrid, Sparkles, Bot, X } from 'lucide-react'
 import type { Task, UserProfile } from '@/types'
 import toast from 'react-hot-toast'
+import { useBusinessContext } from '@/lib/use-business-context'
 
 type ViewMode = 'list' | 'board'
 
@@ -28,7 +28,7 @@ export default function ProgressPageWrapper() {
 }
 
 function ProgressPage() {
-  const supabase = createClient()
+  const { activeBusinessId } = useBusinessContext()
   const router = useRouter()
   const searchParams = useSearchParams()
   const targetTaskId = searchParams.get('taskId')
@@ -60,13 +60,16 @@ function ProgressPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const [{ data: p }, { data: t }, membershipsResult] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
-        supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
-      ])
+      if (!activeBusinessId) return
+      const res = await fetch('/api/portal/progress', { cache: 'no-store' })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to load progress')
+        setLoading(false)
+        return
+      }
+      const p = data.profile as UserProfile | null
+      const t = (data.tasks ?? []) as Task[]
       // ── Underwriting gate — redirect if never reviewed or review expired ────
       const uwNextDue = p?.underwriting_next_due_at
       const needsUW =
@@ -81,13 +84,12 @@ function ProgressPage() {
 
       setProfile(p)
       setTasks(t || [])
-      setIsActive(p?.subscription_status === 'active' || p?.subscription_status === 'trialing')
-      const mPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-      setActivePrograms(mPrograms.length > 0 ? mPrograms : (p?.assigned_program ? [p.assigned_program] : []))
+      setIsActive(Boolean(data.is_active))
+      setActivePrograms(data.active_programs ?? [])
       setLoading(false)
     }
     init()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeBusinessId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateRoadmap = async () => {
     setGenerating(true)
@@ -109,27 +111,16 @@ function ProgressPage() {
 
   const markComplete = async (taskId: string) => {
     if (!isActive) { toast.error('Reactivate subscription to complete tasks'); return }
-    const now = new Date().toISOString()
     const task = tasks.find((t) => t.task_id === taskId)
-    const { error } = await supabase
-      .from('tasks')
-      .update({ status: 'completed', completed_at: now })
-      .eq('task_id', taskId)
+    const res = await fetch('/api/portal/progress', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: taskId }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error || 'Failed to update task'); return }
 
-    if (error) { toast.error('Failed to update task'); return }
-
-    // Unlock next task
-    const taskIndex = tasks.findIndex((t) => t.task_id === taskId)
-    if (taskIndex >= 0 && taskIndex < tasks.length - 1) {
-      const nextTask = tasks[taskIndex + 1]
-      if (nextTask.status === 'locked') {
-        await supabase.from('tasks').update({ status: 'pending' }).eq('task_id', nextTask.task_id)
-      }
-    }
-
-    // Refresh
-    const { data: refreshed } = await supabase.from('tasks').select('*').eq('user_id', tasks[0]?.user_id).order('sort_order')
-    const updatedTasks = refreshed || []
+    const updatedTasks = data.tasks || []
     setTasks(updatedTasks)
     toast.success('Task marked complete!')
 

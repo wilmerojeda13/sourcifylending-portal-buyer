@@ -35,7 +35,7 @@ interface Referral {
   subscription_active: boolean
   created_at: string
   last_payment_date: string | null
-  deal_type: 'referral_only' | 'affiliate_closed'
+  deal_type: 'referral_only' | 'affiliate_closed' | 'partner_assisted'
   deal_type_locked: boolean
   deal_type_approved: boolean | null
 }
@@ -215,7 +215,7 @@ export default function AffiliateDetailPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <XCircle size={32} className="text-red-400 mx-auto mb-3" />
-          <p className="text-gray-600">Affiliate not found.</p>
+          <p className="text-gray-600">Partner not found.</p>
           <Link href="/admin/affiliates" className="text-indigo-600 text-sm mt-2 inline-block">← Back</Link>
         </div>
       </div>
@@ -234,7 +234,7 @@ export default function AffiliateDetailPage() {
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Link href="/admin" className="hover:text-gray-700">Admin</Link>
           <span>/</span>
-          <Link href="/admin/affiliates" className="hover:text-gray-700">Affiliates</Link>
+          <Link href="/admin/affiliates" className="hover:text-gray-700">Partners</Link>
           <span>/</span>
           <span className="text-gray-900 font-medium">{affiliate.name}</span>
         </div>
@@ -244,7 +244,7 @@ export default function AffiliateDetailPage() {
           <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 text-sm text-amber-800">
             <FlaskConical size={16} className="shrink-0 text-amber-600" />
             <div>
-              <span className="font-bold">Demo Account</span> — This affiliate&apos;s commissions and referrals are synthetic test data. They are <span className="font-bold">excluded from all aggregate stats</span> on the Affiliates page.
+              <span className="font-bold">Demo Account</span> — This partner&apos;s compensation and client records are synthetic test data. They are <span className="font-bold">excluded from all aggregate stats</span> on the Partners page.
             </div>
           </div>
         )}
@@ -273,7 +273,7 @@ export default function AffiliateDetailPage() {
                 </div>
                 <p className="text-sm text-gray-500 mt-0.5">{affiliate.email}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-gray-400">Referral Code:</span>
+                  <span className="text-xs text-gray-400">Partner Code:</span>
                   <code className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md text-xs font-mono font-bold">
                     {affiliate.referral_code}
                   </code>
@@ -288,8 +288,8 @@ export default function AffiliateDetailPage() {
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
             { label: 'Total Clicks', value: totalClicks, icon: TrendingUp, color: 'text-blue-600' },
-            { label: 'Total Referrals', value: referrals.length, icon: Users, color: 'text-gray-700' },
-            { label: 'Active Referrals', value: activeReferrals, icon: CheckCircle, color: 'text-green-600' },
+            { label: 'Total Client Records', value: referrals.length, icon: Users, color: 'text-gray-700' },
+            { label: 'Active Clients', value: activeReferrals, icon: CheckCircle, color: 'text-green-600' },
             { label: 'Total Earned', value: fmtCurrency(totalEarned), icon: DollarSign, color: 'text-indigo-600' },
             { label: 'Pending Payout', value: fmtCurrency(pendingPayout), icon: DollarSign, color: 'text-amber-600' },
           ].map(({ label, value, icon: Icon, color }) => (
@@ -354,10 +354,10 @@ export default function AffiliateDetailPage() {
                     onClick={() => setActiveTab(tab)}
                     className={`px-5 py-3 text-sm font-semibold transition-colors capitalize border-b-2 ${activeTab === tab
                       ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
-                      : 'border-transparent text-gray-500 hover:text-gray-800'
+                : 'border-transparent text-gray-500 hover:text-green-700'
                     }`}
                   >
-                    {tab}
+                    {tab === 'referrals' ? 'clients' : tab}
                     {tab === 'flags' && flags.length > 0 && (
                       <span className="ml-1.5 text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
                         {flags.length}
@@ -367,7 +367,7 @@ export default function AffiliateDetailPage() {
                 ))}
               </div>
 
-              {/* Referrals Tab */}
+              {/* Clients Tab */}
               {activeTab === 'referrals' && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -380,7 +380,7 @@ export default function AffiliateDetailPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       {referrals.length === 0 ? (
-                        <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">No referrals yet</td></tr>
+                        <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">No client records yet</td></tr>
                       ) : referrals.map(r => {
                         const isApproving = dealTypeApprovalLoading[r.id]
                         const dealType = r.deal_type || 'referral_only'
@@ -399,7 +399,11 @@ export default function AffiliateDetailPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 align-top">
-                              {dealType === 'affiliate_closed' ? (
+                              {dealType === 'partner_assisted' ? (
+                                <span className="inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-emerald-100 text-emerald-700">
+                                  Partner-Assisted · 80/20
+                                </span>
+                              ) : dealType === 'affiliate_closed' ? (
                                 <div className="space-y-1.5">
                                   <span className={`inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
                                     isApproved ? 'bg-green-100 text-green-700' :
@@ -433,8 +437,8 @@ export default function AffiliateDetailPage() {
                                   {r.deal_type_locked && <p className="text-[10px] text-gray-400">Locked</p>}
                                 </div>
                               ) : (
-                                <span className="inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-indigo-50 text-indigo-500">
-                                  Referral · 10%
+                                <span className="inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-gray-100 text-gray-500">
+                                  Legacy Referral · 10%
                                 </span>
                               )}
                             </td>
@@ -548,13 +552,13 @@ export default function AffiliateDetailPage() {
               <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
                 <Edit2 size={15} className="text-gray-500" /> Admin Notes
               </h3>
-              <textarea
-                value={editNotes}
-                onChange={e => setEditNotes(e.target.value)}
-                rows={5}
-                placeholder="Internal notes about this affiliate…"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none mb-3"
-              />
+                <textarea
+                  value={editNotes}
+                  onChange={e => setEditNotes(e.target.value)}
+                  rows={5}
+                placeholder="Internal notes about this partner…"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none mb-3"
+                />
               <button
                 onClick={saveNotes}
                 disabled={notesLoading}

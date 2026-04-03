@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       utilization_range: body.utilization_range || '',
       inquiry_count_last_90_days: body.inquiry_count_last_90_days || '',
       business_credit_reporting_status: body.business_credit_reporting_status || '',
-      primary_goal: body.primary_goal || 'build_ein_credit',
+      primary_goal: (body.primary_goal as AnalyzerInput['primary_goal']) || 'build_ein_credit',
     }
 
     const result = routeAnalyzer(input)

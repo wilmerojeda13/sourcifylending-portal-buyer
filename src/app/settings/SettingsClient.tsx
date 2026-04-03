@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { User, Building2, Mail, Phone, CheckCircle2, XCircle, Loader2, Settings } from 'lucide-react'
 import DelegateAccessPanel from '@/components/DelegateAccessPanel'
+import NotificationPreferencesCard from '@/components/notifications/NotificationPreferencesCard'
 
 interface ProfileData {
   full_name: string
@@ -15,6 +16,7 @@ interface ProfileData {
 
 interface Props {
   initialProfile: ProfileData
+  activeBusinessName?: string
   isDelegate?: boolean
 }
 
@@ -25,7 +27,7 @@ const INDUSTRIES = [
   'Professional Services', 'Manufacturing', 'Wholesale / Distribution', 'Other',
 ]
 
-export default function SettingsClient({ initialProfile, isDelegate = false }: Props) {
+export default function SettingsClient({ initialProfile, activeBusinessName = 'This business', isDelegate = false }: Props) {
   const [form, setForm] = useState<ProfileData>(initialProfile)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
@@ -241,6 +243,12 @@ export default function SettingsClient({ initialProfile, isDelegate = false }: P
           </button>
         </div>
       </form>
+
+      <NotificationPreferencesCard
+        scope="member"
+        title="Notification Settings"
+        description={`Manage desktop alerts for ${activeBusinessName}. Mobile continues to use in-app notifications and badges.`}
+      />
 
       {/* Assistant Access — shown to all (owners manage it, delegates see read-only) */}
       <DelegateAccessPanel />

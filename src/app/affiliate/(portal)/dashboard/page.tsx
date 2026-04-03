@@ -36,6 +36,8 @@ interface DashboardData {
     pendingCommissions: number
     approvedCommissions: number
     paidCommissions: number
+    setupEarnings: number
+    recurringEarnings: number
     freeAccessStatus: 'locked' | 'qualifying' | 'unlocked'
     activeCount: number
     daysRemaining: number | null
@@ -139,7 +141,7 @@ export default function AffiliateDashboardPage() {
             </span>
           )}
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Here&apos;s your affiliate overview.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Here&apos;s your partner overview.</p>
       </div>
 
       {/* Referral Link Card */}
@@ -148,7 +150,7 @@ export default function AffiliateDashboardPage() {
           <div>
             <h2 className="font-bold text-gray-900 dark:text-gray-100">Your Referral Link</h2>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-              Share this link to earn commissions. Code:{' '}
+              Share this link for partner-assisted clients. Code:{' '}
               <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{affiliate.referral_code}</span>
             </p>
           </div>
@@ -157,13 +159,13 @@ export default function AffiliateDashboardPage() {
           </span>
         </div>
 
-        <div className="flex items-center gap-3 mt-4">
-          <div className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 font-mono text-sm text-gray-700 dark:text-gray-300 truncate">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-4">
+          <div className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 font-mono text-sm text-gray-700 dark:text-gray-300 truncate">
             {referralLink}
           </div>
           <button
             onClick={copyLink}
-            className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors shrink-0"
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors shrink-0 w-full sm:w-auto"
           >
             {copied ? (
               <>
@@ -184,14 +186,14 @@ export default function AffiliateDashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: 'Link Clicks',
+            label: 'Partner Clicks',
             value: stats.totalClicks.toLocaleString(),
             icon: MousePointerClick,
             color: 'text-blue-600',
             bg: 'bg-blue-50 dark:bg-blue-950/30',
           },
           {
-            label: 'Active Clients',
+            label: 'Partner Clients',
             value: stats.activeReferrals.toLocaleString(),
             icon: Users,
             color: 'text-green-600 dark:text-green-400',
@@ -205,7 +207,7 @@ export default function AffiliateDashboardPage() {
             bg: 'bg-indigo-50 dark:bg-indigo-950/30',
           },
           {
-            label: 'Pending',
+            label: 'Pending Payouts',
             value: fmt(stats.pendingCommissions),
             icon: Clock,
             color: 'text-amber-600 dark:text-amber-400',
@@ -223,6 +225,19 @@ export default function AffiliateDashboardPage() {
             <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{label}</div>
           </div>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm px-5 py-5">
+          <div className="text-xs uppercase tracking-wide text-gray-400">Setup Earnings</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{fmt(stats.setupEarnings)}</div>
+          <div className="text-xs text-gray-400 mt-1">80% of collected setup fees on partner-assisted Program A and B deals.</div>
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm px-5 py-5">
+          <div className="text-xs uppercase tracking-wide text-gray-400">Monthly Commissions</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{fmt(stats.recurringEarnings)}</div>
+          <div className="text-xs text-gray-400 mt-1">20% of collected recurring subscription revenue from your partner clients.</div>
+        </div>
       </div>
 
       {/* Free Access Status */}
@@ -305,7 +320,7 @@ export default function AffiliateDashboardPage() {
           </div>
           <div className="flex-1">
             <p className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-indigo-700 dark:text-indigo-400 transition-colors">
-              View Referrals
+              View Partner Clients
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
               {stats.totalReferrals} total · {stats.activeReferrals} active
@@ -430,7 +445,7 @@ function PayoutSection() {
       )}
 
       {/* Balance Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           {
             label: 'Available Balance',

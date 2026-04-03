@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import PortalLayout from '@/components/layout/PortalLayout'
-import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel, formatDateTime } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/Badge'
 import {
@@ -12,6 +11,7 @@ import {
 import type { Document, DocumentType, UserProfile, AIDocumentAnalysis } from '@/types'
 import toast from 'react-hot-toast'
 import { useDropzone } from 'react-dropzone'
+import { useBusinessContext } from '@/lib/use-business-context'
 
 // ─── All document types ───────────────────────────────────────────────────────
 const ALL_DOC_TYPES: { value: DocumentType; label: string; programs?: string[] }[] = [
@@ -328,13 +328,12 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DocumentsPage() {
-  const supabase = createClient()
+  const { activeBusinessId } = useBusinessContext()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [selectedType, setSelectedType] = useState<DocumentType>('other')
-  const [userId, setUserId] = useState<string>('')
   const [isActive, setIsActive] = useState(false)
   const [analyzingId, setAnalyzingId] = useState<string | null>(null)
   const [docTypesForProgram, setDocTypesForProgram] = useState(ALL_DOC_TYPES)
@@ -342,19 +341,21 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      setUserId(user.id)
-      const [{ data: p }, { data: docs }, membershipsResult] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('documents').select('*').eq('user_id', user.id).order('uploaded_at', { ascending: false }),
-        supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
-      ])
+      if (!activeBusinessId) return
+      const res = await fetch('/api/portal/documents', { cache: 'no-store' })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to load documents')
+        setLoading(false)
+        return
+      }
+
+      const p = data.profile as UserProfile | null
+      const docs = data.documents as Document[]
       setProfile(p)
       setDocuments(docs || [])
-      setIsActive(p?.subscription_status === 'active' || p?.subscription_status === 'trialing' || p?.is_demo === true)
-      const mPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-      setActivePrograms(mPrograms.length > 0 ? mPrograms : (p?.assigned_program ? [p.assigned_program] : []))
+      setIsActive(Boolean(data.is_active))
+      setActivePrograms(data.active_programs ?? [])
 
       const sorted = getSortedDocTypes(p?.assigned_program)
       setDocTypesForProgram(sorted)
@@ -362,43 +363,32 @@ export default function DocumentsPage() {
       setLoading(false)
     }
     init()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeBusinessId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const uploadFile = async (file: File) => {
     if (!isActive) { toast.error('Reactivate subscription to upload documents'); return }
     if (file.size > 10 * 1024 * 1024) { toast.error('File must be under 10MB'); return }
 
     setUploading(true)
-    const ext = file.name.split('.').pop()
-    const path = `${userId}/${selectedType}/${Date.now()}.${ext}`
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('document_type', selectedType)
 
-    const { error: uploadError } = await supabase.storage
-      .from('documents')
-      .upload(path, file, { upsert: false })
+    const uploadRes = await fetch('/api/portal/documents', {
+      method: 'POST',
+      body: formData,
+    })
+    const uploadData = await uploadRes.json()
 
-    if (uploadError) {
-      toast.error('Upload failed: ' + uploadError.message)
+    if (!uploadRes.ok) {
+      toast.error('Upload failed: ' + (uploadData.error || 'Unknown error'))
       setUploading(false)
       return
     }
-
-    const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(path)
-
-    const { data: inserted, error: dbError } = await supabase.from('documents').insert({
-      user_id: userId,
-      document_type: selectedType,
-      file_url: publicUrl,
-      file_name: file.name,
-      file_size: file.size,
-      uploaded_at: new Date().toISOString(),
-      review_status: 'pending',
-    }).select('document_id').single()
-
-    if (dbError) { toast.error('Failed to save document record'); setUploading(false); return }
+    const inserted = uploadData.document as Document | undefined
+    setDocuments(uploadData.documents || [])
 
     // Refresh list immediately so the user sees the new doc
-    const { data: refreshed } = await supabase.from('documents').select('*').eq('user_id', userId).order('uploaded_at', { ascending: false })
-    setDocuments(refreshed || [])
     setUploading(false)
 
     const docId = inserted?.document_id
@@ -430,8 +420,11 @@ export default function DocumentsPage() {
         // silent — analysis is non-blocking
       } finally {
         setAnalyzingId(null)
-        const { data: refreshed2 } = await supabase.from('documents').select('*').eq('user_id', userId).order('uploaded_at', { ascending: false })
-        setDocuments(refreshed2 || [])
+        const refreshRes = await fetch('/api/portal/documents', { cache: 'no-store' })
+        const refreshData = await refreshRes.json()
+        if (refreshRes.ok) {
+          setDocuments(refreshData.documents || [])
+        }
       }
     }
   }
@@ -495,38 +488,40 @@ export default function DocumentsPage() {
       isAdmin={profile?.is_admin}
       allPrograms={activePrograms}
     >
-      <div className="mb-6">
-        <h1 className="page-title">Documents</h1>
-        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+      <div className="mb-5 sm:mb-6">
+        <h1 className="page-title text-[1.85rem] leading-[1.05] sm:text-2xl sm:leading-tight">Documents</h1>
+        <p className="mt-1.5 max-w-xl text-[13px] leading-5 text-gray-500 dark:text-gray-400 sm:mt-1 sm:text-sm sm:leading-6">
           Upload documents — AI analyzes each one and updates your program automatically
         </p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:mb-6 sm:grid-cols-4">
         {[
           { label: 'Total',          value: documents.length, color: 'text-gray-900 dark:text-white' },
           { label: 'Pending Review', value: pendingCount,     color: 'text-yellow-600' },
           { label: 'AI Analyzed',    value: aiCount,          color: 'text-blue-600' },
           { label: 'Approved',       value: approvedCount,    color: 'text-green-600' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="card text-center">
-            <p className={`text-2xl font-bold ${color}`}>{value}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{label}</p>
+          <div key={label} className="card px-4 py-4 text-center sm:px-5 sm:py-5">
+            <p className={`text-[1.55rem] font-bold leading-none sm:text-2xl ${color}`}>{value}</p>
+            <p className="mt-1.5 text-[11px] leading-4 text-gray-400 dark:text-gray-500 sm:mt-0.5 sm:text-xs">
+              {label}
+            </p>
           </div>
         ))}
       </div>
 
       {/* Program-specific hint banner */}
       {programHint && (
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-4 mb-5">
-          <div className="flex items-center gap-2 mb-2">
-            <Brain size={16} className="text-green-600" />
-            <p className="text-sm font-bold text-green-900 dark:text-green-300">{programHint.title}</p>
+        <div className="mb-4 rounded-2xl border border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 px-4 py-4 dark:border-green-800 dark:from-green-900/20 dark:to-emerald-900/20 sm:mb-5 sm:p-4">
+          <div className="mb-2.5 flex items-center gap-2">
+            <Brain size={16} className="mt-0.5 shrink-0 text-green-600" />
+            <p className="text-[13px] font-bold leading-5 text-green-900 dark:text-green-300 sm:text-sm">{programHint.title}</p>
           </div>
-          <ul className="space-y-1">
+          <ul className="space-y-1.5">
             {programHint.bullets.map((b, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-green-800 dark:text-green-300">
+              <li key={i} className="flex items-start gap-2 text-[12px] leading-5 text-green-800 dark:text-green-300 sm:text-xs sm:leading-5">
                 <span className="text-green-500 font-bold mt-0.5 shrink-0">•</span>
                 {b}
               </li>
@@ -536,14 +531,14 @@ export default function DocumentsPage() {
       )}
 
       {/* Upload Area */}
-      <div className="card mb-6">
-        <h2 className="section-title mb-4 flex items-center gap-2">
+      <div className="card mb-5 px-4 py-5 sm:mb-6 sm:px-5 sm:py-5">
+        <h2 className="section-title mb-3 flex items-center gap-2 text-[1.05rem] leading-tight sm:mb-4 sm:text-lg sm:leading-tight">
           <Upload size={18} className="text-green-500" />
           Upload Document
         </h2>
 
         <div className="mb-4">
-          <label className="label">Document Type</label>
+          <label className="label mb-1.5 block text-[11px] uppercase tracking-[0.14em] sm:mb-0 sm:text-xs sm:tracking-wide">Document Type</label>
           <select
             className="input-field"
             value={selectedType}
@@ -572,7 +567,7 @@ export default function DocumentsPage() {
 
           {/* Show what this doc type will trigger */}
           {isPrimaryForProgram(selectedType) && (
-            <p className="text-[11px] text-green-600 mt-1.5 flex items-center gap-1">
+            <p className="mt-1.5 flex items-center gap-1 text-[11px] leading-4 text-green-600">
               <Sparkles size={10} /> AI will analyze this document and update your program automatically
             </p>
           )}
@@ -580,7 +575,7 @@ export default function DocumentsPage() {
 
         <div
           {...getRootProps()}
-          className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+          className={`cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center transition-all sm:p-8 ${
             !isActive
               ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-60'
               : isDragActive
@@ -589,19 +584,19 @@ export default function DocumentsPage() {
           }`}
         >
           <input {...getInputProps()} />
-          <Upload size={28} className={`mx-auto mb-3 ${isDragActive ? 'text-green-600' : 'text-gray-300'}`} />
+          <Upload size={24} className={`mx-auto mb-3 sm:h-7 sm:w-7 ${isDragActive ? 'text-green-600' : 'text-gray-300'}`} />
           {uploading ? (
             <div>
-              <p className="text-sm font-medium text-green-600">Uploading…</p>
+              <p className="text-[13px] font-medium leading-5 text-green-600 sm:text-sm">Uploading…</p>
               <div className="w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mt-3" />
             </div>
           ) : (
             <>
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+              <p className="text-[13px] font-semibold leading-5 text-gray-700 dark:text-gray-200 sm:text-sm">
                 {isDragActive ? 'Drop file here' : 'Drag & drop or click to upload'}
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">PDF, PNG, JPG, DOCX — max 10MB</p>
-              <p className="text-xs text-blue-400 mt-1.5 flex items-center justify-center gap-1">
+              <p className="mt-1.5 text-[11px] leading-4 text-gray-400 dark:text-gray-500 sm:mt-1 sm:text-xs">PDF, PNG, JPG, DOCX — max 10MB</p>
+              <p className="mt-1.5 flex items-center justify-center gap-1 text-[11px] leading-4 text-blue-400 sm:text-xs">
                 <Sparkles size={11} />
                 AI document review included — your profile updates automatically
               </p>
@@ -610,7 +605,7 @@ export default function DocumentsPage() {
         </div>
 
         {!isActive && (
-          <p className="text-xs text-amber-600 mt-2 text-center">
+          <p className="mt-2 text-center text-[11px] leading-4 text-amber-600 sm:text-xs">
             Subscribe to upload documents — <a href="/billing" className="underline font-semibold">activate here</a>
           </p>
         )}

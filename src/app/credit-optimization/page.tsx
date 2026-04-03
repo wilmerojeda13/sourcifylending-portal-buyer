@@ -1,31 +1,18 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import { getProgramShortLabel } from '@/lib/utils'
 import CreditOptimizationClient from './CreditOptimizationClient'
+import { requirePortalPageContext } from '@/lib/business-context'
+import { redirect } from 'next/navigation'
 
 export default async function CreditOptimizationPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) redirect('/login')
-
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
   const [
-    { data: profile },
-    { data: notifications },
     { data: tasks },
-    membershipsResult,
   ] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
-    supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
-    supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
-    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
+    supabase.from('tasks').select('*').eq('user_id', activeBusinessId).order('sort_order'),
   ])
-
-  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   // Redirect non-Program-A users
   if (profile?.assigned_program && profile.assigned_program !== 'program_a') {
@@ -42,7 +29,7 @@ export default async function CreditOptimizationPage() {
     <PortalLayout
       userName={profile?.full_name || user.email || 'Client'}
       programLabel={getProgramShortLabel(profile?.assigned_program)}
-      notificationCount={notifications?.length || 0}
+      notificationCount={notificationCount}
       assignedProgram={profile?.assigned_program}
       allPrograms={activePrograms}
     >

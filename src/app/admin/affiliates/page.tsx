@@ -168,8 +168,8 @@ export default function AffiliatesPage() {
             </Link>
             <span className="text-gray-300">/</span>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Affiliate Management</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Manage affiliates, referrals, and commission payouts</p>
+              <h1 className="text-2xl font-bold text-gray-900">Partner Management</h1>
+              <p className="text-sm text-gray-500 mt-0.5">Manage partners, partner clients, and compensation payouts</p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -204,7 +204,7 @@ export default function AffiliatesPage() {
               onClick={() => setShowAddModal(true)}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
             >
-              <Plus size={15} /> Add Affiliate
+              <Plus size={15} /> Add Partner
             </button>
           </div>
         </div>
@@ -218,7 +218,7 @@ export default function AffiliatesPage() {
         {/* Sub-nav */}
         <div className="flex items-center gap-2 flex-wrap text-sm">
           {[
-            { label: 'Affiliates', href: '/admin/affiliates', active: true },
+            { label: 'Partners', href: '/admin/affiliates', active: true },
             { label: 'Commissions', href: '/admin/affiliates/commissions' },
             { label: 'Applications', href: '/admin/affiliates/applications' },
             { label: 'Settings', href: '/admin/affiliates/settings' },
@@ -230,7 +230,7 @@ export default function AffiliatesPage() {
               href={href}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${active
                 ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                : 'text-gray-600 hover:text-green-700 hover:bg-green-50'
               }`}
             >
               {label}
@@ -241,10 +241,10 @@ export default function AffiliatesPage() {
         {/* Stats Row — demo excluded from all figures */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total Affiliates', value: realAffiliates.length, sub: 'excl. demo', color: 'text-gray-900', icon: Users },
+            { label: 'Total Partners', value: realAffiliates.length, sub: 'excl. demo', color: 'text-gray-900', icon: Users },
             { label: 'Active', value: totalActive, sub: 'real accounts', color: 'text-green-600', icon: CheckCircle },
             { label: 'Suspended', value: totalSuspended, sub: 'real accounts', color: 'text-red-500', icon: XCircle },
-            { label: 'Total Commissions', value: fmtCurrency(totalCommissions), sub: 'excl. demo', color: 'text-indigo-600', icon: AlertCircle },
+            { label: 'Total Compensation', value: fmtCurrency(totalCommissions), sub: 'excl. demo', color: 'text-indigo-600', icon: AlertCircle },
           ].map(({ label, value, sub, color, icon: Icon }) => (
             <div key={label} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-4 py-4 text-center">
               <Icon size={18} className={`mx-auto mb-1.5 ${color}`} />
@@ -293,7 +293,7 @@ export default function AffiliatesPage() {
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-700">
-              {visibleAffiliates.length} affiliate{visibleAffiliates.length !== 1 ? 's' : ''}
+              {visibleAffiliates.length} partner{visibleAffiliates.length !== 1 ? 's' : ''}
               {!showDemo && affiliates.some(a => a.is_demo) && (
                 <span className="ml-2 text-xs text-gray-400 font-normal">(demo hidden)</span>
               )}
@@ -303,7 +303,7 @@ export default function AffiliatesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  {['Name', 'Email', 'Referral Code', 'Status', 'Active Referrals', 'Total Earned', 'Pending Payout', 'Free Access', 'Created', ''].map(h => (
+                  {['Name', 'Email', 'Partner Code', 'Status', 'Active Clients', 'Total Earned', 'Pending Payout', 'Free Access', 'Created', ''].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-gray-500 px-4 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -313,14 +313,14 @@ export default function AffiliatesPage() {
                   <tr>
                     <td colSpan={10} className="px-4 py-12 text-center text-gray-400">
                       <Loader2 size={20} className="animate-spin mx-auto mb-2" />
-                      Loading affiliates…
+                      Loading partners…
                     </td>
                   </tr>
                 ) : affiliates.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="px-4 py-12 text-center text-gray-400">
                       <Users size={24} className="mx-auto mb-2 opacity-40" />
-                      No affiliates found
+                      No partners found
                     </td>
                   </tr>
                 ) : visibleAffiliates.map(aff => (
@@ -408,8 +408,8 @@ export default function AffiliatesPage() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-xl w-full max-w-md">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                <Plus size={18} className="text-indigo-600" /> Add Affiliate
+                <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                <Plus size={18} className="text-indigo-600" /> Add Partner
               </h2>
               <button onClick={closeAddModal} className="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
             </div>
@@ -420,13 +420,13 @@ export default function AffiliatesPage() {
                   <CheckCircle size={28} className="text-green-600" />
                 </div>
                 <div>
-                  <p className="font-bold text-gray-900 text-lg">Affiliate Created!</p>
-                  <p className="text-sm text-gray-500 mt-1">Their referral code is:</p>
+                  <p className="font-bold text-gray-900 text-lg">Partner Created!</p>
+                  <p className="text-sm text-gray-500 mt-1">Their partner code is:</p>
                 </div>
                 <div className="bg-gray-50 border border-gray-200 rounded-xl px-6 py-4">
                   <code className="text-2xl font-mono font-bold text-indigo-700 tracking-widest">{addedCode}</code>
                 </div>
-                <p className="text-xs text-gray-400">Share this with the affiliate to start tracking referrals.</p>
+                <p className="text-xs text-gray-400">Share this with the partner to start tracking partner-assisted clients.</p>
                 <button
                   onClick={closeAddModal}
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm"
@@ -471,7 +471,7 @@ export default function AffiliatesPage() {
                     disabled={addLoading}
                     className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
                   >
-                    {addLoading ? <><Loader2 size={14} className="animate-spin" /> Creating…</> : 'Create Affiliate'}
+                    {addLoading ? <><Loader2 size={14} className="animate-spin" /> Creating…</> : 'Create Partner'}
                   </button>
                 </div>
               </div>

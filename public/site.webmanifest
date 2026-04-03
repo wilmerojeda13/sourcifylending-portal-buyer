@@ -1,0 +1,23 @@
+{
+  "name": "SourcifyLending",
+  "short_name": "Sourcify",
+  "description": "SourcifyLending portal and CRM",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f8f3d",
+  "icons": [
+    {
+      "src": "/sourcify-favicon-20260331.png",
+      "type": "image/png",
+      "sizes": "768x768",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon-20260331.png",
+      "type": "image/png",
+      "sizes": "768x768",
+      "purpose": "any"
+    }
+  ]
+}

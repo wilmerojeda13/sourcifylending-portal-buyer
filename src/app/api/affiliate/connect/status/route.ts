@@ -25,11 +25,17 @@ export async function GET() {
   // Sync live status from Stripe
   try {
     const account = await stripe.accounts.retrieve(affiliate.stripe_account_id)
+    const hasBlockingRequirements =
+      Boolean(account.requirements?.disabled_reason) ||
+      Boolean(account.requirements?.errors?.length)
+
     const newStatus = account.payouts_enabled && account.charges_enabled
       ? 'active'
-      : account.details_submitted
-        ? 'pending'
-        : 'not_connected'
+      : hasBlockingRequirements
+        ? 'restricted'
+        : account.details_submitted
+          ? 'pending'
+          : 'not_connected'
 
     if (newStatus !== affiliate.stripe_connect_status) {
       await supabase.from('affiliates').update({

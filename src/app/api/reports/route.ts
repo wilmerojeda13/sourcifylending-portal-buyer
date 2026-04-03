@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
+import { getBusinessContext } from '@/lib/business-context'
 import Anthropic from '@anthropic-ai/sdk'
 import type { ReportType } from '@/types'
 import { v4 as uuidv4 } from 'uuid'
@@ -164,9 +165,12 @@ const REPORT_TITLES: Record<ReportType, string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const context = await getBusinessContext()
+    if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const supabase = await createServiceClient()
 
     const { report_type }: { report_type: ReportType } = await req.json()
 
@@ -174,7 +178,7 @@ export async function POST(req: NextRequest) {
     if (!promptFn) return NextResponse.json({ error: 'Unknown report type' }, { status: 400 })
 
     // Check subscription and demo status
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', context.activeBusinessId).single()
     const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
     const isDemo = profile?.is_demo === true
 
@@ -184,8 +188,8 @@ export async function POST(req: NextRequest) {
 
     // Get user data for context
     const [{ data: tasks }, { data: docs }] = await Promise.all([
-      supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
-      supabase.from('documents').select('document_type,review_status').eq('user_id', user.id),
+      supabase.from('tasks').select('*').eq('user_id', context.activeBusinessId).order('sort_order'),
+      supabase.from('documents').select('document_type,review_status').eq('user_id', context.activeBusinessId),
     ])
 
     const completedTasks = tasks?.filter((t) => t.status === 'completed') || []
@@ -247,7 +251,7 @@ export async function POST(req: NextRequest) {
 
     const report = {
       report_id: uuidv4(),
-      user_id: user.id,
+      user_id: context.activeBusinessId,
       report_type,
       title: REPORT_TITLES[report_type],
       generated_at: new Date().toISOString(),
@@ -257,7 +261,7 @@ export async function POST(req: NextRequest) {
     const { error: insertError } = await supabase.from('reports').insert(report)
     if (insertError) throw insertError
 
-    await logActivity(user.id, 'report_generated', { report_type, report_id: report.report_id }, req)
+    await logActivity(context.activeBusinessId, 'report_generated', { report_type, report_id: report.report_id }, req)
 
     return NextResponse.json(report)
   } catch (error) {
@@ -265,4 +269,31 @@ export async function POST(req: NextRequest) {
     console.error('[Reports] Unexpected error:', msg)
     return NextResponse.json({ error: 'Report generation failed. Please try again.' }, { status: 500 })
   }
+}
+
+export async function GET() {
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const supabase = await createServiceClient()
+  const [{ data: profile }, { data: reports }, membershipsResult] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', context.activeBusinessId).single(),
+    supabase.from('reports').select('*').eq('user_id', context.activeBusinessId).order('generated_at', { ascending: false }),
+    supabase.from('memberships').select('program_code').eq('user_id', context.activeBusinessId).eq('status', 'active'),
+  ])
+
+  const membershipPrograms = (membershipsResult?.data ?? []).map((membership: { program_code: string }) => membership.program_code).filter(Boolean)
+  const activePrograms = membershipPrograms.length > 0 ? membershipPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
+  const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+
+  return NextResponse.json({
+    profile,
+    reports: reports ?? [],
+    active_programs: activePrograms,
+    is_active: isActive,
+  })
 }

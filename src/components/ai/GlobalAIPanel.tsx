@@ -383,23 +383,28 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName 
 
       {/* ── Floating launcher button ── */}
       {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className={cn(
-            'fixed z-50 flex items-center gap-2 px-4 py-3 rounded-full shadow-lg',
-            'bg-gray-900 hover:bg-gray-800 text-white transition-all duration-200 hover:scale-105 active:scale-95',
-            // Desktop: bottom-right
-            'lg:bottom-6 lg:right-6',
-            // Mobile: above bottom nav
-            'bottom-20 right-4 lg:bottom-6',
-          )}
-        >
-          <Sparkles size={16} className="text-green-400" />
-          <span className="text-sm font-semibold">AI</span>
-          {messages.length > 1 && (
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          )}
-        </button>
+        <>
+          <button
+            onClick={() => setOpen(true)}
+            className={cn(
+              'hidden lg:flex fixed z-50 items-center gap-2 px-4 py-3 rounded-full shadow-lg',
+              'bg-gray-900 hover:bg-gray-800 text-white transition-all duration-200 hover:scale-105 active:scale-95',
+              'lg:bottom-6 lg:right-6',
+            )}
+          >
+            <Sparkles size={16} className="text-green-400" />
+            <span className="text-sm font-semibold">AI</span>
+            {messages.length > 1 && (
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            )}
+          </button>
+          <button
+            onClick={() => setOpen(true)}
+            className="lg:hidden fixed right-4 bottom-20 z-50 w-14 h-14 rounded-full bg-gray-900 hover:bg-gray-800 text-white shadow-xl flex items-center justify-center transition-all duration-200 active:scale-95"
+          >
+            <Sparkles size={20} className="text-green-400" />
+          </button>
+        </>
       )}
 
       {/* ── Minimized tab (panel open on desktop — show a collapse button) ── */}

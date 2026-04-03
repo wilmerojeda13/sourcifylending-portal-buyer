@@ -37,10 +37,16 @@ export interface AnalyzerInput {
 
 export interface AnalyzerResult {
   readiness_status: ReadinessStatus
+  readiness_score: number
+  estimated_funding_range: string
   assigned_program: ProgramId
   risk_flags: string[]
+  top_blockers: string[]
   summary: string
   recommendation: string
+  recommended_next_step: string
+  upgrade_cta: string
+  disclaimer: string
 }
 
 // ─── User Profile ─────────────────────────────────────────────────────────────
@@ -69,6 +75,12 @@ export interface UserProfile {
   is_demo: boolean
   is_admin: boolean
   admin_notes: string | null
+  suspicious_signup?: boolean
+  suspicious_signup_reason?: string | null
+  signup_risk_score?: number | null
+  signup_source?: string | null
+  signup_last_ip?: string | null
+  signup_last_user_agent?: string | null
   notion_page_id: string | null
   // AI usage overrides
   ai_suspended: boolean
@@ -81,6 +93,13 @@ export interface UserProfile {
   lead_id: string | null
   latest_analyzer_result: AnalyzerResult | null
   analyzed_at: string | null
+  acquisition_path: 'self_serve' | 'partner_assisted'
+  assigned_partner_affiliate_id: string | null
+  assigned_partner_name: string | null
+  partner_relationship_started_at: string | null
+  partner_onboarding_status: 'unassigned' | 'partner_closing' | 'onboarding' | 'active' | null
+  delegate_access_authorized: boolean
+  active_business_profile_id?: string | null
   created_at: string
   updated_at: string
   // ── Underwriting ────────────────────────────────────────────────────────────
@@ -153,10 +172,25 @@ export interface Subscription {
   stripe_customer_id: string | null
   status: SubscriptionStatus
   program: ProgramId | null
+  acquisition_path: 'self_serve' | 'partner_assisted'
+  assigned_partner_affiliate_id: string | null
+  setup_fee_amount_cents: number | null
+  recurring_amount_cents: number | null
   current_period_start: string | null
   current_period_end: string | null
   created_at: string
   updated_at: string
+}
+
+export interface AccessibleBusiness {
+  id: string
+  label: string
+  program: ProgramId | null
+  role: 'owner' | 'admin' | 'member' | 'delegate'
+  account_state: AccountState
+  subscription_status: SubscriptionStatus
+  portal_blocked: boolean
+  is_default: boolean
 }
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
@@ -326,6 +360,7 @@ export type ActivityEventType =
   | 'portal_unblocked'
   | 'notification_sent'
   | 'admin_profile_updated'
+  | 'signup_requested'
   // ── Underwriting & Roadmap ──
   | 'underwriting_started'
   | 'underwriting_completed'

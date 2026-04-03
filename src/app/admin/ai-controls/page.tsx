@@ -360,7 +360,7 @@ export default function AIControlsPage() {
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === id
                   ? 'bg-green-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  : 'text-gray-600 hover:text-green-700'
               }`}
             >
               <Icon size={14} /> {label}

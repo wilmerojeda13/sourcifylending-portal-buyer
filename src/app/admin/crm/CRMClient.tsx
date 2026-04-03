@@ -2,14 +2,18 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   Plus, Search, Phone, Building2, Calendar, ChevronLeft, ChevronRight,
   X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
-  CheckCircle2, XCircle, Upload, Zap, Filter, RefreshCw,
+  CheckCircle2, XCircle, Upload, Zap, Filter,
   LayoutList, Columns, Trash2, Bot, CheckSquare, Square, MinusSquare,
   Archive,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import CRMWorkspaceNav from '@/components/crm/CRMWorkspaceNav'
+import CRMSalesOverview from '@/components/crm/CRMSalesOverview'
+import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMirror'
 import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -18,6 +22,7 @@ interface CRMLead {
   first_name: string
   last_name: string
   phone: string
+  phone_e164?: string | null
   email: string | null
   business_name: string | null
   stage: Stage
@@ -26,8 +31,42 @@ interface CRMLead {
   notes: string | null
   follow_up_at: string | null
   last_contacted_at: string | null
+  lead_temperature?: 'cold' | 'warm' | 'hot'
+  acquisition_path?: 'self_serve' | 'partner_assisted' | null
+  assigned_partner_affiliate_id?: string | null
+  assigned_partner_name?: string | null
+  partner_onboarding_status?: string | null
+  callback_due_at?: string | null
+  latest_call_note?: string | null
+  strategy_call_booked?: boolean
+  converted_to_client?: boolean
+  close_probability?: number | null
   do_not_call: boolean
   is_archived: boolean
+  likely_timezone?: string | null
+  timezone_confidence?: 'high' | 'medium' | 'low' | 'unknown'
+  timezone_source?: string | null
+  timezone_source_label?: string | null
+  timezone_reason?: string | null
+  timezone_reason_label?: string | null
+  last_timezone_checked_at?: string | null
+  recipient_local_time?: string | null
+  timezone_abbreviation?: string | null
+  call_window_status?: 'callable_now' | 'blocked_by_timezone' | 'unknown_timezone'
+  call_window_message?: string | null
+  blocked_until_label?: string | null
+  portal_invite_sent?: boolean
+  portal_invite_last_sent_at?: string | null
+  portal_invite_last_status?: string | null
+  pre_analyzer_invite_sent?: boolean
+  pre_analyzer_invite_last_sent_at?: string | null
+  pre_analyzer_invite_last_status?: string | null
+  account_created?: boolean
+  account_created_at?: string | null
+  analyzer_started?: boolean
+  analyzer_started_at?: string | null
+  analyzer_submitted?: boolean
+  analyzer_submitted_at?: string | null
   created_at: string
 }
 
@@ -60,6 +99,23 @@ function isPastDue(iso: string | null) { return !!iso && new Date(iso) < new Dat
 function formatDate(iso: string | null) {
   if (!iso) return null
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function buildCallabilityLabel(lead: CRMLead) {
+  if (lead.call_window_status === 'callable_now') return 'Callable Now'
+  if (lead.call_window_status === 'blocked_by_timezone') {
+    return `Blocked Until ${lead.blocked_until_label ?? ''}`.trim()
+  }
+  return lead.timezone_reason_label ? `Unknown: ${lead.timezone_reason_label}` : 'Unknown Timezone'
+}
+
+function buildTimezoneMetaLabel(lead: CRMLead) {
+  const source = lead.timezone_source_label ?? lead.timezone_source ?? null
+  if (!source) return null
+  if (lead.call_window_status === 'unknown_timezone' && lead.timezone_reason_label) {
+    return `${source} • ${lead.timezone_reason_label}`
+  }
+  return source
 }
 
 // ─── New Lead Modal ───────────────────────────────────────────────────────────
@@ -232,6 +288,9 @@ function CleanupModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
 function LeadCard({ lead, selected, onToggle }: { lead: CRMLead; selected?: boolean; onToggle?: (id: string) => void }) {
   const stage = stageInfo(lead.stage)
   const pastDue = isPastDue(lead.follow_up_at)
+  const callabilityLabel = buildCallabilityLabel(lead)
+  const timezoneMetaLabel = buildTimezoneMetaLabel(lead)
+
   return (
     <div className="flex items-center gap-2">
       {onToggle && (
@@ -276,10 +335,60 @@ function LeadCard({ lead, selected, onToggle }: { lead: CRMLead; selected?: bool
               {PROGRAM_LABEL[lead.program_interest]}
             </span>
           )}
+          {(lead.source === 'free_analyzer' || lead.source === 'analyzer') && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 hidden sm:inline">
+              Analyzer
+            </span>
+          )}
+          {lead.acquisition_path === 'partner_assisted' && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hidden sm:inline">
+              Partner Client
+            </span>
+          )}
           {pastDue && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium hidden sm:inline">Due</span>
           )}
           {lead.do_not_call && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">DNC</span>}
+          {lead.call_window_status === 'callable_now' && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium hidden sm:inline">
+              Callable Now
+            </span>
+          )}
+          {lead.call_window_status === 'blocked_by_timezone' && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium hidden sm:inline">
+              Blocked
+            </span>
+          )}
+          {lead.call_window_status === 'unknown_timezone' && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-700 font-medium hidden sm:inline">
+              Unknown TZ
+            </span>
+          )}
+          {lead.portal_invite_sent && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium hidden sm:inline">
+              Portal Invite
+            </span>
+          )}
+          {lead.pre_analyzer_invite_sent && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium hidden sm:inline">
+              Analyzer Invite
+            </span>
+          )}
+          {lead.account_created && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium hidden sm:inline">
+              Account Created
+            </span>
+          )}
+          {lead.analyzer_submitted && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium hidden sm:inline">
+              Analyzer Submitted
+            </span>
+          )}
+        </div>
+        <div className="hidden min-w-[150px] text-right text-[11px] leading-tight text-gray-500 xl:block">
+          <div className="font-medium text-gray-600 dark:text-gray-300">{callabilityLabel}</div>
+          {lead.recipient_local_time && <div>{lead.recipient_local_time}</div>}
+          {timezoneMetaLabel && <div className="truncate">{timezoneMetaLabel}</div>}
         </div>
         <ChevronRight size={14} className="text-gray-300 group-hover:text-green-500 shrink-0 transition-colors"/>
       </Link>
@@ -287,39 +396,99 @@ function LeadCard({ lead, selected, onToggle }: { lead: CRMLead; selected?: bool
   )
 }
 
+function ListBatchControls({
+  hasPrev,
+  hasMore,
+  pageSize,
+  page,
+  total,
+  selectedCount,
+  visibleSelectedCount,
+  onPrev,
+  onNext,
+}: {
+  hasPrev: boolean
+  hasMore: boolean
+  pageSize: number
+  page: number
+  total: number
+  selectedCount: number
+  visibleSelectedCount: number
+  onPrev: () => void
+  onNext: () => void
+}) {
+  const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1
+  const rangeEnd = total === 0 ? 0 : Math.min(page * pageSize, total)
+  const visibleCount = total === 0 ? 0 : rangeEnd - rangeStart + 1
+
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-white/90 px-3 py-3 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+          {rangeStart.toLocaleString()}-{rangeEnd.toLocaleString()} of {total.toLocaleString()}
+        </p>
+        <p className="text-xs text-gray-400">
+          {selectedCount > 0
+            ? `${selectedCount.toLocaleString()} selected across pages${visibleSelectedCount > 0 ? ` • ${visibleSelectedCount.toLocaleString()} on this page` : ''}`
+            : `Showing ${visibleCount.toLocaleString()} leads in this batch`}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onPrev}
+          disabled={!hasPrev}
+          className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:border-green-300 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-30 dark:border-gray-700 dark:hover:border-green-700 sm:flex-none"
+        >
+          ← Prev {pageSize}
+        </button>
+        <button
+          onClick={onNext}
+          disabled={!hasMore}
+          className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:border-green-300 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-30 dark:border-gray-700 dark:hover:border-green-700 sm:flex-none"
+        >
+          Next {pageSize} →
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function CRMClient() {
+  const searchParams = useSearchParams()
+  const focus = searchParams.get('focus') === 'leads' ? 'leads' : 'overview'
   const [leads, setLeads]           = useState<CRMLead[]>([])
   const [loading, setLoading]       = useState(true)
-  const [search, setSearch]         = useState('')
-  const [stageFilter, setStageFilter] = useState('')
+  const [search, setSearch]         = useState(searchParams.get('search') ?? '')
+  const [stageFilter, setStageFilter] = useState(searchParams.get('stage') ?? '')
+  const [temperatureFilter, setTemperatureFilter] = useState(searchParams.get('temperature') ?? '')
+  const [callabilityFilter, setCallabilityFilter] = useState(searchParams.get('callability') ?? '')
+  const [openTasksOnly, setOpenTasksOnly] = useState(searchParams.get('open_tasks') === 'true')
   const [showNew, setShowNew]       = useState(false)
   const [showCleanup, setShowCleanup] = useState(false)
-  const [syncing, setSyncing]       = useState(false)
-  const [view, setView]             = useState<'list' | 'board'>('list')
+  const [view, setView]             = useState<'list' | 'board'>(searchParams.get('view') === 'board' ? 'board' : 'list')
   const [listPage, setListPage]     = useState(1)
   const [boardPages, setBoardPages] = useState<Record<string, number>>({})
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkStageOpen, setBulkStageOpen] = useState(false)
 
-  // Reset pages and selection whenever leads change
-  useEffect(() => { setListPage(1); setBoardPages({}); setSelectedIds(new Set()) }, [leads])
+  useEffect(() => {
+    setView(searchParams.get('view') === 'board' ? 'board' : 'list')
+    setStageFilter(searchParams.get('stage') ?? '')
+    setTemperatureFilter(searchParams.get('temperature') ?? '')
+    setCallabilityFilter(searchParams.get('callability') ?? '')
+    setOpenTasksOnly(searchParams.get('open_tasks') === 'true')
+  }, [searchParams])
+
+  useEffect(() => {
+    setListPage(1)
+    setBoardPages({})
+  }, [search, stageFilter, temperatureFilter, callabilityFilter, openTasksOnly, view])
 
   // Version counter — cancels stale in-flight loads when a newer one starts
   const loadVersion = useRef(0)
 
-  async function syncNotion() {
-    setSyncing(true)
-    try {
-      const res  = await fetch('/api/admin/crm/sync/notion', { method: 'POST' })
-      const json = await res.json()
-      if (!res.ok) { toast.error(json.error ?? 'Sync failed'); return }
-      toast.success(json.message)
-      load()
-    } catch { toast.error('Sync failed') }
-    finally { setSyncing(false) }
-  }
   const [showFilters, setShowFilters] = useState(false)
 
   const load = useCallback(async () => {
@@ -329,6 +498,9 @@ export default function CRMClient() {
       const p = new URLSearchParams({ limit: '1000' })
       if (stageFilter && view !== 'board') p.set('stage', stageFilter)
       if (search) p.set('search', search)
+      if (temperatureFilter) p.set('temperature', temperatureFilter)
+      if (callabilityFilter) p.set('callability', callabilityFilter)
+      if (openTasksOnly) p.set('open_tasks', 'true')
 
       let allLeads: CRMLead[] = []
       let page = 0
@@ -350,7 +522,7 @@ export default function CRMClient() {
       setLeads(allLeads)
     } catch { if (version === loadVersion.current) toast.error('Failed to load leads') }
     finally { if (version === loadVersion.current) setLoading(false) }
-  }, [stageFilter, search, view])
+  }, [stageFilter, search, view, temperatureFilter, callabilityFilter, openTasksOnly])
 
   useEffect(() => {
     const t = setTimeout(load, search ? 300 : 0)
@@ -361,9 +533,24 @@ export default function CRMClient() {
 
   // Paginated list — 50 per page
   const PAGE_SIZE = 50
-  const visibleLeads = leads.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE)
-  const hasMore = listPage * PAGE_SIZE < leads.length
-  const hasPrev = listPage > 1
+  const totalPages = Math.max(Math.ceil(leads.length / PAGE_SIZE), 1)
+  const safeListPage = Math.min(listPage, totalPages)
+  const visibleLeads = leads.slice((safeListPage - 1) * PAGE_SIZE, safeListPage * PAGE_SIZE)
+  const hasMore = safeListPage * PAGE_SIZE < leads.length
+  const hasPrev = safeListPage > 1
+  const visibleLeadIds = visibleLeads.map(lead => lead.id)
+  const visibleSelectedCount = visibleLeadIds.filter(id => selectedIds.has(id)).length
+  const allVisibleSelected = visibleLeads.length > 0 && visibleSelectedCount === visibleLeads.length
+  const someVisibleSelected = visibleSelectedCount > 0 && !allVisibleSelected
+  const isPipelineView = view === 'board'
+  const isLeadsView = !isPipelineView && focus === 'leads'
+  const isOverviewView = !isPipelineView && focus === 'overview'
+
+  useEffect(() => {
+    if (listPage !== safeListPage) {
+      setListPage(safeListPage)
+    }
+  }, [listPage, safeListPage])
 
   // ── Selection helpers ──
   function toggleSelect(id: string) {
@@ -375,15 +562,28 @@ export default function CRMClient() {
   }
 
   function toggleSelectAll() {
-    if (selectedIds.size === visibleLeads.length) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(visibleLeads.map(l => l.id)))
-    }
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allVisibleSelected) {
+        visibleLeadIds.forEach(id => next.delete(id))
+      } else {
+        visibleLeadIds.forEach(id => next.add(id))
+      }
+      return next
+    })
   }
 
   function selectAllLeads() {
     setSelectedIds(new Set(leads.map(l => l.id)))
+  }
+
+  function removeSelectedIds(idsToRemove: string[]) {
+    if (idsToRemove.length === 0) return
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      idsToRemove.forEach(id => next.delete(id))
+      return next
+    })
   }
 
   function clearSelection() {
@@ -394,20 +594,23 @@ export default function CRMClient() {
   // ── Bulk actions ──
   async function bulkDelete() {
     if (selectedIds.size === 0) return
-    const ok = window.confirm(`Permanently delete ${selectedIds.size} lead(s)? This cannot be undone.`)
+    const ids = Array.from(selectedIds)
+    const ok = window.confirm(`Permanently delete ${ids.length} lead(s)? This cannot be undone.`)
     if (!ok) return
     setBulkLoading(true)
     try {
       const res = await fetch('/api/admin/crm/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete_ids', ids: [...selectedIds] }),
+        body: JSON.stringify({ action: 'delete_ids', ids }),
       })
       const json = await res.json()
       if (res.ok) {
         toast.success(json.message)
-        setLeads(prev => prev.filter(l => !selectedIds.has(l.id)))
-        clearSelection()
+        const processedIds = Array.isArray(json.processedIds) ? json.processedIds : ids
+        setLeads(prev => prev.filter(l => !processedIds.includes(l.id)))
+        removeSelectedIds(processedIds)
+        if (json.partial) toast.error(`${json.failedCount ?? 0} lead(s) could not be deleted.`)
       } else {
         toast.error(json.error ?? 'Failed')
       }
@@ -417,18 +620,21 @@ export default function CRMClient() {
 
   async function bulkArchive() {
     if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
     setBulkLoading(true)
     try {
       const res = await fetch('/api/admin/crm/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'archive_ids', ids: [...selectedIds] }),
+        body: JSON.stringify({ action: 'archive_ids', ids }),
       })
       const json = await res.json()
       if (res.ok) {
         toast.success(json.message)
-        setLeads(prev => prev.filter(l => !selectedIds.has(l.id)))
-        clearSelection()
+        const processedIds = Array.isArray(json.processedIds) ? json.processedIds : ids
+        setLeads(prev => prev.filter(l => !processedIds.includes(l.id)))
+        removeSelectedIds(processedIds)
+        if (json.partial) toast.error(`${json.failedCount ?? 0} lead(s) could not be archived.`)
       } else {
         toast.error(json.error ?? 'Failed')
       }
@@ -438,18 +644,21 @@ export default function CRMClient() {
 
   async function bulkUpdateStage(newStage: Stage) {
     if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
     setBulkLoading(true)
     try {
       const res = await fetch('/api/admin/crm/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update_stage', ids: [...selectedIds], stage: newStage }),
+        body: JSON.stringify({ action: 'update_stage', ids, stage: newStage }),
       })
       const json = await res.json()
       if (res.ok) {
         toast.success(json.message)
-        setLeads(prev => prev.map(l => selectedIds.has(l.id) ? { ...l, stage: newStage } : l))
-        clearSelection()
+        const processedIds = new Set<string>(Array.isArray(json.processedIds) ? (json.processedIds as string[]) : ids)
+        setLeads(prev => prev.map(l => processedIds.has(l.id) ? { ...l, stage: newStage } : l))
+        removeSelectedIds(Array.from(processedIds))
+        if (json.partial) toast.error(`${json.failedCount ?? 0} lead(s) could not be updated.`)
       } else {
         toast.error(json.error ?? 'Failed')
       }
@@ -465,6 +674,7 @@ export default function CRMClient() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <OfflineCRMSilentMirror />
       {/* ── Header ── */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-20">
         <div className="max-w-screen-xl mx-auto px-4 pt-4 pb-3">
@@ -494,77 +704,124 @@ export default function CRMClient() {
               <Link href="/admin/crm/import" className="btn-secondary text-xs px-3 py-2 hidden sm:flex items-center gap-1.5">
                 <Upload size={13}/> Import
               </Link>
-              {/* Add Lead — icon-only on mobile, full label on desktop */}
               <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-3 sm:px-4 flex items-center gap-1.5 text-sm">
-                <Plus size={15}/> <span className="hidden sm:inline">Add Lead</span>
+                <Plus size={15}/> <span>Add Lead</span>
               </button>
             </div>
           </div>
 
-          {/* Search + filter row */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-              <input
-                className="input-field pl-8 h-10 text-sm"
-                placeholder="Search leads..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
-            {/* View toggle */}
-            <div className="hidden sm:flex items-center rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
-              <button
-                onClick={() => setView('list')}
-                className={cn('h-10 px-3 flex items-center gap-1.5 text-xs font-medium transition-colors',
-                  view === 'list' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'
-                )}
-              ><LayoutList size={14}/> List</button>
-              <button
-                onClick={() => { setView('board'); setStageFilter('') }}
-                className={cn('h-10 px-3 flex items-center gap-1.5 text-xs font-medium transition-colors border-l border-gray-200 dark:border-gray-700',
-                  view === 'board' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'
-                )}
-              ><Columns size={14}/> Board</button>
-            </div>
-            {/* Filter toggle — mobile only */}
-            <button
-              onClick={() => setShowFilters(p => !p)}
-              className={cn('h-10 w-10 flex items-center justify-center rounded-xl border transition-colors shrink-0 sm:hidden',
-                showFilters || stageFilter
-                  ? 'bg-green-600 border-green-600 text-white'
-                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500'
-              )}
-            >
-              <Filter size={15}/>
-            </button>
+          <div className="mb-3">
+            <CRMWorkspaceNav />
           </div>
 
-          {/* Stage filter tabs — always on desktop, collapsible on mobile */}
-          <div className={cn('flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-none', view === 'board' ? 'hidden' : showFilters ? 'flex' : 'hidden sm:flex')}>
-            {[{key:'',label:'All'},...STAGES.map(s=>({key:s.key,label:s.label}))].map(s=>(
-              <button
-                key={s.key}
-                onClick={() => { setStageFilter(s.key); setShowFilters(false) }}
-                className={cn(
-                  'shrink-0 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap',
-                  stageFilter === s.key
-                    ? 'bg-green-600 border-green-600 text-white'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+          {(isLeadsView || isPipelineView) && (
+            <>
+              {/* Search + filter row */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative flex-1">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                  <input
+                    className="input-field pl-8 h-10 text-sm"
+                    placeholder="Search leads..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                </div>
+                {/* View toggle */}
+                <div className="hidden sm:flex items-center rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
+                  <button
+                    onClick={() => setView('list')}
+                    className={cn('h-10 px-3 flex items-center gap-1.5 text-xs font-medium transition-colors',
+                    view === 'list' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-green-700 dark:hover:text-green-300'
+                    )}
+                  ><LayoutList size={14}/> List</button>
+                  <button
+                    onClick={() => { setView('board'); setStageFilter('') }}
+                    className={cn('h-10 px-3 flex items-center gap-1.5 text-xs font-medium transition-colors border-l border-gray-200 dark:border-gray-700',
+                    view === 'board' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-green-700 dark:hover:text-green-300'
+                    )}
+                  ><Columns size={14}/> Board</button>
+                </div>
+                {/* Filter toggle — mobile only */}
+                <button
+                  onClick={() => setShowFilters(p => !p)}
+                  aria-label={showFilters ? 'Hide filters' : 'Show filters'}
+                  title={showFilters ? 'Hide filters' : 'Show filters'}
+                  className={cn('h-10 w-10 flex items-center justify-center rounded-xl border transition-colors shrink-0 sm:hidden',
+                    showFilters || stageFilter
+                      ? 'bg-green-600 border-green-600 text-white'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500'
+                  )}
+                >
+                  <Filter size={15}/>
+                </button>
+                <select
+                  value={temperatureFilter}
+                  onChange={e => setTemperatureFilter(e.target.value)}
+                  className="input-field h-10 w-[140px] text-sm"
+                >
+                  <option value="">All temps</option>
+                  <option value="hot">Hot</option>
+                  <option value="warm">Warm</option>
+                  <option value="cold">Cold</option>
+                </select>
+                <select
+                  value={callabilityFilter}
+                  onChange={e => setCallabilityFilter(e.target.value)}
+                  className="input-field h-10 w-[170px] text-sm"
+                >
+                  <option value="">All call windows</option>
+                  <option value="callable_now">Callable now</option>
+                  <option value="blocked_by_timezone">Blocked by timezone</option>
+                  <option value="unknown_timezone">Unknown timezone</option>
+                </select>
+                <button
+                  onClick={() => setOpenTasksOnly(value => !value)}
+                  className={cn(
+                    'h-10 rounded-xl border px-3 text-sm font-medium transition-colors',
+                    openTasksOnly
+                      ? 'border-green-600 bg-green-600 text-white'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                  )}
+                >
+                  Open Tasks
+                </button>
+              </div>
+
+              {/* Stage filter tabs — always on desktop, collapsible on mobile */}
+              <div className={cn('flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-none', view === 'board' ? 'hidden' : showFilters ? 'flex' : 'hidden sm:flex')}>
+                {[{key:'',label:'All'},...STAGES.map(s=>({key:s.key,label:s.label}))].map(s=>(
+                  <button
+                    key={s.key}
+                    onClick={() => { setStageFilter(s.key); setShowFilters(false) }}
+                    className={cn(
+                      'shrink-0 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap',
+                      stageFilter === s.key
+                        ? 'bg-green-600 border-green-600 text-white'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
+      {isOverviewView && (
+        <div className="mx-auto max-w-screen-xl px-4 pt-4">
+          <CRMSalesOverview />
+        </div>
+      )}
+
       {/* ── Body ── */}
-      <div className={cn(
-        'pt-4 pb-24',
-        view === 'list' ? 'max-w-screen-xl mx-auto px-4 lg:flex lg:gap-6 lg:items-start' : 'px-4'
-      )}>
+      {(isLeadsView || isPipelineView) && (
+        <div className={cn(
+          'pt-4 pb-24',
+          view === 'list' ? 'max-w-screen-xl mx-auto px-4 lg:flex lg:gap-6 lg:items-start' : 'px-4'
+        )}>
 
         {/* ── Lead list (main column) ── */}
         <div className="flex-1 min-w-0 overflow-hidden">
@@ -614,24 +871,40 @@ export default function CRMClient() {
             </div>
           ) : view === 'list' ? (
             <div className="space-y-1">
+              <ListBatchControls
+                hasPrev={hasPrev}
+                hasMore={hasMore}
+                pageSize={PAGE_SIZE}
+                page={safeListPage}
+                total={leads.length}
+                selectedCount={selectedIds.size}
+                visibleSelectedCount={visibleSelectedCount}
+                onPrev={() => setListPage(p => p - 1)}
+                onNext={() => setListPage(p => p + 1)}
+              />
               {/* Select-all row */}
               <div className="flex items-center gap-2 px-1 py-1.5">
                 <button
                   onClick={toggleSelectAll}
                   className="shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  {selectedIds.size === 0 ? (
-                    <Square size={18} className="text-gray-300 dark:text-gray-600" />
-                  ) : selectedIds.size === visibleLeads.length ? (
+                  {allVisibleSelected ? (
                     <CheckSquare size={18} className="text-green-600 dark:text-green-400" />
-                  ) : (
+                  ) : someVisibleSelected ? (
                     <MinusSquare size={18} className="text-green-600 dark:text-green-400" />
+                  ) : (
+                    <Square size={18} className="text-gray-300 dark:text-gray-600" />
                   )}
                 </button>
                 <span className="text-xs text-gray-400">
                   {selectedIds.size > 0 ? (
                     <>
                       {selectedIds.size} selected
+                      {visibleSelectedCount > 0 && (
+                        <span className="ml-2 text-gray-500 dark:text-gray-400">
+                          {visibleSelectedCount} on this page
+                        </span>
+                      )}
                       {selectedIds.size < leads.length && (
                         <button onClick={selectAllLeads} className="ml-2 text-green-600 dark:text-green-400 hover:underline font-medium">
                           Select all {leads.length}
@@ -642,32 +915,22 @@ export default function CRMClient() {
                       </button>
                     </>
                   ) : (
-                    'Select all'
+                    'Select this page'
                   )}
                 </span>
               </div>
               {visibleLeads.map(lead => <LeadCard key={lead.id} lead={lead} selected={selectedIds.has(lead.id)} onToggle={toggleSelect}/>)}
-              {(hasPrev || hasMore) && (
-                <div className="flex items-center gap-2 mt-3">
-                  <button
-                    onClick={() => setListPage(p => p - 1)}
-                    disabled={!hasPrev}
-                    className="flex-1 py-2.5 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-green-600 hover:border-green-300 dark:hover:border-green-700"
-                  >
-                    ← Prev 50
-                  </button>
-                  <span className="text-xs text-gray-400 whitespace-nowrap">
-                    {((listPage - 1) * PAGE_SIZE + 1).toLocaleString()}–{Math.min(listPage * PAGE_SIZE, leads.length).toLocaleString()} of {leads.length.toLocaleString()}
-                  </span>
-                  <button
-                    onClick={() => setListPage(p => p + 1)}
-                    disabled={!hasMore}
-                    className="flex-1 py-2.5 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-green-600 hover:border-green-300 dark:hover:border-green-700"
-                  >
-                    Next 50 →
-                  </button>
-                </div>
-              )}
+              <ListBatchControls
+                hasPrev={hasPrev}
+                hasMore={hasMore}
+                pageSize={PAGE_SIZE}
+                page={safeListPage}
+                total={leads.length}
+                selectedCount={selectedIds.size}
+                visibleSelectedCount={visibleSelectedCount}
+                onPrev={() => setListPage(p => p - 1)}
+                onNext={() => setListPage(p => p + 1)}
+              />
             </div>
           ) : (
             /* ── Board view ── */
@@ -784,14 +1047,6 @@ export default function CRMClient() {
           {/* Quick actions */}
           <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 space-y-2">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Actions</p>
-            <button
-              onClick={syncNotion}
-              disabled={syncing}
-              className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 py-1.5 transition-colors w-full text-left disabled:opacity-50"
-            >
-              {syncing ? <Loader2 size={15} className="text-gray-400 animate-spin"/> : <RefreshCw size={15} className="text-gray-400"/>}
-              {syncing ? 'Syncing from Notion...' : 'Sync from Notion'}
-            </button>
             <Link href="/admin/crm/import" className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 py-1.5 transition-colors">
               <Upload size={15} className="text-gray-400"/> Import CSV
             </Link>
@@ -803,26 +1058,23 @@ export default function CRMClient() {
             </button>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* ── Mobile bottom bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 sm:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-3 py-2.5 flex gap-2 z-20">
-        <button onClick={syncNotion} disabled={syncing} className="btn-secondary h-11 w-11 flex items-center justify-center shrink-0 disabled:opacity-50">
-          {syncing ? <Loader2 size={15} className="animate-spin"/> : <RefreshCw size={15}/>}
-        </button>
-        <button onClick={()=>setShowCleanup(true)} className="btn-secondary h-11 w-11 flex items-center justify-center shrink-0">
-          <Trash2 size={15}/>
-        </button>
-        <Link href="/admin/crm/import" className="btn-secondary h-11 flex-1 flex items-center justify-center gap-1.5 text-sm">
-          <Upload size={14}/> Import
-        </Link>
-        <button onClick={()=>setShowNew(true)} className="btn-primary h-11 flex-1 flex items-center justify-center gap-1.5 text-sm">
-          <Plus size={15}/> Add Lead
-        </button>
-      </div>
+      {(isLeadsView || isPipelineView) && (
+        <div className="fixed bottom-0 left-0 right-0 sm:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-3 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] flex gap-2 z-20">
+          <Link href="/admin/crm/import" className="btn-secondary h-11 flex-1 flex items-center justify-center gap-1.5 text-sm">
+            <Upload size={14}/> Import
+          </Link>
+          <button onClick={()=>setShowNew(true)} className="btn-primary h-11 flex-1 flex items-center justify-center gap-1.5 text-sm">
+            <Plus size={15}/> Add Lead
+          </button>
+        </div>
+      )}
 
       {/* ── Bulk Action Bar ── */}
-      {selectedIds.size > 0 && view === 'list' && (
+      {selectedIds.size > 0 && isLeadsView && (
         <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 bg-gray-900 dark:bg-gray-800 text-white rounded-2xl shadow-2xl border border-gray-700 px-5 py-3 flex items-center gap-3 max-w-lg w-[calc(100%-2rem)]">
           <span className="text-sm font-semibold shrink-0">
             {selectedIds.size} selected
@@ -871,6 +1123,7 @@ export default function CRMClient() {
           {/* Close */}
           <button
             onClick={clearSelection}
+            aria-label="Close bulk actions"
             className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
           >
             <X size={15}/>

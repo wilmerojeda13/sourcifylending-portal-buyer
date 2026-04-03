@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, Upload, FileSpreadsheet, X, CheckCircle2,
-  AlertCircle, Loader2, Info, RefreshCw,
+  AlertCircle, Loader2, Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -241,20 +241,20 @@ export default function ImportClient() {
           <FileSpreadsheet size={22} className="text-teal-600" /> Import Leads from CSV
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Export your Notion database as CSV, upload it here, and map the columns. Duplicates are skipped automatically.
+          Upload a CSV from your CRM, spreadsheet, or lead source and map the columns. Duplicates are skipped automatically.
         </p>
       </div>
 
-      {/* How to export from Notion */}
+      {/* CSV guidance */}
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex gap-3">
         <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
         <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-          <p className="font-semibold">How to export from Notion:</p>
+          <p className="font-semibold">CSV import tips:</p>
           <ol className="list-decimal list-inside space-y-0.5 text-blue-600 dark:text-blue-400">
-            <li>Open your Notion database (table view)</li>
-            <li>Click <strong>···</strong> (top-right menu) → <strong>Export</strong></li>
-            <li>Choose <strong>CSV</strong> format and download</li>
+            <li>Export your leads as a standard CSV file from your current source</li>
+            <li>Make sure name and phone columns are included</li>
             <li>Upload the CSV file below</li>
+            <li>Map the columns before importing</li>
           </ol>
         </div>
       </div>
@@ -275,7 +275,7 @@ export default function ImportClient() {
         >
           <Upload size={32} className="mx-auto mb-3 text-gray-300" />
           <p className="font-semibold text-gray-700">Drop your CSV here or click to browse</p>
-          <p className="text-sm text-gray-400 mt-1">Supports files exported from Notion, Excel, Google Sheets</p>
+          <p className="text-sm text-gray-400 mt-1">Supports standard CSV exports from Excel, Google Sheets, and other lead sources</p>
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }} />
         </div>
       )}

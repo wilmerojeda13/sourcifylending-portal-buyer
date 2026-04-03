@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe, PRICE_IDS, thirtyDaysFromNow } from '@/lib/stripe'
+import { stripe, PRICE_IDS } from '@/lib/stripe'
 import { createServiceClient } from '@/lib/supabase/server'
 import { generateTasksForUser } from '@/lib/task-templates'
 import { logActivity } from '@/lib/activity'
@@ -9,6 +9,7 @@ import { sendChargeConfirmationEmail } from '@/lib/email'
 import type { ProgramId } from '@/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
+import { getPartnerCommissionPercent, normalizeAcquisitionPath } from '@/lib/partner-program'
 
 // ─── Program Metadata ─────────────────────────────────────────────────────────
 const PROGRAM_STAGES: Record<ProgramId, string> = {
@@ -21,6 +22,37 @@ const PROGRAM_NAMES: Record<ProgramId, string> = {
   program_a: '0% Intro APR Advisory',
   program_b: 'Business Credit Builder',
   program_c: 'Capital Monitoring Membership',
+}
+
+const PROGRAM_SETUP_PRICE_IDS: Partial<Record<ProgramId, string>> = {
+  program_a: PRICE_IDS.program_a.setup,
+  program_b: PRICE_IDS.program_b.setup,
+}
+
+const PROGRAM_MONTHLY_PRICE_IDS: Record<ProgramId, string> = {
+  program_a: PRICE_IDS.program_a.monthly,
+  program_b: PRICE_IDS.program_b.monthly,
+  program_c: PRICE_IDS.program_c.monthly,
+}
+
+function lineHasPrice(line: Stripe.InvoiceLineItem, priceId: string | undefined) {
+  const linePriceId = (line as Stripe.InvoiceLineItem & {
+    pricing?: { price_details?: { price?: string } }
+    price?: { id?: string }
+  }).pricing?.price_details?.price ?? (line as Stripe.InvoiceLineItem & { price?: { id?: string } }).price?.id
+  return !!priceId && linePriceId === priceId
+}
+
+function getInvoiceComponentAmounts(invoice: Stripe.Invoice, program: ProgramId) {
+  const lines = invoice.lines?.data ?? []
+  const setupFeeCents = lines
+    .filter((line) => lineHasPrice(line, PROGRAM_SETUP_PRICE_IDS[program]))
+    .reduce((sum, line) => sum + (line.amount ?? 0), 0)
+  const recurringCents = lines
+    .filter((line) => lineHasPrice(line, PROGRAM_MONTHLY_PRICE_IDS[program]))
+    .reduce((sum, line) => sum + (line.amount ?? 0), 0)
+
+  return { setupFeeCents, recurringCents }
 }
 
 // ─── Helper: upsert into memberships table ────────────────────────────────────
@@ -51,6 +83,10 @@ async function activateUser(
   subscriptionId: string,
   customerId: string,
   periodEnd?: string,
+  acquisitionPath: 'self_serve' | 'partner_assisted' = 'self_serve',
+  assignedPartnerAffiliateId: string | null = null,
+  setupFeeAmountCents = 0,
+  recurringAmountCents: number | null = null,
 ) {
   // 1. Upsert subscription record
   await supabase.from('subscriptions').upsert({
@@ -59,6 +95,10 @@ async function activateUser(
     stripe_customer_id: customerId,
     status: 'active',
     program,
+    acquisition_path: acquisitionPath,
+    assigned_partner_affiliate_id: assignedPartnerAffiliateId,
+    setup_fee_amount_cents: setupFeeAmountCents,
+    recurring_amount_cents: recurringAmountCents,
     current_period_end: periodEnd ?? null,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' })
@@ -70,6 +110,8 @@ async function activateUser(
   await supabase.from('profiles').update({
     subscription_status: 'active',
     assigned_program: program,
+    acquisition_path: acquisitionPath,
+    assigned_partner_affiliate_id: assignedPartnerAffiliateId,
     current_stage: PROGRAM_STAGES[program],
     progress_percentage: 0,
     account_state: 'active_member',
@@ -128,11 +170,15 @@ export async function POST(req: NextRequest) {
 
     // ── Checkout completed ──────────────────────────────────────────────────
     case 'checkout.session.completed': {
-      const session    = event.data.object as Stripe.CheckoutSession
+      const session    = event.data.object as Stripe.Checkout.Session
       const userId     = session.metadata?.user_id
       const program    = session.metadata?.program as ProgramId
       const sessionType = session.metadata?.session_type   // 'setup_fee' | 'subscription' | 'ai_credit_pack'
       const customerId = session.customer as string
+      const acquisitionPath = normalizeAcquisitionPath(session.metadata?.acquisition_path)
+      const assignedPartnerAffiliateId = session.metadata?.assigned_partner_affiliate_id || null
+      const setupFeeAmountCents = parseInt(session.metadata?.setup_fee_cents ?? '0', 10) || 0
+      const monthlyFeeAmountCents = parseInt(session.metadata?.monthly_fee_cents ?? '0', 10) || 0
 
       if (!userId) break
 
@@ -260,44 +306,60 @@ export async function POST(req: NextRequest) {
       }
 
       if (sessionType === 'setup_fee') {
-        // ── Programs A & B: setup fee paid ─────────────────────────────────
-        // Retrieve payment intent to get the saved payment method
-        const paymentIntent = await stripe.paymentIntents.retrieve(
-          session.payment_intent as string
-        )
+        // Legacy compatibility path for older setup-fee-only checkouts.
+        const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string)
         const paymentMethodId = paymentIntent.payment_method as string
-
-        // Create monthly subscription starting 30 days from now
         const prices = PRICE_IDS[program] as { setup: string; monthly: string }
         const subscription = await stripe.subscriptions.create({
           customer: customerId,
           items: [{ price: prices.monthly }],
-          trial_end: thirtyDaysFromNow(),
           default_payment_method: paymentMethodId,
-          metadata: { user_id: userId, program },
+          metadata: {
+            user_id: userId,
+            program,
+            acquisition_path: acquisitionPath,
+            assigned_partner_affiliate_id: assignedPartnerAffiliateId ?? '',
+            setup_fee_cents: String(setupFeeAmountCents),
+            monthly_fee_cents: String(monthlyFeeAmountCents),
+          },
         })
 
         const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
-        await activateUser(supabase, userId, program, subscription.id, customerId, periodEnd)
-        await logActivity(userId, 'checkout_completed', { program, session_type: 'setup_fee', subscription_id: subscription.id })
-
-        // Extra notification about the delayed billing
-        await supabase.from('notifications').insert({
-          user_id: userId,
-          type: 'system',
-          title: '📅 Subscription Starts in 30 Days',
-          message: `Your setup fee has been processed. Your monthly subscription will begin on ${new Date(thirtyDaysFromNow() * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`,
-          read: false,
-          created_at: new Date().toISOString(),
-        })
-
+        await activateUser(
+          supabase,
+          userId,
+          program,
+          subscription.id,
+          customerId,
+          periodEnd,
+          acquisitionPath,
+          assignedPartnerAffiliateId,
+          setupFeeAmountCents,
+          monthlyFeeAmountCents || null,
+        )
+        await logActivity(userId, 'checkout_completed', { program, session_type: 'setup_fee', subscription_id: subscription.id, acquisition_path: acquisitionPath })
       } else {
-        // ── Program C: standard monthly subscription ───────────────────────
         const subscriptionId = session.subscription as string
         const sub = await stripe.subscriptions.retrieve(subscriptionId)
         const periodEnd = new Date(sub.current_period_end * 1000).toISOString()
-        await activateUser(supabase, userId, program, subscriptionId, customerId, periodEnd)
-        await logActivity(userId, 'checkout_completed', { program, session_type: 'subscription', subscription_id: subscriptionId })
+        await activateUser(
+          supabase,
+          userId,
+          program,
+          subscriptionId,
+          customerId,
+          periodEnd,
+          acquisitionPath,
+          assignedPartnerAffiliateId,
+          setupFeeAmountCents,
+          monthlyFeeAmountCents || null,
+        )
+        await logActivity(userId, 'checkout_completed', {
+          program,
+          session_type: 'subscription',
+          subscription_id: subscriptionId,
+          acquisition_path: acquisitionPath,
+        })
       }
 
       // ── Portal event: subscription created ─────────────────────────────
@@ -311,8 +373,8 @@ export async function POST(req: NextRequest) {
         metadata: { program, session_type: sessionType ?? 'subscription', customer_id: customerId },
       })
 
-      // ── Log setup fee / checkout payment record ─────────────────────────
-      if (session.amount_total && session.amount_total > 0) {
+      // ── Log non-invoice checkout payments only ──────────────────────────
+      if (sessionType === 'setup_fee' && session.amount_total && session.amount_total > 0) {
         const sessionId = session.id
         const setupAmount = session.amount_total / 100
         await supabase.from('payment_records').insert({
@@ -325,6 +387,10 @@ export async function POST(req: NextRequest) {
           stripe_customer_id: typeof customerId === 'string' ? customerId : null,
           stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
           stripe_checkout_session_id: sessionId,
+          acquisition_path: acquisitionPath,
+          assigned_partner_affiliate_id: assignedPartnerAffiliateId,
+          revenue_component: 'setup_fee',
+          partner_commission_eligible: acquisitionPath === 'partner_assisted' && !!assignedPartnerAffiliateId,
           notes: `Stripe checkout completed: ${sessionId}`,
           logged_by: 'stripe_webhook',
         }).select().maybeSingle()
@@ -498,34 +564,74 @@ export async function POST(req: NextRequest) {
 
       const { data: sub } = await supabase
         .from('subscriptions')
-        .select('user_id, id')
+        .select('user_id, id, acquisition_path, assigned_partner_affiliate_id, program')
         .eq('stripe_customer_id', customerId)
         .maybeSingle()
 
       if (sub) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, business_name, assigned_program, email')
+          .select('full_name, business_name, assigned_program, email, acquisition_path, assigned_partner_affiliate_id')
           .eq('id', sub.user_id)
           .maybeSingle()
 
         const amountPaid = (invoice.amount_paid || 0) / 100
+        const program = (profile?.assigned_program || sub.program) as ProgramId | null
+        const acquisitionPath = normalizeAcquisitionPath(profile?.acquisition_path || sub.acquisition_path)
+        const assignedPartnerAffiliateId = profile?.assigned_partner_affiliate_id || sub.assigned_partner_affiliate_id || null
         if (amountPaid > 0) {
-          await supabase.from('payment_records').insert({
-            user_id: sub.user_id,
-            subscription_id: sub.id,
-            amount: amountPaid,
-            payment_date: new Date().toISOString().split('T')[0],
-            payment_source: 'stripe_invoice',
-            payment_type: 'recurring',
-            payment_status: 'paid',
-            client_name_snapshot: profile?.full_name || profile?.business_name || null,
-            program_code: profile?.assigned_program || null,
-            stripe_customer_id: customerId,
-            stripe_invoice_id: invoice.id,
-            notes: `Stripe invoice paid: ${invoice.id}`,
-            logged_by: 'stripe_webhook',
-          })
+          const paymentDate = new Date().toISOString().split('T')[0]
+          if (program) {
+            const { setupFeeCents, recurringCents } = getInvoiceComponentAmounts(invoice, program)
+            const paymentRecords: Array<Record<string, unknown>> = []
+
+            if (setupFeeCents > 0) {
+              paymentRecords.push({
+                user_id: sub.user_id,
+                subscription_id: sub.id,
+                amount: setupFeeCents / 100,
+                payment_date: paymentDate,
+                payment_source: 'stripe_invoice',
+                payment_type: 'setup_fee',
+                payment_status: 'paid',
+                client_name_snapshot: profile?.full_name || profile?.business_name || null,
+                program_code: profile?.assigned_program || program,
+                stripe_customer_id: customerId,
+                stripe_invoice_id: invoice.id,
+                acquisition_path: acquisitionPath,
+                assigned_partner_affiliate_id: assignedPartnerAffiliateId,
+                revenue_component: 'setup_fee',
+                partner_commission_eligible: acquisitionPath === 'partner_assisted' && !!assignedPartnerAffiliateId,
+                notes: `Stripe setup fee collected: ${invoice.id}`,
+                logged_by: 'stripe_webhook',
+              })
+            }
+
+            if (recurringCents > 0 || paymentRecords.length === 0) {
+              const recurringAmount = recurringCents > 0 ? recurringCents / 100 : amountPaid
+              paymentRecords.push({
+                user_id: sub.user_id,
+                subscription_id: sub.id,
+                amount: recurringAmount,
+                payment_date: paymentDate,
+                payment_source: 'stripe_invoice',
+                payment_type: 'recurring',
+                payment_status: 'paid',
+                client_name_snapshot: profile?.full_name || profile?.business_name || null,
+                program_code: profile?.assigned_program || program,
+                stripe_customer_id: customerId,
+                stripe_invoice_id: invoice.id,
+                acquisition_path: acquisitionPath,
+                assigned_partner_affiliate_id: assignedPartnerAffiliateId,
+                revenue_component: 'recurring',
+                partner_commission_eligible: acquisitionPath === 'partner_assisted' && !!assignedPartnerAffiliateId,
+                notes: `Stripe invoice paid: ${invoice.id}`,
+                logged_by: 'stripe_webhook',
+              })
+            }
+
+            await supabase.from('payment_records').insert(paymentRecords)
+          }
 
           // Send charge confirmation email — pull recent agent actions as deliverables
           const toEmail = profile?.email || (invoice.customer_email as string | null) || null
@@ -570,67 +676,83 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Affiliate commission for recurring payments
+      // Partner commission creation for collected revenue
       const invPaid = event.data.object as Stripe.Invoice
       if (invPaid.customer && invPaid.status === 'paid' && invPaid.amount_paid > 0) {
         try {
-          const referral = await getAffiliateByStripeCustomer(invPaid.customer as string)
-          // getAffiliateByStripeCustomer already filters out self-referrals and flagged records.
-          // Additional guard: check the paying Stripe customer is not the affiliate themselves
-          // (catches cases where affiliate's own Stripe customer ID matches a referral record).
           const payingCustomerId = invPaid.customer as string
-          let affiliateOwnCustomerId: string | null = null
-          if (referral?.affiliates?.user_id) {
-            const { data: affSub } = await supabase
-              .from('subscriptions')
-              .select('stripe_customer_id')
-              .eq('user_id', referral.affiliates.user_id)
-              .maybeSingle()
-            affiliateOwnCustomerId = affSub?.stripe_customer_id ?? null
-          }
-          const isSelfPayment = affiliateOwnCustomerId && affiliateOwnCustomerId === payingCustomerId
+          const { data: liveSub } = await supabase
+            .from('subscriptions')
+            .select('user_id, program, acquisition_path, assigned_partner_affiliate_id')
+            .eq('stripe_customer_id', payingCustomerId)
+            .maybeSingle()
 
-          if (referral && referral.affiliates && !isSelfPayment) {
-            // Determine commission type and program
-            const programType = referral.program_type || 'program_a'
-            const isSetup = invPaid.metadata?.commission_type === 'setup'
-            const commType = isSetup ? 'setup' : 'recurring'
-            const dealType = (referral.deal_type as 'referral_only' | 'affiliate_closed') || 'referral_only'
-            const dealTypeApproved = referral.deal_type_approved as boolean | null ?? null
+          let referral = await getAffiliateByStripeCustomer(payingCustomerId)
+          const partnerAffiliateId =
+            liveSub?.assigned_partner_affiliate_id ||
+            referral?.affiliate_id ||
+            null
+          const acquisitionPath = normalizeAcquisitionPath(liveSub?.acquisition_path)
+          const programType = (liveSub?.program || referral?.program_type || 'program_a') as ProgramId
 
-            await createCommission({
-              affiliateId: referral.affiliate_id,
-              referralId: referral.id,
-              userId: referral.user_id,
-              stripePaymentIntentId: invPaid.payment_intent as string | null,
-              stripeInvoiceId: invPaid.id,
-              programType,
-              commissionType: commType,
-              grossAmountCents: invPaid.amount_paid,
-              idempotencyKey: `inv_${invPaid.id}_${commType}`,
-              dealType,
-              dealTypeApproved,
-            })
+          if (partnerAffiliateId && acquisitionPath === 'partner_assisted') {
+            if (!referral && liveSub?.user_id) {
+              const { data: fallbackReferral } = await supabase
+                .from('affiliate_referrals')
+                .select('id, affiliate_id, user_id, deal_type, deal_type_approved, program_type, affiliates(id, user_id, email, created_at, status, is_demo)')
+                .eq('affiliate_id', partnerAffiliateId)
+                .eq('user_id', liveSub.user_id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+              referral = fallbackReferral
+            }
 
-            // Lock deal_type after first payment — cannot be changed after this point
-            await supabase.from('affiliate_referrals').update({
-              referral_status: 'active',
-              subscription_active: true,
-              last_payment_at: new Date().toISOString(),
-              deal_type_locked: true,
-            }).eq('id', referral.id)
+            const { setupFeeCents, recurringCents } = getInvoiceComponentAmounts(invPaid, programType)
+            const lineItems = [
+              { component: 'setup_fee' as const, amount: setupFeeCents, commissionType: 'setup' as const },
+              { component: 'recurring' as const, amount: recurringCents > 0 ? recurringCents : invPaid.amount_paid - setupFeeCents, commissionType: 'recurring' as const },
+            ].filter((item) => item.amount > 0)
 
-            // Update affiliate_leads status to active if a lead record exists for this user
-            if (referral.user_id) {
+            for (const item of lineItems) {
+              const percent = getPartnerCommissionPercent(programType, item.component, referral?.deal_type)
+              if (percent <= 0) continue
+
+              await createCommission({
+                affiliateId: partnerAffiliateId,
+                referralId: referral?.id ?? null,
+                userId: liveSub?.user_id ?? referral?.user_id ?? null,
+                stripePaymentIntentId: invPaid.payment_intent as string | null,
+                stripeInvoiceId: invPaid.id,
+                programType,
+                commissionType: item.commissionType,
+                grossAmountCents: item.amount,
+                idempotencyKey: `inv_${invPaid.id}_${item.component}_${partnerAffiliateId}`,
+                dealType: referral?.deal_type ?? 'partner_assisted',
+                dealTypeApproved: referral?.deal_type_approved as boolean | null ?? true,
+              })
+            }
+
+            if (referral?.id) {
+              await supabase.from('affiliate_referrals').update({
+                referral_status: 'active',
+                subscription_active: true,
+                last_payment_at: new Date().toISOString(),
+                onboarding_status: 'active',
+              }).eq('id', referral.id)
+            }
+
+            if (liveSub?.user_id) {
               try {
                 await supabase.from('affiliate_leads')
                   .update({
                     status: 'active',
                     converted_at: new Date().toISOString(),
+                    onboarding_status: 'active',
                     updated_at: new Date().toISOString(),
                   })
-                  .eq('affiliate_id', referral.affiliate_id)
-                  .eq('user_id', referral.user_id)
+                  .eq('affiliate_id', partnerAffiliateId)
+                  .eq('user_id', liveSub.user_id)
                   .in('status', ['account_created', 'invite_sent', 'lead_created'])
               } catch (e) { console.error('Lead status update error:', e) }
             }

@@ -697,7 +697,7 @@ function FieldRenderer({
           onChange={e => onChange(field.id, e.target.checked)}
           className="mt-0.5 w-4 h-4 accent-green-600 shrink-0 cursor-pointer"
         />
-        <span className="text-sm text-gray-700 leading-relaxed group-hover:text-gray-900 transition-colors">
+                    <span className="text-sm text-gray-700 leading-relaxed group-hover:text-green-700 transition-colors">
           {field.label}
           {field.required && <span className="text-red-500 ml-1">*</span>}
         </span>

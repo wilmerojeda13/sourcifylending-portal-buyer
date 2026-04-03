@@ -1,25 +1,54 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton'
+import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
+import PublicMessagingConsent from '@/components/compliance/PublicMessagingConsent'
+import TurnstileWidget from '@/components/compliance/TurnstileWidget'
+import { CRM_INVITE_COOKIE } from '@/lib/crm-invites'
+import { CRM_TEXT_COOKIE } from '@/lib/crm-sms'
+import {
+  CompliancePayload,
+  CONSENT_TEXT_VERSION,
+  REQUIRED_MESSAGING_DISCLOSURE,
+} from '@/lib/public-form-compliance'
 
 export default function SignupPage() {
-  const router = useRouter()
-  const supabase = createClient()
+  const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
+  const searchParams = useSearchParams()
+  const crmInviteId = searchParams.get('crm_invite')
+  const crmTextId = searchParams.get('crm_text')
 
   const [form, setForm] = useState({
     full_name: '',
     email: '',
     password: '',
     business_name: '',
+    website: '',
+    consent: false,
   })
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState('')
+
+  useEffect(() => {
+    if (!crmInviteId) return
+    document.cookie = `${CRM_INVITE_COOKIE}=${encodeURIComponent(crmInviteId)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+    fetch(`/api/crm/invites/${crmInviteId}/engagement`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'clicked', metadata: { page: 'signup' } }),
+    }).catch(() => {})
+  }, [crmInviteId])
+
+  useEffect(() => {
+    if (!crmTextId) return
+    document.cookie = `${CRM_TEXT_COOKIE}=${encodeURIComponent(crmTextId)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+  }, [crmTextId])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -33,45 +62,32 @@ export default function SignupPage() {
     }
     setLoading(true)
 
-    const { data, error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: {
-          full_name: form.full_name,
-          business_name: form.business_name,
-        },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
-      },
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...form,
+        crm_invite_id: crmInviteId,
+        crm_text_id: crmTextId,
+        turnstileToken,
+        compliance: {
+          enabled: true,
+          form_name: 'public_signup',
+          page_url: typeof window !== 'undefined' ? window.location.href : '/signup',
+          timestamp: new Date().toISOString(),
+          consent_text_version: CONSENT_TEXT_VERSION,
+          disclosure_text: REQUIRED_MESSAGING_DISCLOSURE,
+          consent_given: form.consent,
+        } satisfies CompliancePayload,
+      }),
     })
 
-    if (error) {
-      toast.error(error.message)
+    const data = await res.json().catch(() => ({}))
+
+    if (!res.ok) {
+      toast.error(data.error ?? 'Unable to create account right now.')
       setLoading(false)
       return
-    }
-
-    // Create profile row
-    if (data.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        full_name: form.full_name,
-        email: form.email,
-        business_name: form.business_name,
-        subscription_status: 'inactive',
-        account_state: 'prospect',
-        progress_percentage: 0,
-        nsf_flag: false,
-      })
-    }
-
-    // Log signup event
-    if (data.user) {
-      await fetch('/api/activity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_type: 'signup', event_data: { email: form.email } }),
-      }).catch(() => {})
     }
 
     setLoading(false)
@@ -143,6 +159,17 @@ export default function SignupPage() {
                 required
               />
             </div>
+            <div className="hidden" aria-hidden="true">
+              <label className="label">Website</label>
+              <input
+                name="website"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={form.website}
+                onChange={handleChange}
+              />
+            </div>
             <div>
               <label className="label">Email Address</label>
               <input
@@ -180,11 +207,18 @@ export default function SignupPage() {
               </div>
             </div>
 
+            <TurnstileWidget token={turnstileToken} onTokenChange={setTurnstileToken} />
+
+            <PublicMessagingConsent
+              checked={form.consent}
+              onChange={(checked) => setForm((current) => ({ ...current, consent: checked }))}
+            />
+
             <p className="text-xs text-gray-400 leading-relaxed">
               By creating an account, you agree that results are not guaranteed and this platform does not promise specific credit approvals, limits, or funding outcomes.
             </p>
 
-            <button type="submit" className="btn-primary w-full py-3.5" disabled={loading}>
+            <button type="submit" className="btn-primary w-full py-3.5" disabled={loading || !form.consent || !turnstileEnabled || !turnstileToken}>
               {loading ? 'Creating account…' : 'Create Account'}
             </button>
           </form>
@@ -196,6 +230,7 @@ export default function SignupPage() {
                 Sign in
               </Link>
             </p>
+            <PublicLegalLinks className="mt-3 text-xs text-gray-500 leading-relaxed" />
           </div>
         </div>
 
@@ -206,3 +241,4 @@ export default function SignupPage() {
     </div>
   )
 }
+// PUBLIC_FORM_COMPLIANCE_OK

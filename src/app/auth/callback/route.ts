@@ -2,6 +2,12 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 import { logPortalEvent } from '@/lib/portal-events'
+import { CRM_INVITE_COOKIE, linkCrmInviteAccount } from '@/lib/crm-invites'
+import { CRM_TEXT_COOKIE, linkCrmSmsAccount } from '@/lib/crm-sms'
+import { parseContentAttributionCookie, recordContentEvent } from '@/lib/content-engine'
+import { ensureSignupCrmLead } from '@/lib/signup-crm'
+import { logSignupSecurityEvent } from '@/lib/signup-security'
+import { getSignupAutomationErrorMessage, recordSignupAutomationFailure } from '@/lib/signup-automation-monitor'
 
 async function sendNewSignupNotification(email: string, fullName: string) {
   const key = process.env.RESEND_API_KEY
@@ -35,10 +41,15 @@ async function sendNewSignupNotification(email: string, fullName: string) {
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
+  const nextParam = searchParams.get('next') ?? '/dashboard'
+  const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || origin).replace(/\/$/, '')
+  const next = nextParam.startsWith('/') && !nextParam.startsWith('/login') && !nextParam.startsWith('/signin')
+    ? nextParam
+    : '/dashboard'
 
   if (code) {
     const cookieStore = await cookies()
+    const redirectResponse = NextResponse.redirect(`${appOrigin}${next}`)
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -48,9 +59,10 @@ export async function GET(request: NextRequest) {
             return cookieStore.getAll()
           },
           setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
+            cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options)
-            )
+              redirectResponse.cookies.set(name, value, options)
+            })
           },
         },
       }
@@ -58,6 +70,8 @@ export async function GET(request: NextRequest) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      await supabase.auth.getUser()
+
       // Ensure a profile row exists for OAuth users (Google sign-in creates no profile automatically)
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
@@ -72,7 +86,7 @@ export async function GET(request: NextRequest) {
             )
             const { data: affiliate } = await serviceClient
               .from('affiliates')
-              .select('id, email')
+              .select('id, user_id, name, email, created_at')
               .eq('referral_code', refCode.toUpperCase())
               .eq('status', 'active')
               .single()
@@ -92,7 +106,7 @@ export async function GET(request: NextRequest) {
 
               // ── Get lead data for deal_type (if user came from an invite link) ──
               const leadId = cookieStore.get('affiliate_lead')?.value
-              let leadDealType: string = 'referral_only'
+              let leadDealType: string = 'partner_assisted'
               let leadRecordId: string | null = null
               if (leadId) {
                 const { data: leadRecord } = await serviceClient
@@ -103,7 +117,7 @@ export async function GET(request: NextRequest) {
                   .maybeSingle()
                 if (leadRecord) {
                   leadRecordId = leadRecord.id
-                  leadDealType = leadRecord.deal_type || 'referral_only'
+                  leadDealType = leadRecord.deal_type || 'partner_assisted'
                 }
               }
 
@@ -126,6 +140,9 @@ export async function GET(request: NextRequest) {
                   is_flagged: isSelfReferral,
                   flag_reason: isSelfReferral ? 'Self-referral detected at signup' : null,
                   deal_type: leadDealType,
+                  acquisition_path: 'partner_assisted',
+                  partner_relationship_started_at: new Date().toISOString(),
+                  onboarding_status: 'partner_closing',
                 }).select('id').single()
 
                 // ── Update affiliate_lead status to account_created ──────────
@@ -135,6 +152,9 @@ export async function GET(request: NextRequest) {
                     referral_id: newReferral?.id ?? null,
                     status: 'account_created',
                     account_created_at: new Date().toISOString(),
+                    acquisition_path: 'partner_assisted',
+                    onboarding_status: 'partner_closing',
+                    partner_relationship_started_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                   }).eq('id', leadRecordId)
                 }
@@ -164,6 +184,8 @@ export async function GET(request: NextRequest) {
           || user.user_metadata?.name
           || user.email?.split('@')[0]
           || ''
+        const crmTextId = cookieStore.get(CRM_TEXT_COOKIE)?.value
+        const contentAttribution = parseContentAttributionCookie(cookieStore.get('sl_content_attribution')?.value)
 
         if (!existing) {
           // Check if a profile with this email already exists under a different auth user
@@ -186,23 +208,34 @@ export async function GET(request: NextRequest) {
               // and redirect them to login with a clear message
               await supabase.auth.signOut()
               return NextResponse.redirect(
-                `${origin}/login?error=account_exists&email=${encodeURIComponent(user.email)}`
+                `${appOrigin}/login?error=account_exists&email=${encodeURIComponent(user.email)}`
               )
             }
           }
 
           // Truly new user — create profile
-          await supabase.from('profiles').insert({
+          const { error: oauthProfileError } = await supabase.from('profiles').insert({
             id: user.id,
             email: user.email ?? '',
             full_name: fullName,
             subscription_status: 'inactive',
             account_state: 'prospect',
+            acquisition_path: cookieStore.get('affiliate_ref')?.value ? 'partner_assisted' : 'self_serve',
             progress_percentage: 0,
             nsf_flag: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
+
+          if (oauthProfileError) {
+            await recordSignupAutomationFailure({
+              userId: user.id,
+              email: user.email ?? '',
+              stage: 'oauth_profile_upsert',
+              source: 'google_oauth',
+              errorMessage: oauthProfileError.message,
+            })
+          }
 
           supabase.from('activity_logs').insert({
             user_id: user.id,
@@ -210,6 +243,62 @@ export async function GET(request: NextRequest) {
             event_data: { email: user.email, source: 'google_oauth' },
             created_at: new Date().toISOString(),
           }).then(() => {})
+        }
+
+        // Enrich profile with partner attribution if this signup came through a partner
+        try {
+          const refCode = cookieStore.get('affiliate_ref')?.value
+          if (refCode) {
+            const serviceClient = createServerClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.SUPABASE_SERVICE_ROLE_KEY!,
+              { cookies: { getAll() { return [] }, setAll() {} } }
+            )
+            const { data: affiliate } = await serviceClient
+              .from('affiliates')
+              .select('id, name')
+              .eq('referral_code', refCode.toUpperCase())
+              .eq('status', 'active')
+              .maybeSingle()
+
+            if (affiliate) {
+              const partnerProfileUpdate = {
+                acquisition_path: 'partner_assisted',
+                assigned_partner_affiliate_id: affiliate.id,
+                assigned_partner_name: affiliate.name,
+                partner_relationship_started_at: new Date().toISOString(),
+                partner_onboarding_status: 'partner_closing',
+                updated_at: new Date().toISOString(),
+              }
+
+              const partnerUpdate = await serviceClient
+                .from('profiles')
+                .update(partnerProfileUpdate)
+                .eq('id', user.id)
+
+              if (partnerUpdate.error) {
+                await serviceClient
+                  .from('profiles')
+                  .update({ acquisition_path: 'partner_assisted', updated_at: new Date().toISOString() })
+                  .eq('id', user.id)
+              }
+            }
+          }
+        } catch {
+          // Never break login over partner attribution
+        }
+
+        if (crmTextId) {
+          await linkCrmSmsAccount(supabase, {
+            smsId: crmTextId,
+            userId: user.id,
+            profileId: user.id,
+            email: user.email,
+            createdBy: 'oauth_callback',
+            metadata: { source: 'oauth_signup' },
+          }).catch((error) => {
+            console.error('[auth/callback] crm sms account link failed', error)
+          })
         }
 
         // Send admin notification for new accounts.
@@ -235,17 +324,123 @@ export async function GET(request: NextRequest) {
             message: user.email,
             metadata: { source, full_name: fullName },
           })
+          try {
+            const serviceClient = createServerClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.SUPABASE_SERVICE_ROLE_KEY!,
+              { cookies: { getAll() { return [] }, setAll() {} } }
+            )
+            const existingProfile = await serviceClient
+              .from('profiles')
+              .select('business_name, suspicious_signup, signup_risk_score, suspicious_signup_reason')
+              .eq('id', user.id)
+              .maybeSingle()
+
+            const crmResult = await ensureSignupCrmLead({
+              supabase: serviceClient,
+              userId: user.id,
+              fullName,
+              email: user.email ?? '',
+              businessName: existingProfile.data?.business_name ?? user.user_metadata?.business_name ?? null,
+              source: source === 'google_oauth' ? 'google_oauth' : 'email_password',
+              suspicious: Boolean(existingProfile.data?.suspicious_signup),
+              riskScore: existingProfile.data?.signup_risk_score ?? null,
+              reasons: existingProfile.data?.suspicious_signup_reason ? [existingProfile.data.suspicious_signup_reason] : [],
+            })
+
+            logPortalEvent({
+              userId: user.id,
+              eventType: 'signup_crm_lead_created',
+              category: 'leads',
+              severity: existingProfile.data?.suspicious_signup ? 'warning' : 'success',
+              title: 'Signup CRM lead created',
+              message: user.email ?? '',
+              metadata: {
+                lead_id: crmResult.leadId,
+                action: crmResult.action,
+                source,
+              },
+            })
+          } catch (crmErr) {
+            console.error('[auth/callback] signup crm lead creation failed', crmErr)
+            await recordSignupAutomationFailure({
+              userId: user.id,
+              email: user.email ?? '',
+              stage: 'oauth_crm_lead_create',
+              source,
+              errorMessage: getSignupAutomationErrorMessage(crmErr),
+            })
+            logPortalEvent({
+              userId: user.id,
+              eventType: 'signup_crm_failed',
+              category: 'leads',
+              severity: 'critical',
+              title: 'Signup created without CRM lead',
+              message: user.email ?? '',
+              metadata: {
+                source,
+                error: getSignupAutomationErrorMessage(crmErr),
+              },
+              sendEmail: true,
+            })
+          }
+          logSignupSecurityEvent({
+            email: user.email ?? '',
+            eventType: 'confirmed',
+            meta: {
+              ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip') ?? null,
+              userAgent: request.headers.get('user-agent'),
+              origin: request.headers.get('origin'),
+              referer: request.headers.get('referer'),
+            },
+            metadata: { source },
+          }).catch(() => {})
           // Trigger Onboarding Agent for new signups (fire and forget)
           import('@/modules/agents/onboarding-agent').then(({ runOnboardingAgent }) => {
             runOnboardingAgent(user.id).catch(err => console.error('[OnboardingAgent trigger]', err))
           })
+
+          if (contentAttribution?.pageId) {
+            await recordContentEvent({
+              pageId: contentAttribution.pageId,
+              eventType: 'signup',
+              relatedRecordId: user.id,
+              metadata: {
+                source,
+                email: user.email,
+              },
+            })
+          }
+        }
+
+        const crmInviteId = cookieStore.get(CRM_INVITE_COOKIE)?.value
+        if (crmInviteId && user.email) {
+          try {
+            const serviceClient = createServerClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.SUPABASE_SERVICE_ROLE_KEY!,
+              { cookies: { getAll() { return [] }, setAll() {} } }
+            )
+            await linkCrmInviteAccount(serviceClient, {
+              inviteId: crmInviteId,
+              userId: user.id,
+              profileId: user.id,
+              email: user.email,
+              createdBy: 'auth_callback',
+              metadata: { source: 'auth_callback' },
+            })
+          } catch {
+            // Never break auth callback over invite attribution
+          }
+          cookieStore.delete(CRM_INVITE_COOKIE)
+          redirectResponse.cookies.delete(CRM_INVITE_COOKIE)
         }
       }
 
-      return NextResponse.redirect(`${origin}${next}`)
+      return redirectResponse
     }
   }
 
   // If something went wrong, send to login
-  return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
+  return NextResponse.redirect(`${appOrigin}/login?error=auth_callback_failed`)
 }

@@ -1,35 +1,25 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import FundingResultsClient from './FundingResultsClient'
+import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function FundingResultsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
 
-  if (!user) redirect('/login')
-
-  const [{ data: profile }, { data: approvals }, { data: notifs }, membershipsResult] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
+  const [{ data: approvals }] = await Promise.all([
     supabase
       .from('funding_approvals')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', activeBusinessId)
       .order('approval_date', { ascending: false }),
-    supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
-    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
   ])
-
-  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   return (
     <PortalLayout
       userName={profile?.full_name || user.email || 'Client'}
       programLabel={profile?.assigned_program ?? undefined}
-      notificationCount={notifs?.length ?? 0}
+      notificationCount={notificationCount}
       assignedProgram={profile?.assigned_program ?? null}
       portalBlocked={profile?.portal_blocked ?? false}
       isDemo={profile?.is_demo ?? false}

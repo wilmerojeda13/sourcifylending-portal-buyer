@@ -1,24 +1,15 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { logActivity } from '@/lib/activity'
+import { redirect } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import UnderwritingClient from './UnderwritingClient'
 import { getProgramShortLabel } from '@/lib/utils'
 import type { UserProfile } from '@/types'
+import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function UnderwritingPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
 
   // ── Access rules ──────────────────────────────────────────────────────────
   // Prospects have no underwriting
@@ -41,23 +32,15 @@ export default async function UnderwritingPage() {
   // Only program_a and program_b active_members reach this point
 
   // Log that underwriting was started (fire-and-forget)
-  logActivity(user.id, 'underwriting_started', {
+  logActivity(activeBusinessId, 'underwriting_started', {
     program: profile.assigned_program,
   }).catch(() => {})
-
-  const [notifCountResult, membershipsResult] = await Promise.all([
-    supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false),
-    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
-  ])
-
-  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile.assigned_program ? [profile.assigned_program] : [])
 
   return (
     <PortalLayout
       userName={profile.full_name || user.email || 'Client'}
       programLabel={getProgramShortLabel(profile.assigned_program)}
-      notificationCount={notifCountResult.count ?? 0}
+      notificationCount={notificationCount}
       assignedProgram={profile.assigned_program}
       portalBlocked={profile.portal_blocked}
       isDemo={profile.is_demo}

@@ -228,6 +228,10 @@ export default function AdminAIPanel() {
   const contextType = memberMatch ? 'member' : leadMatch ? 'lead' : affiliateMatch ? 'affiliate' : voiceCampMatch ? 'voice_campaign' : null
 
   const pageCtx = getPageCtx(pathname, contextType)
+  const mobileLauncherBottomClass =
+    pathname.startsWith('/admin/crm') || pathname.startsWith('/admin/voice')
+      ? 'bottom-20'
+      : 'bottom-4'
 
   // Scroll to bottom
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, open])
@@ -429,14 +433,27 @@ export default function AdminAIPanel() {
 
       {/* ── Floating launcher ── */}
       {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed z-50 flex items-center gap-2 px-4 py-3 rounded-full shadow-lg bg-gray-950 hover:bg-gray-900 text-white transition-all duration-200 hover:scale-105 active:scale-95 lg:bottom-6 lg:right-6 bottom-6 right-4"
-        >
-          <Bot size={16} className="text-indigo-400" />
-          <span className="text-sm font-semibold">Admin AI</span>
-          {messages.length > 1 && <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />}
-        </button>
+        <>
+          <button
+            onClick={() => setOpen(true)}
+            className="hidden lg:flex fixed z-50 items-center gap-2 px-4 py-3 rounded-full shadow-lg bg-gray-950 hover:bg-gray-900 text-white transition-all duration-200 hover:scale-105 active:scale-95 lg:bottom-6 lg:right-6"
+          >
+            <Bot size={16} className="text-indigo-400" />
+            <span className="text-sm font-semibold">Admin AI</span>
+            {messages.length > 1 && <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />}
+          </button>
+
+          <button
+            onClick={() => setOpen(true)}
+            className={cn(
+              'lg:hidden fixed right-4 z-50 w-14 h-14 rounded-full bg-gray-950 hover:bg-gray-900 text-white shadow-xl flex items-center justify-center transition-all duration-200 active:scale-95',
+              mobileLauncherBottomClass,
+            )}
+          >
+            <Bot size={20} className="text-indigo-400" />
+          </button>
+
+        </>
       )}
 
       {/* ── Hide button (desktop, panel open) ── */}

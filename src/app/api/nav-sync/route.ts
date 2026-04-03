@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getBusinessContext } from '@/lib/business-context'
 import Anthropic from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = await createServiceClient()
 
   const body = await req.json()
   const { text } = body as { text?: string }
@@ -71,7 +75,7 @@ ${text.slice(0, 4000)}`
   const { data: current } = await supabase
     .from('business_credit_profile')
     .select('paydex_score, intelliscore, equifax_score, nav_last_synced_at, nav_sync_history')
-    .eq('user_id', user.id)
+    .eq('user_id', context.activeBusinessId)
     .maybeSingle()
 
   const now = new Date().toISOString()
@@ -158,7 +162,7 @@ Return JSON only:
 
   // ── Upsert profile ────────────────────────────────────────────────────────────
   const updatePayload: Record<string, unknown> = {
-    user_id: user.id,
+    user_id: context.activeBusinessId,
     nav_connection_status: 'connected',
     nav_last_synced_at: now,
     nav_sync_history: newHistory,
@@ -189,14 +193,17 @@ Return JSON only:
 
 // GET — return current nav sync status
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = await createServiceClient()
 
   const { data } = await supabase
     .from('business_credit_profile')
     .select('nav_connection_status, nav_last_synced_at, nav_sync_history, paydex_score, intelliscore, equifax_score')
-    .eq('user_id', user.id)
+    .eq('user_id', context.activeBusinessId)
     .maybeSingle()
 
   return NextResponse.json({

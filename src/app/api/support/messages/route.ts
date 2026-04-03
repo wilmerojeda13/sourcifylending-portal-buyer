@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logMemoryEvent } from '@/lib/ai-memory'
 import { logPortalEvent } from '@/lib/portal-events'
+import { getBusinessContext } from '@/lib/business-context'
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024 // 5 MB
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
@@ -64,14 +65,17 @@ async function sendSupportNotificationEmail(
 
 // ─── GET — list the authenticated user's support messages ─────────────────────
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = await createServiceClient()
 
   const { data, error } = await supabase
     .from('support_messages')
     .select('id, subject, message, status, admin_reply, attachment_url, created_at, updated_at')
-    .eq('user_id', user.id)
+    .eq('user_id', context.activeBusinessId)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -87,9 +91,12 @@ export async function GET() {
 
 // ─── POST — submit a new support message (FormData for optional attachment) ───
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = await createServiceClient()
 
   // Parse FormData (supports both file uploads and plain JSON fallback)
   let subject = '', message = '', attachment: File | null = null
@@ -122,7 +129,7 @@ export async function POST(req: NextRequest) {
 
     const serviceClient = await createServiceClient()
     const ext = attachment.name.split('.').pop() ?? 'bin'
-    const path = `${user.id}/${Date.now()}.${ext}`
+    const path = `${context.activeBusinessId}/${Date.now()}.${ext}`
     const buffer = Buffer.from(await attachment.arrayBuffer())
 
     const { error: uploadError } = await serviceClient.storage
@@ -145,7 +152,7 @@ export async function POST(req: NextRequest) {
   const { data: msg, error } = await supabase
     .from('support_messages')
     .insert({
-      user_id: user.id,
+      user_id: context.activeBusinessId,
       user_email: user.email ?? '',
       subject,
       message,
@@ -168,9 +175,9 @@ export async function POST(req: NextRequest) {
 
   // Fire-and-forget notifications
   sendSupportNotificationEmail(user.email ?? '', subject, message, now, attachmentUrl)
-  logMemoryEvent(user.id, 'support_message_sent', `Support message sent: ${subject}`, undefined, msg.id)
+  logMemoryEvent(context.activeBusinessId, 'support_message_sent', `Support message sent: ${subject}`, undefined, msg.id)
   logPortalEvent({
-    userId: user.id,
+    userId: context.activeBusinessId,
     eventType: 'support_message_sent',
     category: 'support',
     severity: 'info',

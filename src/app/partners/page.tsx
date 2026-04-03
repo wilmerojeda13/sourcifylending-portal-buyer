@@ -6,6 +6,14 @@ import {
   ArrowRight, CheckCircle, DollarSign, Users, TrendingUp,
   Shield, Star, ChevronDown, ChevronUp, Loader2,
 } from 'lucide-react'
+import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
+import PublicMessagingConsent from '@/components/compliance/PublicMessagingConsent'
+import TurnstileWidget from '@/components/compliance/TurnstileWidget'
+import {
+  CompliancePayload,
+  CONSENT_TEXT_VERSION,
+  REQUIRED_MESSAGING_DISCLOSURE,
+} from '@/lib/public-form-compliance'
 
 const MARKETING_CHANNEL_OPTIONS = [
   'Social Media',
@@ -18,10 +26,12 @@ const MARKETING_CHANNEL_OPTIONS = [
 ]
 
 export default function PartnersPage() {
+  const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [turnstileToken, setTurnstileToken] = useState('')
 
   const [form, setForm] = useState({
     name: '',
@@ -34,6 +44,7 @@ export default function PartnersPage() {
     monthly_referral_estimate: '',
     marketing_channels: [] as string[],
     agreed_to_terms: false,
+    consent: false,
   })
 
   const toggleChannel = (ch: string) => {
@@ -55,7 +66,17 @@ export default function PartnersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          turnstileToken,
           referral_experience: form.referral_experience === 'yes',
+          compliance: {
+            enabled: true,
+            form_name: 'public_partner_application',
+            page_url: typeof window !== 'undefined' ? window.location.href : '/partners',
+            timestamp: new Date().toISOString(),
+            consent_text_version: CONSENT_TEXT_VERSION,
+            disclosure_text: REQUIRED_MESSAGING_DISCLOSURE,
+            consent_given: form.consent,
+          } satisfies CompliancePayload,
         }),
       })
       const data = await res.json()
@@ -75,21 +96,21 @@ export default function PartnersPage() {
     <div className="min-h-screen bg-white">
 
       {/* Nav */}
-      <header className="border-b border-gray-100 px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">SL</span>
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-6 sm:py-4">
+        <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-600 sm:h-9 sm:w-9">
+            <span className="text-xs font-bold text-white sm:text-sm">SL</span>
           </div>
-          <span className="font-bold text-gray-900">SourcifyLending</span>
+          <span className="truncate whitespace-nowrap text-sm font-bold text-gray-900 sm:text-base">SourcifyLending</span>
         </Link>
-        <div className="flex items-center gap-3">
-          <Link href="/affiliate/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2">
-            Affiliate Login
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+          <Link href="/affiliate/login" className="brand-link whitespace-nowrap px-2 py-2 text-xs font-medium sm:px-3 sm:text-sm">
+            Partner Login
           </Link>
-          <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2 hidden sm:inline">
+          <Link href="/login" className="brand-link text-sm font-medium px-3 py-2 hidden sm:inline">
             Sign In
           </Link>
-          <Link href="/analyzer" className="btn-primary text-sm px-4 py-2.5">
+          <Link href="/analyzer" className="btn-primary whitespace-nowrap px-3 py-2 text-xs sm:px-4 sm:py-2.5 sm:text-sm">
             Free Analyzer
           </Link>
         </div>
@@ -103,15 +124,15 @@ export default function PartnersPage() {
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Application Submitted!</h1>
           <p className="text-gray-500 text-lg mb-8 leading-relaxed">
-            Thank you for your interest in the SourcifyLending Affiliate Program. Our team will review your
+            Thank you for your interest in the SourcifyLending Partner Program. Our team will review your
             application and follow up within <strong className="text-gray-700">2 business days</strong>.
           </p>
           <div className="bg-green-50 border border-green-100 rounded-2xl p-6 text-left mb-8">
             <h3 className="font-bold text-green-900 mb-3 text-sm">What happens next</h3>
             <ul className="space-y-2 text-sm text-green-800">
               <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> Our team reviews your application</li>
-              <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> If approved, you'll receive login credentials for your affiliate portal</li>
-              <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> You get your unique referral link and start earning</li>
+              <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> If approved, you'll receive login credentials for your partner portal</li>
+              <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> We&apos;ll confirm how you add, onboard, and support partner-assisted clients</li>
             </ul>
           </div>
           <Link href="/" className="btn-secondary text-sm px-6 py-3 inline-flex items-center gap-2">
@@ -124,15 +145,16 @@ export default function PartnersPage() {
           <section className="max-w-4xl mx-auto px-6 pt-16 pb-14 text-center">
             <div className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
               <Star size={14} />
-              SourcifyLending Affiliate Program
+              SourcifyLending Partner Program
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6">
-              Refer Clients.<br />
-              <span className="text-green-600">Earn Recurring Commissions.</span>
+              Close and onboard clients.<br />
+              <span className="text-green-600">Run your client book on SourcifyLending.</span>
             </h1>
             <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10">
-              Help business owners build real business credit and access funding. Earn 30% on setup fees
-              and 20% on every monthly payment — as long as your client stays active.
+              This is a true partner-assisted model, not a passive referral program. Partners bring in the client,
+              close the client, onboard the client, and remain the frontline relationship owner while SourcifyLending
+              provides the platform, billing rails, and fulfillment infrastructure.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
@@ -151,7 +173,7 @@ export default function PartnersPage() {
           <section className="bg-green-600 py-10 px-6">
             <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
               {[
-                { value: '30%', label: 'Setup fee commission' },
+                { value: '80%', label: 'Setup fee payout on Program A/B' },
                 { value: '20%', label: 'Recurring monthly commission' },
                 { value: '5 clients', label: 'Unlocks free Program B access' },
               ].map(s => (
@@ -167,28 +189,28 @@ export default function PartnersPage() {
           <section id="how-it-works" className="bg-gray-50 py-16 px-6">
             <div className="max-w-5xl mx-auto">
               <h2 className="text-2xl font-bold text-gray-900 text-center mb-3">How It Works</h2>
-              <p className="text-gray-500 text-center mb-12">Three simple steps. Zero closing required from you.</p>
+              <p className="text-gray-500 text-center mb-12">Three simple steps. Partners own the relationship.</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
                   {
                     step: '01',
                     icon: Users,
-                    title: 'Share Your Link',
-                    desc: 'You get a unique referral link. Share it with business owners in your network, on social media, or through your content.',
+                    title: 'Bring In The Client',
+                    desc: 'Add the client through your partner workflow or invite them from your partner portal. The client is marked as Partner-Assisted from the start.',
                     color: 'bg-green-100 text-green-600',
                   },
                   {
                     step: '02',
                     icon: TrendingUp,
-                    title: 'We Close & Onboard',
-                    desc: 'SourcifyLending handles the sales call, enrollment, program assignment, and all fulfillment. You refer — we do the rest.',
+                    title: 'You Close & Onboard',
+                    desc: 'You are expected to close the client, guide them into the right program, help with onboarding, and remain the frontline point of contact.',
                     color: 'bg-green-100 text-green-600',
                   },
                   {
                     step: '03',
                     icon: DollarSign,
-                    title: 'You Earn Commissions',
-                    desc: 'Earn 30% of setup fees when they enroll and 20% of every monthly payment as long as they stay active.',
+                    title: 'Earn Partner Compensation',
+                    desc: 'Earn 80% of collected setup fees on partner-assisted Program A and B deals, plus 20% of successful monthly subscription revenue.',
                     color: 'bg-green-100 text-green-600',
                   },
                 ].map(({ step, icon: Icon, title, desc, color }) => (
@@ -208,26 +230,26 @@ export default function PartnersPage() {
           {/* Commission breakdown */}
           <section className="py-16 px-6 max-w-5xl mx-auto">
             <h2 className="text-2xl font-bold text-gray-900 text-center mb-3">Commission Structure</h2>
-            <p className="text-gray-500 text-center mb-10">Earned on collected payments only. No speculative commissions.</p>
+            <p className="text-gray-500 text-center mb-10">Paid only on successful collected revenue. No payout on failed charges, disputes, or refunds.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {[
                 {
                   badge: 'Program A',
-                  setup: '$450',
-                  monthly: '$79.80/mo',
-                  setupNote: '30% of $1,500 setup fee',
-                  monthlyNote: '20% of $399/month',
-                  year1: '$1,407',
+                  setup: '$400',
+                  monthly: '$89.80/mo',
+                  setupNote: '80% of $500 setup fee',
+                  monthlyNote: '20% of $449/month',
+                  year1: '$1,478',
                   color: 'border-green-200 bg-green-50/40',
                   badgeColor: 'bg-green-100 text-green-700',
                 },
                 {
                   badge: 'Program B',
-                  setup: '$299',
-                  monthly: '$39.80/mo',
-                  setupNote: '30% of $997 setup fee',
-                  monthlyNote: '20% of $199/month',
-                  year1: '$777',
+                  setup: '$240',
+                  monthly: '$49.80/mo',
+                  setupNote: '80% of $300 setup fee',
+                  monthlyNote: '20% of $249/month',
+                  year1: '$838',
                   color: 'border-emerald-200 bg-emerald-50/40',
                   badgeColor: 'bg-emerald-100 text-emerald-700',
                 },
@@ -262,7 +284,7 @@ export default function PartnersPage() {
               ))}
             </div>
             <p className="text-center text-xs text-gray-400 mt-6">
-              Estimates based on 1 active referral per program for 12 months. Actual earnings vary. No income is guaranteed.
+              Estimates assume one active partner-assisted client per program for 12 months. Actual earnings vary and are never guaranteed.
             </p>
           </section>
 
@@ -275,13 +297,13 @@ export default function PartnersPage() {
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Unlock Free Program B Access</h2>
               <p className="text-gray-500 mb-10 text-base leading-relaxed">
-                Maintain 5 active paying referred clients for 14 consecutive days and earn complimentary access
+                Maintain 5 active paying partner-assisted clients for 14 consecutive days and earn complimentary access
                 to Program B — the Business Credit Builder — at no cost. Access is automatically unlocked and
                 automatically revoked if you fall below the threshold.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                 {[
-                  { number: '5', label: 'Active paying referrals required', icon: Users },
+                  { number: '5', label: 'Active paying partner clients required', icon: Users },
                   { number: '14', label: 'Consecutive days to qualify', icon: TrendingUp },
                   { number: 'Free', label: 'Program B access unlocked', icon: Star },
                 ].map(({ number, label, icon: Icon }) => (
@@ -304,9 +326,9 @@ export default function PartnersPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { title: 'Business Coaches', desc: 'You work with small business owners who need credit solutions.' },
-                { title: 'Financial Educators', desc: 'Your audience is learning about business finance and credit.' },
-                { title: 'Content Creators', desc: 'You have an audience of entrepreneurs on social or YouTube.' },
-                { title: 'Networkers & Brokers', desc: 'You have relationships with business owners who need capital.' },
+                { title: 'Financial Educators', desc: 'You can guide business owners through closing, onboarding, and using the platform.' },
+                { title: 'Consultants & Agencies', desc: 'You want infrastructure behind the scenes while you stay client-facing.' },
+                { title: 'Networkers & Brokers', desc: 'You have relationships with business owners who need capital and ongoing implementation support.' },
               ].map(({ title, desc }) => (
                 <div key={title} className="card">
                   <div className="w-8 h-8 bg-green-100 rounded-xl flex items-center justify-center mb-3">
@@ -323,9 +345,9 @@ export default function PartnersPage() {
           <section id="apply-form" className="bg-gray-50 py-16 px-6">
             <div className="max-w-2xl mx-auto">
               <div className="text-center mb-10">
-                <h2 className="text-2xl font-bold text-gray-900 mb-3">Apply to Become an Affiliate</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">Apply to Become a Partner</h2>
                 <p className="text-gray-500">
-                  All applications are reviewed manually. We'll follow up within 2 business days.
+                  All applications are reviewed manually. We&apos;ll confirm fit for a partner-assisted sales relationship within 2 business days.
                 </p>
               </div>
 
@@ -446,7 +468,7 @@ export default function PartnersPage() {
                   {/* Prior experience */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Have you referred business funding or credit services before? <span className="text-red-500">*</span>
+                      Have you closed and onboarded business funding or credit clients before? <span className="text-red-500">*</span>
                     </label>
                     <div className="flex gap-4">
                       {['yes', 'no'].map(v => (
@@ -476,7 +498,7 @@ export default function PartnersPage() {
                       rows={4}
                       value={form.promotion_plan}
                       onChange={e => setForm(f => ({ ...f, promotion_plan: e.target.value }))}
-                      placeholder="Describe your audience, content strategy, or network. How would you introduce SourcifyLending to business owners?"
+                      placeholder="Describe how you would bring in clients, close them, onboard them, and remain their frontline point of contact."
                       className="input-field resize-none"
                     />
                   </div>
@@ -492,14 +514,22 @@ export default function PartnersPage() {
                         className="mt-0.5 accent-green-600"
                       />
                       <span className="text-sm text-gray-600 leading-relaxed">
-                        I agree to the SourcifyLending Affiliate Program terms. I understand that affiliates may not
+                        I agree to the SourcifyLending Partner Program terms. I understand that partners may not
                         promise approvals, guarantee funding amounts, or misrepresent SourcifyLending's services.
-                        I will use only approved marketing language. SourcifyLending may suspend or terminate
-                        affiliate access at any time for violations.
+                        I will use only approved marketing language. I understand that partner compensation is earned
+                        only on partner-assisted clients I close and onboard, and only on successfully collected revenue.
+                        SourcifyLending may suspend or terminate partner access at any time for violations.
                         <span className="text-red-500 ml-1">*</span>
                       </span>
                     </label>
                   </div>
+
+                  <PublicMessagingConsent
+                    checked={form.consent}
+                    onChange={(checked) => setForm(f => ({ ...f, consent: checked }))}
+                  />
+
+                  <TurnstileWidget token={turnstileToken} onTokenChange={setTurnstileToken} />
 
                   {error && (
                     <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
@@ -509,7 +539,7 @@ export default function PartnersPage() {
 
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || !form.consent || !turnstileEnabled || !turnstileToken}
                     className="btn-primary w-full text-base py-4 disabled:opacity-60"
                   >
                     {loading ? (
@@ -533,7 +563,7 @@ export default function PartnersPage() {
               <Shield size={36} className="text-green-200 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-white mb-3">Ready to Get Started?</h2>
               <p className="text-green-200 mb-8">
-                Join affiliates already earning recurring commissions by helping business owners access credit.
+                Join partners who want to manage their own client book using SourcifyLending as the platform behind the scenes.
               </p>
               <button
                 onClick={() => { setShowForm(true); document.getElementById('apply-form')?.scrollIntoView({ behavior: 'smooth' }) }}
@@ -548,14 +578,16 @@ export default function PartnersPage() {
           <footer className="border-t border-gray-100 py-8 px-6">
             <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-sm text-gray-400">
-                © {new Date().getFullYear()} SourcifyLending. Affiliate earnings are not guaranteed. Commissions are
+                © {new Date().getFullYear()} SourcifyLending. Partner earnings are not guaranteed. Compensation is
                 earned on successfully collected payments only.
               </p>
               <div className="flex items-center gap-4 text-sm text-gray-400">
-                <Link href="/" className="hover:text-gray-600">Home</Link>
-                <Link href="/analyzer" className="hover:text-gray-600">Free Analyzer</Link>
-                <Link href="/affiliate/login" className="hover:text-gray-600">Affiliate Login</Link>
-                <Link href="/login" className="hover:text-gray-600">Client Login</Link>
+                <Link href="/" className="brand-link-muted">Home</Link>
+                <Link href="/analyzer" className="brand-link-muted">Free Analyzer</Link>
+                <Link href="/affiliate/login" className="brand-link-muted">Partner Login</Link>
+                <Link href="/login" className="brand-link-muted">Client Login</Link>
+                <Link href="/privacy" className="brand-link-muted">Privacy</Link>
+                <Link href="/terms" className="brand-link-muted">Terms</Link>
               </div>
             </div>
           </footer>
@@ -564,3 +596,4 @@ export default function PartnersPage() {
     </div>
   )
 }
+// PUBLIC_FORM_COMPLIANCE_OK

@@ -23,7 +23,7 @@ const PROGRAM_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 const SUB_NAV = [
-  { label: 'Affiliates', href: '/admin/affiliates' },
+  { label: 'Partners', href: '/admin/affiliates' },
   { label: 'Commissions', href: '/admin/affiliates/commissions' },
   { label: 'Settings', href: '/admin/affiliates/settings', active: true },
   { label: 'Resources', href: '/admin/affiliates/resources' },
@@ -163,11 +163,11 @@ export default function AffiliateSettingsPage() {
             <ChevronLeft size={14} /> Admin
           </Link>
           <span className="text-gray-300">/</span>
-          <Link href="/admin/affiliates" className="text-sm text-gray-500 hover:text-gray-700">Affiliates</Link>
+          <Link href="/admin/affiliates" className="text-sm text-gray-500 hover:text-gray-700">Partners</Link>
           <span className="text-gray-300">/</span>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Commission Settings</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Configure commission rates and hold periods per program</p>
+            <h1 className="text-2xl font-bold text-gray-900">Partner Compensation Settings</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Configure partner compensation rates and hold periods per program</p>
           </div>
         </div>
 
@@ -177,7 +177,7 @@ export default function AffiliateSettingsPage() {
             <Link key={href} href={href}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${active
                 ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                : 'text-gray-600 hover:text-green-700 hover:bg-green-50'
               }`}
             >
               {label}
@@ -292,29 +292,29 @@ export default function AffiliateSettingsPage() {
             {/* Global Deal Type Settings */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
               <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
-                <Settings size={18} className="text-indigo-600" /> Deal Type Commission Rules
+                <Settings size={18} className="text-indigo-600" /> Legacy Deal-Type Rules
               </h2>
               <p className="text-xs text-gray-400 mb-4">
-                Controls how two-tier commissions (Referral 10% / Affiliate Closed 30%) are enforced globally.
+                Controls how historical referral-only and legacy closed deals are handled. New partner-assisted deals use the dedicated 80% setup / 20% recurring model.
               </p>
 
               {/* Rate Reference */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-                  <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-1">Referral Only</p>
+                  <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-1">Legacy Referral</p>
                   <p className="font-bold text-gray-900 text-sm">10% Setup · 10% Recurring</p>
-                  <p className="text-xs text-gray-500 mt-1">SourcifyLending closes the deal</p>
+                  <p className="text-xs text-gray-500 mt-1">Historical referral-only records where SourcifyLending closed the deal</p>
                 </div>
                 <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
-                  <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Affiliate Closed</p>
+                  <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Legacy Closed</p>
                   <p className="font-bold text-gray-900 text-sm">30% Setup · 30% Recurring</p>
-                  <p className="text-xs text-gray-500 mt-1">Affiliate handled full sales process</p>
+                  <p className="text-xs text-gray-500 mt-1">Historical deals where the partner handled the full sales process</p>
                 </div>
               </div>
 
               <ToggleRow
-                label="Require Admin Approval for Affiliate-Closed Deals"
-                desc="When ON: affiliate_closed commissions are held at 10% until an admin approves the designation. When OFF: 30% is applied immediately."
+                label="Require Admin Approval for Legacy Closed Deals"
+                desc="When ON: legacy affiliate_closed records stay at 10% until an admin approves the designation. When OFF: the legacy 30% rate applies immediately."
                 enabled={globalSettings.require_approval_for_affiliate_closed}
                 onToggle={() => setGlobalSettings(g => ({ ...g, require_approval_for_affiliate_closed: !g.require_approval_for_affiliate_closed }))}
               />
@@ -345,7 +345,7 @@ export default function AffiliateSettingsPage() {
                     icon: '👥',
                     label: 'Threshold',
                     value: '5 Active Clients',
-                    desc: 'Affiliate must maintain 5 simultaneously active client referrals',
+                    desc: 'Partner must maintain 5 simultaneously active client accounts',
                   },
                   {
                     icon: '📅',
@@ -357,7 +357,7 @@ export default function AffiliateSettingsPage() {
                     icon: '🎁',
                     label: 'Reward',
                     value: 'Program B Free Access',
-                    desc: 'Affiliate receives complimentary Program B membership access',
+                    desc: 'Partner receives complimentary Program B membership access',
                   },
                 ].map(({ icon, label, value, desc }) => (
                   <div key={label} className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
@@ -370,7 +370,7 @@ export default function AffiliateSettingsPage() {
               </div>
               <p className="text-xs text-gray-400 mt-4 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
                 These rules are hardcoded in the system logic. To modify the thresholds or reward type, a developer change is required.
-                The "Run Free Access Check" button on the main affiliates page manually triggers the eligibility check.
+                The "Run Free Access Check" button on the main partners page manually triggers the eligibility check.
               </p>
             </div>
           </>

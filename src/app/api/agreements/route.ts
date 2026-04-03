@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getBusinessContext } from '@/lib/business-context'
 import { logActivity } from '@/lib/activity'
 import type { ProgramId } from '@/types'
 
@@ -9,6 +10,8 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const context = await getBusinessContext()
+    if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { program, agreement_version } = await req.json() as {
       program: ProgramId
@@ -28,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     const serviceClient = await createServiceClient()
     const { error } = await serviceClient.from('agreements').insert({
-      user_id: user.id,
+      user_id: context.activeBusinessId,
       program,
       agreement_version: agreement_version ?? 'v1.0',
       accepted_at: new Date().toISOString(),
@@ -42,7 +45,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to save agreement' }, { status: 500 })
     }
 
-    await logActivity(user.id, 'agreement_accepted', { program, agreement_version }, req)
+    await logActivity(context.activeBusinessId, 'agreement_accepted', { program, agreement_version, auth_user_id: context.userId }, req)
 
     return NextResponse.json({ success: true })
   } catch (error) {

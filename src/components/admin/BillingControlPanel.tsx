@@ -759,7 +759,7 @@ export default function BillingControlPanel({ userId }: Props) {
                 {savingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save Payment
               </button>
-              <button onClick={() => setShowPaymentForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                <button onClick={() => setShowPaymentForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-green-700">Cancel</button>
             </div>
           </div>
         )}

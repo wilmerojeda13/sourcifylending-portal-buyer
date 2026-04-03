@@ -251,7 +251,7 @@ export default function RevenueTrackerClient() {
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === tab.id
                   ? 'bg-green-600 text-white shadow-sm'
-                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-950'
               }`}
             >
               {tab.label}

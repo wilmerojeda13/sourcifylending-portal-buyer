@@ -3,6 +3,22 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { routeAnalyzer } from '@/lib/program-router'
 import { sendAnalyzerResultEmail } from '@/lib/email'
 import { logPortalEvent } from '@/lib/portal-events'
+import { upsertAnalyzerCrmLead } from '@/lib/analyzer-crm'
+import { markCrmInviteEvent } from '@/lib/crm-invites'
+import { parseContentAttributionCookie, recordContentEvent } from '@/lib/content-engine'
+import {
+  assessPublicFormIdentity,
+  enforcePublicFormRateLimit,
+  logPublicFormSecurityEvent,
+  recordConsentRecord,
+  requirePublicFormCaptcha,
+} from '@/lib/public-form-audit'
+import { getSignupRequestMeta } from '@/lib/signup-security'
+import {
+  buildComplianceSnapshot,
+  validateCompliancePayload,
+  type CompliancePayload,
+} from '@/lib/public-form-compliance'
 import type { AnalyzerInput } from '@/types'
 
 const NOTION_API_VERSION = '2022-06-28'
@@ -20,6 +36,9 @@ interface LeadPayload {
   phone?: string
   business_name?: string
   answers: Record<string, string>
+  crm_invite_id?: string | null
+  turnstileToken?: string | null
+  compliance?: CompliancePayload
 }
 
 async function findNotionContactByEmail(email: string): Promise<string | null> {
@@ -109,11 +128,82 @@ async function createNotionContact(lead: LeadPayload, result: ReturnType<typeof 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as LeadPayload
+    const contentAttribution = parseContentAttributionCookie(req.cookies.get('sl_content_attribution')?.value)
 
-    const { full_name, email, phone, business_name, answers } = body
+    const { full_name, email, phone, business_name, answers, crm_invite_id } = body
 
     if (!full_name || !email) {
       return NextResponse.json({ error: 'full_name and email are required' }, { status: 400 })
+    }
+    let complianceSnapshot: ReturnType<typeof buildComplianceSnapshot> | null = null
+    if (body.compliance) {
+      await logPublicFormSecurityEvent({
+        formName: 'public_analyzer_contact_gate',
+        eventType: 'attempt',
+        req,
+        email,
+        fullName: full_name,
+        businessName: business_name || answers.business_name,
+      })
+      const complianceValidation = validateCompliancePayload(body.compliance, 'public_analyzer_contact_gate')
+      if (!complianceValidation.ok) {
+        return NextResponse.json({ error: complianceValidation.error }, { status: 400 })
+      }
+
+      const identityAssessment = assessPublicFormIdentity({
+        email,
+        fullName: full_name,
+        businessName: business_name || answers.business_name,
+      })
+      if (identityAssessment.isBlocked) {
+        await logPublicFormSecurityEvent({
+          formName: 'public_analyzer_contact_gate',
+          eventType: identityAssessment.isDisposableDomain ? 'blocked_disposable' : 'blocked_validation',
+          req,
+          email: identityAssessment.email,
+          fullName: full_name,
+          businessName: business_name || answers.business_name,
+          metadata: { reasons: identityAssessment.reasons },
+        })
+        return NextResponse.json({ error: 'Please use a valid business identity and email.' }, { status: 400 })
+      }
+
+      const requestMeta = getSignupRequestMeta(req)
+      const rateLimit = await enforcePublicFormRateLimit({
+        formName: 'public_analyzer_contact_gate',
+        email: identityAssessment.email,
+        ipAddress: requestMeta.ipAddress,
+      })
+      if (rateLimit.blocked) {
+        await logPublicFormSecurityEvent({
+          formName: 'public_analyzer_contact_gate',
+          eventType: 'blocked_rate_limit',
+          req,
+          email: identityAssessment.email,
+          fullName: full_name,
+          businessName: business_name || answers.business_name,
+          metadata: {
+            ip_count_last_hour: rateLimit.ipCount,
+            email_count_last_hour: rateLimit.emailCount,
+          },
+        })
+        return NextResponse.json({ error: 'Too many submissions. Please wait and try again.' }, { status: 429 })
+      }
+
+      const captchaOk = await requirePublicFormCaptcha(body.turnstileToken ?? null)
+      if (!captchaOk) {
+        await logPublicFormSecurityEvent({
+          formName: 'public_analyzer_contact_gate',
+          eventType: 'blocked_captcha',
+          req,
+          email: identityAssessment.email,
+          fullName: full_name,
+          businessName: business_name || answers.business_name,
+        })
+        return NextResponse.json({ error: 'Captcha verification failed. Please try again.' }, { status: 400 })
+      }
+
+      complianceSnapshot = buildComplianceSnapshot(req, body.compliance)
     }
 
     // Run the analyzer to get results
@@ -129,18 +219,25 @@ export async function POST(req: NextRequest) {
       utilization_range: answers.utilization_range || '',
       inquiry_count_last_90_days: answers.inquiry_count_last_90_days || '',
       business_credit_reporting_status: answers.business_credit_reporting_status || '',
-      primary_goal: answers.primary_goal || 'build_ein_credit',
+      primary_goal: (answers.primary_goal as AnalyzerInput['primary_goal']) || 'build_ein_credit',
     }
 
     const result = routeAnalyzer(input)
 
     const supabase = await createServiceClient()
+    const normalizedEmail = email.toLowerCase().trim()
+
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id, full_name, business_name, account_state, lead_id')
+      .eq('email', normalizedEmail)
+      .maybeSingle()
 
     // Upsert lead into Supabase (deduped by email + source)
     const { data: existingLead } = await supabase
       .from('leads')
       .select('id, notion_page_id')
-      .eq('email', email.toLowerCase().trim())
+      .eq('email', normalizedEmail)
       .eq('source', 'free_analyzer')
       .maybeSingle()
 
@@ -148,13 +245,13 @@ export async function POST(req: NextRequest) {
     let isNewLead = !existingLead
     let leadId: string | null = existingLead?.id ?? null
 
-    if (!existingLead) {
+    if (!existingLead && !existingProfile) {
       // Insert new lead
       const { data: newLead } = await supabase
         .from('leads')
         .insert({
           full_name,
-          email: email.toLowerCase().trim(),
+          email: normalizedEmail,
           phone: phone || null,
           business_name: business_name || null,
           source: 'free_analyzer',
@@ -172,19 +269,53 @@ export async function POST(req: NextRequest) {
         console.error('Failed to insert lead')
       }
     } else {
-      // Update existing lead with latest analyzer data
+      if (existingLead) {
+        // Update existing lead with latest analyzer data
+        await supabase
+          .from('leads')
+          .update({
+            full_name,
+            phone: phone || null,
+            business_name: business_name || null,
+            assigned_program: result.assigned_program,
+            readiness_status: result.readiness_status,
+            risk_flags: result.risk_flags,
+            analyzer_answers: answers,
+            ...(existingProfile?.id ? { converted_to_user_id: existingProfile.id } : {}),
+          })
+          .eq('id', existingLead.id)
+
+        leadId = existingLead.id
+      }
+    }
+
+    if (existingProfile) {
       await supabase
-        .from('leads')
+        .from('profiles')
         .update({
-          full_name,
-          phone: phone || null,
-          business_name: business_name || null,
+          ...(full_name && !existingProfile.full_name ? { full_name } : {}),
+          ...(business_name && !existingProfile.business_name ? { business_name } : {}),
           assigned_program: result.assigned_program,
           readiness_status: result.readiness_status,
-          risk_flags: result.risk_flags,
-          analyzer_answers: answers,
+          latest_analyzer_result: result,
+          analyzed_at: new Date().toISOString(),
+          ...(existingLead?.id ? { lead_id: existingLead.id } : {}),
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', existingLead.id)
+        .eq('id', existingProfile.id)
+
+      await supabase.from('activity_logs').insert({
+        user_id: existingProfile.id,
+        event_type: 'analyzer_completed',
+        event_data: {
+          source: 'free_analyzer_guest_rerun',
+          readiness_status: result.readiness_status,
+          readiness_score: result.readiness_score,
+          estimated_funding_range: result.estimated_funding_range,
+          program_recommended: result.assigned_program,
+        },
+        created_at: new Date().toISOString(),
+      }).catch(() => {})
     }
 
     // ── Log to activity feed (portal_events) for new leads ──
@@ -195,47 +326,69 @@ export async function POST(req: NextRequest) {
         title: `New Lead: ${full_name}`,
         message: `Completed the free analyzer. Readiness: ${result.readiness_status}. Program: ${result.assigned_program}.`,
         metadata: {
-          email: email.toLowerCase().trim(),
+          email: normalizedEmail,
           ...(phone ? { phone } : {}),
           ...(business_name ? { business: business_name } : {}),
           readiness: result.readiness_status,
           program: result.assigned_program,
+          ...(complianceSnapshot ? {
+            page_url: complianceSnapshot.page_url,
+            consent_text_version: complianceSnapshot.consent_text_version,
+          } : {}),
           ...(result.risk_flags.length > 0 ? { risk_flags: result.risk_flags.join(', ') } : {}),
         },
-        severity: result.readiness_status === 'ready' ? 'success' : 'info',
+        severity: result.readiness_status === 'Ready' ? 'success' : 'info',
+      }).catch(() => {})
+    } else if (existingProfile) {
+      logPortalEvent({
+        userId: existingProfile.id,
+        eventType: 'member_analyzer_rerun',
+        category: 'leads',
+        title: `Analyzer Updated Existing Member: ${full_name}`,
+        message: `A known member completed the free analyzer again. Their admin profile was refreshed instead of creating a duplicate lead.`,
+        metadata: {
+          email: normalizedEmail,
+          account_state: existingProfile.account_state,
+          ...(existingLead?.id ? { lead_id: existingLead.id } : {}),
+          readiness_score: result.readiness_score,
+          estimated_funding_range: result.estimated_funding_range,
+          assigned_program: result.assigned_program,
+        },
+        severity: 'info',
       }).catch(() => {})
     }
 
-    // ── Upsert into CRM (crm_leads) so Abel can call them from the dialer ──
+    // ── Upsert into CRM (crm_leads) so analyzer completions always appear in sales ──
     try {
-      const nameParts = full_name.trim().split(' ')
-      const firstName = nameParts[0] ?? full_name
-      const lastName = nameParts.slice(1).join(' ') || ''
+      const crmLead = await upsertAnalyzerCrmLead({
+        supabase,
+        fullName: full_name,
+        email: normalizedEmail,
+        phone,
+        businessName: business_name,
+        input,
+        result,
+        createIfMissing: !existingProfile,
+        complianceSnapshot: complianceSnapshot ?? undefined,
+      })
 
-      const crmNotes = [
-        `Source: Free Analyzer`,
-        `Readiness: ${result.readiness_status}`,
-        `Program: ${result.assigned_program}`,
-        result.risk_flags.length > 0 ? `Risk Flags: ${result.risk_flags.join(', ')}` : null,
-        input.business_age ? `Business Age: ${input.business_age}` : null,
-        input.monthly_revenue_range ? `Revenue: ${input.monthly_revenue_range}` : null,
-        input.credit_score_range ? `Credit Score: ${input.credit_score_range}` : null,
-      ].filter(Boolean).join('\n')
-
-      await supabase.from('crm_leads').upsert(
-        {
-          first_name: firstName,
-          last_name: lastName,
-          email: email.toLowerCase().trim(),
-          phone: phone || null,
-          business_name: business_name || null,
-          source: 'analyzer',
-          stage: 'new',
-          program_interest: result.assigned_program as 'program_a' | 'program_b' | 'program_c',
-          notes: crmNotes,
-        },
-        { onConflict: 'email', ignoreDuplicates: false }
-      )
+      if (crmLead.action !== 'skipped') {
+        logPortalEvent({
+          eventType: crmLead.action === 'created' ? 'crm_lead_added' : 'crm_lead_updated',
+          category: 'leads',
+          title: `${crmLead.action === 'created' ? 'New CRM Lead' : 'CRM Lead Updated'}: ${full_name}`,
+          message: `Free analyzer completion ${crmLead.action === 'created' ? 'created' : 'updated'} a CRM lead record.`,
+          metadata: {
+            crm_lead_id: crmLead.id,
+            email: normalizedEmail,
+            source: 'free_analyzer',
+            readiness_score: result.readiness_score,
+            estimated_funding_range: result.estimated_funding_range,
+            assigned_program: result.assigned_program,
+          },
+          severity: 'info',
+        }).catch(() => {})
+      }
     } catch (crmErr) {
       console.error('CRM upsert error (non-fatal):', crmErr)
     }
@@ -255,7 +408,7 @@ export async function POST(req: NextRequest) {
           await supabase
             .from('leads')
             .update({ notion_page_id: notionPageId, synced_to_notion: true })
-            .eq('email', email.toLowerCase().trim())
+            .eq('email', normalizedEmail)
             .eq('source', 'free_analyzer')
         }
       }
@@ -265,12 +418,64 @@ export async function POST(req: NextRequest) {
 
     // Send analyzer results email (fire-and-forget — never block the response)
     sendAnalyzerResultEmail({
-      toEmail: email.toLowerCase().trim(),
+      toEmail: normalizedEmail,
       toName: full_name,
       result,
       leadId,
       businessName: business_name,
     }).catch((e) => console.error('Analyzer email send error (non-fatal):', e))
+
+    if (crm_invite_id) {
+      await markCrmInviteEvent(supabase, {
+        inviteId: crm_invite_id,
+        status: 'analyzer_submitted',
+        createdBy: 'analyzer',
+        metadata: {
+          source: 'analyzer',
+          lead_id: leadId,
+          email: normalizedEmail,
+        },
+      }).catch(() => {})
+    }
+
+    if (contentAttribution?.pageId && leadId) {
+      await recordContentEvent({
+        pageId: contentAttribution.pageId,
+        eventType: 'lead',
+        relatedRecordId: leadId,
+        metadata: {
+          source: 'public_analyzer',
+          email: normalizedEmail,
+          assigned_program: result.assigned_program,
+        },
+      })
+    }
+
+    if (complianceSnapshot) {
+      await logPublicFormSecurityEvent({
+        formName: 'public_analyzer_contact_gate',
+        eventType: 'accepted',
+        req,
+        email,
+        fullName: full_name,
+        businessName: business_name || answers.business_name,
+        metadata: { lead_id: leadId },
+      })
+
+      await recordConsentRecord({
+        formName: 'public_analyzer_contact_gate',
+        snapshot: complianceSnapshot,
+        email,
+        fullName: full_name,
+        businessName: business_name || answers.business_name,
+        phone: phone || null,
+        leadId,
+        metadata: {
+          source: 'public_analyzer',
+          assigned_program: result.assigned_program,
+        },
+      })
+    }
 
     return NextResponse.json({ ...result, lead_id: leadId })
   } catch (error) {

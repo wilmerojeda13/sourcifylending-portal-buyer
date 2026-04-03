@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { evaluateLeadCallWindow, inferLeadPhoneIntelligence } from '@/lib/crm-call-compliance'
 
 const VAPI_API_KEY = process.env.VAPI_API_KEY
 const VAPI_ASSISTANT_ID = process.env.VAPI_ASSISTANT_ID
 const VAPI_PHONE_NUMBER_ID = process.env.VAPI_PHONE_NUMBER_ID
-/** Normalize phone to E.164. Assumes US (+1) if no country code. */
-function toE164(raw: string): string | null {
-  const digits = raw.replace(/\D/g, '')
-  if (digits.length === 10) return `+1${digits}`
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
-  if (digits.length > 7) return `+${digits}`
-  return null
-}
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -39,16 +32,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'phone_number is required' }, { status: 400 })
   }
 
-  const e164 = toE164(phone_number.trim())
-  if (!e164) {
+  const phoneIntelligence = await inferLeadPhoneIntelligence(phone_number.trim())
+  if (!phoneIntelligence.phone_e164) {
     return NextResponse.json({ error: 'Invalid phone number — could not convert to E.164' }, { status: 400 })
+  }
+
+  const callWindow = evaluateLeadCallWindow(phoneIntelligence)
+  if (callWindow.status !== 'callable_now') {
+    const { error: logError } = await supabase.from('crm_call_compliance_logs').insert({
+      lead_id: null,
+      original_phone: phone_number.trim(),
+      normalized_phone: phoneIntelligence.diagnostics.normalized_phone,
+      phone_e164: phoneIntelligence.phone_e164,
+      likely_timezone: phoneIntelligence.likely_timezone,
+      local_time_at_recipient: callWindow.recipientLocalTime,
+      rule_applied: callWindow.ruleApplied,
+      blocked_reason: callWindow.blockedReason ?? 'unknown_timezone',
+      parse_result: phoneIntelligence.diagnostics.parse_result,
+      libphonenumber_result: phoneIntelligence.diagnostics.libphonenumber_result,
+      fallback_result: phoneIntelligence.diagnostics.fallback_result,
+      final_reason: phoneIntelligence.diagnostics.final_reason,
+      timezone_source: phoneIntelligence.timezone_source,
+    })
+    if (logError) {
+      console.warn('[crm test-call] failed to write compliance log', logError)
+    }
+
+    return NextResponse.json({ error: callWindow.message }, { status: 400 })
   }
 
   const payload = {
     assistantId: VAPI_ASSISTANT_ID,
     phoneNumberId: VAPI_PHONE_NUMBER_ID,
     customer: {
-      number: e164,
+      number: phoneIntelligence.phone_e164,
       name: first_name ?? 'Test',
     },
     assistantOverrides: {

@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const { affiliate, supabase } = ctx
 
   const body = await req.json()
-  const { full_name, email, phone, business_name, notes, deal_type } = body
+  const { full_name, email, phone, business_name, notes, deal_type, assigned_program } = body
 
   if (!full_name?.trim() || !email?.trim()) {
     return NextResponse.json({ error: 'Full name and email are required' }, { status: 400 })
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email address' }, { status: 400 })
   }
 
-  const validDealTypes = ['referral_only', 'affiliate_closed']
+  const validDealTypes = ['referral_only', 'affiliate_closed', 'partner_assisted']
   if (deal_type && !validDealTypes.includes(deal_type)) {
     return NextResponse.json({ error: 'Invalid deal type' }, { status: 400 })
   }
@@ -100,7 +100,11 @@ export async function POST(req: NextRequest) {
       phone: phone?.trim() || null,
       business_name: business_name?.trim() || null,
       notes: notes?.trim() || null,
-      deal_type: deal_type || 'referral_only',
+      deal_type: deal_type === 'referral_only' ? 'referral_only' : 'partner_assisted',
+      acquisition_path: 'partner_assisted',
+      assigned_program: assigned_program || null,
+      onboarding_status: 'partner_closing',
+      partner_relationship_started_at: new Date().toISOString(),
       status: 'lead_created',
     })
     .select()

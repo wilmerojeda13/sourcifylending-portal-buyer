@@ -76,8 +76,22 @@ function StripeConnectSection() {
   const [payoutData, setPayoutData] = useState<PayoutData | null>(null)
   const [loadingStatus, setLoadingStatus] = useState(true)
   const [connecting, setConnecting] = useState(false)
+  const [connectError, setConnectError] = useState<string | null>(null)
   const [flashSuccess, setFlashSuccess] = useState(false)
   const [flashRefresh, setFlashRefresh] = useState(false)
+
+  const getFriendlyConnectError = useCallback((reason: string | null) => {
+    switch (reason) {
+      case 'auth':
+        return 'Please sign in again before starting Stripe onboarding.'
+      case 'missing_partner':
+        return 'We could not find your partner account. Please contact support.'
+      case 'missing_email':
+        return 'Your partner account is missing an email address. Please contact support before connecting Stripe.'
+      default:
+        return 'Unable to start Stripe onboarding right now. Please try again.'
+    }
+  }, [])
 
   const loadStatus = useCallback(async () => {
     setLoadingStatus(true)
@@ -104,27 +118,23 @@ function StripeConnectSection() {
     const connect = searchParams.get('connect')
     if (connect === 'success') {
       setFlashSuccess(true)
+      setConnectError(null)
       loadStatus()
       router.replace('/affiliate/account', { scroll: false })
     } else if (connect === 'refresh') {
       setFlashRefresh(true)
+      setConnectError(null)
+      router.replace('/affiliate/account', { scroll: false })
+    } else if (connect === 'error') {
+      setConnectError(getFriendlyConnectError(searchParams.get('reason')))
       router.replace('/affiliate/account', { scroll: false })
     }
-  }, [searchParams, loadStatus, router])
+  }, [searchParams, loadStatus, router, getFriendlyConnectError])
 
-  const handleConnect = async () => {
+  const handleConnect = () => {
+    if (connecting) return
     setConnecting(true)
-    try {
-      const res = await fetch('/api/affiliate/connect/onboard', { method: 'POST' })
-      const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        alert(data.error || 'Failed to start Stripe onboarding. Please try again.')
-      }
-    } finally {
-      setConnecting(false)
-    }
+    setConnectError(null)
   }
 
   if (loadingStatus) {
@@ -167,6 +177,16 @@ function StripeConnectSection() {
         </div>
       )}
 
+      {connectError && (
+        <div className="flex items-start gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-2xl px-5 py-4">
+          <AlertCircle size={18} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-red-800 dark:text-red-300">Stripe setup couldn&apos;t start</p>
+            <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">{connectError}</p>
+          </div>
+        </div>
+      )}
+
       {/* Connect card */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         {/* Header */}
@@ -199,6 +219,11 @@ function StripeConnectSection() {
               Not Connected
             </span>
           )}
+          {status === 'restricted' && (
+            <span className="shrink-0 flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded-full uppercase">
+              Restricted
+            </span>
+          )}
         </div>
 
         {/* Body */}
@@ -214,17 +239,19 @@ function StripeConnectSection() {
                   Setup takes about 5 minutes and your information is securely handled by Stripe.
                 </p>
               </div>
-              <button
-                onClick={handleConnect}
-                disabled={connecting}
-                className="shrink-0 flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {connecting ? (
-                  <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
-                ) : (
-                  <><Zap size={15} /> Connect with Stripe</>
-                )}
-              </button>
+              <form action="/api/affiliate/connect/onboard" method="GET" onSubmit={handleConnect}>
+                <button
+                  type="submit"
+                  disabled={connecting}
+                  className="shrink-0 flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {connecting ? (
+                    <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
+                  ) : (
+                    <><Zap size={15} /> Connect with Stripe</>
+                  )}
+                </button>
+              </form>
             </div>
           )}
 
@@ -243,17 +270,19 @@ function StripeConnectSection() {
                 </div>
               </div>
               {!stripeStatus?.details_submitted && (
-                <button
-                  onClick={handleConnect}
-                  disabled={connecting}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
-                >
-                  {connecting ? (
-                    <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
-                  ) : (
-                    <><ExternalLink size={15} /> Complete Stripe Setup</>
-                  )}
-                </button>
+                <form action="/api/affiliate/connect/onboard" method="GET" onSubmit={handleConnect}>
+                  <button
+                    type="submit"
+                    disabled={connecting}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                  >
+                    {connecting ? (
+                      <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
+                    ) : (
+                      <><ExternalLink size={15} /> Complete Stripe Setup</>
+                    )}
+                  </button>
+                </form>
               )}
               {stripeStatus?.requirements?.currently_due && stripeStatus.requirements.currently_due.length > 0 && (
                 <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">
@@ -286,6 +315,44 @@ function StripeConnectSection() {
             </div>
           )}
 
+          {/* RESTRICTED */}
+          {status === 'restricted' && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 bg-red-50 dark:bg-red-950/30 rounded-xl p-4">
+                <AlertTriangle size={16} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-red-800 dark:text-red-300">Stripe needs more information</p>
+                  <p className="text-xs text-red-700 dark:text-red-400 mt-0.5 leading-relaxed">
+                    Your payout account has restrictions or missing requirements. Reopen Stripe to finish onboarding and restore payouts.
+                  </p>
+                </div>
+              </div>
+              <form action="/api/affiliate/connect/onboard" method="GET" onSubmit={handleConnect}>
+                <button
+                  type="submit"
+                  disabled={connecting}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                >
+                  {connecting ? (
+                    <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
+                  ) : (
+                    <><ExternalLink size={15} /> Resume Stripe Setup</>
+                  )}
+                </button>
+              </form>
+              {stripeStatus?.requirements?.currently_due && stripeStatus.requirements.currently_due.length > 0 && (
+                <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 rounded-lg px-3 py-2">
+                  <p className="font-semibold mb-1">Still required by Stripe:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {stripeStatus.requirements.currently_due.slice(0, 5).map((req) => (
+                      <li key={req}>{req.replace(/_/g, ' ')}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
 
@@ -297,7 +364,7 @@ function StripeConnectSection() {
             Payout Balance
           </h2>
 
-          <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
             {[
               { label: 'Holding (7-day)', value: fmtCents(payoutData.balances.pending_cents), color: 'text-gray-600 dark:text-gray-400 dark:text-gray-500' },
               { label: 'Available', value: fmtCents(payoutData.balances.available_cents), color: 'text-indigo-600 dark:text-indigo-400' },
@@ -517,13 +584,13 @@ export default function AffiliateAccountPage() {
       {/* Referral link */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
         <h2 className="font-bold text-gray-900 dark:text-gray-100 mb-3">Your Referral Link</h2>
-        <div className="flex items-center gap-3">
-          <div className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 font-mono text-sm text-gray-700 dark:text-gray-300 truncate">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 font-mono text-sm text-gray-700 dark:text-gray-300 truncate">
             {referralLink}
           </div>
           <button
             onClick={copyLink}
-            className="flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors shrink-0"
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors shrink-0 w-full sm:w-auto"
           >
             {copiedLink ? (
               <><CheckCheck size={15} /> Copied!</>
@@ -535,7 +602,7 @@ export default function AffiliateAccountPage() {
       </div>
 
       {/* Support */}
-      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 flex items-start gap-4">
+      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 flex flex-col sm:flex-row items-start gap-4">
         <div className="flex-1">
           <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Need to update your information?</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 leading-relaxed">
@@ -544,7 +611,7 @@ export default function AffiliateAccountPage() {
         </div>
         <a
           href="mailto:abel@sourcifylending.com"
-          className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-700 hover:text-indigo-700 dark:text-indigo-400 transition-colors"
+          className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-700 hover:text-indigo-700 dark:text-indigo-400 transition-colors w-full sm:w-auto"
         >
           <Mail size={15} />
           Contact Support

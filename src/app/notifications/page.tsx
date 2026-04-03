@@ -1,8 +1,8 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import PortalLayout from '@/components/layout/PortalLayout'
 import { Bell, CheckCheck } from 'lucide-react'
 import { revalidatePath } from 'next/cache'
+import { getBusinessContext, requirePortalPageContext } from '@/lib/business-context'
 
 interface Notification {
   id: string
@@ -16,13 +16,13 @@ interface Notification {
 // ─── Server action to mark all as read ────────────────────────────────────────
 async function markAllRead(formData: FormData) {
   'use server'
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+  const context = await getBusinessContext()
+  if (!context) return
+  const supabase = await createServiceClient()
   await supabase
     .from('notifications')
     .update({ read: true })
-    .eq('user_id', user.id)
+    .eq('user_id', context.activeBusinessId)
     .eq('read', false)
   revalidatePath('/notifications')
 }
@@ -32,29 +32,28 @@ async function markOneRead(formData: FormData) {
   'use server'
   const id = formData.get('id') as string
   if (!id) return
-  const supabase = await createClient()
-  await supabase.from('notifications').update({ read: true }).eq('id', id)
+  const context = await getBusinessContext()
+  if (!context) return
+  const supabase = await createServiceClient()
+  await supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('id', id)
+    .eq('user_id', context.activeBusinessId)
   revalidatePath('/notifications')
 }
 
 export default async function NotificationsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, activePrograms, notificationCount } = await requirePortalPageContext()
 
-  const [{ data: profile }, { data: notifications }, membershipsResult] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
+  const [{ data: notifications }] = await Promise.all([
     supabase
       .from('notifications')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', activeBusinessId)
       .order('created_at', { ascending: false })
       .limit(50),
-    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
   ])
-
-  const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   const unreadCount = (notifications ?? []).filter((n) => !n.read).length
 
@@ -76,7 +75,7 @@ export default async function NotificationsPage() {
     <PortalLayout
       userName={profile?.full_name || user.email || 'Client'}
       programLabel={profile?.assigned_program ?? ''}
-      notificationCount={unreadCount}
+      notificationCount={notificationCount}
       assignedProgram={profile?.assigned_program}
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
@@ -99,7 +98,7 @@ export default async function NotificationsPage() {
             <form action={markAllRead}>
               <button
                 type="submit"
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-green-700 border border-gray-200 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
               >
                 <CheckCheck size={14} /> Mark all read
               </button>

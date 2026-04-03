@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getBusinessContext } from '@/lib/business-context'
 import { stripe } from '@/lib/stripe'
 
 export async function POST(req: NextRequest) {
@@ -7,11 +8,13 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const context = await getBusinessContext()
+    if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('stripe_customer_id')
-      .eq('user_id', user.id)
+      .eq('user_id', context.activeBusinessId)
       .single()
 
     if (!subscription?.stripe_customer_id) {

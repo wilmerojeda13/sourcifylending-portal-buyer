@@ -8,13 +8,14 @@ type CommissionType = 'setup' | 'recurring'
 interface Commission {
   id: string
   commission_amount: number
-  commission_rate: number | null
+  commission_percent: number | null
   gross_amount: number
   status: CommissionStatus
   commission_type: CommissionType
-  program: string | null
-  available_date: string | null
-  paid_date: string | null
+  program_type: string | null
+  revenue_component?: 'setup_fee' | 'recurring' | null
+  available_at: string | null
+  paid_at: string | null
   created_at: string
   affiliate_referrals: {
     lead_name: string | null
@@ -39,11 +40,9 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-// commission_rate is stored as a decimal (0.10, 0.30) — multiply by 100 to display as %
-// Guard against null/undefined/NaN coming from the API
 function fmtPct(n: number | null | undefined) {
   if (n == null || isNaN(Number(n))) return '—'
-  return `${(Number(n) * 100).toFixed(0)}%`
+  return `${Number(n).toFixed(Number(n) % 1 === 0 ? 0 : 1)}%`
 }
 
 const STATUS_CONFIG: Record<CommissionStatus, { label: string; color: string }> = {
@@ -152,8 +151,8 @@ export default function AffiliateCommissionsPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Commission Ledger</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Track your earned and paid commissions.</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Partner Earnings</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Track setup earnings and recurring commissions from your partner-assisted clients.</p>
       </div>
 
       {/* Summary stats */}
@@ -211,7 +210,7 @@ export default function AffiliateCommissionsPage() {
             </div>
             <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 dark:text-gray-500">No commissions found</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              {statusFilter ? `No ${statusFilter} commissions.` : 'Commissions will appear here once you refer clients.'}
+              {statusFilter ? `No ${statusFilter} commissions.` : 'Commissions will appear here once your partner-assisted clients begin paying.'}
             </p>
           </div>
         ) : (
@@ -244,19 +243,19 @@ export default function AffiliateCommissionsPage() {
                         </p>
                       </td>
                       <td className="px-4 py-3.5 text-xs text-gray-600 dark:text-gray-400 dark:text-gray-500 capitalize">
-                        {c.program ? c.program.replace('_', ' ') : '—'}
+                        {c.program_type ? c.program_type.replace('_', ' ') : '—'}
                       </td>
                       <td className="px-4 py-3.5">
                         <TypeBadge type={c.commission_type} />
                       </td>
                       <td className="px-4 py-3.5 text-right text-xs text-gray-600 dark:text-gray-400 dark:text-gray-500">{fmt(c.gross_amount)}</td>
-                      <td className="px-4 py-3.5 text-right text-xs text-gray-600 dark:text-gray-400 dark:text-gray-500">{fmtPct(c.commission_rate)}</td>
+                      <td className="px-4 py-3.5 text-right text-xs text-gray-600 dark:text-gray-400 dark:text-gray-500">{fmtPct(c.commission_percent)}</td>
                       <td className="px-4 py-3.5 text-right text-sm font-bold text-gray-900 dark:text-gray-100">{fmt(c.commission_amount)}</td>
                       <td className="px-4 py-3.5">
                         <StatusBadge status={c.status} />
                       </td>
-                      <td className="px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">{fmtDate(c.available_date)}</td>
-                      <td className="px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">{fmtDate(c.paid_date)}</td>
+                      <td className="px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">{fmtDate(c.available_at)}</td>
+                      <td className="px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">{fmtDate(c.paid_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -278,15 +277,15 @@ export default function AffiliateCommissionsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <TypeBadge type={c.commission_type} />
-                    <span className="text-xs text-gray-400 dark:text-gray-500 capitalize">{c.program?.replace('_', ' ') || '—'}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 capitalize">{c.program_type?.replace('_', ' ') || '—'}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-xs">{fmt(c.gross_amount)} × {fmtPct(c.commission_rate)}</span>
+                    <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-xs">{fmt(c.gross_amount)} × {fmtPct(c.commission_percent)}</span>
                     <span className="font-bold text-gray-900 dark:text-gray-100">{fmt(c.commission_amount)}</span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                    <span>Available: {fmtDate(c.available_date)}</span>
-                    {c.paid_date && <span>· Paid: {fmtDate(c.paid_date)}</span>}
+                    <span>Available: {fmtDate(c.available_at)}</span>
+                    {c.paid_at && <span>· Paid: {fmtDate(c.paid_at)}</span>}
                   </div>
                 </div>
               ))}
@@ -321,9 +320,9 @@ export default function AffiliateCommissionsPage() {
         <div className="flex items-start gap-3">
           <DollarSign size={16} className="text-gray-400 dark:text-gray-500 shrink-0 mt-0.5" />
           <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 leading-relaxed">
-            Commissions become eligible after a <strong className="text-gray-700 dark:text-gray-300">7-day hold</strong> period.
+            Partner earnings become eligible after a <strong className="text-gray-700 dark:text-gray-300">7-day hold</strong> period.
             Minimum payout threshold: <strong className="text-gray-700 dark:text-gray-300">$100.00</strong>.
-            Payouts are processed manually — contact us when your balance is ready.
+            Setup earnings pay at 80% of collected setup fees for partner-assisted Program A and B clients. Recurring commissions pay at 20% of successfully collected subscription revenue only.
           </p>
         </div>
       </div>

@@ -17,10 +17,12 @@ export default function GoogleSignInButton({
   const handleGoogleSignIn = async () => {
     setLoading(true)
     const supabase = createClient()
+    const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '')
+    const nextPath = redirectTo.startsWith('/') ? redirectTo : '/dashboard'
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        redirectTo: `${appOrigin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
         queryParams: {
           access_type: 'offline',
           prompt: 'select_account',

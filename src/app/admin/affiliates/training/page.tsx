@@ -33,8 +33,8 @@ export default async function AffiliateTrainingAdminPage() {
               <PlayCircle className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Affiliate Training Videos</h1>
-              <p className="text-xs text-gray-500">Manage videos shown in the affiliate Training Center</p>
+              <h1 className="text-xl font-bold text-gray-900">Partner Training Videos</h1>
+              <p className="text-xs text-gray-500">Manage videos shown in the partner Training Center</p>
             </div>
           </div>
         </div>

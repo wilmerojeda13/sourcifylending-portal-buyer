@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { getPartnerCommissionPercent, type RevenueComponent } from '@/lib/partner-program'
 
 export const AFFILIATE_FREE_ACCESS_THRESHOLD = 5
 export const AFFILIATE_QUALIFICATION_DAYS = 14
@@ -9,7 +10,7 @@ export const DEAL_TYPE_RATES = {
   affiliate_closed: { setup: 30, recurring: 30 },
 } as const
 
-export type DealType = 'referral_only' | 'affiliate_closed'
+export type DealType = 'referral_only' | 'affiliate_closed' | 'partner_assisted'
 
 export interface AffiliateCommissionSettings {
   program_type: string
@@ -195,10 +196,10 @@ export async function runFreeAccessQualificationCheck() {
 
 /** Create a commission for a payment.
  *
- *  Rate logic (non-negotiable):
- *  - referral_only                          → 10% setup / 10% recurring
- *  - affiliate_closed + approved            → 30% setup / 30% recurring
- *  - affiliate_closed + pending approval    → 10% (stored as referral_only rate, deal_type still recorded)
+ *  Rate logic:
+ *  - legacy referral_only                   → 10% setup / 10% recurring
+ *  - legacy affiliate_closed + approved     → 30% setup / 30% recurring
+ *  - partner_assisted                       → 80% setup (A/B only) / 20% recurring
  *
  *  Eligibility checks run before any commission is written:
  *  - no self-commission (Rule 1)
@@ -214,7 +215,7 @@ export async function createCommission({
   commissionType,
   grossAmountCents,
   idempotencyKey,
-  dealType = 'referral_only',
+  dealType = 'partner_assisted',
   dealTypeApproved = null,
 }: {
   affiliateId: string
@@ -276,7 +277,9 @@ export async function createCommission({
   if (commissionType === 'recurring' && !settings.recurring_commissions_enabled) return null
 
   // ── Determine effective rate from deal_type ───────────────────────────────
-  // affiliate_closed pays 30% ONLY when approved (or when approval is not required)
+  // Legacy affiliate_closed may still require approval. New partner_assisted
+  // deals are paid using the new setup/recurring schedule immediately after
+  // successful collection.
   let globalSettings: { require_approval_for_affiliate_closed: boolean } | null = null
   try {
     const { data } = await supabase.from('affiliate_global_settings').select('*').eq('id', 1).single()
@@ -289,8 +292,13 @@ export async function createCommission({
       ? 'referral_only'   // downgrade until approved
       : dealType
 
-  const rates = DEAL_TYPE_RATES[effectiveDealType]
-  const percent = commissionType === 'setup' ? rates.setup : rates.recurring
+  const revenueComponent: RevenueComponent = commissionType === 'setup' ? 'setup_fee' : 'recurring'
+  const percent = getPartnerCommissionPercent(
+    programType as 'program_a' | 'program_b' | 'program_c',
+    revenueComponent,
+    effectiveDealType
+  )
+  if (percent <= 0) return null
 
   const holdDays = commissionType === 'setup' ? settings.setup_hold_days : settings.recurring_hold_days
   const availableAt = new Date(Date.now() + holdDays * 24 * 60 * 60 * 1000).toISOString()
@@ -310,6 +318,9 @@ export async function createCommission({
       commission_percent: percent,
       commission_amount: commissionAmount,
       deal_type: dealType,          // record actual deal_type (not downgraded)
+      revenue_component: revenueComponent,
+      acquisition_path: effectiveDealType === 'partner_assisted' ? 'partner_assisted' : 'self_serve',
+      partner_commission_eligible: true,
       status: 'pending',
       available_at: availableAt,
       idempotency_key: idempotencyKey,

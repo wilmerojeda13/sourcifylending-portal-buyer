@@ -17,7 +17,7 @@ export function Badge({ children, variant = 'default', className }: BadgeProps) 
     locked: 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500',
   }
   return (
-    <span className={cn('badge', variants[variant], className)}>
+    <span className={cn('badge inline-flex max-w-full whitespace-normal break-words text-center leading-tight', variants[variant], className)}>
       {children}
     </span>
   )

@@ -276,6 +276,107 @@ function ClientTableRow({
   )
 }
 
+function ClientMobileCard({
+  client,
+  assignment,
+  onDelete,
+}: {
+  client: ClientRow
+  assignment: AssignmentRow | undefined
+  onDelete: (clientId: string, name: string) => void
+}) {
+  const health = HEALTH_CONFIG[client.health_status]
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-900 dark:text-white">{client.full_name || 'Unknown'}</p>
+          <p className="mt-1 truncate text-xs text-gray-400 dark:text-gray-500">{client.email}</p>
+          {client.business_name && (
+            <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">{client.business_name}</p>
+          )}
+        </div>
+        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-full uppercase ${health.badge}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${health.dot}`} />
+          {health.label}
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${STATUS_COLORS[client.subscription_status] ?? 'bg-gray-100 text-gray-500'}`}>
+          {client.subscription_status}
+        </span>
+        {client.portal_blocked && (
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase bg-red-100 text-red-600">Blocked</span>
+        )}
+        {client.is_demo && (
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase bg-purple-100 text-purple-600">Demo</span>
+        )}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Program</p>
+          <p className="mt-1 text-gray-700 dark:text-gray-300">{client.assigned_program ? getProgramShortLabel(client.assigned_program) : '—'}</p>
+          {client.current_stage && <p className="text-xs text-gray-400 dark:text-gray-500">{client.current_stage}</p>}
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Funding</p>
+          <p className={`mt-1 font-semibold ${client.funding_total > 0 ? 'text-green-700 dark:text-green-400' : 'text-gray-400'}`}>
+            {formatCurrency(client.funding_total)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Progress</p>
+          <div className="mt-1 flex items-center gap-2">
+            <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700">
+              <div className="h-1.5 rounded-full bg-green-500" style={{ width: `${Math.min(client.progress, 100)}%` }} />
+            </div>
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{client.progress}%</span>
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Last Activity</p>
+          <p className="mt-1 text-gray-700 dark:text-gray-300">{relativeTime(client.last_activity)}</p>
+        </div>
+        <div className="col-span-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Support</p>
+          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{assignment?.assigned_to_name || 'Unassigned'}</p>
+          {assignment?.support_notes && (
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500 line-clamp-2">{assignment.support_notes}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <Link
+          href={`/admin/members/${client.id}`}
+          className="inline-flex items-center justify-center rounded-xl bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700"
+        >
+          View
+        </Link>
+        <a
+          href={`/admin/client-view/${client.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center gap-1 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+        >
+          <ExternalLink size={11} />
+          Portal
+        </a>
+        <button
+          onClick={() => onDelete(client.id, client.full_name || client.email)}
+          className="inline-flex items-center justify-center gap-1 rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+        >
+          <Trash2 size={11} />
+          Delete
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Create Member Modal ──────────────────────────────────────────────────────
 function CreateMemberModal({ onClose, onCreate }: {
   onClose: () => void
@@ -317,8 +418,8 @@ function CreateMemberModal({ onClose, onCreate }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md mx-0 sm:mx-4 overflow-hidden border border-gray-200 dark:border-gray-700 max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <UserPlus size={18} className="text-green-600" />
@@ -366,7 +467,7 @@ function CreateMemberModal({ onClose, onCreate }: {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5 uppercase tracking-wide">Program</label>
               <select
@@ -431,8 +532,8 @@ function DeleteConfirmModal({ name, onConfirm, onCancel, loading }: {
   loading: boolean
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 border border-gray-200 dark:border-gray-700">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
+      <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-sm mx-0 sm:mx-4 p-6 border border-gray-200 dark:border-gray-700">
         <div className="w-12 h-12 bg-red-100 dark:bg-red-900/40 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Trash2 size={22} className="text-red-600 dark:text-red-400" />
         </div>
@@ -613,15 +714,31 @@ export default function ClientManagementTable({ clients, assignments }: Props) {
             <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{filtered.length} client{filtered.length !== 1 ? 's' : ''}</span>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="ml-auto flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+              className="flex w-full items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap sm:ml-auto sm:w-auto"
             >
               <UserPlus size={14} />
               New Member
             </button>
           </div>
 
+          <div className="space-y-3 p-4 md:hidden">
+            {filtered.map((client) => (
+              <ClientMobileCard
+                key={client.id}
+                client={client}
+                assignment={assignmentState.get(client.id)}
+                onDelete={(id, name) => setDeleteTarget({ id, name })}
+              />
+            ))}
+            {filtered.length === 0 && (
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-10 text-center text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-500">
+                No clients match your filters
+              </div>
+            )}
+          </div>
+
           {/* Table */}
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/30">

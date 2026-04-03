@@ -5,6 +5,7 @@ import { scoreUnderwriting } from '@/lib/underwriting-scorer'
 import { logActivity } from '@/lib/activity'
 import { sendUnderwritingCompleteEmail } from '@/lib/email'
 import { logPortalEvent } from '@/lib/portal-events'
+import { getBusinessContext } from '@/lib/business-context'
 
 // Reviews are valid for 30 days
 const REVIEW_VALIDITY_DAYS = 30
@@ -26,6 +27,8 @@ export async function POST(req: NextRequest) {
     const authClient = await createClient()
     const { data: { user } } = await authClient.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const context = await getBusinessContext()
+    if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const supabase = await createServiceClient()
 
@@ -33,7 +36,7 @@ export async function POST(req: NextRequest) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', context.activeBusinessId)
       .single()
 
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
@@ -171,7 +174,7 @@ ${scoreResult.estimated_funding_range ? `Estimated funding range: ${scoreResult.
 
     // 9. Insert into underwriting_reviews history table
     await supabase.from('underwriting_reviews').insert({
-      user_id: user.id,
+      user_id: context.activeBusinessId,
       program: profile.assigned_program,
       review_number: reviewNumber,
       completed_at: nowIso,
@@ -251,14 +254,14 @@ ${scoreResult.estimated_funding_range ? `Estimated funding range: ${scoreResult.
       })
     }
 
-    await supabase.from('profiles').update(profileUpdate).eq('id', user.id)
+    await supabase.from('profiles').update(profileUpdate).eq('id', context.activeBusinessId)
 
     // 11. Log activity
     const eventType = scoreResult.approval_likelihood === 'disqualified'
       ? 'underwriting_disqualified'
       : 'underwriting_completed'
 
-    await logActivity(user.id, eventType, {
+    await logActivity(context.activeBusinessId, eventType, {
       program: profile.assigned_program,
       review_number: reviewNumber,
       approval_likelihood: scoreResult.approval_likelihood,
@@ -280,7 +283,7 @@ ${scoreResult.estimated_funding_range ? `Estimated funding range: ${scoreResult.
       scoreResult.determined_stage ? `Stage: ${scoreResult.determined_stage}` : null,
     ].filter(Boolean).join(' · ')
     logPortalEvent({
-      userId: user.id,
+      userId: context.activeBusinessId,
       eventType: eventType,
       category: 'accounts',
       title: notifTitle,
@@ -316,7 +319,7 @@ ${scoreResult.estimated_funding_range ? `Estimated funding range: ${scoreResult.
 
     // Trigger Roadmap Agent after underwriting completes (fire and forget)
     import('@/modules/agents/roadmap-agent').then(({ runRoadmapAgent }) => {
-      runRoadmapAgent(user.id).catch(err => console.error('[RoadmapAgent trigger]', err))
+      runRoadmapAgent(context.activeBusinessId).catch(err => console.error('[RoadmapAgent trigger]', err))
     })
 
     return NextResponse.json({
@@ -350,12 +353,14 @@ export async function GET() {
     const authClient = await createClient()
     const { data: { user } } = await authClient.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const context = await getBusinessContext()
+    if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const supabase = await createServiceClient()
     const { data: profile } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', context.activeBusinessId)
       .single()
 
     const isExpired = underwrtingIsExpired(profile?.underwriting_next_due_at ?? null)

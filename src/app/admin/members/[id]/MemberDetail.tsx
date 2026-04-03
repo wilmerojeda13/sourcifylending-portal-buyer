@@ -5,8 +5,8 @@ import Link from 'next/link'
 import {
   ArrowLeft, User, Shield, ShieldOff, CheckCircle, Clock, Lock, AlertTriangle,
   FileText, BarChart2, Bell, Save, Loader2, AlertOctagon, ChevronDown, ChevronUp,
-  MessageSquare, Tag, RefreshCw, LayoutDashboard, Pin, Trash2, Plus, X,
-  ExternalLink, ChevronRight, Zap, BanIcon, DollarSign,
+  MessageSquare, Tag, LayoutDashboard, Pin, Trash2, Plus, X,
+  ChevronRight, Zap, BanIcon, DollarSign, ExternalLink, RefreshCw,
 } from 'lucide-react'
 import BillingControlPanel from '@/components/admin/BillingControlPanel'
 import type {
@@ -18,7 +18,13 @@ import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Props {
-  profile: UserProfile & { stripe_customer_id?: string }
+  profile: UserProfile & {
+    stripe_customer_id?: string
+    active_programs?: string[]
+    suspicious_signup?: boolean
+    suspicious_signup_reason?: string | null
+    signup_risk_score?: number | null
+  }
   subscription: {
     id: string
     stripe_subscription_id: string | null
@@ -32,9 +38,24 @@ interface Props {
   activityLogs: ActivityLog[]
   contactNotes: ContactNote[]
   tickets: Ticket[]
+  linkedBusinesses?: Array<{
+    id: string
+    label: string
+    entity_type: string | null
+    industry: string | null
+    role: string
+    is_default: boolean
+    account_state: string
+    subscription_status: string
+    assigned_program: string | null
+    portal_blocked: boolean
+    created_at: string | null
+    is_current: boolean
+    business_status: 'active' | 'inactive' | 'pending'
+  }>
 }
 
-type ActiveTab = 'overview' | 'notes' | 'tickets' | 'notion' | 'ai' | 'billing'
+type ActiveTab = 'overview' | 'notes' | 'tickets' | 'ai' | 'billing'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STATUS_OPTIONS: SubscriptionStatus[] = ['active', 'trialing', 'past_due', 'canceled', 'inactive']
@@ -103,6 +124,7 @@ export default function MemberDetail({
   activityLogs,
   contactNotes: initialNotes,
   tickets: initialTickets,
+  linkedBusinesses = [],
 }: Props) {
 
   // ── Tab ──
@@ -194,11 +216,6 @@ export default function MemberDetail({
   const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null)
   const [ticketResolution, setTicketResolution] = useState<Record<string, string>>({})
   const [updatingTicketId, setUpdatingTicketId] = useState<string | null>(null)
-
-  // ── Notion Sync ──
-  const [notionPageUrl, setNotionPageUrl] = useState(profile.notion_page_id ?? '')
-  const [syncing, setSyncing] = useState(false)
-  const [lastSyncResult, setLastSyncResult] = useState<{ message: string; fields?: string[]; ok: boolean } | null>(null)
 
   // ── Invite ──
   const [inviteStatus, setInviteStatus] = useState<string>(
@@ -589,56 +606,6 @@ export default function MemberDetail({
     }
   }
 
-  // ── Notion handlers ──
-
-  async function pushToNotion() {
-    setSyncing(true)
-    setLastSyncResult(null)
-    try {
-      const res = await fetch('/api/admin/notion-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: profile.id,
-          notion_page_id: notionPageUrl.trim() || undefined,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setLastSyncResult({ message: data.message, fields: data.fields_pushed, ok: data.synced })
-      if (data.synced) toast.success('Pushed to Notion!')
-      else toast(data.message)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Sync failed'
-      setLastSyncResult({ message: msg, ok: false })
-      toast.error(msg)
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  async function pullFromNotion() {
-    setSyncing(true)
-    setLastSyncResult(null)
-    try {
-      const res = await fetch(`/api/admin/notion-sync?user_id=${profile.id}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setLastSyncResult({ message: data.message, fields: data.fields_updated, ok: data.synced })
-      if (data.synced) {
-        toast.success(`Pulled from Notion! Reload page to see updated fields.`)
-      } else {
-        toast(data.message)
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Sync failed'
-      setLastSyncResult({ message: msg, ok: false })
-      toast.error(msg)
-    } finally {
-      setSyncing(false)
-    }
-  }
-
   // ── AI handlers ──
 
   async function loadAiEvents() {
@@ -748,7 +715,6 @@ export default function MemberDetail({
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={14} /> },
     { id: 'notes', label: 'Notes', icon: <MessageSquare size={14} />, count: notes.length },
     { id: 'tickets', label: 'Tickets', icon: <Tag size={14} />, count: tickets.filter((t) => t.status === 'open' || t.status === 'in_progress').length },
-    { id: 'notion', label: 'Notion Sync', icon: <RefreshCw size={14} /> },
     { id: 'ai', label: 'AI Credits', icon: <Zap size={14} /> },
     { id: 'billing', label: 'Billing', icon: <DollarSign size={14} /> },
   ]
@@ -782,6 +748,11 @@ export default function MemberDetail({
             {form.portal_blocked && (
               <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 flex items-center gap-1">
                 <AlertOctagon size={12} /> Portal Blocked
+              </span>
+            )}
+            {(profile as UserProfile & { suspicious_signup?: boolean }).suspicious_signup && (
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
+                <AlertTriangle size={12} /> Suspicious Signup
               </span>
             )}
             <button
@@ -887,6 +858,22 @@ export default function MemberDetail({
             {/* ══ TAB: OVERVIEW ══ */}
             {activeTab === 'overview' && (
               <div className="space-y-4">
+
+                {(profile as UserProfile & { suspicious_signup?: boolean; suspicious_signup_reason?: string | null; signup_risk_score?: number | null }).suspicious_signup && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <h2 className="text-sm font-bold text-amber-900 flex items-center gap-2">
+                      <AlertTriangle size={16} /> Suspicious Signup Flag
+                    </h2>
+                    <p className="mt-2 text-xs text-amber-800">
+                      {((profile as UserProfile & { suspicious_signup_reason?: string | null }).suspicious_signup_reason) ?? 'This signup matched bot-like or junk-account heuristics.'}
+                    </p>
+                    {(profile as UserProfile & { signup_risk_score?: number | null }).signup_risk_score !== null && (
+                      <p className="mt-1 text-[11px] text-amber-700">
+                        Risk score: {(profile as UserProfile & { signup_risk_score?: number | null }).signup_risk_score}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Profile & Subscription Form */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
@@ -1095,7 +1082,7 @@ export default function MemberDetail({
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Account State</label>
                       <select
                         value={infoForm.account_state}
-                        onChange={(e) => setInfoForm((p) => ({ ...p, account_state: e.target.value }))}
+                        onChange={(e) => setInfoForm((p) => ({ ...p, account_state: e.target.value as UserProfile['account_state'] }))}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                       >
                         <option value="prospect">Prospect</option>
@@ -1195,7 +1182,7 @@ export default function MemberDetail({
                   <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
                     <CheckCircle size={18} className="text-green-600" /> Tasks
                   </h2>
-                  <div className="grid grid-cols-4 gap-3 mb-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                     {[
                       { label: 'Total', value: taskStats.total, color: 'text-gray-900' },
                       { label: 'Done', value: taskStats.completed, color: 'text-green-600' },
@@ -1413,7 +1400,7 @@ export default function MemberDetail({
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-semibold text-gray-500 mb-1">Priority</label>
                           <select
@@ -1536,98 +1523,6 @@ export default function MemberDetail({
                       <p className="text-xs text-gray-400">No tickets yet. Create one above to track issues.</p>
                     </div>
                   )}
-                </div>
-
-              </div>
-            )}
-
-            {/* ══ TAB: NOTION SYNC ══ */}
-            {activeTab === 'notion' && (
-              <div className="space-y-4">
-
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-                  <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
-                    <RefreshCw size={18} className="text-blue-600" /> Notion Sync
-                  </h2>
-                  <p className="text-xs text-gray-500 mb-5">
-                    Link this client to a Notion CRM page for bidirectional sync. Changes in the portal can be pushed to Notion, and Notion data can be pulled into the portal.
-                  </p>
-
-                  {/* Notion Page URL/ID Input */}
-                  <div className="mb-4">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                      Notion Page URL or ID
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={notionPageUrl}
-                        onChange={(e) => setNotionPageUrl(e.target.value)}
-                        placeholder="https://notion.so/workspace/Client-Name-abc123… or just the page ID"
-                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      {notionPageUrl && (
-                        <a
-                          href={notionPageUrl.startsWith('http') ? notionPageUrl : `https://notion.so/${notionPageUrl}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 text-gray-400 hover:text-blue-600 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors"
-                          title="Open in Notion"
-                        >
-                          <ExternalLink size={16} />
-                        </a>
-                      )}
-                    </div>
-                    {profile.notion_page_id && !notionPageUrl && (
-                      <p className="text-[10px] text-gray-400 mt-1">Currently linked: <span className="font-mono">{profile.notion_page_id}</span></p>
-                    )}
-                  </div>
-
-                  {/* Sync Buttons */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={pushToNotion}
-                      disabled={syncing || (!notionPageUrl.trim() && !profile.notion_page_id)}
-                      className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-50 transition-colors"
-                    >
-                      {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                      Push → Notion
-                    </button>
-                    <button
-                      onClick={pullFromNotion}
-                      disabled={syncing || !profile.notion_page_id}
-                      className="flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-blue-600 border border-blue-300 text-sm font-semibold py-2.5 rounded-xl disabled:opacity-50 transition-colors"
-                    >
-                      {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                      Pull ← Notion
-                    </button>
-                  </div>
-
-                  {/* Pull disabled reason */}
-                  {!profile.notion_page_id && (
-                    <p className="text-[10px] text-gray-400 mt-2 text-center">Enter a Notion page URL above and push first to link this client.</p>
-                  )}
-
-                  {/* Sync Result */}
-                  {lastSyncResult && (
-                    <div className={`mt-4 p-3 rounded-xl text-xs ${lastSyncResult.ok ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-amber-50 border border-amber-200 text-amber-700'}`}>
-                      <p className="font-semibold">{lastSyncResult.ok ? '✓' : '⚠'} {lastSyncResult.message}</p>
-                      {lastSyncResult.fields && lastSyncResult.fields.length > 0 && (
-                        <p className="mt-1 text-[10px] opacity-80">Fields: {lastSyncResult.fields.join(', ')}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* How it works */}
-                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
-                  <h3 className="font-semibold text-blue-900 text-sm mb-2">How Notion Sync Works</h3>
-                  <ul className="space-y-2 text-xs text-blue-800">
-                    <li className="flex gap-2"><span>→</span><span><strong>Push to Notion:</strong> Sends Program, Stage, Status, and Admin Notes from the portal to the linked Notion page.</span></li>
-                    <li className="flex gap-2"><span>←</span><span><strong>Pull from Notion:</strong> Reads Stage, Program, Status, and Notes from the Notion page and updates the portal profile.</span></li>
-                    <li className="flex gap-2"><span>🔑</span><span>Requires <code className="bg-blue-100 px-1 rounded">NOTION_API_KEY</code> in your environment variables and the integration to have access to the page.</span></li>
-                    <li className="flex gap-2"><span>📋</span><span>Property names are matched by pattern (e.g. "Stage", "Program", "Status", "Notes"). Capitalization doesn't matter.</span></li>
-                  </ul>
                 </div>
 
               </div>
@@ -1838,6 +1733,72 @@ export default function MemberDetail({
           {/* ── Right Sidebar (always visible) ── */}
           <div className="space-y-4">
 
+            {/* Businesses */}
+            {linkedBusinesses.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <Building2 size={18} className="text-gray-500" /> Businesses
+                </h2>
+                <div className="space-y-2">
+                  {linkedBusinesses.map((business) => (
+                    <Link
+                      key={business.id}
+                      href={`/admin/members/${business.id}`}
+                      className={`block rounded-xl border px-3 py-2.5 transition-colors ${
+                        business.is_current
+                          ? 'border-green-200 bg-green-50'
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-gray-900">{business.label}</p>
+                          <div className="mt-1 space-y-1 text-[11px] text-gray-500">
+                            <p>
+                              {business.role} · {business.account_state.replace('_', ' ')} · subscription {business.subscription_status}
+                            </p>
+                            <p>
+                              Status: {business.business_status} · Program: {business.assigned_program ? getProgramShortLabel(business.assigned_program as ProgramId) : 'None selected'}
+                            </p>
+                            <p>
+                              Entity: {business.entity_type ?? '—'} · Industry: {business.industry ?? '—'}
+                            </p>
+                            <p>
+                              Created: {business.created_at ? fmtDate(business.created_at) : '—'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {business.is_default && (
+                            <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-blue-700">Default</span>
+                          )}
+                          {business.is_current && (
+                            <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-green-700">Open</span>
+                          )}
+                          {business.portal_blocked && (
+                            <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-600">Blocked</span>
+                          )}
+                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                            business.business_status === 'active'
+                              ? 'bg-green-100 text-green-700'
+                              : business.business_status === 'pending'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {business.business_status}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400">
+                        <span>{business.subscription_status === 'active' || business.subscription_status === 'trialing' ? 'Paid business' : 'Unpaid business'}</span>
+                        <span className="font-medium text-green-700">Open business record →</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Stripe Info */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
               <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
@@ -1868,6 +1829,27 @@ export default function MemberDetail({
                 <div><span className="text-gray-400">Entity: </span>{profile.entity_type ?? '—'}</div>
                 <div><span className="text-gray-400">Industry: </span>{profile.industry ?? '—'}</div>
                 <div><span className="text-gray-400">Revenue: </span>{profile.monthly_revenue_range ?? '—'}</div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+              <h2 className="font-bold text-gray-900 mb-3 text-sm">Partner Relationship</h2>
+              <div className="space-y-1.5 text-xs text-gray-600">
+                <div>
+                  <span className="text-gray-400">Path: </span>
+                  {profile.acquisition_path === 'partner_assisted' ? 'Partner-Assisted' : 'Self-Serve'}
+                </div>
+                <div><span className="text-gray-400">Assigned partner: </span>{profile.assigned_partner_name ?? '—'}</div>
+                <div><span className="text-gray-400">Partner ID: </span>{profile.assigned_partner_affiliate_id ?? '—'}</div>
+                <div><span className="text-gray-400">Onboarding: </span>{profile.partner_onboarding_status ?? '—'}</div>
+                <div>
+                  <span className="text-gray-400">Delegate consent: </span>
+                  {profile.delegate_access_authorized ? 'Authorized' : 'Not authorized'}
+                </div>
+                <div>
+                  <span className="text-gray-400">Relationship started: </span>
+                  {profile.partner_relationship_started_at ? fmtDate(profile.partner_relationship_started_at) : '—'}
+                </div>
               </div>
             </div>
 

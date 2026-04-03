@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { parseContentAttributionCookie, recordContentEvent } from '@/lib/content-engine'
+import {
+  assessPublicFormIdentity,
+  enforcePublicFormRateLimit,
+  logPublicFormSecurityEvent,
+  recordConsentRecord,
+  requirePublicFormCaptcha,
+} from '@/lib/public-form-audit'
+import { getSignupRequestMeta } from '@/lib/signup-security'
+import {
+  buildComplianceSnapshot,
+  validateCompliancePayload,
+  type CompliancePayload,
+} from '@/lib/public-form-compliance'
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,10 +29,38 @@ export async function POST(req: NextRequest) {
       monthly_referral_estimate,
       marketing_channels,
       agreed_to_terms,
+      turnstileToken,
+      compliance,
     } = body
+    await logPublicFormSecurityEvent({
+      formName: 'public_partner_application',
+      eventType: 'attempt',
+      req,
+      email,
+      fullName: name,
+      businessName: company_name,
+    })
+
+    const complianceValidation = validateCompliancePayload(
+      compliance as CompliancePayload | undefined,
+      'public_partner_application',
+    )
+    if (!complianceValidation.ok) {
+      return NextResponse.json({ error: complianceValidation.error }, { status: 400 })
+    }
+    const complianceSnapshot = buildComplianceSnapshot(req, compliance as CompliancePayload)
 
     // Validation
     if (!name || !email || !promotion_plan) {
+      await logPublicFormSecurityEvent({
+        formName: 'public_partner_application',
+        eventType: 'blocked_validation',
+        req,
+        email,
+        fullName: name,
+        businessName: company_name,
+        metadata: { reason: 'missing_required_fields' },
+      })
       return NextResponse.json({ error: 'Name, email, and promotion plan are required.' }, { status: 400 })
     }
     if (!agreed_to_terms) {
@@ -29,24 +71,89 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 })
     }
 
+    const identityAssessment = assessPublicFormIdentity({
+      email,
+      fullName: name,
+      businessName: company_name,
+    })
+    if (identityAssessment.isBlocked) {
+      await logPublicFormSecurityEvent({
+        formName: 'public_partner_application',
+        eventType: identityAssessment.isDisposableDomain ? 'blocked_disposable' : 'blocked_validation',
+        req,
+        email: identityAssessment.email,
+        fullName: name,
+        businessName: company_name,
+        metadata: { reasons: identityAssessment.reasons },
+      })
+      return NextResponse.json({ error: 'Please use a valid business identity and email.' }, { status: 400 })
+    }
+
+    const requestMeta = getSignupRequestMeta(req)
+    const rateLimit = await enforcePublicFormRateLimit({
+      formName: 'public_partner_application',
+      email: identityAssessment.email,
+      ipAddress: requestMeta.ipAddress,
+    })
+    if (rateLimit.blocked) {
+      await logPublicFormSecurityEvent({
+        formName: 'public_partner_application',
+        eventType: 'blocked_rate_limit',
+        req,
+        email: identityAssessment.email,
+        fullName: name,
+        businessName: company_name,
+        metadata: {
+          ip_count_last_hour: rateLimit.ipCount,
+          email_count_last_hour: rateLimit.emailCount,
+        },
+      })
+      return NextResponse.json({ error: 'Too many submissions. Please wait and try again.' }, { status: 429 })
+    }
+
+    const captchaOk = await requirePublicFormCaptcha(turnstileToken ?? null)
+    if (!captchaOk) {
+      await logPublicFormSecurityEvent({
+        formName: 'public_partner_application',
+        eventType: 'blocked_captcha',
+        req,
+        email: identityAssessment.email,
+        fullName: name,
+        businessName: company_name,
+      })
+      return NextResponse.json({ error: 'Captcha verification failed. Please try again.' }, { status: 400 })
+    }
+
     const supabase = await createServiceClient()
+    const contentAttribution = parseContentAttributionCookie(req.cookies.get('sl_content_attribution')?.value)
 
     // Insert application (unique index on email+status='new' prevents duplicates)
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || req.headers.get('x-real-ip') || null
 
-    const { error: insertError } = await supabase.from('affiliate_applications').insert({
+    const { data: insertedApplication, error: insertError } = await supabase.from('affiliate_applications').insert({
       name: name.trim(),
       email: email.trim().toLowerCase(),
       phone: phone?.trim() || null,
       company_name: company_name?.trim() || null,
       website_or_social: website_or_social?.trim() || null,
-      promotion_plan: promotion_plan.trim(),
+      promotion_plan: [
+        promotion_plan.trim(),
+        '',
+        '[Partner Application Compliance]',
+        `Page URL: ${complianceSnapshot.page_url}`,
+        `Submitted: ${complianceSnapshot.timestamp}`,
+        `Consent Text Version: ${complianceSnapshot.consent_text_version}`,
+        `Disclosure Text: ${complianceSnapshot.disclosure_text}`,
+        `IP Address: ${complianceSnapshot.ip_address}`,
+        `User Agent: ${complianceSnapshot.user_agent}`,
+        '[/Partner Application Compliance]',
+      ].join('\n'),
       referral_experience: !!referral_experience,
       monthly_referral_estimate: monthly_referral_estimate || null,
       marketing_channels: marketing_channels || [],
       agreed_to_terms: !!agreed_to_terms,
       ip_address: ip,
-    })
+    }).select('id').single()
 
     if (insertError) {
       if (insertError.code === '23505') {
@@ -56,6 +163,41 @@ export async function POST(req: NextRequest) {
         }, { status: 409 })
       }
       throw insertError
+    }
+
+    await logPublicFormSecurityEvent({
+      formName: 'public_partner_application',
+      eventType: 'accepted',
+      req,
+      email: identityAssessment.email,
+      fullName: name,
+      businessName: company_name,
+    })
+
+    await recordConsentRecord({
+      formName: 'public_partner_application',
+      snapshot: complianceSnapshot,
+      email: identityAssessment.email,
+      fullName: name,
+      businessName: company_name,
+      phone: phone || null,
+      metadata: {
+        website_or_social: website_or_social || null,
+        monthly_referral_estimate: monthly_referral_estimate || null,
+      },
+    })
+
+    if (contentAttribution?.pageId && insertedApplication?.id) {
+      await recordContentEvent({
+        pageId: contentAttribution.pageId,
+        eventType: 'partner_application',
+        relatedRecordId: insertedApplication.id,
+        metadata: {
+          source: 'public_partner_application',
+          email: identityAssessment.email,
+          company_name: company_name || null,
+        },
+      })
     }
 
     // Send admin notification email (fire-and-forget)

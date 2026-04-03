@@ -20,9 +20,9 @@ import { useState } from 'react'
 
 const NAV_ITEMS = [
   { href: '/affiliate/dashboard',   label: 'Dashboard',   icon: LayoutDashboard },
-  { href: '/affiliate/leads',       label: 'Leads',       icon: UserPlus },
-  { href: '/affiliate/referrals',   label: 'Referrals',   icon: Users },
-  { href: '/affiliate/commissions', label: 'Commissions', icon: DollarSign },
+  { href: '/affiliate/leads',       label: 'Clients',     icon: UserPlus },
+  { href: '/affiliate/referrals',   label: 'Conversions', icon: Users },
+  { href: '/affiliate/commissions', label: 'Earnings',    icon: DollarSign },
   { href: '/affiliate/resources',   label: 'Resources',   icon: BookOpen },
   { href: '/affiliate/training',    label: 'Training',    icon: PlayCircle },
   { href: '/affiliate/account',     label: 'Account',     icon: User },
@@ -74,7 +74,7 @@ export default function AffiliateSidebar({ affiliateName }: Props) {
           <div>
             <p className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight">SourcifyLending</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <p className="text-xs text-gray-400 dark:text-gray-500">Affiliates</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Partner Portal</p>
               <span className="text-[9px] font-bold px-1 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 rounded-full uppercase">
                 Partner
               </span>
@@ -104,7 +104,7 @@ export default function AffiliateSidebar({ affiliateName }: Props) {
       {/* User info */}
       <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
         <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">{affiliateName}</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Affiliate Partner</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Partner-Assisted Sales</p>
       </div>
     </div>
   )
@@ -117,12 +117,12 @@ export default function AffiliateSidebar({ affiliateName }: Props) {
       </aside>
 
       {/* Mobile Top Bar */}
-      <header className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3.5 flex items-center justify-between fixed top-0 left-0 right-0 z-30">
+      <header className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3.5 flex items-center justify-between fixed top-0 left-0 right-0 z-30 max-w-full">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-xs">SL</span>
           </div>
-          <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">Affiliates</span>
+          <span className="font-bold text-gray-900 dark:text-gray-100 text-sm truncate">Partner Portal</span>
         </div>
         <button
           onClick={() => setMobileOpen(true)}
@@ -152,8 +152,8 @@ export default function AffiliateSidebar({ affiliateName }: Props) {
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 z-20 px-1 py-1.5">
-        <div className="grid grid-cols-6 gap-0.5">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 z-20 px-2 py-2 overflow-x-auto">
+        <div className="flex items-stretch gap-1 min-w-max">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + '/')
             return (
@@ -161,7 +161,7 @@ export default function AffiliateSidebar({ affiliateName }: Props) {
                 key={href}
                 href={href}
                 className={cn(
-                  'flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-colors',
+                  'flex flex-col items-center justify-center gap-1 py-2 px-2 rounded-xl transition-colors min-w-[72px]',
                   active ? 'text-indigo-600' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
                 )}
               >

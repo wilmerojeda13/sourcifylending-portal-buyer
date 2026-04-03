@@ -1,8 +1,5 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-
 import PortalLayout from '@/components/layout/PortalLayout'
 import ProspectDashboard from '@/app/dashboard/ProspectDashboard'
 import GenerateRoadmapButton from '@/components/dashboard/GenerateRoadmapButton'
@@ -14,6 +11,7 @@ import PaymentAlertBanner, { type PaymentAlert } from '@/components/dashboard/Pa
 import { getProgramShortLabel, getReadinessColor, formatDate } from '@/lib/utils'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/Badge'
+import { requirePortalPageContext } from '@/lib/business-context'
 import Link from 'next/link'
 import type { UserProfile } from '@/types'
 import {
@@ -22,33 +20,28 @@ import {
 } from 'lucide-react'
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
-  // Always fetch profile first — we need account_state to decide the render path
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  const {
+    supabase,
+    authUser,
+    activeBusinessId,
+    activeProfile: profile,
+    notificationCount,
+    activePrograms: portalPrograms,
+  } = await requirePortalPageContext()
 
   // ── Prospect path ─────────────────────────────────────────────────────────
   if (profile?.account_state === 'prospect') {
     return (
-      <PortalLayout
-        userName={profile.full_name || user.email || 'Client'}
+        <PortalLayout
+        userName={profile.full_name || authUser.email || 'Client'}
         programLabel="Free Prospect Account"
-        notificationCount={0}
+        notificationCount={notificationCount}
         assignedProgram={profile.assigned_program}
         portalBlocked={profile.portal_blocked}
         isDemo={profile.is_demo}
         isAdmin={profile.is_admin}
         accountState="prospect"
-        allPrograms={profile.assigned_program ? [profile.assigned_program] : []}
+        allPrograms={portalPrograms}
       >
         <ProspectDashboard profile={profile as UserProfile} />
       </PortalLayout>
@@ -64,24 +57,18 @@ export default async function DashboardPage() {
     (!uwNextDue || new Date(uwNextDue) < new Date())
 
   if (needsUnderwriting) {
-    const [{ data: uwNotifs }, uwMembershipsResult] = await Promise.all([
-      supabase.from('notifications').select('id').eq('user_id', user.id).eq('read', false),
-      supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
-    ])
-    const uwAllPrograms = (uwMembershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-    const uwActivePrograms = uwAllPrograms.length > 0 ? uwAllPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
     return (
       <PortalLayout
-        userName={profile?.full_name || user.email || 'Client'}
+        userName={profile?.full_name || authUser.email || 'Client'}
         programLabel={getProgramShortLabel(profile?.assigned_program)}
-        notificationCount={uwNotifs?.length || 0}
+        notificationCount={notificationCount}
         assignedProgram={profile?.assigned_program}
         portalBlocked={profile?.portal_blocked}
         isDemo={profile?.is_demo}
         isAdmin={profile?.is_admin}
         accountState="active_member"
         demoSecondaryProgram={profile?.demo_secondary_program ?? null}
-        allPrograms={uwActivePrograms}
+        allPrograms={portalPrograms}
       >
         <UnderwritingGateBanner
           program={profile?.assigned_program ?? 'program_b'}
@@ -103,18 +90,18 @@ export default async function DashboardPage() {
     { data: subscription },
     membershipsResult,
   ] = await Promise.all([
-    supabase.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
-    supabase.from('documents').select('*').eq('user_id', user.id),
-    supabase.from('reports').select('*').eq('user_id', user.id).order('generated_at', { ascending: false }).limit(3),
-    supabase.from('notifications').select('*').eq('user_id', user.id).eq('read', false).order('created_at', { ascending: false }).limit(5),
-    supabase.from('funding_approvals').select('approved_amount,approved_limit,approval_type,issuer_name,approval_date').eq('user_id', user.id).eq('status', 'Approved'),
-    supabase.from('payment_arrangements').select('setup_fee_total,setup_fee_paid,recurring_amount,next_amount_due,next_due_date,notes,program_code').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
-    supabase.from('subscriptions').select('status,current_period_end,setup_fee_standard,setup_fee_paid,monthly_fee_standard,billing_status').eq('user_id', user.id).maybeSingle(),
-    supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
+    supabase.from('tasks').select('*').eq('user_id', activeBusinessId).order('sort_order'),
+    supabase.from('documents').select('*').eq('user_id', activeBusinessId),
+    supabase.from('reports').select('*').eq('user_id', activeBusinessId).order('generated_at', { ascending: false }).limit(3),
+    supabase.from('notifications').select('*').eq('user_id', activeBusinessId).eq('read', false).order('created_at', { ascending: false }).limit(5),
+    supabase.from('funding_approvals').select('approved_amount,approved_limit,approval_type,issuer_name,approval_date').eq('user_id', activeBusinessId).eq('status', 'Approved'),
+    supabase.from('payment_arrangements').select('setup_fee_total,setup_fee_paid,recurring_amount,next_amount_due,next_due_date,notes,program_code').eq('user_id', activeBusinessId).eq('is_active', true).maybeSingle(),
+    supabase.from('subscriptions').select('status,current_period_end,setup_fee_standard,setup_fee_paid,monthly_fee_standard,billing_status').eq('user_id', activeBusinessId).maybeSingle(),
+    supabase.from('memberships').select('program_code').eq('user_id', activeBusinessId).eq('status', 'active'),
   ])
 
   const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
+  const memberPrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
 
@@ -219,7 +206,7 @@ export default async function DashboardPage() {
 
   return (
     <PortalLayout
-      userName={profile?.full_name || user.email || 'Client'}
+      userName={profile?.full_name || authUser.email || 'Client'}
       programLabel={getProgramShortLabel(profile?.assigned_program)}
       notificationCount={notifications?.length || 0}
       assignedProgram={profile?.assigned_program}
@@ -229,14 +216,14 @@ export default async function DashboardPage() {
       accountState="active_member"
       uwNextDueAt={profile?.underwriting_next_due_at ?? null}
       demoSecondaryProgram={profile?.demo_secondary_program ?? null}
-      allPrograms={activePrograms}
+      allPrograms={memberPrograms}
     >
       {/* Welcome Gate — first-login service agreement (chargeback protection) */}
       {needsWelcomeGate && (
         <WelcomeGateWrapper
           show={true}
           programLabel={getProgramShortLabel(profile?.assigned_program)}
-          userName={profile?.full_name || user.email || 'Client'}
+                userName={profile?.full_name || authUser.email || 'Client'}
         />
       )}
 
@@ -262,7 +249,7 @@ export default async function DashboardPage() {
       {/* Page Header */}
       <div className="mb-6">
         <h1 className="page-title">
-          Welcome back, {(profile?.full_name || user.email || '').split(' ')[0]} 👋
+              Welcome back, {(profile?.full_name || authUser.email || '').split(' ')[0]} 👋
         </h1>
         <p className="text-gray-500 text-sm mt-1">
           {profile?.business_name ? `${profile.business_name} · ` : ''}

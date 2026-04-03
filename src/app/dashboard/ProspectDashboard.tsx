@@ -3,7 +3,7 @@ import Link from 'next/link'
 import {
   CheckCircle, AlertTriangle, XCircle, Lock,
   CalendarDays, Sparkles, ArrowRight, Bot,
-  FileText, CheckSquare, TrendingUp, ChevronRight,
+  FileText, CheckSquare, TrendingUp, ChevronRight, Target, BadgeDollarSign,
 } from 'lucide-react'
 import { StatusBadge } from '@/components/ui/Badge'
 import AnalyzerResultClaimer from '@/components/auth/AnalyzerResultClaimer'
@@ -115,6 +115,12 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
                 {readinessIcon}
                 <span className="text-xl font-bold text-gray-900 dark:text-white">{readiness}</span>
               </div>
+              {typeof result?.readiness_score === 'number' && (
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/70 dark:bg-gray-900/40 px-3 py-1 text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
+                  <Target size={14} className="text-green-600" />
+                  Score: {result.readiness_score}/100
+                </div>
+              )}
               <StatusBadge status={readiness} />
               {result?.summary && (
                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-3 leading-relaxed">{result.summary}</p>
@@ -141,6 +147,33 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
           )}
         </div>
       </div>
+
+      {result?.estimated_funding_range && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="card border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/20">
+            <p className="text-xs font-semibold text-green-500 uppercase tracking-wide mb-2 flex items-center gap-2">
+              <BadgeDollarSign size={14} />
+              Estimated Funding Range
+            </p>
+            <p className="text-2xl font-bold text-green-900 dark:text-green-300">{result.estimated_funding_range}</p>
+            {result.recommended_next_step && (
+              <p className="text-sm text-green-700 dark:text-green-400 mt-3 leading-relaxed">{result.recommended_next_step}</p>
+            )}
+          </div>
+
+          <div className="card">
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Top 3 Funding Blockers</p>
+            <ul className="space-y-2">
+              {(result.top_blockers ?? []).slice(0, 3).map((blocker, i) => (
+                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5 shrink-0" />
+                  {blocker}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {/* Risk Flags */}
       {result?.risk_flags && result.risk_flags.length > 0 && (
