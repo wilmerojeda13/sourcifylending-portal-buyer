@@ -171,6 +171,7 @@ export async function POST(req: NextRequest) {
     .from('crm_calls')
     .select('id')
     .eq('lead_id', lead_id)
+    .eq('dialer_session_id', activeSession.id)
     .in('twilio_status', ['queued', 'initiated', 'ringing', 'in-progress'])
     .maybeSingle()
 
