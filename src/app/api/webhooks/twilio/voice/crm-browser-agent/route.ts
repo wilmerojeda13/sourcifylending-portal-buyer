@@ -46,6 +46,13 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  // Mark session as waiting so the client-side canDialLead check passes
+  await supabase
+    .from('crm_dialer_sessions')
+    .update({ session_status: 'waiting', rep_state: 'waiting', updated_at: new Date().toISOString() })
+    .eq('id', sessionId)
+    .in('session_status', ['connecting', 'ready'])
+
   const origin = req.nextUrl.origin
   const conferenceStatus = `${origin}/api/webhooks/twilio/voice/crm-conference-status?sessionId=${sessionId}&participant=agent`
   const waitAudioUrl = `${origin}/api/webhooks/twilio/voice/crm-wait-audio`
