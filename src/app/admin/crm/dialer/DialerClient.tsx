@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMirror'
 import LiveCallFeed from '@/components/admin/crm/dialer/LiveCallFeed'
+import BrowserAudio from '@/components/admin/crm/dialer/BrowserAudio'
 import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1531,6 +1532,28 @@ export default function DialerClient() {
             </div>
 
             <div className="space-y-4 lg:sticky lg:top-6">
+              {/* Browser Audio Controls - Show when in browser mode */}
+              {connectionMode === 'browser' && (
+                <BrowserAudio
+                  connectionMode={connectionMode}
+                  deviceStatus={deviceStatus}
+                  sessionBusy={sessionBusy}
+                  onReconnect={() => {
+                    setDeviceStatus('offline')
+                    setSession(null)
+                    setAttempts([])
+                    setCalled(false)
+                    setActiveCallId(null)
+                    setCallProviderStatus(null)
+                    setCallProviderMessage(null)
+                    // Trigger reconnection
+                    setTimeout(() => {
+                      setReady()
+                    }, 1000)
+                  }}
+                />
+              )}
+
               {/* Live Call Feed - Show during active dialing */}
               {session && session.session_status !== 'not_ready' && (
                 <LiveCallFeed
