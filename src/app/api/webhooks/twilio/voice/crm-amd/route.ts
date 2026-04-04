@@ -155,6 +155,18 @@ export async function POST(req: NextRequest) {
           )
         }
       } else if (!dispositionLocked && outcome) {
+        // First write answered_machine so the client sees which line got voicemail
+        // before we hang up and auto-dispose (Realtime fires on this update)
+        await supabase
+          .from('crm_dialer_attempts')
+          .update({
+            attempt_status: 'answered_machine',
+            answered_by: answeredBy,
+            amd_status: answeredBy,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', attempt.id)
+
         if (crmCall.twilio_call_sid) {
           await endTwilioCallsBySid([crmCall.twilio_call_sid])
         }

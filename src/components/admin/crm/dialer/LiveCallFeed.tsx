@@ -24,6 +24,8 @@ interface LiveCallFeedProps {
     last_twilio_status?: string | null
     answered_by?: string | null
     amd_status?: string | null
+    was_auto_dispositioned?: boolean | null
+    resolution_type?: string | null
     crm_call?: {
       id?: string | null
       lead?: LeadSummary
@@ -128,18 +130,29 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
     const newEvents: FeedEvent[] = []
     const newLineStatuses = new Map<number, any>()
 
+    const VM_LINGER_MS = 30_000 // show voicemail line for 30s after it resolves
+
     // attempts arrive newest-first; first occurrence per slot wins so the
     // most-recent (active) attempt is always shown, never overwritten by
     // old completed attempts from earlier in the same session.
     attempts.forEach((attempt) => {
       const slot = attempt.queue_slot
       if (newLineStatuses.has(slot)) return          // newest already set
+
+      // Keep recently-resolved voicemail attempts visible for VM_LINGER_MS
+      const isRecentVoicemail =
+        attempt.resolved_at &&
+        (Date.now() - new Date(attempt.resolved_at).getTime()) < VM_LINGER_MS &&
+        (attempt.amd_status?.startsWith('machine') || attempt.resolution_type === 'auto_voicemail' || attempt.was_auto_dispositioned)
+
       if (attempt.resolved_at && !ACTIVE_STATUSES.has(
         getAttemptStatus(attempt.attempt_status, attempt.amd_status, attempt.last_twilio_status)
-      )) return   // skip old resolved attempts — show idle instead
+      ) && !isRecentVoicemail) return   // skip old resolved attempts — show idle instead
 
       const lead = attempt.crm_call?.lead ?? leads.find((l) => l.id === attempt.lead_id)
-      const status = getAttemptStatus(attempt.attempt_status, attempt.amd_status, attempt.last_twilio_status)
+      // For recently-resolved voicemail, force display as answered_machine
+      const rawStatus = getAttemptStatus(attempt.attempt_status, attempt.amd_status, attempt.last_twilio_status)
+      const status = (isRecentVoicemail && rawStatus !== 'answered_machine') ? 'answered_machine' : rawStatus
       const config = statusConfig[status]
 
       newLineStatuses.set(slot, {
@@ -181,11 +194,12 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
       if (status === 'answered_machine') {
         newEvents.push({
           id: `${attempt.id}-voicemail`,
-          timestamp: new Date().toISOString(),
+          timestamp: attempt.resolved_at ?? new Date().toISOString(),
           type: 'voicemail',
-          message: `Line ${slot} — voicemail: ${lead?.first_name ?? ''} ${lead?.last_name ?? ''}`,
+          message: `Line ${slot} — voicemail: ${lead?.first_name ?? ''} ${lead?.last_name ?? ''}`.trim(),
           leadName: `${lead?.first_name} ${lead?.last_name}`,
           lineNumber: slot,
+          isWinner: true, // highlight in activity feed so rep sees it
         })
       }
 
@@ -270,13 +284,18 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
                   "rounded-lg border p-3 transition-all duration-200",
                   attempt?.is_winner
                     ? "border-green-500 bg-green-500/10 shadow-lg shadow-green-500/20"
-                    : "border-gray-700 bg-gray-800/50"
+                    : status === 'answered_machine'
+                      ? "border-orange-500 bg-orange-500/10 shadow-lg shadow-orange-500/20"
+                      : "border-gray-700 bg-gray-800/50"
                 )}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-gray-400">Line {lineNumber}</span>
                   {attempt?.is_winner && (
                     <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded-full">LIVE</span>
+                  )}
+                  {!attempt?.is_winner && status === 'answered_machine' && (
+                    <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full">VM</span>
                   )}
                 </div>
 
@@ -344,10 +363,14 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
                 key={event.id}
                 className={cn(
                   "flex items-start gap-2 p-2 rounded-lg text-xs",
-                  event.isWinner && "bg-green-500/10 border border-green-500/30"
+                  event.type === 'winner' && "bg-green-500/10 border border-green-500/30",
+                  event.type === 'voicemail' && "bg-orange-500/10 border border-orange-500/30",
                 )}
               >
-                <div className="flex-shrink-0 w-1.5 h-1.5 bg-gray-500 rounded-full mt-1.5" />
+                <div className={cn(
+                  "flex-shrink-0 w-1.5 h-1.5 rounded-full mt-1.5",
+                  event.type === 'winner' ? "bg-green-500" : event.type === 'voicemail' ? "bg-orange-500" : "bg-gray-500"
+                )} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-gray-500">
@@ -359,7 +382,8 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
                   </div>
                   <div className={cn(
                     "text-gray-300 break-words",
-                    event.isWinner && "text-green-400 font-medium"
+                    event.type === 'winner' && "text-green-400 font-medium",
+                    event.type === 'voicemail' && "text-orange-400 font-medium",
                   )}>
                     {event.message}
                   </div>
