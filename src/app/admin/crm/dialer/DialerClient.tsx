@@ -628,6 +628,21 @@ export default function DialerClient() {
         return
       }
 
+      // Request mic permission explicitly so the browser dialog fires before Device connects
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach(t => t.stop())
+      } catch (micErr: unknown) {
+        const name = micErr instanceof Error ? (micErr as any).name : ''
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+          toast.error('Microphone access is blocked. Click the lock icon in your address bar → allow Microphone, then try again.')
+        } else {
+          toast.error('Could not access microphone. Please check your audio device and try again.')
+        }
+        setDeviceStatus('offline')
+        return
+      }
+
       setDeviceStatus('connecting')
       setCallProviderMessage('Connecting browser audio...')
 
