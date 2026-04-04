@@ -628,24 +628,6 @@ export default function DialerClient() {
         return
       }
 
-      // Call getUserMedia in the user-gesture context (button click) so the browser's
-      // user-activation flag is set before Twilio's internal async getUserMedia fires.
-      // Privacy-hardened browsers (e.g. Comet) deny mic to Promise/async contexts
-      // even when the permission is granted in site settings.
-      // Block only on explicit denial; let any other errors through to Twilio.
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        stream.getTracks().forEach(t => t.stop())
-      } catch (micErr: unknown) {
-        const errName = (micErr as any)?.name ?? ''
-        if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
-          toast.error('Microphone access is required. Allow it in your browser, then click Go Live again.')
-          setDeviceStatus('offline')
-          return
-        }
-        console.warn('[Dialer] getUserMedia pre-warm non-fatal:', errName, micErr)
-      }
-
       setDeviceStatus('connecting')
       setCallProviderMessage('Connecting browser audio...')
 
