@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
 
     if (event === 'participant-join' || event === 'conference-start') {
       updates.answered_at = timestamp
-    } else if (event === 'participant-leave' || event === 'conference-end') {
+    } else if (event === 'conference-end') {
+      // Only end the session when the conference itself closes (agent disconnected).
+      // participant-leave fires for every lead departure and must NOT end the session.
       updates.session_status = 'not_ready'
       updates.rep_state = 'not_ready'
       updates.ended_at = timestamp
