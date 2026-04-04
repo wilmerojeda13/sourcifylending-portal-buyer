@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
     startConferenceOnEnter: true,
     endConferenceOnExit: false,
     beep: 'false' as any,
-    muted: true,
     waitUrl: waitAudioUrl,
     waitMethod: 'GET',
     participantLabel: `lead:${crmCallId}`,
