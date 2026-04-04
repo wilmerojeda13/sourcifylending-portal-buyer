@@ -628,25 +628,6 @@ export default function DialerClient() {
         return
       }
 
-      // Request mic permission so the browser dialog fires before Device connects.
-      // Only hard-block on explicit permission denial — other errors (device busy, etc.)
-      // are passed through to Twilio's own error handler.
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        stream.getTracks().forEach(t => t.stop())
-      } catch (micErr: unknown) {
-        const name = micErr instanceof Error ? (micErr as any).name : String((micErr as any)?.name ?? '')
-        const isDenied = name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError'
-        if (isDenied) {
-          toast.error('Microphone access is blocked. Allow it in your browser site settings, then try again.')
-          setDeviceStatus('offline')
-          return
-        }
-        // Non-permission error (e.g. NotReadableError / device busy) — log and continue;
-        // Twilio Device will attempt its own access and surface a cleaner error if needed.
-        console.warn('[Dialer] getUserMedia preflight failed (non-fatal):', name, micErr)
-      }
-
       setDeviceStatus('connecting')
       setCallProviderMessage('Connecting browser audio...')
 
