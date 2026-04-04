@@ -590,7 +590,7 @@ export default function DialerClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: connectionMode,
-          target_parallel_lines: dialerMode === 'power' ? 3 : 1,
+          target_parallel_lines: 1, // Force single line for now
         }),
       })
       const json = await res.json()
