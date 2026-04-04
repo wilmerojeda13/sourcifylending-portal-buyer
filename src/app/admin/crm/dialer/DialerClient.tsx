@@ -669,27 +669,45 @@ export default function DialerClient() {
         setCallProviderMessage('Browser audio error. Click Not Ready then Ready to reconnect.')
       })
 
-      const call = await device.connect({
-        params: { sessionId: json.session.id },
-      })
-      agentCallRef.current = call
+      // Handle the incoming call that the server will route to this browser client
+      device.on('incoming', (incomingCall: any) => {
+        agentCallRef.current = incomingCall
 
-      call.on('accept', () => {
-        setDeviceStatus('connected')
-        setCallProviderMessage('Browser audio live. Dial leads when ready.')
-        setSession((prev) => prev ? { ...prev, session_status: 'waiting', rep_state: 'waiting' } : prev)
+        incomingCall.on('accept', () => {
+          setDeviceStatus('connected')
+          setCallProviderMessage('Browser audio live. Dial leads when ready.')
+          setSession((prev) => prev ? { ...prev, session_status: 'waiting', rep_state: 'waiting' } : prev)
+        })
+
+        incomingCall.on('disconnect', () => {
+          setDeviceStatus('offline')
+          agentCallRef.current = null
+        })
+
+        incomingCall.on('error', (error: unknown) => {
+          console.error('[Dialer] Call error:', error)
+          setDeviceStatus('error')
+          setCallProviderMessage('Browser call error. Click Not Ready then Ready to reconnect.')
+        })
+
+        incomingCall.accept()
       })
 
-      call.on('disconnect', () => {
-        setDeviceStatus('offline')
-        agentCallRef.current = null
-      })
+      // Register device so Twilio can route the incoming call to this browser client
+      await device.register()
 
-      call.on('error', (error: unknown) => {
-        console.error('[Dialer] Call error:', error)
+      // Tell the server to place the Twilio call to this browser identity
+      const connectRes = await fetch('/api/admin/crm/dialer/connect-browser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: json.session.id }),
+      })
+      if (!connectRes.ok) {
+        const connectJson = await connectRes.json().catch(() => ({}))
+        toast.error(connectJson.error ?? 'Failed to connect browser audio')
         setDeviceStatus('error')
-        setCallProviderMessage('Browser call error. Click Not Ready then Ready to reconnect.')
-      })
+        setCallProviderMessage(connectJson.error ?? 'Failed to connect. Click Not Ready then Ready to retry.')
+      }
 
     } catch (err) {
       console.error('[Dialer] setReady error:', err)

@@ -219,7 +219,7 @@ function buildAccessToken(userId: string): string | null {
     identity: `rep-${userId}`,
     ttl: 3600,
   })
-  token.addGrant(new VoiceGrant({ outgoingApplicationSid: twimlAppSid, incomingAllow: false }))
+  token.addGrant(new VoiceGrant({ outgoingApplicationSid: twimlAppSid, incomingAllow: true }))
   return token.toJwt()
 }
 
