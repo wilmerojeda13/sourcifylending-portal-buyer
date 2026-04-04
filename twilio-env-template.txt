@@ -1,0 +1,16 @@
+# Add these to your .env.local file
+# Replace the placeholder values with your actual Twilio credentials
+
+TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
+TWILIO_API_KEY_SID=your_api_key_sid_here
+TWILIO_API_KEY_SECRET=your_api_key_secret_here
+TWILIO_TWIML_APP_SID=your_twiml_app_sid_here
+
+# For the TwiML App Voice Request URL, set it to:
+# https://your-domain.com/api/webhooks/twilio/voice/crm-connect
+
+# Example format:
+# TWILIO_ACCOUNT_SID=AC1234567890abcdef1234567890abcdef
+# TWILIO_API_KEY_SID=SK1234567890abcdef1234567890abcdef
+# TWILIO_API_KEY_SECRET=your_secret_key_here
+# TWILIO_TWIML_APP_SID=AP1234567890abcdef1234567890abcdef

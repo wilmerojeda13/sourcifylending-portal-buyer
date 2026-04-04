@@ -1,0 +1,9 @@
+# Add these to your .env.local file
+
+TWILIO_ACCOUNT_SID=AC54b6902351a8ea11174f4328b26f237e
+TWILIO_API_KEY_SID=SKc385279879c5c268a2e1f4ce8540ac8e
+TWILIO_API_KEY_SECRET=nnFhGsbSFQESRMxNE5qjU7M6Nifz8FNB
+TWILIO_TWIML_APP_SID=APe35914cd6c48bd3ef871ecf7cb8cb314
+
+# Make sure your TwiML App Voice Request URL is set to:
+# https://your-domain.com/api/webhooks/twilio/voice/crm-connect
