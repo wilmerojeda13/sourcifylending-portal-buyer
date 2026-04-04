@@ -380,7 +380,7 @@ export default function DialerClient() {
 
     const timer = window.setInterval(() => {
       loadSession().catch(() => {})
-    }, 1500)
+    }, 750)
 
     return () => window.clearInterval(timer)
   }, [session?.id, session?.session_status, loadSession])
@@ -484,41 +484,44 @@ export default function DialerClient() {
     void syncCall()
     const timer = window.setInterval(() => {
       void syncCall()
-    }, 2500)
+    }, 1000)
 
     return () => window.clearInterval(timer)
   }, [activeCallId, autoAdvance, callStartedAt, session?.waiting_for_disposition, targetParallelLines])
 
-  // 3-line dialer refill logic
+  // 3-line dialer refill logic — fires all empty slots immediately
   useEffect(() => {
-    if (!autoAdvance || !session || pacingBusy || authorizingCall || sessionBusy) return
-    if (session.waiting_for_disposition || !nextQueueLead || callBlocked || !canDialLead) return
-    if (activeAttemptCount >= targetParallelLines) return
-    
-    // Prevent double-dialing the same lead ID in parallel
-    if (autoDialLeadIdsRef.current.has(nextQueueLead.id)) return
+    if (!autoAdvance || !session || pacingBusy || sessionBusy) return
+    if (session.waiting_for_disposition || callBlocked || !canDialLead) return
 
-    // Trigger parallel attempts more aggressively.
-    // We fire and immediately move to next lead in queue.
-    autoDialLeadIdsRef.current.add(nextQueueLead.id)
-    void authorizeDial(nextQueueLead, { advanceCursor: true, silent: true }).finally(() => {
-      // Small delay before allowing this lead ID to be auto-dialed again if needed
-      setTimeout(() => {
-        autoDialLeadIdsRef.current.delete(nextQueueLead.id)
-      }, 5000)
-    })
+    const slotsNeeded = targetParallelLines - activeAttemptCount
+    if (slotsNeeded <= 0) return
+
+    // Fire up to slotsNeeded dials in one pass, skipping leads already queued
+    let fired = 0
+    let cursor = index
+    while (fired < slotsNeeded && cursor < leads.length) {
+      const lead = leads[cursor]
+      cursor++
+      if (!lead || autoDialLeadIdsRef.current.has(lead.id)) continue
+      autoDialLeadIdsRef.current.add(lead.id)
+      setIndex(cursor)
+      void authorizeDial(lead, { advanceCursor: false, silent: true }).finally(() => {
+        setTimeout(() => { autoDialLeadIdsRef.current.delete(lead.id) }, 2000)
+      })
+      fired++
+    }
   }, [
     autoAdvance,
     targetParallelLines,
     session?.id,
     session?.waiting_for_disposition,
-    authorizingCall,
     sessionBusy,
     pacingBusy,
-    nextQueueLead?.id,
     callBlocked,
     canDialLead,
     activeAttemptCount,
+    index,
   ])
 
   function inviteStatusMeta(type: InviteType) {
