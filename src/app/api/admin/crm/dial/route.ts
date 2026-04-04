@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
       from_number: callerId,
       to_number_e164: compliance.phone_e164,
       dialer_session_id: activeSession.id,
-      session_mode: activeSession.rep_session_mode || 'persistent',
+      session_mode: 'persistent',
       conference_name: activeSession.conference_name,
       queue_slot: null,
       metadata: {
