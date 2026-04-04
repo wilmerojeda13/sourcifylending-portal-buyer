@@ -489,39 +489,33 @@ export default function DialerClient() {
     return () => window.clearInterval(timer)
   }, [activeCallId, autoAdvance, callStartedAt, session?.waiting_for_disposition, targetParallelLines])
 
-  // 3-line dialer refill logic — fires all empty slots immediately
+  // 3-line dialer refill logic
   useEffect(() => {
-    if (!autoAdvance || !session || pacingBusy || sessionBusy) return
-    if (session.waiting_for_disposition || callBlocked || !canDialLead) return
+    if (!autoAdvance || !session || pacingBusy || authorizingCall || sessionBusy) return
+    if (session.waiting_for_disposition || !nextQueueLead || callBlocked || !canDialLead) return
+    if (activeAttemptCount >= targetParallelLines) return
 
-    const slotsNeeded = targetParallelLines - activeAttemptCount
-    if (slotsNeeded <= 0) return
+    // Prevent double-dialing the same lead ID in parallel
+    if (autoDialLeadIdsRef.current.has(nextQueueLead.id)) return
 
-    // Fire up to slotsNeeded dials in one pass, skipping leads already queued
-    let fired = 0
-    let cursor = index
-    while (fired < slotsNeeded && cursor < leads.length) {
-      const lead = leads[cursor]
-      cursor++
-      if (!lead || autoDialLeadIdsRef.current.has(lead.id)) continue
-      autoDialLeadIdsRef.current.add(lead.id)
-      setIndex(cursor)
-      void authorizeDial(lead, { advanceCursor: false, silent: true }).finally(() => {
-        setTimeout(() => { autoDialLeadIdsRef.current.delete(lead.id) }, 2000)
-      })
-      fired++
-    }
+    autoDialLeadIdsRef.current.add(nextQueueLead.id)
+    void authorizeDial(nextQueueLead, { advanceCursor: true, silent: true }).finally(() => {
+      setTimeout(() => {
+        autoDialLeadIdsRef.current.delete(nextQueueLead.id)
+      }, 2000)
+    })
   }, [
     autoAdvance,
     targetParallelLines,
     session?.id,
     session?.waiting_for_disposition,
+    authorizingCall,
     sessionBusy,
     pacingBusy,
+    nextQueueLead?.id,
     callBlocked,
     canDialLead,
     activeAttemptCount,
-    index,
   ])
 
   function inviteStatusMeta(type: InviteType) {
