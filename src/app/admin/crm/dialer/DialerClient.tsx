@@ -651,49 +651,32 @@ export default function DialerClient() {
         setCallProviderMessage('Browser audio error. Click Not Ready then Ready to reconnect.')
       })
 
-      // Handle the incoming call that the server will route to this browser client
-      device.on('incoming', (incomingCall: any) => {
-        agentCallRef.current = incomingCall
+      // Connect browser into the conference directly via device.connect().
+      // Called here — in the user-click context — so getUserMedia runs while
+      // user activation is still active (required by privacy-hardened browsers).
+      // Twilio calls the TwiML App Voice URL (crm-browser-agent) which returns
+      // conference TwiML, joining the rep into the same room as outbound leads.
+      const agentCall = await device.connect({
+        params: { sessionId: json.session.id },
+      })
+      agentCallRef.current = agentCall
 
-        incomingCall.on('accept', () => {
-          setDeviceStatus('connected')
-          setCallProviderMessage('Browser audio live. Dial leads when ready.')
-          setSession((prev) => prev ? { ...prev, session_status: 'waiting', rep_state: 'waiting' } : prev)
-        })
-
-        incomingCall.on('disconnect', () => {
-          setDeviceStatus('offline')
-          agentCallRef.current = null
-        })
-
-        incomingCall.on('error', (error: unknown) => {
-          console.error('[Dialer] Call error:', error)
-          setDeviceStatus('error')
-          setCallProviderMessage('Browser call error. Click Not Ready then Ready to reconnect.')
-        })
-
-        incomingCall.accept()
+      agentCall.on('accept', () => {
+        setDeviceStatus('connected')
+        setCallProviderMessage('Browser audio live. Dial leads when ready.')
+        setSession((prev) => prev ? { ...prev, session_status: 'waiting', rep_state: 'waiting' } : prev)
       })
 
-      // Register device so Twilio can route the incoming call to this browser client
-      await device.register()
-
-      // Wait for Twilio's edge infrastructure to propagate the registration
-      // before the server attempts to call this browser client identity
-      await new Promise(resolve => setTimeout(resolve, 2000))
-
-      // Tell the server to place the Twilio call to this browser identity
-      const connectRes = await fetch('/api/admin/crm/dialer/connect-browser', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: json.session.id }),
+      agentCall.on('disconnect', () => {
+        setDeviceStatus('offline')
+        agentCallRef.current = null
       })
-      if (!connectRes.ok) {
-        const connectJson = await connectRes.json().catch(() => ({}))
-        toast.error(connectJson.error ?? 'Failed to connect browser audio')
+
+      agentCall.on('error', (error: unknown) => {
+        console.error('[Dialer] Call error:', error)
         setDeviceStatus('error')
-        setCallProviderMessage(connectJson.error ?? 'Failed to connect. Click Not Ready then Ready to retry.')
-      }
+        setCallProviderMessage('Browser call error. Click Not Ready then Ready to reconnect.')
+      })
 
     } catch (err) {
       console.error('[Dialer] setReady error:', err)
