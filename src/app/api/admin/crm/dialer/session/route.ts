@@ -88,12 +88,13 @@ export async function POST(req: NextRequest) {
 
   const existingSession = await loadActiveSession(admin.supabase, admin.userId)
   if (existingSession) {
-    // Return existing session + fresh token so browser can reconnect
+    // Sync session state to clear any stale waiting_for_disposition flag
+    // (e.g. a human call that completed without the rep saving a disposition)
+    const synced = await syncDialerSessionState(admin.supabase, existingSession.id)
     const token = mode === 'browser' ? buildAccessToken(admin.userId) : null
-    const attempts = await loadSessionAttempts(admin.supabase, existingSession.id)
     return NextResponse.json({
-      session: existingSession,
-      attempts,
+      session: synced ?? existingSession,
+      attempts: synced?.attempts ?? [],
       token,
       message: 'Session already active.',
     })
