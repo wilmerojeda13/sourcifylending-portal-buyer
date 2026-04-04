@@ -678,6 +678,10 @@ export default function DialerClient() {
       // Register device so Twilio can route the incoming call to this browser client
       await device.register()
 
+      // Wait for Twilio's edge infrastructure to propagate the registration
+      // before the server attempts to call this browser client identity
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
       // Tell the server to place the Twilio call to this browser identity
       const connectRes = await fetch('/api/admin/crm/dialer/connect-browser', {
         method: 'POST',
