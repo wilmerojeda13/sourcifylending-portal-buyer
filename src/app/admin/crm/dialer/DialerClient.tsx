@@ -1576,6 +1576,7 @@ export default function DialerClient() {
                   targetParallelLines={targetParallelLines}
                   activeCallId={activeCallId}
                   leads={leads}
+                  onHangUp={disconnectLeadLeg}
                 />
               )}
 

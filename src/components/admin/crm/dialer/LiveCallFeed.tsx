@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Phone, Loader2, CheckCircle2, X, PhoneOff, Clock, User, Voicemail, AlertCircle } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { Phone, Loader2, CheckCircle2, X, PhoneOff, Clock, User, Voicemail, AlertCircle, PhoneCall } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface LeadSummary {
@@ -16,6 +16,7 @@ interface LiveCallFeedProps {
   attempts: Array<{
     id: string
     lead_id: string
+    crm_call_id?: string | null
     attempt_status: string
     queue_slot: number
     is_winner: boolean
@@ -24,6 +25,7 @@ interface LiveCallFeedProps {
     answered_by?: string | null
     amd_status?: string | null
     crm_call?: {
+      id?: string | null
       lead?: LeadSummary
       call_started_at?: string | null
       twilio_status?: string | null
@@ -33,6 +35,7 @@ interface LiveCallFeedProps {
   targetParallelLines: number
   activeCallId: string | null
   leads?: LeadSummary[]
+  onHangUp?: (callId: string) => Promise<unknown>
 }
 
 interface FeedEvent {
@@ -60,8 +63,9 @@ const statusConfig: Record<string, { icon: React.ElementType; color: string; lab
   completed: { icon: CheckCircle2, color: 'text-green-500', label: 'Completed' },
 }
 
+const ACTIVE_STATUSES = new Set(['queued', 'dialing', 'ringing', 'answered_human', 'answered_machine', 'bridged'])
+
 function getAttemptStatus(status: string, amdStatus?: string | null, twilioStatus?: string | null): keyof typeof statusConfig {
-  // Map various status combinations to our unified status
   if (status === 'answered_human' || (amdStatus === 'human' && status === 'answered')) return 'answered_human'
   if (status === 'answered_machine' || (amdStatus === 'machine' && status === 'answered')) return 'answered_machine'
   if (status === 'bridged') return 'bridged'
@@ -89,24 +93,47 @@ function formatElapsedTime(startTime: string | null | undefined): string {
   return formatDuration(elapsed)
 }
 
-export default function LiveCallFeed({ attempts, targetParallelLines, activeCallId, leads = [] }: LiveCallFeedProps) {
+function playAnswerTone() {
+  try {
+    const ctx = new AudioContext()
+    const playNote = (freq: number, startTime: number, duration: number) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0, startTime)
+      gain.gain.linearRampToValueAtTime(0.25, startTime + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration)
+      osc.start(startTime)
+      osc.stop(startTime + duration)
+    }
+    const now = ctx.currentTime
+    playNote(880, now, 0.15)        // A5
+    playNote(1100, now + 0.15, 0.2) // C#6 — ascending ding-ding
+  } catch {
+    // AudioContext not available — ignore
+  }
+}
+
+export default function LiveCallFeed({ attempts, targetParallelLines, activeCallId, leads = [], onHangUp }: LiveCallFeedProps) {
   const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([])
   const [lineStatuses, setLineStatuses] = useState<Map<number, any>>(new Map())
+  const [hangingUp, setHangingUp] = useState<Set<string>>(new Set())
+  const humanDetectedRef = useRef<Set<string>>(new Set())
 
-  // Track attempt changes and generate feed events
+  // Track attempt changes, generate feed events, play tone on human answer
   useEffect(() => {
     const newEvents: FeedEvent[] = []
     const newLineStatuses = new Map<number, any>()
 
-    // Process each attempt
     attempts.forEach((attempt) => {
       const slot = attempt.queue_slot
-      // crm_call.lead is only populated if the API joins it; fall back to leads[] by lead_id
       const lead = attempt.crm_call?.lead ?? leads.find((l) => l.id === attempt.lead_id)
       const status = getAttemptStatus(attempt.attempt_status, attempt.amd_status, attempt.last_twilio_status)
       const config = statusConfig[status]
 
-      // Update line status
       newLineStatuses.set(slot, {
         attempt,
         lead,
@@ -117,40 +144,29 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
         duration: attempt.crm_call?.duration_seconds,
       })
 
-      // Generate events for status changes (simplified - in production, track previous state)
+      // Play ding and generate winner event first time human detected
+      if (status === 'answered_human' && !humanDetectedRef.current.has(attempt.id)) {
+        humanDetectedRef.current.add(attempt.id)
+        playAnswerTone()
+        newEvents.push({
+          id: `${attempt.id}-winner`,
+          timestamp: new Date().toISOString(),
+          type: 'winner',
+          message: `Line ${slot} — human answered: ${lead?.first_name ?? ''} ${lead?.last_name ?? ''}`.trim(),
+          leadName: `${lead?.first_name} ${lead?.last_name}`,
+          lineNumber: slot,
+          isWinner: true,
+        })
+      }
+
       if (status === 'dialing' && attempt.crm_call?.call_started_at) {
         newEvents.push({
           id: `${attempt.id}-dialing`,
           timestamp: attempt.crm_call.call_started_at,
           type: 'dialing',
-          message: `Line ${slot} started dialing ${lead?.first_name} ${lead?.last_name}`,
+          message: `Line ${slot} dialing ${lead?.first_name ?? ''} ${lead?.last_name ?? ''}`,
           leadName: `${lead?.first_name} ${lead?.last_name}`,
           lineNumber: slot,
-        })
-      }
-
-      if (status === 'answered_human' && attempt.is_winner) {
-        newEvents.push({
-          id: `${attempt.id}-winner`,
-          timestamp: new Date().toISOString(),
-          type: 'winner',
-          message: `🎉 WINNER! Line ${slot} connected with ${lead?.first_name} ${lead?.last_name}`,
-          leadName: `${lead?.first_name} ${lead?.last_name}`,
-          lineNumber: slot,
-          isWinner: true,
-        })
-
-        // Cancel other active attempts
-        attempts.forEach((otherAttempt) => {
-          if (otherAttempt.id !== attempt.id && otherAttempt.attempt_status === 'dialing') {
-            newEvents.push({
-              id: `${otherAttempt.id}-canceled`,
-              timestamp: new Date().toISOString(),
-              type: 'canceled',
-              message: `Line ${otherAttempt.queue_slot} canceled (winner found)`,
-              lineNumber: otherAttempt.queue_slot,
-            })
-          }
         })
       }
 
@@ -159,7 +175,7 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
           id: `${attempt.id}-voicemail`,
           timestamp: new Date().toISOString(),
           type: 'voicemail',
-          message: `Line ${slot} detected voicemail for ${lead?.first_name} ${lead?.last_name}`,
+          message: `Line ${slot} — voicemail: ${lead?.first_name ?? ''} ${lead?.last_name ?? ''}`,
           leadName: `${lead?.first_name} ${lead?.last_name}`,
           lineNumber: slot,
         })
@@ -170,8 +186,7 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
           id: `${attempt.id}-no-answer`,
           timestamp: new Date().toISOString(),
           type: 'no_answer',
-          message: `Line ${slot} no answer for ${lead?.first_name} ${lead?.last_name}`,
-          leadName: `${lead?.first_name} ${lead?.last_name}`,
+          message: `Line ${slot} — no answer: ${lead?.first_name ?? ''} ${lead?.last_name ?? ''}`,
           lineNumber: slot,
         })
       }
@@ -181,17 +196,15 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
           id: `${attempt.id}-busy`,
           timestamp: new Date().toISOString(),
           type: 'busy',
-          message: `Line ${slot} busy for ${lead?.first_name} ${lead?.last_name}`,
-          leadName: `${lead?.first_name} ${lead?.last_name}`,
+          message: `Line ${slot} — busy: ${lead?.first_name ?? ''} ${lead?.last_name ?? ''}`,
           lineNumber: slot,
         })
       }
     })
 
-    // Update state
     setLineStatuses(newLineStatuses)
     if (newEvents.length > 0) {
-      setFeedEvents(prev => [...newEvents, ...prev].slice(0, 50)) // Keep last 50 events
+      setFeedEvents(prev => [...newEvents, ...prev].slice(0, 50))
     }
   }, [attempts, leads])
 
@@ -200,7 +213,7 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
     const timer = setInterval(() => {
       setLineStatuses(prev => {
         const updated = new Map(prev)
-        updated.forEach((status, slot) => {
+        updated.forEach((status) => {
           if (status.startTime) {
             status.elapsedTime = formatElapsedTime(status.startTime)
           }
@@ -208,9 +221,19 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
         return updated
       })
     }, 1000)
-
     return () => clearInterval(timer)
   }, [])
+
+  async function handleHangUp(attempt: LiveCallFeedProps['attempts'][0]) {
+    const callId = attempt.crm_call_id ?? attempt.crm_call?.id
+    if (!callId || !onHangUp) return
+    setHangingUp(prev => new Set(prev).add(attempt.id))
+    try {
+      await onHangUp(callId)
+    } finally {
+      setHangingUp(prev => { const s = new Set(prev); s.delete(attempt.id); return s })
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -220,7 +243,7 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
           Live Line Status ({targetParallelLines} Lines)
         </h3>
-        
+
         <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(targetParallelLines, 3)}, 1fr)` }}>
           {Array.from({ length: targetParallelLines }, (_, index) => {
             const lineNumber = index + 1
@@ -228,21 +251,24 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
             const status = lineStatus?.status || 'idle'
             const config = statusConfig[status as keyof typeof statusConfig]
             const Icon = config.icon
+            const isActive = ACTIVE_STATUSES.has(status)
+            const attempt = lineStatus?.attempt
+            const isHangingUp = attempt && hangingUp.has(attempt.id)
 
             return (
               <div
                 key={lineNumber}
                 className={cn(
                   "rounded-lg border p-3 transition-all duration-200",
-                  lineStatus?.attempt?.is_winner 
-                    ? "border-green-500 bg-green-500/10 shadow-lg shadow-green-500/20" 
+                  attempt?.is_winner
+                    ? "border-green-500 bg-green-500/10 shadow-lg shadow-green-500/20"
                     : "border-gray-700 bg-gray-800/50"
                 )}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-gray-400">Line {lineNumber}</span>
-                  {lineStatus?.attempt?.is_winner && (
-                    <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded-full">WINNER</span>
+                  {attempt?.is_winner && (
+                    <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded-full">LIVE</span>
                   )}
                 </div>
 
@@ -275,10 +301,19 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
                   </div>
                 )}
 
-                {lineStatus && (
-                  <div className="mt-1 text-xs text-gray-500">
-                    Last update: {new Date().toLocaleTimeString()}
-                  </div>
+                {/* Hang Up button — visible on any active line */}
+                {isActive && onHangUp && attempt && (
+                  <button
+                    onClick={() => handleHangUp(attempt)}
+                    disabled={isHangingUp}
+                    className="mt-2 w-full flex items-center justify-center gap-1.5 px-2 py-1 rounded-md bg-red-600/20 border border-red-500/40 text-red-400 hover:bg-red-600/40 hover:text-red-300 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isHangingUp
+                      ? <Loader2 size={10} className="animate-spin" />
+                      : <PhoneCall size={10} className="rotate-135" />
+                    }
+                    {isHangingUp ? 'Hanging up…' : 'Hang Up'}
+                  </button>
                 )}
               </div>
             )
@@ -289,7 +324,7 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
       {/* Activity Feed */}
       <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-4">
         <h3 className="text-sm font-semibold text-gray-300 mb-3">Activity Feed</h3>
-        
+
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {feedEvents.length === 0 ? (
             <div className="text-xs text-gray-500 text-center py-4">
