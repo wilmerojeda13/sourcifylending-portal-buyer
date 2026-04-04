@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createClient as createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import {
   Phone, ChevronLeft, ChevronRight, Building2, Mail,
@@ -380,10 +381,36 @@ export default function DialerClient() {
 
     const timer = window.setInterval(() => {
       loadSession().catch(() => {})
-    }, 750)
+    }, 2000)
 
     return () => window.clearInterval(timer)
   }, [session?.id, session?.session_status, loadSession])
+
+  // Supabase Realtime — instantly reload session state when dialer rows change
+  // This fires loadSession() the moment AMD marks a winner, eliminating poll delay
+  useEffect(() => {
+    if (!session?.id) return
+    const sessionId = session.id
+
+    const supabase = createSupabaseBrowserClient()
+    const channel = supabase
+      .channel(`dialer-realtime-${sessionId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'crm_dialer_sessions', filter: `id=eq.${sessionId}` },
+        () => { loadSession().catch(() => {}) },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'crm_dialer_attempts', filter: `dialer_session_id=eq.${sessionId}` },
+        () => { loadSession().catch(() => {}) },
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [session?.id, loadSession])
 
   const total   = leads.length
   const winnerLead = session?.current_lead_id ? leads.find((lead) => lead.id === session.current_lead_id) : undefined
