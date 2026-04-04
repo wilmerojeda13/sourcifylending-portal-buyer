@@ -128,8 +128,16 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
     const newEvents: FeedEvent[] = []
     const newLineStatuses = new Map<number, any>()
 
+    // attempts arrive newest-first; first occurrence per slot wins so the
+    // most-recent (active) attempt is always shown, never overwritten by
+    // old completed attempts from earlier in the same session.
     attempts.forEach((attempt) => {
       const slot = attempt.queue_slot
+      if (newLineStatuses.has(slot)) return          // newest already set
+      if (attempt.resolved_at && !ACTIVE_STATUSES.has(
+        getAttemptStatus(attempt.attempt_status, attempt.amd_status, attempt.last_twilio_status)
+      )) return   // skip old resolved attempts — show idle instead
+
       const lead = attempt.crm_call?.lead ?? leads.find((l) => l.id === attempt.lead_id)
       const status = getAttemptStatus(attempt.attempt_status, attempt.amd_status, attempt.last_twilio_status)
       const config = statusConfig[status]

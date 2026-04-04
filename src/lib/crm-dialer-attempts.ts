@@ -43,6 +43,7 @@ export async function loadSessionAttempts(supabase: ServiceClient, sessionId: st
     .select('*')
     .eq('dialer_session_id', sessionId)
     .order('created_at', { ascending: false })
+    .limit(30)
 
   if (error) throw error
   return (data ?? []) as DialerAttemptRow[]
