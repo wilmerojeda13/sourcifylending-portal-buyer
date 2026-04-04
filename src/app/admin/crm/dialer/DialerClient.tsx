@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMirror'
+import LiveCallFeed from '@/components/admin/crm/dialer/LiveCallFeed'
 import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -590,7 +591,7 @@ export default function DialerClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: connectionMode,
-          target_parallel_lines: 1, // Force single line for now
+          target_parallel_lines: dialerMode === 'power' ? 3 : 1,
         }),
       })
       const json = await res.json()
@@ -1530,6 +1531,15 @@ export default function DialerClient() {
             </div>
 
             <div className="space-y-4 lg:sticky lg:top-6">
+              {/* Live Call Feed - Show during active dialing */}
+              {session && session.session_status !== 'not_ready' && (
+                <LiveCallFeed
+                  attempts={attempts}
+                  targetParallelLines={targetParallelLines}
+                  activeCallId={activeCallId}
+                />
+              )}
+
               <div className="hidden rounded-3xl border border-gray-800 bg-gray-900/90 p-4 lg:block lg:p-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Call Outcome</p>
