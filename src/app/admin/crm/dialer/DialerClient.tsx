@@ -326,10 +326,20 @@ export default function DialerClient() {
       if (!res.ok) {
         throw new Error(json.error || 'Failed to load dialer session')
       }
-      setSession(json.session ?? null)
+      const sessionData = (json.session ?? null) as CRMDialerSession | null
+      setSession(sessionData)
       setAttempts(json.attempts ?? [])
       setRepPhoneConfigured(Boolean(json.has_rep_phone))
       setProfileActionHref(json.action_href ?? null)
+      // For phone-leg sessions, mirror Twilio session state into deviceStatus
+      // so canDialLead works the same way regardless of connection mode
+      if (sessionData?.rep_phone_number && sessionData.rep_phone_number !== 'browser') {
+        if (['waiting', 'in_call', 'ready'].includes(sessionData.session_status)) {
+          setDeviceStatus((prev) => (prev === 'connected' ? 'connected' : 'connected'))
+        } else if (['not_ready', 'ended', 'failed'].includes(sessionData.session_status)) {
+          setDeviceStatus((prev) => (prev === 'offline' ? 'offline' : 'offline'))
+        }
+      }
     } catch {
       setSession(null)
       setAttempts([])
@@ -1560,6 +1570,7 @@ export default function DialerClient() {
                   attempts={attempts}
                   targetParallelLines={targetParallelLines}
                   activeCallId={activeCallId}
+                  leads={leads}
                 />
               )}
 

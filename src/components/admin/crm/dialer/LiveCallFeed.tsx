@@ -1,8 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Phone, Loader2, CheckCircle2, X, PhoneOff, Clock, User, Voicemail, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+interface LeadSummary {
+  id: string
+  first_name: string
+  last_name: string
+  phone: string
+  business_name?: string | null
+}
 
 interface LiveCallFeedProps {
   attempts: Array<{
@@ -16,12 +24,7 @@ interface LiveCallFeedProps {
     answered_by?: string | null
     amd_status?: string | null
     crm_call?: {
-      lead?: {
-        first_name: string
-        last_name: string
-        phone: string
-        business_name?: string | null
-      }
+      lead?: LeadSummary
       call_started_at?: string | null
       twilio_status?: string | null
       duration_seconds?: number | null
@@ -29,6 +32,7 @@ interface LiveCallFeedProps {
   }>
   targetParallelLines: number
   activeCallId: string | null
+  leads?: LeadSummary[]
 }
 
 interface FeedEvent {
@@ -41,10 +45,10 @@ interface FeedEvent {
   isWinner?: boolean
 }
 
-const statusConfig = {
+const statusConfig: Record<string, { icon: React.ElementType; color: string; label: string; animate?: boolean }> = {
   idle: { icon: PhoneOff, color: 'text-gray-500', label: 'Idle' },
-  queued: { icon: Clock, color: 'text-blue-500', label: 'Queued' },
-  dialing: { icon: Phone, color: 'text-yellow-500', label: 'Dialing' },
+  queued: { icon: Clock, color: 'text-blue-500', label: 'Queued', animate: true },
+  dialing: { icon: Phone, color: 'text-yellow-500', label: 'Dialing', animate: true },
   ringing: { icon: Phone, color: 'text-yellow-500', label: 'Ringing', animate: true },
   answered_human: { icon: User, color: 'text-green-500', label: 'Human Detected' },
   answered_machine: { icon: Voicemail, color: 'text-orange-500', label: 'Voicemail' },
@@ -85,7 +89,7 @@ function formatElapsedTime(startTime: string | null | undefined): string {
   return formatDuration(elapsed)
 }
 
-export default function LiveCallFeed({ attempts, targetParallelLines, activeCallId }: LiveCallFeedProps) {
+export default function LiveCallFeed({ attempts, targetParallelLines, activeCallId, leads = [] }: LiveCallFeedProps) {
   const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([])
   const [lineStatuses, setLineStatuses] = useState<Map<number, any>>(new Map())
 
@@ -97,7 +101,8 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
     // Process each attempt
     attempts.forEach((attempt) => {
       const slot = attempt.queue_slot
-      const lead = attempt.crm_call?.lead
+      // crm_call.lead is only populated if the API joins it; fall back to leads[] by lead_id
+      const lead = attempt.crm_call?.lead ?? leads.find((l) => l.id === attempt.lead_id)
       const status = getAttemptStatus(attempt.attempt_status, attempt.amd_status, attempt.last_twilio_status)
       const config = statusConfig[status]
 
@@ -188,7 +193,7 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
     if (newEvents.length > 0) {
       setFeedEvents(prev => [...newEvents, ...prev].slice(0, 50)) // Keep last 50 events
     }
-  }, [attempts])
+  }, [attempts, leads])
 
   // Update elapsed times every second
   useEffect(() => {
