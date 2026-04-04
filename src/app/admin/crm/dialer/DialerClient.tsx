@@ -628,7 +628,7 @@ export default function DialerClient() {
       }
 
       const device = new Device(json.token, {
-        codecPreferences: ['opus', 'pcmu'] as ['opus', 'pcmu'],
+        codecPreferences: ['opus', 'pcmu'] as any,
         disableAudioContextSounds: true,
       })
       deviceRef.current = device

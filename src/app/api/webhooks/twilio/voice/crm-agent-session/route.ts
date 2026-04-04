@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   dial.conference({
     startConferenceOnEnter: true,
     endConferenceOnExit: true,
-    beep: false,
+    beep: 'false' as any,
     waitUrl: waitAudioUrl,
     waitMethod: 'GET',
     participantLabel: `agent:${session.id}`,

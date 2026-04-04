@@ -135,7 +135,7 @@ export default function LiveCallsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {disp && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{disp.replace(/_/g, ' ')}</span>}
-                    {call.duration_seconds && <span className="text-xs text-gray-400">{call.duration_seconds as number}s</span>}
+                    {(call as any).duration_seconds && <span className="text-xs text-gray-400">{(call as any).duration_seconds}s</span>}
                   </div>
                 </div>
               )

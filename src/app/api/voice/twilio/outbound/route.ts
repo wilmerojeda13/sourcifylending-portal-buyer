@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
         event_type: 'fallback_say_used',
         event_data: { reason: 'voice_server_not_configured', ws_url: wsUrlRaw || 'not set' },
         timestamp:  new Date().toISOString(),
-      }).catch(() => {})
+      }).then(() => {})
     }
 
     return new NextResponse(fallbackTwiml, {

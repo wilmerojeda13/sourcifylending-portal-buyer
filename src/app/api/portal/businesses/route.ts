@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       business_name: businessName,
       entity_type: entityType || null,
       industry: industry || null,
-      phone: (context.viewerProfile as Record<string, unknown>)?.phone ?? null,
+      phone: (context.viewerProfile as unknown as Record<string, unknown>)?.phone ?? null,
       account_state: 'prospect',
       subscription_status: 'inactive',
       progress_percentage: 0,

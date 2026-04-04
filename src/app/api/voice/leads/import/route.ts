@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     const { error: insertErr, count } = await supabase
       .from('voice_leads')
       .insert(chunk)
-      .select('id', { count: 'exact' })
+      .select('id')
 
     if (insertErr) {
       console.error('[voice/leads/import] Chunk insert error:', insertErr)

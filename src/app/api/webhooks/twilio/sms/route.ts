@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
         twilio_message_sid: messageSid,
       },
       created_by: 'Twilio SMS',
-    }).catch(() => {})
+    }).then(() => {})
 
     await logPortalEvent({
       eventType: 'crm_inbound_sms',

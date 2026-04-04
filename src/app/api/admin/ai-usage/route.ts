@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Enrich top users with names
-    const userIds = [...new Set((topUsers ?? []).map((u) => u.user_id))]
+    const userIds = Array.from(new Set((topUsers ?? []).map((u) => u.user_id)))
     let profileMap: Record<string, { full_name: string; email: string }> = {}
     if (userIds.length > 0) {
       const { data: profiles } = await ctx.supabase
@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(50)
 
-    const userIds = [...new Set((events ?? []).map((e) => e.user_id))]
+    const userIds = Array.from(new Set((events ?? []).map((e) => e.user_id)))
     let profileMap: Record<string, { full_name: string; email: string }> = {}
     if (userIds.length > 0) {
       const { data: profiles } = await ctx.supabase

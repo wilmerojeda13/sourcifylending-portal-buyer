@@ -219,7 +219,7 @@ export default function LeadsPage() {
                         {disp ? <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${DISP_COLOR[disp] ?? 'bg-gray-100 text-gray-500'}`}>{disp.replace(/_/g, ' ')}</span> : <span className="text-gray-300 text-xs">—</span>}
                       </td>
                       <td className="px-4 py-3">
-                        {!isDnc && lead.phone_e164 && (
+                        {!isDnc && (lead as any).phone_e164 && (
                           <button
                             onClick={() => handleDial(lead.id as string, lead.campaign_id as string | null)}
                             disabled={dialingId === (lead.id as string)}

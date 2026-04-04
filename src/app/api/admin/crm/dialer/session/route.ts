@@ -212,8 +212,6 @@ function buildAccessToken(userId: string): string | null {
 
   if (!accountSid || !apiKeySid || !apiKeySecret || !twimlAppSid) return null
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const twilio = require('twilio')
   const { AccessToken } = twilio.jwt
   const { VoiceGrant } = AccessToken
 

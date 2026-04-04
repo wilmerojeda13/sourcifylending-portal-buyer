@@ -11,12 +11,14 @@ type SessionRow = {
   rep_phone_number: string
   session_status: string
   rep_state?: string | null
+  rep_session_mode?: string | null
   conference_name: string
   current_lead_id: string | null
   current_crm_call_id: string | null
   target_parallel_lines?: number | null
   waiting_for_disposition?: boolean | null
   active_attempt_count?: number | null
+  twilio_agent_call_sid?: string | null
 }
 
 async function assertAdmin() {

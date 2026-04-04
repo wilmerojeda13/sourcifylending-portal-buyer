@@ -245,8 +245,8 @@ function AIUsageInner() {
   return (
     <PortalLayout
       userName={profile?.full_name || ''}
-      programLabel={getProgramShortLabel(profile?.assigned_program)}
-      assignedProgram={profile?.assigned_program}
+      programLabel={getProgramShortLabel(profile?.assigned_program as string | null)}
+      assignedProgram={profile?.assigned_program as string | null}
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}

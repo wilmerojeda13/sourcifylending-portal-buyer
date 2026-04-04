@@ -69,7 +69,10 @@ export default async function IntelligencePage() {
           recentOutcomes={recentOutcomes ?? []}
           actionCounts={actionCounts}
           byProgram={byProgram}
-          agentLogs={agentLogs ?? []}
+          agentLogs={agentLogs?.map(log => ({
+            ...log,
+            profiles: Array.isArray(log.profiles) ? log.profiles[0] : log.profiles
+          })) ?? []}
         />
       </div>
     </div>

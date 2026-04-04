@@ -405,7 +405,7 @@ export default function BusinessCreditMonitoringClient() {
             ))}
           </div>
           <p className="text-xs text-blue-700">
-            Current PAYDEX: <strong>{bureauProfile.paydex_score}</strong> — {paydexInfo?.label}.{' '}
+            Current PAYDEX: <strong>{bureauProfile?.paydex_score}</strong> — {paydexInfo?.label}.{' '}
             Pay vendors 5–10 days early to push toward 90+.
           </p>
         </div>

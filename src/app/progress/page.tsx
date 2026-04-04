@@ -125,14 +125,14 @@ function ProgressPage() {
     toast.success('Task marked complete!')
 
     // Notify admin (fire-and-forget)
-    const completedCount = updatedTasks.filter((t) => t.status === 'completed').length
+    const completedCount = updatedTasks.filter((t: any) => t.status === 'completed').length
     const totalCount = updatedTasks.length
     const completedStage = task?.stage
     const stageTasksDone = completedStage
-      ? updatedTasks.filter((t) => t.stage === completedStage && t.status === 'completed').length
+      ? updatedTasks.filter((t: any) => t.stage === completedStage && t.status === 'completed').length
       : 0
     const stageTasksTotal = completedStage
-      ? updatedTasks.filter((t) => t.stage === completedStage).length
+      ? updatedTasks.filter((t: any) => t.stage === completedStage).length
       : 0
     const isStageComplete = completedStage && stageTasksDone === stageTasksTotal && stageTasksTotal > 0
 
@@ -155,7 +155,7 @@ function ProgressPage() {
   const total = tasks.length
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0
 
-  const stages = [...new Set(tasks.map((t) => t.stage))]
+  const stages = Array.from(new Set(tasks.map((t) => t.stage)))
 
   if (loading) {
     return (
@@ -172,7 +172,7 @@ function ProgressPage() {
   return (
     <PortalLayout
       userName={profile?.full_name || ''}
-      programLabel={getProgramShortLabel(profile?.assigned_program)}
+      programLabel={getProgramShortLabel(profile?.assigned_program as string | null)}
       assignedProgram={profile?.assigned_program}
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}

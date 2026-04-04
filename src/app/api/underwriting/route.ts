@@ -11,7 +11,7 @@ import { getBusinessContext } from '@/lib/business-context'
 const REVIEW_VALIDITY_DAYS = 30
 
 // ─── Gate check helper ────────────────────────────────────────────────────────
-export function underwrtingIsExpired(nextDueAt: string | null): boolean {
+function underwrtingIsExpired(nextDueAt: string | null): boolean {
   if (!nextDueAt) return true  // never done
   return new Date(nextDueAt) < new Date()
 }

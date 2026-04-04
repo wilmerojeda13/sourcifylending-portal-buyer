@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Mark completed if all days sent
-      const newSent = new Set([...sent, ...dueDays])
+      const newSent = new Set(Array.from(sent).concat(Array.from(dueDays)))
       if (allDays.every(d => newSent.has(d))) {
         await supabase
           .from('nurture_enrollments')
@@ -163,7 +163,7 @@ export async function GET(req: NextRequest) {
         await sleep(250) // stay under Resend 5 req/s limit
       }
 
-      const newSent = new Set([...sent, ...dueDays])
+      const newSent = new Set(Array.from(sent).concat(Array.from(dueDays)))
       if (allDays.every(d => newSent.has(d))) {
         await supabase
           .from('onboarding_enrollments')

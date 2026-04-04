@@ -18,7 +18,6 @@ export function ProgressBar({
 }: ProgressBarProps) {
   const heights = { sm: 'h-1.5', md: 'h-2.5', lg: 'h-4' }
   const colors = {
-    green: 'bg-green-600',
     green: 'bg-green-500',
     yellow: 'bg-yellow-500',
   }

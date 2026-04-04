@@ -155,9 +155,7 @@ export default function PortalLayout({
   const currentBusinessStatusLabel = currentBusiness
     ? currentBusiness.subscription_status === 'active' || currentBusiness.subscription_status === 'trialing'
       ? 'Active'
-      : currentBusiness.subscription_status === 'pending'
-        ? 'Pending'
-        : 'Subscription Required'
+      : 'Subscription Required'
     : accountState === 'active_member'
       ? 'Active'
       : 'Pending'

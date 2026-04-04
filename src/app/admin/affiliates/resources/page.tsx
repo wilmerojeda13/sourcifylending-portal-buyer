@@ -47,7 +47,7 @@ const SUB_NAV = [
   { label: 'Flags', href: '/admin/affiliates/flags' },
 ]
 
-const EMPTY_FORM = { title: '', slug: '', content: '', category: 'getting_started', status: 'published' as const, sort_order: 0 }
+const EMPTY_FORM = { title: '', slug: '', content: '', category: 'getting_started', status: 'published' as 'published' | 'draft', sort_order: 0 }
 
 export default function ResourcesPage() {
   const [resources, setResources] = useState<Resource[]>([])

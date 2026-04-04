@@ -517,12 +517,12 @@ export default function AIControlsPage() {
                             <input
                               type="number"
                               min={0}
-                              value={(limitDraft as Record<string, number>)[field] ?? (limit as Record<string, number>)[field]}
+                              value={(limitDraft[field as keyof AIProgramLimits] as number | undefined) ?? (limit[field as keyof AIProgramLimits] as number) ?? 0}
                               onChange={(e) => setLimitDraft((prev) => ({ ...prev, [field]: parseInt(e.target.value) || 0 }))}
                               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400"
                             />
                           ) : (
-                            <p className="text-xl font-bold text-gray-900">{(limit as Record<string, number>)[field]}</p>
+                            <p className="text-xl font-bold text-gray-900">{limit[field as keyof AIProgramLimits] as number}</p>
                           )}
                         </div>
                       ))}

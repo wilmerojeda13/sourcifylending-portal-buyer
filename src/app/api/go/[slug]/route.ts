@@ -32,7 +32,7 @@ export async function GET(
           url: req.url,
         },
         created_at: new Date().toISOString(),
-      }).then(() => {}).catch(() => {})
+      }).then(() => {})
     }
   } catch {
     // Never block the redirect due to tracking errors

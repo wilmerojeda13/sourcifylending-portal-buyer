@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
           program_recommended: result.assigned_program,
         },
         created_at: new Date().toISOString(),
-      }).catch(() => {})
+      }).then(() => {})
     }
 
     // ── Log to activity feed (portal_events) for new leads ──

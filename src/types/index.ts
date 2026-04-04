@@ -369,6 +369,11 @@ export type ActivityEventType =
   | 'opportunity_viewed'
   | 'application_attempted'
   | 'subscription_started'
+  | 'stage_acknowledged'
+  | 'admin_granted_access'
+  | 'portal_access_granted'
+  | 'welcome_agreement_signed'
+  | 'tracked_link_click'
 
 export interface ActivityLog {
   id: string

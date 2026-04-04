@@ -6,7 +6,7 @@ import {
   ArrowLeft, User, Shield, ShieldOff, CheckCircle, Clock, Lock, AlertTriangle,
   FileText, BarChart2, Bell, Save, Loader2, AlertOctagon, ChevronDown, ChevronUp,
   MessageSquare, Tag, LayoutDashboard, Pin, Trash2, Plus, X,
-  ChevronRight, Zap, BanIcon, DollarSign, ExternalLink, RefreshCw,
+  ChevronRight, Zap, BanIcon, DollarSign, ExternalLink, RefreshCw, Building2,
 } from 'lucide-react'
 import BillingControlPanel from '@/components/admin/BillingControlPanel'
 import type {

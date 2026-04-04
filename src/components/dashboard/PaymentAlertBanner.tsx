@@ -113,7 +113,7 @@ export default function PaymentAlertBanner({ alerts }: Props) {
                   <p className={`font-semibold text-sm ${cfg.titleColor}`}>{alert.title}</p>
                   {canDismiss && (
                     <button
-                      onClick={() => setDismissed(prev => new Set([...prev, alert.type]))}
+                      onClick={() => setDismissed(prev => new Set(Array.from(prev).concat(alert.type)))}
                       className={`shrink-0 ${cfg.iconColor} opacity-60 hover:opacity-100 transition-opacity`}
                       aria-label="Dismiss"
                     >

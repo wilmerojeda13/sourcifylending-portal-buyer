@@ -57,7 +57,7 @@ export default function AffiliateTrainingPage() {
       const next = new Set(prev)
       next.add(id)
       try {
-        localStorage.setItem(`affiliate_training_watched_${userId}`, JSON.stringify([...next]))
+        localStorage.setItem(`affiliate_training_watched_${userId}`, JSON.stringify(Array.from(next)))
       } catch {}
       return next
     })

@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { createServiceClient } from '@/lib/supabase/server'
 import { logPortalEvent } from '@/lib/portal-events'
 import { isMissingRelationError } from '@/lib/supabase-schema'
+import { getContentMotion } from '@/lib/content-engine-types'
 import type {
   ContentAiVisibilityDashboard,
   ContentConversionDashboard,
@@ -27,7 +28,6 @@ import type {
   ContentUpdateRecord,
   ContentVisibilityDashboard,
   ContentWorkflowStatus,
-  getContentMotion,
 } from '@/lib/content-engine-types'
 export {
   CONTENT_EVENT_TYPES,
@@ -1450,14 +1450,14 @@ export async function submitIndexNow(paths: string[], initiatedBy?: string | nul
     if (!ok) {
       return {
         submitted: false,
-        reason: `http_${response.status}` as const,
+        reason: `http_${response.status}`,
       }
     }
 
-    return { submitted: true, reason: null as const }
+    return { submitted: true, reason: null }
   } catch (error) {
     console.error('[content-engine] IndexNow submission failed', error)
-    return { submitted: false, reason: 'request_failed' as const }
+    return { submitted: false, reason: 'request_failed' }
   } finally {
     if (initiatedBy) {
       await logPortalEvent({
@@ -2179,7 +2179,7 @@ export async function refreshDerivedContentAttribution() {
         related_record_id: event.related_record_id,
         metadata: { derived_from: 'crm_leads.strategy_call_booked' },
         occurred_at: new Date().toISOString(),
-      }, { onConflict: 'page_id,event_type,related_record_id' }).catch(() => {})
+      }, { onConflict: 'page_id,event_type,related_record_id' }).then(() => {})
       bookedCalls += 1
     }
     if (event.related_record_id && paidLeadIds.has(event.related_record_id)) {
@@ -2189,7 +2189,7 @@ export async function refreshDerivedContentAttribution() {
         related_record_id: event.related_record_id,
         metadata: { derived_from: 'crm_leads.converted_to_client' },
         occurred_at: new Date().toISOString(),
-      }, { onConflict: 'page_id,event_type,related_record_id' }).catch(() => {})
+      }, { onConflict: 'page_id,event_type,related_record_id' }).then(() => {})
       paidClients += 1
     }
   }
@@ -2202,7 +2202,7 @@ export async function refreshDerivedContentAttribution() {
         related_record_id: event.related_record_id,
         metadata: { derived_from: 'profiles.subscription_status' },
         occurred_at: new Date().toISOString(),
-      }, { onConflict: 'page_id,event_type,related_record_id' }).catch(() => {})
+      }, { onConflict: 'page_id,event_type,related_record_id' }).then(() => {})
       paidClients += 1
     }
   }
@@ -2218,7 +2218,7 @@ export async function refreshDerivedContentAttribution() {
         related_record_id: application.id,
         metadata: { derived_from: 'affiliate_applications.status' },
         occurred_at: new Date().toISOString(),
-      }, { onConflict: 'page_id,event_type,related_record_id' }).catch(() => {})
+      }, { onConflict: 'page_id,event_type,related_record_id' }).then(() => {})
       approvedPartners += 1
     }
 
@@ -2232,7 +2232,7 @@ export async function refreshDerivedContentAttribution() {
         related_record_id: affiliateId,
         metadata: { derived_from: 'affiliates.status' },
         occurred_at: new Date().toISOString(),
-      }, { onConflict: 'page_id,event_type,related_record_id' }).catch(() => {})
+      }, { onConflict: 'page_id,event_type,related_record_id' }).then(() => {})
       activePartners += 1
     }
 
@@ -2245,7 +2245,7 @@ export async function refreshDerivedContentAttribution() {
           related_record_id: referral.user_id,
           metadata: { derived_from: 'affiliate_referrals.user_id', affiliate_id: affiliateId },
           occurred_at: new Date().toISOString(),
-        }, { onConflict: 'page_id,event_type,related_record_id' }).catch(() => {})
+        }, { onConflict: 'page_id,event_type,related_record_id' }).then(() => {})
       }
       if (referral.user_id && (referral.referral_status === 'active' || referral.subscription_active)) {
         await supabase.from('seo_content_events').upsert({
@@ -2254,7 +2254,7 @@ export async function refreshDerivedContentAttribution() {
           related_record_id: referral.user_id,
           metadata: { derived_from: 'affiliate_referrals.referral_status', affiliate_id: affiliateId },
           occurred_at: new Date().toISOString(),
-        }, { onConflict: 'page_id,event_type,related_record_id' }).catch(() => {})
+        }, { onConflict: 'page_id,event_type,related_record_id' }).then(() => {})
       }
     }
   }

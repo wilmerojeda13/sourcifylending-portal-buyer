@@ -28,7 +28,7 @@ export async function GET(
         event_type: 'tracked_link_click',
         event_data: { slug, destination, source, url: req.url },
         created_at: new Date().toISOString(),
-      }).then(() => {}).catch(() => {})
+      }).then(() => {})
     }
   } catch {
     // Never block the redirect due to tracking errors

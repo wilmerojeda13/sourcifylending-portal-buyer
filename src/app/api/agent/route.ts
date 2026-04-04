@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const { messages, action_type, page_context } = body as {
-      messages: { role: string; content: string }[]
+      messages: { role: "user" | "assistant"; content: string }[]
       action_type?: string
       page_context?: { page?: string; label?: string }
     }

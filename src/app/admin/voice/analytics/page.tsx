@@ -20,7 +20,7 @@ const DISP_COLOR: Record<string, string> = {
 
 function StatCard({ label, value, sub, icon: Icon, color }: {
   label: string; value: string | number; sub?: string
-  icon: React.ComponentType<{ size?: number; className?: string }>; color: string
+  icon: React.ComponentType<{ size?: string | number; className?: string }>; color: string
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
@@ -31,7 +31,16 @@ function StatCard({ label, value, sub, icon: Icon, color }: {
           {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
         </div>
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-          <Icon size={20} className="text-white" />
+          <div className={`${color} text-white p-4 rounded-lg`}>
+            <div className="flex items-center gap-2">
+              <Icon size={20} className="text-white" />
+              <span className="text-sm font-medium">{label}</span>
+            </div>
+            <div className="mt-2">
+              <div className="text-2xl font-bold">{value}</div>
+              {sub && <div className="text-xs opacity-80">{sub}</div>}
+            </div>
+          </div>
         </div>
       </div>
     </div>

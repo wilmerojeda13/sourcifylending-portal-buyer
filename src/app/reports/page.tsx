@@ -85,7 +85,7 @@ export default function ReportsPage() {
   return (
     <PortalLayout
       userName={profile?.full_name || ''}
-      programLabel={getProgramShortLabel(profile?.assigned_program)}
+      programLabel={getProgramShortLabel(profile?.assigned_program as string | null)}
       assignedProgram={profile?.assigned_program}
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}

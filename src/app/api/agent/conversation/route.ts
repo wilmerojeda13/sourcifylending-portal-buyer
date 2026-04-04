@@ -92,10 +92,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Update conversation token estimate
-  await supabase.rpc('increment_conversation_tokens', {
-    conv_id: conversation_id,
-    add_tokens: tokenEstimate,
-  }).catch(() => {
+  try {
+    await supabase.rpc('increment_conversation_tokens', {
+      conv_id: conversation_id,
+      add_tokens: tokenEstimate,
+    })
+  } catch {
     // RPC may not exist yet — best effort, fall back to direct update
     supabase
       .from('ai_conversations')
@@ -110,7 +112,7 @@ export async function POST(req: NextRequest) {
             .eq('id', conversation_id)
         }
       })
-  })
+  }
 
   return NextResponse.json({ message_id: data.id })
 }

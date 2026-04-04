@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
   // Enrich with profile names
   const messages = data ?? []
   if (messages.length > 0) {
-    const userIds = [...new Set(messages.map(m => m.user_id).filter(Boolean))]
+    const userIds = Array.from(new Set(messages.map(m => m.user_id).filter(Boolean)))
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name, business_name')
@@ -125,19 +125,20 @@ export async function PATCH(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Enrich with profile
+  // Fetch profile for enrichment
+  let profile: { full_name?: string; business_name?: string } | null = null
   if (updated) {
-    const { data: profile } = await supabase
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('id, full_name, business_name')
       .eq('id', updated.user_id)
       .maybeSingle()
+    profile = profileData
     ;(updated as Record<string, unknown>).profiles = profile ?? null
   }
 
   // Send reply email to client + portal notification
   if (admin_reply && updated) {
-    const profile = updated.profiles as { full_name?: string; business_name?: string } | null
     const clientName = profile?.full_name || profile?.business_name || 'there'
     const clientEmail = updated.user_email as string
 

@@ -21,7 +21,7 @@ export default async function AdminSupportPage() {
 
   // Enrich with profile names
   if (messages && messages.length > 0) {
-    const userIds = [...new Set(messages.map(m => m.user_id).filter(Boolean))]
+    const userIds = Array.from(new Set(messages.map(m => m.user_id).filter(Boolean)))
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name, business_name')

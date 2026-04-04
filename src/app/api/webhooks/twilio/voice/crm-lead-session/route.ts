@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   dial.conference({
     startConferenceOnEnter: true,
     endConferenceOnExit: false,
-    beep: false,
+    beep: 'false' as any,
     muted: true,
     waitUrl: waitAudioUrl,
     waitMethod: 'GET',

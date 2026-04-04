@@ -76,7 +76,7 @@ export async function GET() {
 
     const approvedOutcomes = allApprovals.filter(a => a.status === 'Approved')
 
-    function effectiveValue(a: Record<string, unknown>): number {
+    const effectiveValue = (a: Record<string, unknown>): number => {
       if (CREDIT_TYPES.has(a.approval_type as string)) {
         return Number(a.approved_limit) || Number(a.approved_amount) || 0
       }

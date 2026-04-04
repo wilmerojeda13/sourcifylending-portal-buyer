@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import type { PostgrestError } from '@supabase/supabase-js'
 
 export type EventCategory = 'accounts' | 'billing' | 'subscriptions' | 'support' | 'documents' | 'funding' | 'reports' | 'leads'
 export type EventSeverity = 'info' | 'success' | 'warning' | 'critical'
@@ -156,7 +157,7 @@ export async function logPortalEvent(opts: PortalEventOptions): Promise<void> {
     if (eventError?.code === '42703' || eventError?.message?.includes('portal_events')) {
       const legacyInsert = await insertLegacyPortalEvent(supabase, opts)
       eventRow = legacyInsert.data
-      eventError = legacyInsert.error
+      eventError = legacyInsert.error as PostgrestError | null
     }
 
     if (eventError || !eventRow) {

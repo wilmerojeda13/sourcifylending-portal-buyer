@@ -67,7 +67,7 @@ export default async function DashboardPage() {
         isDemo={profile?.is_demo}
         isAdmin={profile?.is_admin}
         accountState="active_member"
-        demoSecondaryProgram={profile?.demo_secondary_program ?? null}
+        demoSecondaryProgram={(profile as any)?.demo_secondary_program ?? null}
         allPrograms={portalPrograms}
       >
         <UnderwritingGateBanner
@@ -202,7 +202,7 @@ export default async function DashboardPage() {
   const needsWelcomeGate =
     !profile?.is_demo &&
     profile?.account_state === 'active_member' &&
-    !profile?.welcome_agreement_signed_at
+    !(profile as any)?.welcome_agreement_signed_at
 
   return (
     <PortalLayout
@@ -215,7 +215,7 @@ export default async function DashboardPage() {
       isAdmin={profile?.is_admin}
       accountState="active_member"
       uwNextDueAt={profile?.underwriting_next_due_at ?? null}
-      demoSecondaryProgram={profile?.demo_secondary_program ?? null}
+      demoSecondaryProgram={(profile as any)?.demo_secondary_program ?? null}
       allPrograms={memberPrograms}
     >
       {/* Welcome Gate — first-login service agreement (chargeback protection) */}

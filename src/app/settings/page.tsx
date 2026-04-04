@@ -16,7 +16,7 @@ export default async function SettingsPage() {
       portalBlocked={profile?.portal_blocked ?? false}
       isDemo={profile?.is_demo ?? false}
       isAdmin={profile?.is_admin ?? false}
-      isDelegate={(profile as Record<string, unknown>)?.is_delegate as boolean ?? false}
+      isDelegate={(profile as unknown as Record<string, unknown>)?.is_delegate as boolean ?? false}
       accountState={profile?.account_state ?? 'active_member'}
       allPrograms={activePrograms}
     >
@@ -24,13 +24,13 @@ export default async function SettingsPage() {
         initialProfile={{
           full_name: profile?.full_name ?? '',
           email: user.email ?? '',
-          business_name: profile?.business_name ?? '',
-          entity_type: profile?.entity_type ?? '',
-          industry: profile?.industry ?? '',
-          phone: (profile as Record<string, unknown>)?.phone as string ?? '',
+          business_name: (profile as any)?.business_name ?? '',
+          entity_type: (profile as any)?.entity_type ?? '',
+          industry: (profile as any)?.industry ?? '',
+          phone: (profile as any)?.phone ?? '',
         }}
         activeBusinessName={profile?.business_name ?? profile?.full_name ?? 'This business'}
-        isDelegate={(profile as Record<string, unknown>)?.is_delegate as boolean ?? false}
+        isDelegate={(profile as unknown as Record<string, unknown>)?.is_delegate as boolean ?? false}
       />
     </PortalLayout>
   )

@@ -47,7 +47,7 @@ export default function TrainingClient({ userId, assignedProgram, videos }: Prop
     setWatched(prev => {
       const next = new Set(prev)
       next.add(id)
-      try { localStorage.setItem(storageKey, JSON.stringify([...next])) } catch {}
+      try { localStorage.setItem(storageKey, JSON.stringify(Array.from(next))) } catch {}
       return next
     })
   }

@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
           user_id,
           program_code: program,
           status: 'active',
-          stripe_subscription_id: subPayload.stripe_subscription_id ?? `admin_${user_id}`,
+          stripe_subscription_id: `admin_${user_id}`,
           started_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id,program_code' })

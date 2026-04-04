@@ -83,10 +83,10 @@ export default function CampaignDetailPage() {
         </Link>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">{campaign.name as string}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{(campaign as any).name || 'Untitled Campaign'}</h1>
             <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase ${STATUS_COLOR[status] ?? 'bg-gray-100 text-gray-500'}`}>{status}</span>
           </div>
-          {campaign.description && <p className="text-sm text-gray-500 mt-1">{campaign.description as string}</p>}
+          {(campaign as any).description && <p className="text-sm text-gray-500 mt-1">{(campaign as any).description || ''}</p>}
         </div>
         <div className="flex gap-2">
           {status === 'active' ? (
@@ -148,14 +148,14 @@ export default function CampaignDetailPage() {
             ) : leads.map((lead) => (
               <div key={lead.id as string} className={`flex items-center gap-3 px-5 py-3 ${lead.do_not_call ? 'bg-red-50' : ''}`}>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{(lead.business_name as string) || (lead.owner_name as string) || '—'}</p>
-                  <p className="text-xs text-gray-400">{lead.phone_e164 as string || '—'} · {lead.call_attempt_count as number} attempts</p>
+                  <p className="text-sm font-medium text-gray-900 truncate">{(lead as any).business_name || (lead as any).owner_name || '—'}</p>
+                  <p className="text-xs text-gray-400">{(lead as any).phone_e164 || '—'} · {(lead as any).call_attempt_count || 0} attempts</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${(lead.lead_quality_score as number) >= 70 ? 'bg-green-100 text-green-700' : (lead.lead_quality_score as number) >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
-                    {lead.lead_quality_score as number}
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${typeof (lead as any).lead_quality_score === 'number' && (lead as any).lead_quality_score >= 70 ? 'bg-green-100 text-green-700' : typeof (lead as any).lead_quality_score === 'number' && (lead as any).lead_quality_score >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
+                    {typeof (lead as any).lead_quality_score === 'number' ? (lead as any).lead_quality_score : 0}
                   </span>
-                  {lead.do_not_call && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full">DNC</span>}
+                  {(lead as any).do_not_call && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full">DNC</span>}
                 </div>
               </div>
             ))}
@@ -176,12 +176,12 @@ export default function CampaignDetailPage() {
               return (
                 <div key={call.id as string} className="flex items-center gap-3 px-5 py-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700">{call.to_number as string || '—'}</p>
-                    <p className="text-xs text-gray-400">{new Date(call.created_at as string).toLocaleString()}</p>
+                    <p className="text-sm text-gray-700">{(call as any).to_number || '—'}</p>
+                    <p className="text-xs text-gray-400">{typeof (call as any).created_at === 'string' ? new Date((call as any).created_at).toLocaleString() : ''}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {disp && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${DISP_COLOR[disp] ?? 'bg-gray-100 text-gray-500'}`}>{disp.replace(/_/g, ' ')}</span>}
-                    {call.duration_seconds && <span className="text-xs text-gray-400">{call.duration_seconds as number}s</span>}
+                    {typeof (call as any).duration_seconds === 'number' && <span className="text-xs text-gray-400">{(call as any).duration_seconds}s</span>}
                   </div>
                 </div>
               )

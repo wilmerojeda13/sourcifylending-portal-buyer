@@ -18,7 +18,7 @@ type ManagedBusinessRecord = {
 }
 
 function normalizeMemberProfile(profile: Record<string, unknown>): UserProfile & {
-  stripe_customer_id?: string | null
+  stripe_customer_id?: string | undefined
   active_programs?: string[]
   suspicious_signup?: boolean
   suspicious_signup_reason?: string | null
@@ -26,6 +26,7 @@ function normalizeMemberProfile(profile: Record<string, unknown>): UserProfile &
 } {
   return {
     ...profile,
+    id: typeof profile.id === 'string' ? profile.id : '',
     full_name: typeof profile.full_name === 'string' ? profile.full_name : '',
     email: typeof profile.email === 'string' ? profile.email : '',
     business_name: typeof profile.business_name === 'string' ? profile.business_name : null,
@@ -34,6 +35,7 @@ function normalizeMemberProfile(profile: Record<string, unknown>): UserProfile &
     industry: typeof profile.industry === 'string' ? profile.industry : null,
     monthly_revenue_range: typeof profile.monthly_revenue_range === 'string' ? profile.monthly_revenue_range : null,
     monthly_deposit_range: typeof profile.monthly_deposit_range === 'string' ? profile.monthly_deposit_range : null,
+    nsf_flag: Boolean(profile.nsf_flag),
     credit_score_range: typeof profile.credit_score_range === 'string' ? profile.credit_score_range : null,
     utilization_range: typeof profile.utilization_range === 'string' ? profile.utilization_range : null,
     inquiry_range: typeof profile.inquiry_range === 'string' ? profile.inquiry_range : null,
@@ -100,6 +102,7 @@ function normalizeMemberProfile(profile: Record<string, unknown>): UserProfile &
     suspicious_signup: Boolean(profile.suspicious_signup),
     suspicious_signup_reason: typeof profile.suspicious_signup_reason === 'string' ? profile.suspicious_signup_reason : null,
     signup_risk_score: typeof profile.signup_risk_score === 'number' ? profile.signup_risk_score : null,
+    stripe_customer_id: typeof profile.stripe_customer_id === 'string' ? profile.stripe_customer_id : undefined,
   }
 }
 
@@ -194,20 +197,21 @@ export default async function AdminMemberDetailPage({ params }: { params: Promis
       label: record.business_name?.trim() || record.full_name?.trim() || 'Business Account',
       entity_type: record.entity_type?.trim() || null,
       industry: record.industry?.trim() || null,
-      role: membership.role,
-      is_default: membership.is_default,
+      role: membership.role as string,
+      is_default: Boolean(membership.is_default),
       account_state: record.account_state ?? 'prospect',
       subscription_status: record.subscription_status ?? 'inactive',
       assigned_program: record.assigned_program,
       portal_blocked: Boolean(record.portal_blocked),
       created_at: record.created_at,
       is_current: record.id === id,
-      business_status:
+      business_status: (
         (record.subscription_status === 'active' || record.subscription_status === 'trialing')
           ? 'active'
           : record.account_state === 'active_member'
             ? 'inactive'
-            : 'pending',
+            : 'pending'
+      ) as 'active' | 'inactive' | 'pending',
     }]
   })
 
