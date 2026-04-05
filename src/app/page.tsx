@@ -22,8 +22,8 @@ export default function HomePage() {
           <Link href="/login" className="brand-link text-xs sm:text-sm font-medium px-2 sm:px-3 py-2 whitespace-nowrap hidden sm:inline">
             Sign In
           </Link>
-          <Link href="/get-started" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap">
-            Get Started
+          <Link href="/analyzer" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap">
+            Free Analyzer
           </Link>
         </div>
       </header>
@@ -43,8 +43,8 @@ export default function HomePage() {
           from initial analysis to tradeline reporting, card acquisition, and funding readiness.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/get-started" className="btn-primary text-base px-8 py-4">
-            Get Started <ArrowRight size={18} />
+          <Link href="/analyzer" className="btn-primary text-base px-8 py-4">
+            Free Analyzer <ArrowRight size={18} />
           </Link>
           <Link href="/login" className="btn-secondary text-base px-8 py-4">
             Sign Into Portal
@@ -248,8 +248,8 @@ export default function HomePage() {
           <p className="text-green-200 mb-8 text-lg">
             Complete the 12-question analyzer and get your program recommendation in under 3 minutes.
           </p>
-          <Link href="/get-started" className="inline-flex items-center gap-2 bg-white text-green-600 font-bold px-8 py-4 rounded-xl hover:bg-green-50 transition-colors text-base">
-            Open Public Form <ArrowRight size={18} />
+          <Link href="/analyzer" className="inline-flex items-center gap-2 bg-white text-green-600 font-bold px-8 py-4 rounded-xl hover:bg-green-50 transition-colors text-base">
+            Run Free Analyzer <ArrowRight size={18} />
           </Link>
         </div>
       </section>
