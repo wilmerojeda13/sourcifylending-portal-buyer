@@ -262,31 +262,31 @@ export default function PricingPage() {
           </div>
 
           {/* Table — scrollable on small screens */}
-          <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <table className="w-full text-sm min-w-[600px]">
+          <div className="overflow-x-auto rounded-2xl border border-gray-700/40">
+            <table className="w-full text-sm min-w-[520px]">
               <thead>
-                <tr className="border-b border-gray-100">
+                <tr className="border-b border-gray-700/40">
                   <th className="text-left px-5 py-4 text-gray-500 font-medium w-[38%]">Feature</th>
                   <th className="px-4 py-4 text-center w-[15%]">
-                    <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                    <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-600 text-white">
                       SourcifyLending
                     </span>
                   </th>
-                  <th className="px-4 py-4 text-center text-gray-500 font-medium w-[15%] text-xs">
-                    Credit Monitoring Tools
+                  <th className="px-4 py-4 text-center text-gray-500 font-medium w-[16%] text-xs">
+                    Credit Monitoring
                   </th>
                   <th className="px-4 py-4 text-center text-gray-500 font-medium w-[15%] text-xs">
-                    Funding Brokers
+                    Brokers
                   </th>
                   <th className="px-4 py-4 text-center text-gray-500 font-medium w-[15%] text-xs">
                     DIY Courses
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {COMPARISON_ROWS.map((row, i) => (
-                  <tr key={row.feature} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/60'}>
-                    <td className="px-5 py-3.5 text-gray-700 font-medium">{row.feature}</td>
+              <tbody className="divide-y divide-gray-700/30">
+                {COMPARISON_ROWS.map((row) => (
+                  <tr key={row.feature} className="hover:bg-green-500/5 transition-colors">
+                    <td className="px-5 py-3.5 font-medium text-gray-300">{row.feature}</td>
                     <td className="px-4 py-3.5 text-center"><Check value={row.sl} /></td>
                     <td className="px-4 py-3.5 text-center"><Check value={row.tools} /></td>
                     <td className="px-4 py-3.5 text-center"><Check value={row.brokers} /></td>
