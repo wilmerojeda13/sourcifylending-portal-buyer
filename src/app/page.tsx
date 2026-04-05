@@ -162,7 +162,7 @@ export default function HomePage() {
                 {/* Partner compensation cards */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Program A / B Setup</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Program A / B / A+B Setup</p>
                     <p className="text-xl font-bold text-gray-900">80%</p>
                     <p className="text-xs text-gray-500 mt-0.5">Collected setup fee payout</p>
                   </div>
@@ -175,7 +175,7 @@ export default function HomePage() {
 
                 <ul className="space-y-2 mb-8">
                   {[
-                    'Partner-assisted clients can carry setup fees for A and B because onboarding help is included',
+                    'Partner-assisted clients can carry setup fees for A, B, and A+B because onboarding help is included',
                     'Track partner clients, onboarding progress, and collected earnings from your portal',
                     'Add and invite clients directly from your partner portal',
                     'Unlock free Program B access at 5 active clients',
@@ -209,7 +209,13 @@ export default function HomePage() {
                     icon: DollarSign,
                     label: 'Program B partner-assisted',
                     value: '$240 setup + $49.80/mo',
-                    sub: 'Collected revenue only',
+                    sub: '80% of setup + 20% recurring',
+                  },
+                  {
+                    icon: DollarSign,
+                    label: 'Program A + B partner-assisted',
+                    value: '$640 setup + $119.60/mo',
+                    sub: '80% of setup + 20% recurring',
                   },
                   {
                     icon: Users,
