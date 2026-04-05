@@ -17,7 +17,7 @@ const PLANS = [
       'Personalized recommendations',
       'No credit card required',
     ],
-    cta: 'Run Free Analyzer',
+    cta: 'Start Free Analyzer',
     href: '/analyzer',
     footer: null,
     style: {
@@ -42,7 +42,7 @@ const PLANS = [
       'AI-assisted credit analysis',
       'Free business credit analyzer included',
     ],
-    cta: 'Start Program C',
+    cta: 'Start Free Analyzer',
     href: '/analyzer',
     footer: 'First month due at signup · Cancel anytime',
     style: {
@@ -67,7 +67,7 @@ const PLANS = [
       'Document organization and milestones',
       'Task management and progress tracking',
     ],
-    cta: 'Start Program B',
+    cta: 'Start Free Analyzer',
     href: '/analyzer',
     footer: 'First month due at signup · Cancel anytime',
     style: {
@@ -92,7 +92,7 @@ const PLANS = [
       'Card sequencing and optimization',
       'Personal credit readiness for funding',
     ],
-    cta: 'Start Program A',
+    cta: 'Start Free Analyzer',
     href: '/analyzer',
     footer: 'First month due at signup · Cancel anytime',
     style: {
