@@ -172,11 +172,11 @@ export default function PricingPage() {
           <Link href="/partners" className="brand-link text-sm font-medium px-3 py-2 hidden sm:inline">
             Partners
           </Link>
-          <Link href="/login" className="brand-link text-xs sm:text-sm font-medium px-2 sm:px-3 py-2 whitespace-nowrap hidden sm:inline">
+          <Link href="/login" className="brand-link text-xs sm:text-sm font-medium px-2 sm:px-3 py-2 whitespace-nowrap">
             Sign In
           </Link>
-          <Link href="/get-started" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap">
-            Get Started
+          <Link href="/analyzer" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap">
+            Free Analyzer
           </Link>
         </div>
       </header>
