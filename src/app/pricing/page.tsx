@@ -146,6 +146,26 @@ const PLAN_GUIDE = [
   },
 ]
 
+const BUNDLE = {
+  label: 'Program A + B',
+  title: 'Business + Personal Credit Strategy',
+  price: '$598',
+  period: '/month',
+  description: 'Run both programs simultaneously — build your business credit under your EIN while re-optimizing your personal credit and deploying a 0% APR card strategy at the same time.',
+  features: [
+    'Business credit building workflow',
+    'Personal credit re-optimization',
+    '0% intro APR card strategy',
+    'Vendor and tradeline strategy',
+    'Document organization and milestones',
+    'Progress tracking across both programs',
+    'Guided funding readiness support',
+  ],
+  cta: 'Start Free Analyzer',
+  href: '/analyzer',
+  footer: 'First month due at signup · Cancel anytime',
+} as const
+
 // ─── Check Icon ───────────────────────────────────────────────────────────────
 
 function Check({ value }: { value: CheckValue }) {
@@ -245,6 +265,51 @@ export default function PricingPage() {
               </div>
             )
           })}
+        </div>
+      </section>
+
+      {/* ── Bundle Card ─────────────────────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-10">
+        <div className="rounded-2xl border-2 border-green-500 bg-green-600 overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2">
+            {/* Left — description + features */}
+            <div className="p-7 sm:p-8">
+              <div className="flex items-center gap-2.5 mb-4">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-500 text-white">
+                  {BUNDLE.label}
+                </span>
+                <span className="text-green-300 text-xs font-medium">Bundle — Both Programs Together</span>
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">{BUNDLE.title}</h2>
+              <p className="text-green-100 text-sm leading-relaxed mb-6">{BUNDLE.description}</p>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {BUNDLE.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-sm text-green-50">
+                    <CheckCircle size={14} className="text-green-300 shrink-0 mt-0.5" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* Right — price + CTA */}
+            <div className="bg-green-700/50 p-7 sm:p-8 flex flex-col justify-center items-start md:items-center md:text-center gap-5 border-t-2 md:border-t-0 md:border-l-2 border-green-500/40">
+              <div>
+                <p className="text-green-300 text-xs font-semibold uppercase tracking-wide mb-1">Bundle Price</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-5xl font-bold text-white">{BUNDLE.price}</span>
+                  <span className="text-green-200 text-sm">{BUNDLE.period}</span>
+                </div>
+                <p className="text-green-300 text-xs mt-1">Program A + B combined</p>
+              </div>
+              <Link
+                href={BUNDLE.href}
+                className="bg-white hover:bg-green-50 text-green-700 font-semibold px-6 py-3 rounded-xl border border-white/20 transition-colors duration-150 inline-flex items-center justify-center gap-2 text-sm w-full md:w-auto"
+              >
+                {BUNDLE.cta} <ArrowRight size={15} />
+              </Link>
+              <p className="text-green-300 text-xs">{BUNDLE.footer}</p>
+            </div>
+          </div>
         </div>
       </section>
 
