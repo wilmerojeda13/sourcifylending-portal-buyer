@@ -107,6 +107,9 @@ export default function PartnersPage() {
           <Link href="/affiliate/login" className="brand-link whitespace-nowrap px-2 py-2 text-xs font-medium sm:px-3 sm:text-sm">
             Partner Login
           </Link>
+          <Link href="/pricing" className="brand-link text-sm font-medium px-3 py-2 hidden sm:inline">
+            Pricing
+          </Link>
           <Link href="/login" className="brand-link text-sm font-medium px-3 py-2 hidden sm:inline">
             Sign In
           </Link>

@@ -16,6 +16,9 @@ export default function HomePage() {
           <Link href="/partners" className="brand-link text-sm font-medium px-3 py-2 hidden sm:inline">
             Partners
           </Link>
+          <Link href="/pricing" className="brand-link text-sm font-medium px-3 py-2 hidden sm:inline">
+            Pricing
+          </Link>
           <Link href="/login" className="brand-link text-xs sm:text-sm font-medium px-2 sm:px-3 py-2 whitespace-nowrap">
             Sign In
           </Link>
