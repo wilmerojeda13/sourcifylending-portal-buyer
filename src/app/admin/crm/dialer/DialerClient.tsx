@@ -7,6 +7,7 @@ import {
   Phone, ChevronLeft, ChevronRight, Building2, Mail,
   ThumbsUp, ThumbsDown, Voicemail, PhoneMissed, CalendarPlus,
   Ban, Loader2, Users, CheckCircle2, Filter, X, Flame, Send, PhoneOff, Clock3,
+  PhoneCall, Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMirror'
@@ -412,6 +413,29 @@ export default function DialerClient() {
       void supabase.removeChannel(channel)
     }
   }, [session?.id, loadSession])
+
+  // ── Connected winner — derived directly from attempts so it fires the
+  //    instant AMD marks a winner, before session.current_lead_id propagates ──
+  const winnerAttempt = attempts.find(
+    (a) => a.is_winner && ['answered_human', 'bridged'].includes(a.attempt_status),
+  ) ?? null
+  const connectedLead = winnerAttempt
+    ? leads.find((l) => l.id === winnerAttempt.lead_id) ?? null
+    : null
+
+  const [liveElapsed, setLiveElapsed] = useState<string>('')
+  useEffect(() => {
+    if (!winnerAttempt || !session?.answered_at) { setLiveElapsed(''); return }
+    const tick = () => {
+      const secs = Math.max(0, Math.floor((Date.now() - new Date(session.answered_at!).getTime()) / 1000))
+      const m = Math.floor(secs / 60)
+      const s = secs % 60
+      setLiveElapsed(`${m}:${s.toString().padStart(2, '0')}`)
+    }
+    tick()
+    const t = setInterval(tick, 1000)
+    return () => clearInterval(t)
+  }, [winnerAttempt, session?.answered_at])
 
   const total   = leads.length
   const winnerLead = session?.current_lead_id ? leads.find((lead) => lead.id === session.current_lead_id) : undefined
@@ -1142,6 +1166,47 @@ export default function DialerClient() {
       {callLoggingNotice && (
         <div className="border-b border-amber-900/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
           {callLoggingNotice}
+        </div>
+      )}
+
+      {/* ── Active Connected Lead Banner ─────────────────────────────────────── */}
+      {connectedLead && winnerAttempt && (
+        <div className="border-b-2 border-green-500 bg-green-600 px-4 py-3 sm:px-6">
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            {/* Left: identity */}
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20">
+                <PhoneCall size={18} className="text-white" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white">
+                    🟢 LIVE — Line {winnerAttempt.queue_slot}
+                  </span>
+                  {liveElapsed && (
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-green-100">
+                      <Clock size={11} /> {liveElapsed}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-lg font-bold leading-tight text-white">
+                  {connectedLead.first_name} {connectedLead.last_name}
+                </p>
+                {connectedLead.business_name && (
+                  <p className="flex items-center gap-1 text-sm text-green-100">
+                    <Building2 size={12} className="shrink-0" />
+                    {connectedLead.business_name}
+                  </p>
+                )}
+                <p className="text-sm font-medium text-green-200">{connectedLead.phone}</p>
+              </div>
+            </div>
+            {/* Right: disposition reminder */}
+            <div className="flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-green-100">
+              <CheckCircle2 size={15} className="shrink-0 text-green-200" />
+              Save disposition to release line and resume queue
+            </div>
+          </div>
         </div>
       )}
 

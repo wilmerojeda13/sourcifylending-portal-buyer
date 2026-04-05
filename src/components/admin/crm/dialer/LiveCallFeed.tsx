@@ -292,7 +292,7 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-gray-400">Line {lineNumber}</span>
                   {attempt?.is_winner && (
-                    <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded-full">LIVE</span>
+                    <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>
                   )}
                   {!attempt?.is_winner && status === 'answered_machine' && (
                     <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full">VM</span>
@@ -308,17 +308,20 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
 
                 {lineStatus?.lead && (
                   <div className="space-y-1">
-                    <div className="text-xs text-gray-300 truncate">
+                    <div className={cn(
+                      "truncate font-semibold",
+                      attempt?.is_winner ? "text-sm text-green-300" : "text-xs text-gray-300"
+                    )}>
                       {lineStatus.lead.first_name} {lineStatus.lead.last_name}
                     </div>
-                    <div className="text-xs text-gray-500 truncate">
-                      {lineStatus.lead.phone}
-                    </div>
                     {lineStatus.lead.business_name && (
-                      <div className="text-xs text-gray-600 truncate">
+                      <div className="text-xs text-gray-500 truncate">
                         {lineStatus.lead.business_name}
                       </div>
                     )}
+                    <div className="text-xs text-gray-500 truncate">
+                      {lineStatus.lead.phone}
+                    </div>
                   </div>
                 )}
 
