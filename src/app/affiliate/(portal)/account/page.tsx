@@ -131,10 +131,24 @@ function StripeConnectSection() {
     }
   }, [searchParams, loadStatus, router, getFriendlyConnectError])
 
-  const handleConnect = () => {
+  const handleConnect = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     if (connecting) return
     setConnecting(true)
     setConnectError(null)
+    try {
+      const res = await fetch('/api/affiliate/connect/onboard', { method: 'POST' })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        setConnectError(data.error ?? 'Unable to start Stripe onboarding right now. Please try again.')
+        setConnecting(false)
+      }
+    } catch {
+      setConnectError('Network error. Please check your connection and try again.')
+      setConnecting(false)
+    }
   }
 
   if (loadingStatus) {
@@ -239,19 +253,18 @@ function StripeConnectSection() {
                   Setup takes about 5 minutes and your information is securely handled by Stripe.
                 </p>
               </div>
-              <form action="/api/affiliate/connect/onboard" method="GET" onSubmit={handleConnect}>
-                <button
-                  type="submit"
-                  disabled={connecting}
-                  className="shrink-0 flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {connecting ? (
-                    <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
-                  ) : (
-                    <><Zap size={15} /> Connect with Stripe</>
-                  )}
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={handleConnect}
+                disabled={connecting}
+                className="shrink-0 flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {connecting ? (
+                  <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
+                ) : (
+                  <><Zap size={15} /> Connect with Stripe</>
+                )}
+              </button>
             </div>
           )}
 
@@ -270,19 +283,18 @@ function StripeConnectSection() {
                 </div>
               </div>
               {!stripeStatus?.details_submitted && (
-                <form action="/api/affiliate/connect/onboard" method="GET" onSubmit={handleConnect}>
-                  <button
-                    type="submit"
-                    disabled={connecting}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
-                  >
-                    {connecting ? (
-                      <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
-                    ) : (
-                      <><ExternalLink size={15} /> Complete Stripe Setup</>
-                    )}
-                  </button>
-                </form>
+                <button
+                  type="button"
+                  onClick={handleConnect}
+                  disabled={connecting}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                >
+                  {connecting ? (
+                    <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
+                  ) : (
+                    <><ExternalLink size={15} /> Complete Stripe Setup</>
+                  )}
+                </button>
               )}
               {stripeStatus?.requirements?.currently_due && stripeStatus.requirements.currently_due.length > 0 && (
                 <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">
@@ -327,19 +339,18 @@ function StripeConnectSection() {
                   </p>
                 </div>
               </div>
-              <form action="/api/affiliate/connect/onboard" method="GET" onSubmit={handleConnect}>
-                <button
-                  type="submit"
-                  disabled={connecting}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
-                >
-                  {connecting ? (
-                    <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
-                  ) : (
-                    <><ExternalLink size={15} /> Resume Stripe Setup</>
-                  )}
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={handleConnect}
+                disabled={connecting}
+                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
+              >
+                {connecting ? (
+                  <><RefreshCw size={15} className="animate-spin" /> Redirecting...</>
+                ) : (
+                  <><ExternalLink size={15} /> Resume Stripe Setup</>
+                )}
+              </button>
               {stripeStatus?.requirements?.currently_due && stripeStatus.requirements.currently_due.length > 0 && (
                 <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 rounded-lg px-3 py-2">
                   <p className="font-semibold mb-1">Still required by Stripe:</p>
