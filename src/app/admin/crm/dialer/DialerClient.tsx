@@ -379,9 +379,10 @@ export default function DialerClient() {
       return
     }
 
+    // Realtime subscription handles instant updates — this is just a safety-net fallback
     const timer = window.setInterval(() => {
       loadSession().catch(() => {})
-    }, 2000)
+    }, 12000)
 
     return () => window.clearInterval(timer)
   }, [session?.id, session?.session_status, loadSession])
@@ -509,9 +510,10 @@ export default function DialerClient() {
     }
 
     void syncCall()
+    // 3s is responsive enough for call status — AMD takes 5–30s anyway
     const timer = window.setInterval(() => {
       void syncCall()
-    }, 1000)
+    }, 3000)
 
     return () => window.clearInterval(timer)
   }, [activeCallId, autoAdvance, callStartedAt, session?.waiting_for_disposition, targetParallelLines])

@@ -141,10 +141,9 @@ export default function NotificationRuntime() {
       )
       .subscribe()
 
-    const interval = window.setInterval(() => { void loadUnreadCount() }, 30000)
+    // Realtime already fires loadUnreadCount() on every change — no manual poll needed
 
     return () => {
-      window.clearInterval(interval)
       void supabase.removeChannel(channel)
     }
   }, [activeBusinessId, supabase])
@@ -245,7 +244,8 @@ export default function NotificationRuntime() {
     }
 
     void pollAdminNotifications()
-    const interval = window.setInterval(() => { void pollAdminNotifications() }, 30000)
+    // Slowed from 30s to 120s — admin desktop notifications are not time-critical
+    const interval = window.setInterval(() => { void pollAdminNotifications() }, 120000)
     return () => window.clearInterval(interval)
   }, [adminPrefs, isAdmin, router])
 
