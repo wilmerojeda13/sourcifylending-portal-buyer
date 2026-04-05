@@ -17,8 +17,8 @@ const PLANS = [
       'Personalized recommendations',
       'No credit card required',
     ],
-    cta: 'Get Started Free',
-    href: '/get-started',
+    cta: 'Run Free Analyzer',
+    href: '/analyzer',
     footer: null,
     style: {
       card: 'border border-gray-200 bg-white',
@@ -172,10 +172,7 @@ export default function PricingPage() {
           <Link href="/partners" className="brand-link text-sm font-medium px-3 py-2 hidden sm:inline">
             Partners
           </Link>
-          <Link href="/pricing" className="brand-link text-sm font-medium px-3 py-2 hidden sm:inline">
-            Pricing
-          </Link>
-          <Link href="/login" className="brand-link text-xs sm:text-sm font-medium px-2 sm:px-3 py-2 whitespace-nowrap">
+          <Link href="/login" className="brand-link text-xs sm:text-sm font-medium px-2 sm:px-3 py-2 whitespace-nowrap hidden sm:inline">
             Sign In
           </Link>
           <Link href="/get-started" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap">
@@ -345,10 +342,10 @@ export default function PricingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              href="/get-started"
+              href="/analyzer"
               className="bg-white hover:bg-green-50 text-green-700 font-semibold px-8 py-4 rounded-xl transition-colors duration-150 inline-flex items-center justify-center gap-2 text-base"
             >
-              Get Started Free <ArrowRight size={18} />
+              Run Free Analyzer <ArrowRight size={18} />
             </Link>
             <Link
               href="/login"
@@ -361,7 +358,7 @@ export default function PricingPage() {
       </section>
 
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
-      <footer className="border-t border-gray-100 py-8 px-6 text-center">
+      <footer className="border-t border-gray-100 py-8 px-6 pb-12 text-center">
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-gray-400">
           <span className="font-medium text-gray-500">SourcifyLending</span>
           <Link href="/pricing" className="hover:text-green-600 transition-colors">Pricing</Link>
