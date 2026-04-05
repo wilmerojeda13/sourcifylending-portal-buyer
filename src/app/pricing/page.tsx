@@ -43,7 +43,7 @@ const PLANS = [
       'Client portal access',
     ],
     cta: 'Start Program C',
-    href: '/get-started',
+    href: '/analyzer',
     footer: 'First month due at signup · Cancel anytime',
     style: {
       card: 'border border-green-200 bg-white',
@@ -68,7 +68,7 @@ const PLANS = [
       'Task management & milestones',
     ],
     cta: 'Start Program B',
-    href: '/get-started',
+    href: '/analyzer',
     footer: 'First month due at signup · Cancel anytime',
     style: {
       card: 'border-2 border-green-400 bg-white',
@@ -93,7 +93,7 @@ const PLANS = [
       'Priority platform access',
     ],
     cta: 'Start Program A',
-    href: '/get-started',
+    href: '/analyzer',
     footer: 'First month due at signup · Cancel anytime',
     style: {
       card: 'border-2 border-green-600 bg-green-600',
