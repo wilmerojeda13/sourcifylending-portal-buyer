@@ -176,7 +176,7 @@ export default function PartnersPage() {
           <section className="bg-green-600 py-10 px-6">
             <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
               {[
-                { value: '80%', label: 'Setup fee payout on Program A/B' },
+                { value: '80%', label: 'Setup fee payout on Program A, B & A+B' },
                 { value: '20%', label: 'Recurring monthly commission' },
                 { value: '5 clients', label: 'Unlocks free Program B access' },
               ].map(s => (
@@ -213,7 +213,7 @@ export default function PartnersPage() {
                     step: '03',
                     icon: DollarSign,
                     title: 'Earn Partner Compensation',
-                    desc: 'Earn 80% of collected setup fees on partner-assisted Program A and B deals, plus 20% of successful monthly subscription revenue.',
+                    desc: 'Earn 80% of collected setup fees on partner-assisted Program A, B, and A+B deals, plus 20% of successful monthly subscription revenue.',
                     color: 'bg-green-100 text-green-600',
                   },
                 ].map(({ step, icon: Icon, title, desc, color }) => (
