@@ -234,10 +234,11 @@ export default function PartnersPage() {
           <section className="py-16 px-6 max-w-5xl mx-auto">
             <h2 className="text-2xl font-bold text-gray-900 text-center mb-3">Commission Structure</h2>
             <p className="text-gray-500 text-center mb-10">Paid only on successful collected revenue. No payout on failed charges, disputes, or refunds.</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {[
                 {
                   badge: 'Program A',
+                  desc: null,
                   setup: '$400',
                   monthly: '$89.80/mo',
                   setupNote: '80% of $500 setup fee',
@@ -248,6 +249,7 @@ export default function PartnersPage() {
                 },
                 {
                   badge: 'Program B',
+                  desc: null,
                   setup: '$240',
                   monthly: '$49.80/mo',
                   setupNote: '80% of $300 setup fee',
@@ -258,6 +260,7 @@ export default function PartnersPage() {
                 },
                 {
                   badge: 'Program C',
+                  desc: null,
                   setup: '—',
                   monthly: '$19.40/mo',
                   setupNote: 'No setup fee',
@@ -266,9 +269,21 @@ export default function PartnersPage() {
                   color: 'border-blue-200 bg-blue-50/40',
                   badgeColor: 'bg-blue-100 text-blue-700',
                 },
-              ].map(({ badge, setup, monthly, setupNote, monthlyNote, year1, color, badgeColor }) => (
+                {
+                  badge: 'Program A + B',
+                  desc: 'Combined business credit building and personal credit optimization with 0% APR strategy.',
+                  setup: '$640',
+                  monthly: '$119.60/mo',
+                  setupNote: '80% of $800 setup fee',
+                  monthlyNote: '20% of $598/month',
+                  year1: '$2,075',
+                  color: 'border-green-400 bg-green-100/40',
+                  badgeColor: 'bg-green-200 text-green-800',
+                },
+              ].map(({ badge, desc, setup, monthly, setupNote, monthlyNote, year1, color, badgeColor }) => (
                 <div key={badge} className={`card border-2 ${color}`}>
-                  <span className={`badge ${badgeColor} mb-4`}>{badge}</span>
+                  <span className={`badge ${badgeColor} mb-3`}>{badge}</span>
+                  {desc && <p className="text-xs text-gray-500 mb-3 leading-relaxed">{desc}</p>}
                   <div className="space-y-3 mb-4">
                     <div>
                       <p className="text-2xl font-bold text-gray-900">{setup}</p>
