@@ -296,6 +296,9 @@ export default function DialerClient() {
   const deviceRef = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const agentCallRef = useRef<any>(null)
+  // WATCHDOG: Move refs to component level to fix React hook violation
+  const lastDialAttempt = useRef<Date | null>(null)
+  const dialStuckTimeout = useRef<NodeJS.Timeout | null>(null)
 
   const load = useCallback(async (stage: string) => {
     setLoading(true)
@@ -725,9 +728,6 @@ useEffect(() => {
     if (autoDialLeadIdsRef.current.has(nextQueueLead.id)) return
 
     // WATCHDOG: Add safety check for stuck dialer
-    const lastDialAttempt = useRef<Date | null>(null)
-    const dialStuckTimeout = useRef<NodeJS.Timeout | null>(null)
-    
     // Clear any existing stuck dial timeout
     if (dialStuckTimeout.current) {
       clearTimeout(dialStuckTimeout.current)
