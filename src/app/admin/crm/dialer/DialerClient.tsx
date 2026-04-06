@@ -1027,7 +1027,14 @@ useEffect(() => {
 
         agentCall.on('disconnect', () => {
           console.log('[Dialer] Agent call disconnected')
-          setDeviceStatus('offline')
+          // Keep device connected for continued dialing, only clear the call reference
+          if (connectionMode === 'browser' && deviceRef.current) {
+            // Device should stay connected for browser mode to continue dialing
+            // Don't set to 'offline' unless session is ending
+            setCallProviderMessage('Call ended. Ready to dial next lead.')
+          } else {
+            setDeviceStatus('offline')
+          }
           agentCallRef.current = null
         })
 
