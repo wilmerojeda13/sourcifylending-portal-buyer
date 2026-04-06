@@ -1004,18 +1004,7 @@ useEffect(() => {
         }
       }, 30000) // Check every 30 seconds
 
-      // Cleanup health check on unmount
-      return () => {
-        if (healthInterval) {
-          clearInterval(healthInterval)
-        }
-      }
-
-      // Connect browser into the conference directly via device.connect().
-      // Called here — in the user-click context — so getUserMedia runs while
-      // user activation is still active (required by privacy-hardened browsers).
-      // Twilio calls the TwiML App Voice URL (crm-browser-agent) which returns
-      // conference TwiML, joining the rep into the same room as outbound leads.
+      // Connect browser into the conference immediately after device setup
       console.log('[Dialer] Starting device.connect() with sessionId:', json.session.id)
       try {
         const agentCall = await device.connect({
@@ -1050,6 +1039,13 @@ useEffect(() => {
         setDeviceStatus('error')
         setCallProviderMessage('Failed to connect browser audio.')
         throw connectError
+      }
+
+      // Cleanup health check on unmount
+      return () => {
+        if (healthInterval) {
+          clearInterval(healthInterval)
+        }
       }
 
     } catch (err) {
