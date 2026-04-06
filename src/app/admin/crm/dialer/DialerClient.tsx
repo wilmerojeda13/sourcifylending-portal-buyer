@@ -295,7 +295,7 @@ export default function DialerClient() {
   const [sessionLoading, setSessionLoading] = useState(true)
   const [sessionBusy, setSessionBusy] = useState(false)
   const [pacingBusy, setPacingBusy] = useState(false)
-  const [dialerMode, setDialerMode] = useState<'power' | 'manual' | 'external_manual'>('power')
+  const [dialerMode, setDialerMode] = useState<'power' | 'manual'>('power')
   const [connectionMode, setConnectionMode] = useState<'browser' | 'phone'>('browser')
   const [profileActionHref, setProfileActionHref] = useState<string | null>(null)
   const [repPhoneConfigured, setRepPhoneConfigured] = useState(false)
@@ -1272,94 +1272,6 @@ useEffect(() => {
     }
   }
 
-  // External Manual disposition - no Twilio dependency
-  async function finalizeExternalManualDisposition(disposition: typeof DISPOSITIONS[number]) {
-    if (!current) return false
-
-    const now = new Date().toISOString()
-    const defaultRetryFollowUp =
-      !nextFollowUpAt && ['voicemail', 'no_answer', 'busy', 'call_back'].includes(disposition.key)
-        ? new Date(Date.now() + (disposition.key === 'busy' ? 2 : disposition.key === 'call_back' ? 24 : 4) * 60 * 60 * 1000).toISOString().slice(0, 16)
-        : nextFollowUpAt
-
-    // INSTANT UI FEEDBACK: Show immediate visual feedback
-    setCallProviderMessage(`Saving ${disposition.label}...`)
-    
-    if (disposition.key === 'dnc') {
-      // Don't block UI for DNC update
-      fetch(`/api/admin/crm/leads/${current.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ do_not_call: true }),
-      }).catch(() => {})
-    }
-
-    // Save call record for external manual (no Twilio data)
-    const callPromise = fetch('/api/admin/crm/calls', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lead_id: current.id,
-        lead_name: `${current.first_name} ${current.last_name}`.trim(),
-        company_name: current.business_name,
-        phone_number: current.phone,
-        call_id: null, // No Twilio call ID
-        call_started_at: now, // External call - assume start now
-        call_ended_at: now, // External call - end now
-        duration_seconds: null, // Unknown duration
-        call_status: 'external_manual', // Custom status for external calls
-        call_outcome: disposition.outcome,
-        notes: note.trim() || null,
-        next_follow_up_at: defaultRetryFollowUp ? new Date(defaultRetryFollowUp).toISOString() : null,
-        lead_temperature: temperature,
-        strategy_call_booked: strategyBooked || disposition.key === 'appointment_set',
-        converted_to_client: converted,
-        create_follow_up_task: Boolean(defaultRetryFollowUp) || ['voicemail', 'no_answer', 'busy', 'call_back', 'follow_up'].includes(disposition.key),
-        source: current.source,
-        twilio_status: null, // No Twilio status
-        metadata: {
-          external_manual_call: true,
-          manual_disposition_key: disposition.key,
-          disposition_saved_at: now,
-          dialer_mode: 'external_manual',
-          call_method: 'external_phone',
-        },
-      }),
-    })
-
-    try {
-      const callRes = await callPromise
-      const callJson = await callRes.json()
-      
-      if (!callRes.ok) {
-        throw new Error(callJson.error || 'Failed to save disposition')
-      }
-
-      if (callJson.degraded) {
-        setCallLoggingNotice(callJson.message || 'Call outcomes are saving without full call history until CRM call logging is configured.')
-      } else {
-        setCallLoggingNotice(null)
-      }
-
-      // Update UI state
-      setDone(d => d + 1)
-      setCallProviderMessage(`${disposition.label} saved`)
-      
-      // Advance to next lead
-      setTimeout(() => {
-        advance()
-        toast.success(`${disposition.label} saved - Moving to next lead`)
-      }, 500)
-
-      return true
-    } catch (error) {
-      console.error('Failed to save external manual disposition:', error)
-      toast.error('Failed to save disposition')
-      setCallProviderMessage('Failed to save disposition')
-      return false
-    }
-  }
-
   async function finalizeDisposition(
     disposition: typeof DISPOSITIONS[number],
     options?: {
@@ -1524,11 +1436,7 @@ useEffect(() => {
     if (!current) return
     setActing(true)
     try {
-      if (dialerMode === 'external_manual') {
-        await finalizeExternalManualDisposition(disposition)
-      } else {
-        await finalizeDisposition(disposition)
-      }
+      await finalizeDisposition(disposition)
     } catch {
       toast.error('Failed to log')
     } finally {
@@ -1852,59 +1760,26 @@ useEffect(() => {
                             className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', dialerMode === 'manual' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
                             Manual
                           </button>
-                          <button type="button" onClick={() => setDialerMode('external_manual')}
-                            className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', dialerMode === 'external_manual' ? 'bg-orange-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
-                            External Manual
+                        </div>
+                        <div className="flex rounded-xl bg-gray-950 p-1 border border-white/5">
+                          <button type="button" onClick={() => setConnectionMode('browser')}
+                            className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', connectionMode === 'browser' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
+                            Browser
+                          </button>
+                          <button type="button" onClick={() => setConnectionMode('phone')}
+                            className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', connectionMode === 'phone' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
+                            Phone
                           </button>
                         </div>
-                        {/* Connection mode selector - hide for external manual */}
-                        {dialerMode !== 'external_manual' && (
-                          <div className="flex rounded-xl bg-gray-950 p-1 border border-white/5">
-                            <button type="button" onClick={() => setConnectionMode('browser')}
-                              className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', connectionMode === 'browser' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
-                              Browser
-                            </button>
-                            <button type="button" onClick={() => setConnectionMode('phone')}
-                              className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', connectionMode === 'phone' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
-                              Phone
-                            </button>
-                          </div>
-                        )}
                       </div>
-                      
-                      {/* Mode descriptions */}
-                      <div className="text-xs text-gray-500 space-y-1">
-                        {dialerMode === 'power' && (
-                          <div>
-                            <p className="font-semibold text-green-400">Power (3-Line) - Twilio Browser</p>
-                            <p>Dials 3 leads simultaneously. Uses Twilio browser audio.</p>
-                          </div>
-                        )}
-                        {dialerMode === 'manual' && (
-                          <div>
-                            <p className="font-semibold text-blue-400">Manual - {connectionMode === 'browser' ? 'Twilio Browser' : 'Twilio Phone'}</p>
-                            <p>Dials 1 lead at a time. Uses Twilio {connectionMode === 'browser' ? 'browser audio' : 'phone leg'}.</p>
-                          </div>
-                        )}
-                        {dialerMode === 'external_manual' && (
-                          <div>
-                            <p className="font-semibold text-orange-400">External Manual - Non-Twilio</p>
-                            <p>Click-to-call using your phone. No Twilio usage. Works without balance.</p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Go Live button - hide for external manual */}
-                      {dialerMode !== 'external_manual' && (
-                        <button type="button" onClick={setReady} disabled={sessionBusy || sessionLoading}
-                          className={cn('flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-bold transition-all active:scale-[0.98]',
-                            dialerMode === 'power' && connectionMode === 'browser'
-                              ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 hover:bg-green-500'
-                              : 'bg-gray-100 text-gray-900 hover:bg-white')}>
-                          {sessionBusy ? <Loader2 size={18} className="animate-spin" /> : <Phone size={18} />}
-                          Go Live (Ready)
-                        </button>
-                      )}
+                      <button type="button" onClick={setReady} disabled={sessionBusy || sessionLoading}
+                        className={cn('flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-bold transition-all active:scale-[0.98]',
+                          dialerMode === 'power' && connectionMode === 'browser'
+                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 hover:bg-green-500'
+                            : 'bg-gray-100 text-gray-900 hover:bg-white')}>
+                        {sessionBusy ? <Loader2 size={18} className="animate-spin" /> : <Phone size={18} />}
+                        Go Live (Ready)
+                      </button>
                     </div>
                   )}
 
@@ -1927,185 +1802,91 @@ useEffect(() => {
                   )}
                 </div>
 
-                {/* Dial button - show for Twilio modes only */}
-                {dialerMode !== 'external_manual' && (
-                  <button
-                    type="button"
-                    onClick={() => void authorizeDial()}
-                    disabled={authorizingCall || callBlocked || !canDialLead || leadAttemptActive}
-                    className={cn(
-                      'flex w-full items-center justify-center gap-3 rounded-2xl py-4 text-lg font-bold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 lg:py-5 lg:text-xl',
-                      leadAttemptActive || called
-                        ? 'bg-gray-700 text-gray-300'
-                        : callBlocked || !canDialLead
-                          ? 'bg-gray-800 text-gray-400'
-                          : 'bg-green-500 text-white shadow-lg shadow-green-900/40 hover:bg-green-600 active:bg-green-700'
-                    )}
-                  >
-                    {authorizingCall ? <Loader2 size={22} className="animate-spin"/> : <Phone size={22}/>}
-                    {authorizingCall
-                      ? 'Dialing lead into live session...'
-                      : leadAttemptActive
-                        ? 'Line already active'
-                      : callBlocked
-                      ? 'Calling blocked'
-                      : !canDialLead
-                        ? session?.waiting_for_disposition
-                          ? 'Save disposition first'
-                          : 'Click Ready first'
-                        : nextQueueLead
-                          ? `Dial ${nextQueueLead.phone}`
-                          : 'Queue complete'}
-                  </button>
-                )}
-                
-                {/* External Manual UI */}
-                {dialerMode === 'external_manual' && current && (
-                  <div className="space-y-4">
-                    {/* Lead info for external manual */}
-                    <div className="rounded-2xl border border-orange-800/50 bg-orange-950/20 p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-bold text-orange-300">External Manual Dialing</h3>
-                        <span className="text-xs text-orange-400">Non-Twilio Mode</span>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400">Name:</span>
-                          <span className="text-sm font-semibold text-white">{current.first_name} {current.last_name}</span>
-                        </div>
-                        {current.business_name && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400">Business:</span>
-                            <span className="text-sm text-gray-300">{current.business_name}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400">Phone:</span>
-                          <span className="text-sm font-mono text-green-400">{current.phone}</span>
-                        </div>
-                      </div>
-                      
-                      {/* Action buttons */}
-                      <div className="mt-4 grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // Open tel: link in new window/tab to preserve current dialer page
-                            const phoneNumber = current.phone_e164 || current.phone
-                            const newWindow = window.open(`tel:${phoneNumber}`, '_blank')
-                            
-                            // Fallback: if new window is blocked, open in same tab but with confirmation
-                            if (!newWindow) {
-                              if (confirm(`Open phone app to call ${phoneNumber}?\n\nThis will navigate away from the dialer.`)) {
-                                window.location.href = `tel:${phoneNumber}`
-                              }
-                            } else {
-                              toast.success('Opening phone app...')
-                            }
-                          }}
-                          className="flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-500"
-                        >
-                          <Phone size={16} />
-                          Call Now
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(current.phone_e164 || current.phone)
-                            toast.success('Phone number copied')
-                          }}
-                          className="flex items-center justify-center gap-2 rounded-xl bg-gray-700 px-4 py-3 text-sm font-semibold text-gray-300 transition-colors hover:bg-gray-600"
-                        >
-                          <Send size={16} />
-                          Copy Number
-                        </button>
-                        <button
-                          type="button"
-                          onClick={skip}
-                          className="flex items-center justify-center gap-2 rounded-xl bg-gray-800 px-4 py-3 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-700"
-                        >
-                          <ChevronRight size={16} />
-                          Skip
-                        </button>
-                        <Link
-                          href={`/admin/crm/${current.id}`}
-                          className="flex items-center justify-center gap-2 rounded-xl bg-gray-800 px-4 py-3 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-700"
-                        >
-                          <Users size={15} />
-                          Full Profile
-                        </Link>
-                      </div>
-                    </div>
-                    
-                    {/* Instructions */}
-                    <div className="rounded-2xl border border-gray-800 bg-gray-950 p-3">
-                      <p className="text-xs text-gray-400 leading-relaxed">
-                        <strong className="text-orange-400">External Manual Mode:</strong> Call the lead using your phone, then return here to save the disposition. The next lead will load after you save or skip.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => void authorizeDial()}
+                  disabled={authorizingCall || callBlocked || !canDialLead || leadAttemptActive}
+                  className={cn(
+                    'flex w-full items-center justify-center gap-3 rounded-2xl py-4 text-lg font-bold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 lg:py-5 lg:text-xl',
+                    leadAttemptActive || called
+                      ? 'bg-gray-700 text-gray-300'
+                      : callBlocked || !canDialLead
+                        ? 'bg-gray-800 text-gray-400'
+                        : 'bg-green-500 text-white shadow-lg shadow-green-900/40 hover:bg-green-600 active:bg-green-700'
+                  )}
+                >
+                  {authorizingCall ? <Loader2 size={22} className="animate-spin"/> : <Phone size={22}/>}
+                  {authorizingCall
+                    ? 'Dialing lead into live session...'
+                    : leadAttemptActive
+                      ? 'Line already active'
+                    : callBlocked
+                    ? 'Calling blocked'
+                    : !canDialLead
+                      ? session?.waiting_for_disposition
+                        ? 'Save disposition first'
+                        : 'Click Ready first'
+                      : nextQueueLead
+                        ? `Dial ${nextQueueLead.phone}`
+                        : 'Queue complete'}
+                </button>
 
-                {/* Twilio status - hide for external manual */}
-                {dialerMode !== 'external_manual' && (
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-800 bg-gray-950 px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Dialer Status</p>
-                      <p className="mt-1 text-sm text-gray-200">
-                        {callProviderMessage ?? (callProviderStatus ? `Twilio status: ${callProviderStatus}` : sessionStatus.message)}
-                      </p>
-                      {attempts.length > 0 && (
-                        <div className="mt-2.5 flex flex-wrap gap-1.5">
-                          {attempts
-                            .filter((attempt) => isActiveAttemptStatus(attempt.attempt_status))
-                            .sort((a, b) => a.queue_slot - b.queue_slot)
-                            .map((attempt) => (
-                              <div
-                                key={attempt.id}
-                                className={cn(
-                                  'flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider',
-                                  attempt.is_winner
-                                    ? 'border-purple-500/50 bg-purple-500/15 text-purple-300'
-                                    : attempt.attempt_status === 'answered_human' || attempt.attempt_status === 'bridged'
-                                    ? 'border-green-500/50 bg-green-500/15 text-green-300'
-                                    : 'border-gray-800 bg-gray-900 text-gray-400'
-                                )}
-                              >
-                                <div className={cn(
-                                  'h-1.5 w-1.5 rounded-full',
-                                  attempt.is_winner || attempt.attempt_status === 'answered_human' || attempt.attempt_status === 'bridged'
-                                    ? 'animate-pulse bg-green-500'
-                                    : 'bg-gray-600'
-                                )} />
-                                Line {attempt.queue_slot}: {attempt.attempt_status.replace('_', ' ')}
-                              </div>
-                            ))}
-                          {activeAttemptCount === 0 && sessionStatus.label === 'Live' && !session?.waiting_for_disposition && (
-                            <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
-                              Ready for next attempt...
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-300">
-                      <input
-                        type="checkbox"
-                        checked={autoAdvance}
-                        onChange={e => setAutoAdvance(e.target.checked)}
-                        disabled={targetParallelLines <= 1} // Hide for single line - always auto-advances
-                      />
-                      Auto-next
-                      {targetParallelLines <= 1 && (
-                        <span className="text-[10px] text-gray-500 ml-1">(Always on for single line)</span>
-                      )}
-                    </label>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-800 bg-gray-950 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Dialer Status</p>
+                    <p className="mt-1 text-sm text-gray-200">
+                      {callProviderMessage ?? (callProviderStatus ? `Twilio status: ${callProviderStatus}` : sessionStatus.message)}
+                    </p>
+                    {attempts.length > 0 && (
+                      <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        {attempts
+                          .filter((attempt) => isActiveAttemptStatus(attempt.attempt_status))
+                          .sort((a, b) => a.queue_slot - b.queue_slot)
+                          .map((attempt) => (
+                            <div
+                              key={attempt.id}
+                              className={cn(
+                                'flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider',
+                                attempt.is_winner
+                                  ? 'border-purple-500/50 bg-purple-500/15 text-purple-300'
+                                  : attempt.attempt_status === 'answered_human' || attempt.attempt_status === 'bridged'
+                                  ? 'border-green-500/50 bg-green-500/15 text-green-300'
+                                  : 'border-gray-800 bg-gray-900 text-gray-400'
+                              )}
+                            >
+                              <div className={cn(
+                                'h-1.5 w-1.5 rounded-full',
+                                attempt.is_winner || attempt.attempt_status === 'answered_human' || attempt.attempt_status === 'bridged'
+                                  ? 'animate-pulse bg-green-500'
+                                  : 'bg-gray-600'
+                              )} />
+                              Line {attempt.queue_slot}: {attempt.attempt_status.replace('_', ' ')}
+                            </div>
+                          ))}
+                        {activeAttemptCount === 0 && sessionStatus.label === 'Live' && !session?.waiting_for_disposition && (
+                          <p className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                            Ready for next attempt...
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
+                  <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={autoAdvance}
+                      onChange={e => setAutoAdvance(e.target.checked)}
+                      disabled={targetParallelLines <= 1} // Hide for single line - always auto-advances
+                    />
+                    Auto-next
+                    {targetParallelLines <= 1 && (
+                      <span className="text-[10px] text-gray-500 ml-1">(Always on for single line)</span>
+                    )}
+                  </label>
+                </div>
 
                 {/* Mobile LiveCallFeed — shows line status right after dial controls, before SMS section */}
-                {session && session.session_status !== 'not_ready' && dialerMode !== 'external_manual' && (
+                {session && session.session_status !== 'not_ready' && (
                   <div className="mt-4 block lg:hidden">
                     <LiveCallFeed
                       attempts={attempts}
@@ -2261,8 +2042,8 @@ useEffect(() => {
             </div>
 
             <div className="space-y-4 lg:sticky lg:top-6">
-              {/* Browser Audio Controls - Show when in browser mode and not external manual */}
-              {connectionMode === 'browser' && dialerMode !== 'external_manual' && (
+              {/* Browser Audio Controls - Show when in browser mode */}
+              {connectionMode === 'browser' && (
                 <BrowserAudio
                   connectionMode={connectionMode}
                   deviceStatus={deviceStatus}
@@ -2284,7 +2065,7 @@ useEffect(() => {
               )}
 
               {/* Live Call Feed - desktop only; mobile renders it inline in the left column above */}
-              {session && session.session_status !== 'not_ready' && dialerMode !== 'external_manual' && (
+              {session && session.session_status !== 'not_ready' && (
                 <div className="hidden lg:block">
                   <LiveCallFeed
                     attempts={attempts}
@@ -2428,7 +2209,7 @@ useEffect(() => {
       </div>
       
       {/* ── Sticky mobile disposition tray — always reachable without scrolling ── */}
-      {session && dialerMode !== 'external_manual' && (
+      {session && (
         <div className="fixed bottom-0 inset-x-0 z-50 lg:hidden bg-gray-900/97 backdrop-blur-md border-t-2 border-gray-700 px-3 pt-2.5 pb-6">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Call Outcome</p>
