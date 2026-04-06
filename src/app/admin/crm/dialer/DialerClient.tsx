@@ -854,16 +854,25 @@ useEffect(() => {
     if (sessionBusy) return
     setSessionBusy(true)
     try {
+      console.log('[Dialer] Starting setReady with connectionMode:', connectionMode)
+      const requestBody = {
+        mode: connectionMode,
+        target_parallel_lines: dialerMode === 'power' ? 3 : 1,
+      }
+      console.log('[Dialer] Session request body:', requestBody)
+      
       const res = await fetch('/api/admin/crm/dialer/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: connectionMode,
-          target_parallel_lines: dialerMode === 'power' ? 3 : 1,
-        }),
+        body: JSON.stringify(requestBody),
       })
+      
+      console.log('[Dialer] Session response status:', res.status)
       const json = await res.json()
+      console.log('[Dialer] Session response body:', json)
+      
       if (!res.ok) {
+        console.error('[Dialer] Session request failed:', json)
         if (json.action_href) setProfileActionHref(json.action_href)
         toast.error(json.error ?? 'Failed to start session')
         return
@@ -881,14 +890,19 @@ useEffect(() => {
       }
 
       if (!json.token) {
+        console.error('[Dialer] Token missing from session response:', json)
         toast.error('Browser audio token missing. Check Twilio env vars.')
         return
       }
+
+      console.log('[Dialer] Token present, length:', json.token.length)
+      console.log('[Dialer] Token preview:', json.token.substring(0, 50) + '...')
 
       setDeviceStatus('connecting')
       setCallProviderMessage('Connecting browser audio...')
 
       const { Device } = await import('@twilio/voice-sdk')
+      console.log('[Dialer] Twilio Voice SDK loaded')
 
       // Destroy any existing device before creating a new one
       if (deviceRef.current) {
@@ -896,14 +910,18 @@ useEffect(() => {
         deviceRef.current = null
       }
 
+      console.log('[Dialer] Creating new Device with token...')
       const device = new Device(json.token, {
         codecPreferences: ['opus', 'pcmu'] as any,
         disableAudioContextSounds: true,
       })
       deviceRef.current = device
+      console.log('[Dialer] Device created successfully')
 
       device.on('error', (error: unknown) => {
-        console.error('[Dialer] Device error:', error)
+        console.error('[Dialer] Device error event:', error)
+        console.error('[Dialer] Error type:', typeof error)
+        console.error('[Dialer] Error details:', JSON.stringify(error, null, 2))
         setDeviceStatus('error')
         setCallProviderMessage('Browser audio error. Click Not Ready then Ready to reconnect.')
       })
@@ -998,27 +1016,41 @@ useEffect(() => {
       // user activation is still active (required by privacy-hardened browsers).
       // Twilio calls the TwiML App Voice URL (crm-browser-agent) which returns
       // conference TwiML, joining the rep into the same room as outbound leads.
-      const agentCall = await device.connect({
-        params: { sessionId: json.session.id },
-      })
-      agentCallRef.current = agentCall
+      console.log('[Dialer] Starting device.connect() with sessionId:', json.session.id)
+      try {
+        const agentCall = await device.connect({
+          params: { sessionId: json.session.id },
+        })
+        console.log('[Dialer] device.connect() succeeded, agentCall created')
+        agentCallRef.current = agentCall
 
-      agentCall.on('accept', () => {
-        setDeviceStatus('connected')
-        setCallProviderMessage('Browser audio live. Dial leads when ready.')
-        setSession((prev) => prev ? { ...prev, session_status: 'waiting', rep_state: 'waiting' } : prev)
-      })
+        agentCall.on('accept', () => {
+          console.log('[Dialer] Agent call accepted')
+          setDeviceStatus('connected')
+          setCallProviderMessage('Browser audio live. Dial leads when ready.')
+          setSession((prev) => prev ? { ...prev, session_status: 'waiting', rep_state: 'waiting' } : prev)
+        })
 
-      agentCall.on('disconnect', () => {
-        setDeviceStatus('offline')
-        agentCallRef.current = null
-      })
+        agentCall.on('disconnect', () => {
+          console.log('[Dialer] Agent call disconnected')
+          setDeviceStatus('offline')
+          agentCallRef.current = null
+        })
 
-      agentCall.on('error', (error: unknown) => {
-        console.error('[Dialer] Call error:', error)
+        agentCall.on('error', (error: unknown) => {
+          console.error('[Dialer] Agent call error:', error)
+          console.error('[Dialer] Agent call error details:', JSON.stringify(error, null, 2))
+          setDeviceStatus('error')
+          setCallProviderMessage('Browser call error. Click Not Ready then Ready to reconnect.')
+        })
+      } catch (connectError) {
+        console.error('[Dialer] device.connect() threw error:', connectError)
+        console.error('[Dialer] Connect error type:', typeof connectError)
+        console.error('[Dialer] Connect error details:', JSON.stringify(connectError, null, 2))
         setDeviceStatus('error')
-        setCallProviderMessage('Browser call error. Click Not Ready then Ready to reconnect.')
-      })
+        setCallProviderMessage('Failed to connect browser audio.')
+        throw connectError
+      }
 
     } catch (err) {
       console.error('[Dialer] setReady error:', err)

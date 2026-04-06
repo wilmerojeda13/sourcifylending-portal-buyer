@@ -211,7 +211,16 @@ function buildAccessToken(userId: string): string | null {
   const apiKeySecret = process.env.TWILIO_API_KEY_SECRET
   const twimlAppSid = process.env.TWILIO_TWIML_APP_SID
 
-  if (!accountSid || !apiKeySid || !apiKeySecret || !twimlAppSid) return null
+  console.log('[Token] Environment variables check:')
+  console.log('[Token] TWILIO_ACCOUNT_SID present:', !!accountSid)
+  console.log('[Token] TWILIO_API_KEY_SID present:', !!apiKeySid)
+  console.log('[Token] TWILIO_API_KEY_SECRET present:', !!apiKeySecret)
+  console.log('[Token] TWILIO_TWIML_APP_SID present:', !!twimlAppSid)
+
+  if (!accountSid || !apiKeySid || !apiKeySecret || !twimlAppSid) {
+    console.error('[Token] Missing required environment variables')
+    return null
+  }
 
   const { AccessToken } = twilio.jwt
   const { VoiceGrant } = AccessToken
@@ -222,8 +231,20 @@ function buildAccessToken(userId: string): string | null {
     identity: `rep-${userId}`,
     ttl: 14400, // Increased from 3600 to 14400 seconds (4 hours)
   })
-  token.addGrant(new VoiceGrant({ outgoingApplicationSid: twimlAppSid, incomingAllow: true }))
-  return token.toJwt()
+  
+  const voiceGrant = new VoiceGrant({ 
+    outgoingApplicationSid: twimlAppSid, 
+    incomingAllow: true 
+  })
+  console.log('[Token] VoiceGrant configured with outgoingApplicationSid:', twimlAppSid)
+  console.log('[Token] VoiceGrant incomingAllow:', true)
+  
+  token.addGrant(voiceGrant)
+  
+  const jwtToken = token.toJwt()
+  console.log('[Token] JWT token generated successfully, length:', jwtToken.length)
+  
+  return jwtToken
 }
 
 export async function DELETE() {
