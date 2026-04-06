@@ -999,7 +999,7 @@ useEffect(() => {
         if (now - lastHealthCheck > 30000) {
           lastHealthCheck = now
           
-          if (deviceRef.current && deviceRef.current.isRegistered) {
+          if (deviceRef.current && (deviceRef.current.isRegistered || agentCallRef.current)) {
             console.log('[Dialer] Device health check passed')
           } else {
             console.warn('[Dialer] Device health check failed - device may be frozen')
