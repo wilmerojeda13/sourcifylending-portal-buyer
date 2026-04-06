@@ -737,17 +737,17 @@ useEffect(() => {
     dialStuckTimeout.current = setTimeout(async () => {
       console.warn('[Dialer] Watchdog: No dial activity detected for 60 seconds - may be stuck')
       setDeviceStatus('error')
-      setCallProviderMessage('Dialer appears stuck - try refreshing connection')
+      setCallProviderMessage('Dialer appears stuck - attempting recovery...')
       
-      // Attempt recovery
+      // Attempt recovery - don't break device registration
       try {
-        await loadSession() // Force session reload
-        setDeviceStatus('offline')
-        setTimeout(() => {
-          setDeviceStatus('connecting')
-        }, 2000)
+        // Just reload session state, don't disturb device
+        await loadSession() 
+        setCallProviderMessage('Recovery complete - resuming dialer')
+        console.log('[Dialer] Recovery completed - device should resume')
       } catch (recoveryError) {
         console.error('[Dialer] Recovery attempt failed:', recoveryError)
+        setCallProviderMessage('Recovery failed - may need manual refresh')
       }
     }, 60000) // 60 seconds without dial activity
     
