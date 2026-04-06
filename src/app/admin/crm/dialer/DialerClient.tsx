@@ -701,6 +701,12 @@ export default function DialerClient() {
         setCallProviderMessage('Browser audio error. Click Not Ready then Ready to reconnect.')
       })
 
+      // Device-level disconnect (token expiry, network drop) — distinct from per-call disconnect
+      device.on('unregistered', () => {
+        setDeviceStatus('offline')
+        setCallProviderMessage('Browser audio disconnected. Click Not Ready then Ready to reconnect.')
+      })
+
       // Connect browser into the conference directly via device.connect().
       // Called here — in the user-click context — so getUserMedia runs while
       // user activation is still active (required by privacy-hardened browsers).
@@ -1211,33 +1217,35 @@ export default function DialerClient() {
       )}
 
       {/* ── Lead card ── */}
-      <div className="flex-1 px-4 pb-4 pt-6 lg:px-6 lg:pb-6">
+      {/* pb-56 on mobile reserves space above the sticky disposition tray */}
+      <div className="flex-1 px-4 pb-56 pt-4 lg:px-6 lg:pb-6 lg:pt-6">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 lg:gap-5">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)] lg:items-start">
             <div className="space-y-4">
-              <div className="rounded-3xl border border-gray-800 bg-gray-900 p-5 lg:p-6">
-                <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="rounded-3xl border border-gray-800 bg-gray-900 p-4 lg:p-6">
+                {/* Lead identity */}
+                <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className="truncate text-2xl font-bold text-white">{current.first_name} {current.last_name}</h2>
+                    <h2 className="truncate text-xl font-bold text-white lg:text-2xl">{current.first_name} {current.last_name}</h2>
                     {current.business_name && (
                       <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-400">
                         <Building2 size={13}/> {current.business_name}
                       </p>
                     )}
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="mt-2 flex flex-wrap gap-1.5">
                       {current.phone_invalid && (
-                        <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-red-200">
+                        <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-200">
                           Phone needs review
                         </span>
                       )}
                       {(current.duplicate_phone_count ?? 0) > 1 && (
-                        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
-                          Duplicate phone x{current.duplicate_phone_count}
+                        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                          Dupe ×{current.duplicate_phone_count}
                         </span>
                       )}
                       {current.last_call_outcome && (
-                        <span className="rounded-full border border-white/10 bg-gray-950 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-300">
-                          Last call: {current.last_call_outcome}
+                        <span className="rounded-full border border-white/10 bg-gray-950 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-300">
+                          Last: {current.last_call_outcome}
                         </span>
                       )}
                     </div>
@@ -1249,145 +1257,126 @@ export default function DialerClient() {
                   )}
                 </div>
 
-                <div className={cn('mb-4 rounded-2xl border px-4 py-3', callStatusTone)}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">Call Window</p>
-                      <p className="mt-1 text-sm font-semibold">{callStatusLabel}</p>
+                {/* Call Window — single compact line on mobile, expanded on desktop */}
+                <div className={cn('mb-3 rounded-2xl border px-3 py-2 lg:mb-4 lg:px-4 lg:py-3', callStatusTone)}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-xs font-semibold opacity-80 shrink-0">Window:</p>
+                      <p className="text-sm font-semibold truncate">{callStatusLabel}</p>
                       {current.recipient_local_time && (
-                        <p className="mt-1 text-xs opacity-80">Recipient local time: {current.recipient_local_time}</p>
-                      )}
-                      {(current.timezone_source_label || current.timezone_source) && (
-                        <p className="mt-1 text-xs opacity-80">
-                          Source: {current.timezone_source_label ?? current.timezone_source}
-                          {current.timezone_reason_label ? ` • ${current.timezone_reason_label}` : ''}
-                        </p>
-                      )}
-                      {current.call_window_message && (
-                        <p className="mt-2 text-xs leading-relaxed opacity-90">{current.call_window_message}</p>
+                        <p className="hidden text-xs opacity-70 lg:block">· {current.recipient_local_time}</p>
                       )}
                     </div>
                     {current.timezone_abbreviation && (
-                      <span className="shrink-0 rounded-full border border-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide opacity-90">
+                      <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide opacity-90">
                         {current.timezone_abbreviation}
                       </span>
                     )}
                   </div>
+                  {/* Full timezone detail — desktop only */}
+                  <div className="hidden lg:block mt-2">
+                    {current.recipient_local_time && (
+                      <p className="text-xs opacity-80">Recipient local time: {current.recipient_local_time}</p>
+                    )}
+                    {(current.timezone_source_label || current.timezone_source) && (
+                      <p className="mt-1 text-xs opacity-80">
+                        Source: {current.timezone_source_label ?? current.timezone_source}
+                        {current.timezone_reason_label ? ` • ${current.timezone_reason_label}` : ''}
+                      </p>
+                    )}
+                    {current.call_window_message && (
+                      <p className="mt-2 text-xs leading-relaxed opacity-90">{current.call_window_message}</p>
+                    )}
+                  </div>
                 </div>
 
-                <div className={cn('mb-4 rounded-2xl border px-4 py-3', sessionStatus.tone)}>
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className={cn('mb-3 rounded-2xl border px-3 py-3 lg:mb-4 lg:px-4', sessionStatus.tone)}>
+                  <div className="flex items-center justify-between gap-3">
+                    {/* Status label — always visible */}
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">Rep Session</p>
-                      <p className="mt-1 text-sm font-semibold">{sessionStatus.label}</p>
-                      <p className="mt-1 text-xs opacity-90">{sessionStatus.message}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold">{sessionStatus.label}</p>
+                        {session && (
+                          <span className="text-[10px] opacity-70">
+                            {activeAttemptCount} line{activeAttemptCount === 1 ? '' : 's'} / {targetParallelLines}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs opacity-80 leading-snug mt-0.5">{sessionStatus.message}</p>
                       {session?.rep_phone_number && session.rep_phone_number !== 'browser' && (
-                        <p className="mt-1 text-xs opacity-80 font-medium text-amber-200">Phone Leg: {session.rep_phone_number}</p>
-                      )}
-                      {session && (
-                        <p className="mt-1 text-xs opacity-80">
-                          {activeAttemptCount} active line{activeAttemptCount === 1 ? '' : 's'} / {targetParallelLines} configured
-                        </p>
+                        <p className="mt-0.5 text-xs font-medium text-amber-200">📞 {session.rep_phone_number}</p>
                       )}
                       {!repPhoneConfigured && profileActionHref && connectionMode === 'phone' && (
-                        <Link href={profileActionHref} className="mt-2 inline-flex text-xs font-semibold text-green-300 underline underline-offset-2">
-                          Add or fix admin phone number
+                        <Link href={profileActionHref} className="mt-1 inline-flex text-xs font-semibold text-green-300 underline underline-offset-2">
+                          Add phone number
                         </Link>
                       )}
                     </div>
 
-                    {!session ? (
-                      <div className="flex flex-col gap-3">
-                        <div className="flex flex-wrap gap-2">
-                          <div className="flex rounded-xl bg-gray-950 p-1 border border-white/5">
-                            <button
-                              type="button"
-                              onClick={() => setDialerMode('power')}
-                              className={cn(
-                                'rounded-lg px-3 py-1.5 text-xs font-bold transition-all',
-                                dialerMode === 'power' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
-                              )}
-                            >
-                              Power (3-Line)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDialerMode('manual')}
-                              className={cn(
-                                'rounded-lg px-3 py-1.5 text-xs font-bold transition-all',
-                                dialerMode === 'manual' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
-                              )}
-                            >
-                              Manual
-                            </button>
-                          </div>
-                          <div className="flex rounded-xl bg-gray-950 p-1 border border-white/5">
-                            <button
-                              type="button"
-                              onClick={() => setConnectionMode('browser')}
-                              className={cn(
-                                'rounded-lg px-3 py-1.5 text-xs font-bold transition-all',
-                                connectionMode === 'browser' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
-                              )}
-                            >
-                              Browser
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setConnectionMode('phone')}
-                              className={cn(
-                                'rounded-lg px-3 py-1.5 text-xs font-bold transition-all',
-                                connectionMode === 'phone' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
-                              )}
-                            >
-                              Phone
-                            </button>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={setReady}
-                          disabled={sessionBusy || sessionLoading}
-                          className={cn(
-                            'flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-all hover:scale-[1.02] active:scale-[0.98]',
-                            dialerMode === 'power' && connectionMode === 'browser'
-                              ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 hover:bg-green-500'
-                              : 'bg-gray-100 text-gray-900 hover:bg-white'
-                          )}
-                        >
-                          {sessionBusy ? <Loader2 size={16} className="animate-spin" /> : <Phone size={16} />}
-                          Go Live (Ready)
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={setNotReady}
-                          disabled={sessionBusy}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-950/30 border border-red-500/20 px-4 py-2.5 text-sm font-semibold text-red-200 transition-colors hover:bg-red-950/50"
-                        >
-                          {sessionBusy ? <Loader2 size={15} className="animate-spin" /> : <PhoneOff size={15} />}
-                          End Session
-                        </button>
-                      </div>
+                    {/* Action button — right side */}
+                    {!session ? null : (
+                      <button
+                        type="button"
+                        onClick={setNotReady}
+                        disabled={sessionBusy}
+                        className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-950/40 border border-red-500/20 px-3 py-2 text-sm font-semibold text-red-200 transition-colors hover:bg-red-950/60"
+                      >
+                        {sessionBusy ? <Loader2 size={14} className="animate-spin" /> : <PhoneOff size={14} />}
+                        End
+                      </button>
                     )}
                   </div>
+
+                  {/* Go Live section — no session */}
+                  {!session && (
+                    <div className="mt-3 space-y-2.5">
+                      <div className="flex flex-wrap gap-2">
+                        <div className="flex rounded-xl bg-gray-950 p-1 border border-white/5">
+                          <button type="button" onClick={() => setDialerMode('power')}
+                            className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', dialerMode === 'power' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
+                            Power (3-Line)
+                          </button>
+                          <button type="button" onClick={() => setDialerMode('manual')}
+                            className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', dialerMode === 'manual' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
+                            Manual
+                          </button>
+                        </div>
+                        <div className="flex rounded-xl bg-gray-950 p-1 border border-white/5">
+                          <button type="button" onClick={() => setConnectionMode('browser')}
+                            className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', connectionMode === 'browser' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
+                            Browser
+                          </button>
+                          <button type="button" onClick={() => setConnectionMode('phone')}
+                            className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', connectionMode === 'phone' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
+                            Phone
+                          </button>
+                        </div>
+                      </div>
+                      <button type="button" onClick={setReady} disabled={sessionBusy || sessionLoading}
+                        className={cn('flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-bold transition-all active:scale-[0.98]',
+                          dialerMode === 'power' && connectionMode === 'browser'
+                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 hover:bg-green-500'
+                            : 'bg-gray-100 text-gray-900 hover:bg-white')}>
+                        {sessionBusy ? <Loader2 size={18} className="animate-spin" /> : <Phone size={18} />}
+                        Go Live (Ready)
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Lines control — only when session active */}
                   {session && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-white/10 pt-2">
                       <span className="text-[11px] font-semibold uppercase tracking-wide opacity-70">Lines</span>
-                      <select
-                        value={targetParallelLines}
+                      <select value={targetParallelLines}
                         onChange={(event) => void updateParallelLines(Number(event.target.value))}
                         disabled={pacingBusy || sessionBusy}
-                        className="rounded-lg border border-white/10 bg-gray-950 px-2 py-1 text-xs text-white focus:outline-none"
-                      >
+                        className="rounded-lg border border-white/10 bg-gray-950 px-2 py-1 text-xs text-white focus:outline-none">
                         {[1, 2, 3, 4, 5].map((lines) => (
                           <option key={lines} value={lines}>{lines}</option>
                         ))}
                       </select>
-                      <span className="text-[11px] opacity-80">
-                        {targetParallelLines > 1 ? 'Controlled parallel mode' : 'Single-line mode'}
+                      <span className="text-[11px] opacity-70">
+                        {targetParallelLines > 1 ? 'Power mode' : 'Single-line'}
                       </span>
                     </div>
                   )}
@@ -1472,27 +1461,18 @@ export default function DialerClient() {
                   </label>
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-950 p-4 space-y-4 lg:hidden">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Call Outcome</p>
-                    {acting && <Loader2 size={16} className="animate-spin text-gray-500" />}
+                {/* Mobile LiveCallFeed — shows line status right after dial controls, before SMS section */}
+                {session && session.session_status !== 'not_ready' && (
+                  <div className="mt-4 block lg:hidden">
+                    <LiveCallFeed
+                      attempts={attempts}
+                      targetParallelLines={targetParallelLines}
+                      activeCallId={activeCallId}
+                      leads={leads}
+                      onHangUp={disconnectLeadLeg}
+                    />
                   </div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {DISPOSITIONS.map(d => {
-                      const Icon = d.icon
-                      return (
-                        <button
-                          key={d.key}
-                          onClick={() => logAndAdvance(d)}
-                          disabled={acting}
-                          className={cn('flex items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-50', d.color)}
-                        >
-                          <Icon size={18}/> {d.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
+                )}
 
                 <div className="mt-3 rounded-2xl border border-gray-800 bg-gray-950 p-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1660,15 +1640,17 @@ export default function DialerClient() {
                 />
               )}
 
-              {/* Live Call Feed - Show during active dialing */}
+              {/* Live Call Feed - desktop only; mobile renders it inline in the left column above */}
               {session && session.session_status !== 'not_ready' && (
-                <LiveCallFeed
-                  attempts={attempts}
-                  targetParallelLines={targetParallelLines}
-                  activeCallId={activeCallId}
-                  leads={leads}
-                  onHangUp={disconnectLeadLeg}
-                />
+                <div className="hidden lg:block">
+                  <LiveCallFeed
+                    attempts={attempts}
+                    targetParallelLines={targetParallelLines}
+                    activeCallId={activeCallId}
+                    leads={leads}
+                    onHangUp={disconnectLeadLeg}
+                  />
+                </div>
               )}
 
               <div className="hidden rounded-3xl border border-gray-800 bg-gray-900/90 p-4 lg:block lg:p-5">
@@ -1755,6 +1737,55 @@ export default function DialerClient() {
           </div>
         </div>
       </div>
+
+      {/* ── Sticky mobile disposition tray — always reachable without scrolling ── */}
+      {session && (
+        <div className="fixed bottom-0 inset-x-0 z-50 lg:hidden bg-gray-900/97 backdrop-blur-md border-t-2 border-gray-700 px-3 pt-2.5 pb-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Call Outcome</p>
+            {acting && <Loader2 size={13} className="animate-spin text-gray-500" />}
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {DISPOSITIONS.map(d => {
+              const Icon = d.icon
+              return (
+                <button
+                  key={d.key}
+                  onClick={() => logAndAdvance(d)}
+                  disabled={acting}
+                  className={cn(
+                    'flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition-all active:scale-[0.95] disabled:opacity-50',
+                    d.color,
+                  )}
+                >
+                  <Icon size={15} /> {d.label}
+                </button>
+              )
+            })}
+          </div>
+          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+            <button
+              onClick={skip}
+              disabled={!current}
+              className="flex items-center justify-center gap-2 rounded-xl bg-gray-800 py-2.5 text-sm font-medium text-gray-400 active:scale-[0.97] hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={14} /> Skip
+            </button>
+            {current ? (
+              <Link
+                href={`/admin/crm/${current.id}`}
+                className="flex items-center justify-center gap-2 rounded-xl bg-gray-800 py-2.5 text-sm font-medium text-gray-400 active:scale-[0.97] hover:bg-gray-700"
+              >
+                <Users size={14} /> Full Profile
+              </Link>
+            ) : (
+              <span className="flex items-center justify-center gap-2 rounded-xl bg-gray-800 py-2.5 text-sm font-medium text-gray-600 cursor-not-allowed opacity-40">
+                <Users size={14} /> Full Profile
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
