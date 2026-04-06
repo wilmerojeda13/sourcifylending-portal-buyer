@@ -1305,14 +1305,13 @@ useEffect(() => {
     // INSTANT UI FEEDBACK: Show immediate visual feedback
     setCallProviderMessage(`Saving ${disposition.label}...`)
     
-    if (disposition.key === 'dnc') {
-      // Don't block UI for DNC update
-      fetch(`/api/admin/crm/leads/${current.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ do_not_call: true }),
-      }).catch(() => {})
-    }
+    // MARK LEAD AS DO_NOT_CALL: Prevent re-calling after refresh
+    // All dispositions should mark lead as processed to avoid duplicate calls
+    fetch(`/api/admin/crm/leads/${current.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ do_not_call: true }),
+    }).catch(() => {})
 
     const durationSeconds = options?.durationOverride ?? (
       startedAt
