@@ -770,6 +770,8 @@ useEffect(() => {
     autoDialLeadIdsRef.current.add(nextQueueLead.id)
     await authorizeDial(nextQueueLead, { advanceCursor: true, silent: true }).finally(() => {
       resetStuckTimer() // Clear stuck timer on successful dial
+      // Clear lead ID from tracking when dial completes (success or failure)
+      autoDialLeadIdsRef.current.delete(nextQueueLead.id)
     }).catch((dialError: unknown) => {
       console.error('[Dialer] Auto-dial failed:', dialError)
       // Don't leave dialer in broken state
