@@ -274,6 +274,15 @@ export default function DialerClient() {
   const [activeCallId, setActiveCallId] = useState<string | null>(null)
   const [callProviderStatus, setCallProviderStatus] = useState<string | null>(null)
   const [callProviderMessage, setCallProviderMessage] = useState<string | null>(null)
+  const [deviceStatus, setDeviceStatus] = useState<'offline' | 'connecting' | 'connected' | 'error'>('offline')
+  
+  // ── DEBUG STATE TRACKING ────────────────────────────────────────────────
+  const [lastDialStart, setLastDialStart] = useState<string | null>(null)
+  const [lastCallEnd, setLastCallEnd] = useState<string | null>(null)
+  const [lastAutoAdvance, setLastAutoAdvance] = useState<string | null>(null)
+  const [lastWatchdog, setLastWatchdog] = useState<string | null>(null)
+  const [lastSkipReason, setLastSkipReason] = useState<string | null>(null)
+  const [debugEvents, setDebugEvents] = useState<Array<{timestamp: string, event: string, details?: string}>>([])
   const [autoAdvance, setAutoAdvance] = useState(true)
   const [inviteSending, setInviteSending] = useState<InviteType | null>(null)
   const [inviteSuccess, setInviteSuccess] = useState<InviteType | null>(null)
@@ -286,7 +295,6 @@ export default function DialerClient() {
   const [sessionLoading, setSessionLoading] = useState(true)
   const [sessionBusy, setSessionBusy] = useState(false)
   const [pacingBusy, setPacingBusy] = useState(false)
-  const [deviceStatus, setDeviceStatus] = useState<'offline' | 'connecting' | 'connected' | 'error'>('offline')
   const [dialerMode, setDialerMode] = useState<'power' | 'manual'>('power')
   const [connectionMode, setConnectionMode] = useState<'browser' | 'phone'>('browser')
   const [profileActionHref, setProfileActionHref] = useState<string | null>(null)
@@ -296,6 +304,13 @@ export default function DialerClient() {
   const deviceRef = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const agentCallRef = useRef<any>(null)
+  
+  // ── DEBUG LOGGING HELPER ────────────────────────────────────────────────
+  const logDebug = useCallback((event: string, details?: string) => {
+    const timestamp = new Date().toISOString()
+    console.log(`[Dialer DEBUG] ${timestamp} - ${event}${details ? ` | ${details}` : ''}`)
+    setDebugEvents(prev => [...prev.slice(-49), { timestamp, event, details }])
+  }, [])
 
   const load = useCallback(async (stage: string) => {
     setLoading(true)
@@ -632,6 +647,18 @@ export default function DialerClient() {
     && !session.waiting_for_disposition
     && activeAttemptCount < targetParallelLines
   )
+  
+  // Log canDialLead changes for debugging
+  useEffect(() => {
+    const reasons = []
+    if (!session) reasons.push('No session')
+    if (deviceStatus !== 'connected') reasons.push(`Device status: ${deviceStatus}`)
+    if (!session?.session_status || !['ready', 'waiting', 'in_call'].includes(session.session_status)) reasons.push(`Session status: ${session?.session_status}`)
+    if (session?.waiting_for_disposition) reasons.push('Waiting for disposition')
+    if (activeAttemptCount >= targetParallelLines) reasons.push(`Active attempts: ${activeAttemptCount}/${targetParallelLines}`)
+    
+    logDebug('canDialLead evaluation', canDialLead ? 'TRUE' : `FALSE - ${reasons.join(', ')}`)
+  }, [canDialLead, session, deviceStatus, session?.session_status, session?.waiting_for_disposition, activeAttemptCount, targetParallelLines])
   const leadAttemptActive = Boolean(
     nextQueueLead
     && activeAttempts.some((attempt) => attempt.lead_id === nextQueueLead.id)
@@ -735,6 +762,8 @@ useEffect(() => {
     
     // Set new stuck dial timeout
     dialStuckTimeout.current = setTimeout(async () => {
+      logDebug('Watchdog triggered', 'No dial activity for 60 seconds')
+      setLastWatchdog(new Date().toISOString())
       console.warn('[Dialer] Watchdog: No dial activity detected for 60 seconds - may be stuck')
       setDeviceStatus('error')
       setCallProviderMessage('Dialer appears stuck - attempting recovery...')
@@ -743,9 +772,11 @@ useEffect(() => {
       try {
         // Just reload session state, don't disturb device
         await loadSession() 
+        logDebug('Watchdog recovery', 'Session reloaded successfully')
         setCallProviderMessage('Recovery complete - resuming dialer')
         console.log('[Dialer] Recovery completed - device should resume')
       } catch (recoveryError) {
+        logDebug('Watchdog recovery failed', recoveryError?.toString() || 'Unknown error')
         console.error('[Dialer] Recovery attempt failed:', recoveryError)
         setCallProviderMessage('Recovery failed - may need manual refresh')
       }
@@ -760,10 +791,14 @@ useEffect(() => {
       lastDialAttempt.current = new Date()
     }
     
+    logDebug('Auto-advance dialing', `Lead: ${nextQueueLead.id} (${nextQueueLead.first_name} ${nextQueueLead.last_name})`)
+    setLastDialStart(new Date().toISOString())
     autoDialLeadIdsRef.current.add(nextQueueLead.id)
     await authorizeDial(nextQueueLead, { advanceCursor: true, silent: true }).finally(() => {
+      logDebug('Dial completed', 'Successfully initiated call')
       resetStuckTimer() // Clear stuck timer on successful dial
     }).catch((dialError: unknown) => {
+      logDebug('Auto-dial failed', dialError?.toString() || 'Unknown dial error')
       console.error('[Dialer] Auto-dial failed:', dialError)
       // Don't leave dialer in broken state
       setCallProviderMessage('Auto-dial failed - will retry')
@@ -910,6 +945,7 @@ useEffect(() => {
 
       // CRITICAL: Handle token expiry with automatic refresh
       device.on('tokenWillExpire', async () => {
+        logDebug('Token will expire', 'Refreshing token automatically')
         console.log('[Dialer] Token will expire in 30 seconds - refreshing automatically')
         setCallProviderMessage('Refreshing connection...')
         
@@ -929,6 +965,7 @@ useEffect(() => {
           if (session?.token) {
             // Update device with fresh token before it expires
             await device.updateToken(session.token)
+            logDebug('Token refreshed', 'Token updated successfully')
             setCallProviderMessage('Connection refreshed')
             console.log('[Dialer] Token refreshed successfully')
           }
@@ -942,6 +979,7 @@ useEffect(() => {
 
       // Handle device registration events
       device.on('registered', () => {
+        logDebug('Device registered', 'Device is now connected')
         console.log('[Dialer] Device registered successfully')
         setDeviceStatus('connected')
         setCallProviderMessage('Browser audio connected')
@@ -949,6 +987,7 @@ useEffect(() => {
 
       // Handle device registration attempts
       device.on('registering', () => {
+        logDebug('Device registering', 'Device attempting to connect')
         console.log('[Dialer] Device registering...')
         setDeviceStatus('connecting')
         setCallProviderMessage('Connecting browser audio...')
@@ -956,6 +995,7 @@ useEffect(() => {
 
       // Device-level disconnect (token expiry, network drop) — distinct from per-call disconnect
       device.on('unregistered', () => {
+        logDebug('Device unregistered', 'Token expired or network issue')
         console.log('[Dialer] Device unregistered - token expired or network issue')
         setDeviceStatus('offline')
         setCallProviderMessage('Browser audio disconnected. Click Not Ready then Ready to reconnect.')
@@ -2121,7 +2161,53 @@ useEffect(() => {
           </div>
         </div>
       </div>
-
+      
+      {/* ── DEBUG STRIP ── */}
+      <div className="bg-gray-900 border-b border-gray-800 px-4 py-2">
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-4">
+            <span className="text-gray-400">DEBUG:</span>
+            <span className={`font-mono ${deviceStatus === 'connected' ? 'text-green-400' : deviceStatus === 'error' ? 'text-red-400' : 'text-yellow-400'}`}>
+              Device: {deviceStatus}
+            </span>
+            <span className={`font-mono ${canDialLead ? 'text-green-400' : 'text-red-400'}`}>
+              CanDial: {canDialLead ? 'YES' : 'NO'}
+            </span>
+            <span className="font-mono text-gray-400">
+              Session: {session?.session_status || 'none'}
+            </span>
+            <span className="font-mono text-gray-400">
+              Waiting: {session?.waiting_for_disposition ? 'YES' : 'NO'}
+            </span>
+            <span className="font-mono text-gray-400">
+              Active: {activeAttemptCount}/{targetParallelLines}
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            {lastDialStart && (
+              <span className="font-mono text-gray-400">
+                LastDial: {new Date(lastDialStart).toLocaleTimeString()}
+              </span>
+            )}
+            {lastCallEnd && (
+              <span className="font-mono text-gray-400">
+                LastEnd: {new Date(lastCallEnd).toLocaleTimeString()}
+              </span>
+            )}
+            {lastAutoAdvance && (
+              <span className="font-mono text-gray-400">
+                LastAdv: {new Date(lastAutoAdvance).toLocaleTimeString()}
+              </span>
+            )}
+            {lastWatchdog && (
+              <span className="font-mono text-orange-400">
+                Watchdog: {new Date(lastWatchdog).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      
       {/* ── Sticky mobile disposition tray — always reachable without scrolling ── */}
       {session && (
         <div className="fixed bottom-0 inset-x-0 z-50 lg:hidden bg-gray-900/97 backdrop-blur-md border-t-2 border-gray-700 px-3 pt-2.5 pb-6">
