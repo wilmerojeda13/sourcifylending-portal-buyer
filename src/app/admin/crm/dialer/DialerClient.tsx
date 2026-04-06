@@ -14,6 +14,9 @@ import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMir
 import LiveCallFeed from '@/components/admin/crm/dialer/LiveCallFeed'
 import BrowserAudio from '@/components/admin/crm/dialer/BrowserAudio'
 import toast from 'react-hot-toast'
+import { loadSessionAttempts, syncDialerSessionState, cancelOtherActiveAttempts, applyAutoDisposition } from '@/lib/crm-dialer-attempts'
+import { type CRMDialerRepState } from '@/lib/crm-dialer'
+import { normalizePhone } from '@/modules/voice-agent/utils/phone'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost' | 'active_client'
@@ -706,39 +709,74 @@ export default function DialerClient() {
     // 3s is responsive enough for call status — AMD takes 5–30s anyway
     const timer = window.setInterval(() => {
       void syncCall()
-    }, 3000)
+    }, 3000) // 3s is responsive enough for call status — AMD takes 5–30s anyway
 
     return () => window.clearInterval(timer)
-  }, [activeCallId, autoAdvance, callStartedAt, session?.waiting_for_disposition, targetParallelLines])
+}, [activeCallId, autoAdvance, callStartedAt, session?.waiting_for_disposition, targetParallelLines])
 
-  // 3-line dialer refill logic
-  useEffect(() => {
+// 3-line dialer refill logic with enhanced error handling and watchdog
+useEffect(() => {
+  async function refillLogic() {
     if (!autoAdvance || !session || pacingBusy || authorizingCall || sessionBusy) return
     if (session.waiting_for_disposition || !nextQueueLead || callBlocked || !canDialLead) return
     if (activeAttemptCount >= targetParallelLines) return
 
-    // Prevent double-dialing the same lead ID in parallel
+    // Prevent double-dialing of same lead ID in parallel
     if (autoDialLeadIdsRef.current.has(nextQueueLead.id)) return
 
+    // WATCHDOG: Add safety check for stuck dialer
+    const lastDialAttempt = useRef<Date | null>(null)
+    const dialStuckTimeout = useRef<NodeJS.Timeout | null>(null)
+    
+    // Clear any existing stuck dial timeout
+    if (dialStuckTimeout.current) {
+      clearTimeout(dialStuckTimeout.current)
+    }
+    
+    // Set new stuck dial timeout
+    dialStuckTimeout.current = setTimeout(async () => {
+      console.warn('[Dialer] Watchdog: No dial activity detected for 60 seconds - may be stuck')
+      setDeviceStatus('error')
+      setCallProviderMessage('Dialer appears stuck - try refreshing connection')
+      
+      // Attempt recovery
+      try {
+        await loadSession() // Force session reload
+        setDeviceStatus('offline')
+        setTimeout(() => {
+          setDeviceStatus('connecting')
+        }, 2000)
+      } catch (recoveryError) {
+        console.error('[Dialer] Recovery attempt failed:', recoveryError)
+      }
+    }, 60000) // 60 seconds without dial activity
+    
+    // Reset stuck dial timer on any successful dial
+    const resetStuckTimer = () => {
+      if (dialStuckTimeout.current) {
+        clearTimeout(dialStuckTimeout.current)
+        dialStuckTimeout.current = null
+      }
+      lastDialAttempt.current = new Date()
+    }
+    
     autoDialLeadIdsRef.current.add(nextQueueLead.id)
-    void authorizeDial(nextQueueLead, { advanceCursor: true, silent: true }).finally(() => {
+    await authorizeDial(nextQueueLead, { advanceCursor: true, silent: true }).finally(() => {
+      resetStuckTimer() // Clear stuck timer on successful dial
+    }).catch((dialError: unknown) => {
+      console.error('[Dialer] Auto-dial failed:', dialError)
+      // Don't leave dialer in broken state
+      setCallProviderMessage('Auto-dial failed - will retry')
+      
+      // Enhanced error recovery
       setTimeout(() => {
-        autoDialLeadIdsRef.current.delete(nextQueueLead.id)
-      }, 2000)
+        void authorizeDial(nextQueueLead, { advanceCursor: true, silent: true })
+      }, 3000) // Retry after 3 seconds
     })
-  }, [
-    autoAdvance,
-    targetParallelLines,
-    session?.id,
-    session?.waiting_for_disposition,
-    authorizingCall,
-    sessionBusy,
-    pacingBusy,
-    nextQueueLead?.id,
-    callBlocked,
-    canDialLead,
-    activeAttemptCount,
-  ])
+  }
+
+  refillLogic()
+}, [autoAdvance, session, pacingBusy, authorizingCall, sessionBusy, nextQueueLead, callBlocked, canDialLead, activeAttemptCount, targetParallelLines])
 
   function inviteStatusMeta(type: InviteType) {
     if (type === 'portal') {
@@ -870,11 +908,90 @@ export default function DialerClient() {
         setCallProviderMessage('Browser audio error. Click Not Ready then Ready to reconnect.')
       })
 
+      // CRITICAL: Handle token expiry with automatic refresh
+      device.on('tokenWillExpire', async () => {
+        console.log('[Dialer] Token will expire in 30 seconds - refreshing automatically')
+        setCallProviderMessage('Refreshing connection...')
+        
+        try {
+          // Fetch fresh token before current one expires
+          const res = await fetch('/api/admin/crm/dialer/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'browser' })
+          })
+          
+          if (!res.ok) {
+            throw new Error('Failed to refresh token')
+          }
+          
+          const { session } = await res.json()
+          if (session?.token) {
+            // Update device with fresh token before it expires
+            await device.updateToken(session.token)
+            setCallProviderMessage('Connection refreshed')
+            console.log('[Dialer] Token refreshed successfully')
+          }
+        } catch (refreshError) {
+          console.error('[Dialer] Token refresh failed:', refreshError)
+          setCallProviderMessage('Connection refresh failed - may disconnect soon')
+          // Mark device as needing manual reconnection
+          setDeviceStatus('error')
+        }
+      })
+
+      // Handle device registration events
+      device.on('registered', () => {
+        console.log('[Dialer] Device registered successfully')
+        setDeviceStatus('connected')
+        setCallProviderMessage('Browser audio connected')
+      })
+
+      // Handle device registration attempts
+      device.on('registering', () => {
+        console.log('[Dialer] Device registering...')
+        setDeviceStatus('connecting')
+        setCallProviderMessage('Connecting browser audio...')
+      })
+
       // Device-level disconnect (token expiry, network drop) — distinct from per-call disconnect
       device.on('unregistered', () => {
+        console.log('[Dialer] Device unregistered - token expired or network issue')
         setDeviceStatus('offline')
         setCallProviderMessage('Browser audio disconnected. Click Not Ready then Ready to reconnect.')
+        // CRITICAL: Clear any hanging dialer state
+        setSession(null)
+        setAttempts([])
+        setCalled(false)
+        setActiveCallId(null)
+        setCallStartedAt(null)
+        setCallProviderStatus(null)
       })
+
+      // Add device health monitoring
+      let lastHealthCheck = Date.now()
+      const healthInterval = setInterval(() => {
+        const now = Date.now()
+        // Check device health every 30 seconds
+        if (now - lastHealthCheck > 30000) {
+          lastHealthCheck = now
+          
+          if (deviceRef.current && deviceRef.current.isRegistered) {
+            console.log('[Dialer] Device health check passed')
+          } else {
+            console.warn('[Dialer] Device health check failed - device may be frozen')
+            setDeviceStatus('error')
+            setCallProviderMessage('Browser audio unresponsive - may need refresh')
+          }
+        }
+      }, 30000) // Check every 30 seconds
+
+      // Cleanup health check on unmount
+      return () => {
+        if (healthInterval) {
+          clearInterval(healthInterval)
+        }
+      }
 
       // Connect browser into the conference directly via device.connect().
       // Called here — in the user-click context — so getUserMedia runs while
@@ -2056,3 +2173,4 @@ export default function DialerClient() {
     </div>
   )
 }
+

@@ -216,9 +216,11 @@ function buildAccessToken(userId: string): string | null {
   const { AccessToken } = twilio.jwt
   const { VoiceGrant } = AccessToken
 
+  // INCREASED TTL: 4 hours (14400 seconds) for long dialer sessions
+  // This prevents freezing during extended dialing periods
   const token = new AccessToken(accountSid, apiKeySid, apiKeySecret, {
     identity: `rep-${userId}`,
-    ttl: 3600,
+    ttl: 14400, // Increased from 3600 to 14400 seconds (4 hours)
   })
   token.addGrant(new VoiceGrant({ outgoingApplicationSid: twimlAppSid, incomingAllow: true }))
   return token.toJwt()
