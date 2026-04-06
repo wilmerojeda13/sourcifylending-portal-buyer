@@ -329,6 +329,13 @@ export default function DialerClient() {
         throw new Error(json.error || 'Failed to load dialer session')
       }
       const sessionData = (json.session ?? null) as CRMDialerSession | null
+      
+      // SAFEGUARD: Clear stuck waiting_for_disposition flag if backend says it's false
+      if (sessionData && !sessionData.waiting_for_disposition && session?.waiting_for_disposition) {
+        setSession(prev => prev ? { ...prev, waiting_for_disposition: false } : null)
+        setCallProviderMessage(null) // Clear any "Save disposition first" messages
+      }
+      
       setSession(sessionData)
       setAttempts(json.attempts ?? [])
       setRepPhoneConfigured(Boolean(json.has_rep_phone))
@@ -400,12 +407,148 @@ export default function DialerClient() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'crm_dialer_sessions', filter: `id=eq.${sessionId}` },
-        () => { loadSession().catch(() => {}) },
+        (payload) => {
+          // INSTANT SESSION UPDATES: React immediately to session changes
+          console.log('[Dialer] Session change:', payload)
+          loadSession().catch(() => {})
+        },
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'crm_dialer_attempts', filter: `dialer_session_id=eq.${sessionId}` },
-        () => { loadSession().catch(() => {}) },
+        (payload) => {
+          // INSTANT ATTEMPT UPDATES: React immediately to attempt changes
+          console.log('[Dialer] Attempt change:', payload)
+          
+          // INSTANT WINNER DETECTION: Check if this is a winner update
+          if (payload.new && (payload.new as any).is_winner && ['answered_human', 'bridged'].includes((payload.new as any).attempt_status)) {
+            // INSTANT WINNER FEEDBACK: Play sound and update UI immediately
+            try {
+              const ctx = new AudioContext()
+              const playNote = (freq: number, startTime: number, duration: number) => {
+                const osc = ctx.createOscillator()
+                const gain = ctx.createGain()
+                osc.connect(gain)
+                gain.connect(ctx.destination)
+                osc.type = 'sine'
+                osc.frequency.value = freq
+                gain.gain.setValueAtTime(0, startTime)
+                gain.gain.linearRampToValueAtTime(0.25, startTime + 0.01)
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration)
+                osc.start(startTime)
+                osc.stop(startTime + duration)
+              }
+              const now = ctx.currentTime
+              playNote(880, now, 0.15)        // A5
+              playNote(1100, now + 0.15, 0.2) // C#6 — ascending ding-ding
+            } catch { /* ignore audio errors */ }
+            
+            // INSTANT UI UPDATE: Force immediate winner display
+            const winnerStatus = (payload.new as any).attempt_status === 'answered_human' ? 'Human answered!' : 'Connected!'
+            setCallProviderMessage(`🎯 WINNER: ${winnerStatus}`)
+            
+            // SINGLE LINE OPTIMIZATION: For single line, show lead info immediately
+            const isSingleLine = (payload.new as any).queue_slot <= 1
+            if (isSingleLine) {
+              const winnerLead = leads.find(l => l.id === (payload.new as any).lead_id)
+              if (winnerLead) {
+                setCallProviderMessage(prev => prev?.includes('WINNER') ? prev : `🎯 ${winnerLead.first_name} ${winnerLead.last_name} - ${winnerStatus}`)
+              }
+            }
+            
+            // INSTANT SIBLING CANCELLATION: Auto-cancel other lines immediately
+            // This provides instant feedback that other lines are being cleaned up
+            setTimeout(() => {
+              setCallProviderMessage(prev => {
+                if (!prev || prev.includes('WINNER')) return prev
+                return `🎯 WINNER: ${(payload.new as any).attempt_status === 'answered_human' ? 'Human answered!' : 'Connected!'} - Canceling other lines...`
+              })
+            }, 500)
+            
+            // CANCEL OTHER ATTEMPTS: Immediately cancel all other active attempts
+            setTimeout(async () => {
+              const currentAttempts = attempts.filter(a => 
+                a.id !== (payload.new as any).id &&
+                isActiveAttemptStatus(a.attempt_status) &&
+                !a.is_winner
+              )
+              
+              for (const attempt of currentAttempts) {
+                try {
+                  console.log(`[Dialer] Auto-canceling sibling attempt ${attempt.id} on line ${attempt.queue_slot}`)
+                  await disconnectLeadLeg(attempt.crm_call_id)
+                } catch (error) {
+                  console.error(`[Dialer] Failed to cancel sibling attempt ${attempt.id}:`, error)
+                }
+              }
+            }, 200) // Cancel siblings after 200ms delay
+          }
+          
+          // INSTANT VOICEMAIL DETECTION: Check if this is voicemail
+          if (payload.new && (
+            (payload.new as any).attempt_status === 'answered_machine' ||
+            (payload.new as any).amd_status?.startsWith('machine') ||
+            ((payload.new as any).resolution_type === 'auto_voicemail' || (payload.new as any).was_auto_dispositioned)
+          )) {
+            // INSTANT VOICEMAIL FEEDBACK: Play sound and update UI immediately
+            try {
+              const ctx = new AudioContext()
+              const osc = ctx.createOscillator()
+              const gain = ctx.createGain()
+              osc.connect(gain)
+              gain.connect(ctx.destination)
+              osc.type = 'sine'
+              osc.frequency.value = 400
+              gain.gain.setValueAtTime(0.1, ctx.currentTime)
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+              osc.start(ctx.currentTime)
+              osc.stop(ctx.currentTime + 0.3)
+            } catch { /* ignore audio errors */ }
+            
+            // INSTANT UI UPDATE: Force immediate voicemail display
+            setCallProviderMessage(`📞 Voicemail detected on line ${(payload.new as any).queue_slot}`)
+          }
+          
+          // INSTANT STATUS UPDATES: Show immediate feedback for all status changes
+          if (payload.new && (payload.new as any).attempt_status !== (payload.old as any)?.attempt_status) {
+            const status = (payload.new as any).attempt_status
+            const slot = (payload.new as any).queue_slot
+            const statusMessages = {
+              'dialing': `📞 Line ${slot} dialing...`,
+              'ringing': `📞 Line ${slot} ringing...`,
+              'answered_human': `🎯 Line ${slot} — HUMAN ANSWERED!`,
+              'answered_machine': `📞 Line ${slot} — Voicemail`,
+              'bridged': `✅ Line ${slot} — Connected!`,
+              'no_answer': `❌ Line ${slot} — No answer`,
+              'busy': `📞 Line ${slot} — Busy`,
+              'failed': `❌ Line ${slot} — Failed`,
+              'canceled': `📞 Line ${slot} — Canceled`,
+            }
+            
+            const message = statusMessages[status as keyof typeof statusMessages]
+            if (message && !['answered_human', 'answered_machine'].includes(status)) {
+              setCallProviderMessage(message)
+            }
+            
+            // SINGLE LINE OPTIMIZATION: Show lead name immediately for single line
+            const isSingleLine = (payload.new as any).queue_slot <= 1
+            const leadId = (payload.new as any).lead_id
+            if (isSingleLine && leadId && ['dialing', 'ringing', 'answered_human', 'bridged'].includes(status)) {
+              const lead = leads.find(l => l.id === leadId)
+              if (lead) {
+                setTimeout(() => {
+                  setCallProviderMessage(prev => {
+                    if (prev?.includes('ANSWERED') || prev?.includes('CONNECTED') || prev?.includes('HUMAN')) return prev
+                    return `${message} - ${lead.first_name} ${lead.last_name}`
+                  })
+                }, 200)
+              }
+            }
+          }
+          
+          // Always reload session to keep state in sync
+          loadSession().catch(() => {})
+        },
       )
       .subscribe()
 
@@ -414,20 +557,46 @@ export default function DialerClient() {
     }
   }, [session?.id, loadSession])
 
-  // ── Connected winner — derived directly from attempts so it fires the
+  // ── Connected winner — derived directly from attempts so it fires
   //    instant AMD marks a winner, before session.current_lead_id propagates ──
-  const winnerAttempt = attempts.find(
+  // CRITICAL FIX: Ensure only ONE winner exists to prevent multiple lines answering
+  const winnerAttempts = attempts.filter(
     (a) => a.is_winner && ['answered_human', 'bridged'].includes(a.attempt_status),
-  ) ?? null
+  )
+  const winnerAttempt = winnerAttempts.length > 0 ? winnerAttempts[0] : null // Use first winner but ensure only one
   const connectedLead = winnerAttempt
     ? leads.find((l) => l.id === winnerAttempt.lead_id) ?? null
     : null
-
-  const [liveElapsed, setLiveElapsed] = useState<string>('')
+  
+  // INSTANT SIBLING CANCELLATION: When winner is detected, immediately cancel all other active attempts
   useEffect(() => {
-    if (!winnerAttempt || !session?.answered_at) { setLiveElapsed(''); return }
+    if (winnerAttempt && winnerAttempts.length === 1) {
+      // Only cancel siblings if this is the sole winner (prevent race conditions)
+      const otherAttempts = attempts.filter(a => 
+        a.id !== winnerAttempt.id && 
+        isActiveAttemptStatus(a.attempt_status) && 
+        !a.is_winner
+      )
+      
+      // Cancel all other active attempts immediately
+      otherAttempts.forEach(async (attempt) => {
+        try {
+          console.log(`[Dialer] Auto-canceling sibling attempt ${attempt.id} on line ${attempt.queue_slot}`)
+          await disconnectLeadLeg(attempt.crm_call_id)
+        } catch (error) {
+          console.error(`[Dialer] Failed to cancel sibling attempt ${attempt.id}:`, error)
+        }
+      })
+    }
+  }, [winnerAttempt?.id, attempts])
+
+  // INSTANT WINNER DETECTION: Use resolved_at timestamp for instant feedback
+  const [liveElapsed, setLiveElapsed] = useState<string>('')
+  const winnerStartTime = winnerAttempt?.resolved_at
+  useEffect(() => {
+    if (!winnerAttempt || !winnerStartTime) { setLiveElapsed(''); return }
     const tick = () => {
-      const secs = Math.max(0, Math.floor((Date.now() - new Date(session.answered_at!).getTime()) / 1000))
+      const secs = Math.max(0, Math.floor((Date.now() - new Date(winnerStartTime).getTime()) / 1000))
       const m = Math.floor(secs / 60)
       const s = secs % 60
       setLiveElapsed(`${m}:${s.toString().padStart(2, '0')}`)
@@ -435,7 +604,7 @@ export default function DialerClient() {
     tick()
     const t = setInterval(tick, 1000)
     return () => clearInterval(t)
-  }, [winnerAttempt, session?.answered_at])
+  }, [winnerAttempt?.id, winnerStartTime])
 
   const total   = leads.length
   const winnerLead = session?.current_lead_id ? leads.find((lead) => lead.id === session.current_lead_id) : undefined
@@ -846,6 +1015,42 @@ export default function DialerClient() {
 
     if (!options?.silent) setAuthorizingCall(true)
 
+    // INSTANT LINE OWNERSHIP: Show lead assignment immediately before backend response
+    const tempAttemptId = `temp-${dialLead.id}-${Date.now()}`
+    const tempQueueSlot = attempts.filter(a => isActiveAttemptStatus(a.attempt_status)).length + 1
+    
+    // Optimistically add this attempt to UI for instant feedback
+    const optimisticAttempt: CRMDialerAttempt = {
+      id: tempAttemptId,
+      crm_call_id: '', // Empty string instead of null for type compatibility
+      lead_id: dialLead.id,
+      attempt_status: 'dialing',
+      queue_slot: tempQueueSlot,
+      is_winner: false,
+      last_twilio_status: 'queued',
+      answered_by: null,
+      amd_status: null,
+    }
+    
+    // Update UI instantly to show line ownership
+    setAttempts(prev => [...prev, optimisticAttempt])
+    setCallProviderMessage(`Line ${tempQueueSlot} — dialing ${dialLead.first_name} ${dialLead.last_name}...`)
+    
+    // Play instant dialing sound feedback
+    try {
+      const ctx = new AudioContext()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.value = 600
+      gain.gain.setValueAtTime(0.1, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.1)
+    } catch { /* ignore audio errors */ }
+
     try {
       const res = await fetch('/api/admin/crm/dial', {
         method: 'POST',
@@ -857,6 +1062,8 @@ export default function DialerClient() {
       setLeads(existing => existing.map(lead => lead.id === dialLead.id ? { ...lead, ...json } : lead))
 
       if (!res.ok || !json.allowed) {
+        // Remove optimistic attempt if backend rejected
+        setAttempts(prev => prev.filter(a => a.id !== tempAttemptId))
         if (json.action_href) setProfileActionHref(json.action_href)
         if (json.action === 'ready_required') {
           setCallProviderMessage(json.error ?? 'Click Ready first.')
@@ -870,11 +1077,16 @@ export default function DialerClient() {
       const launchedSession = (json.session ?? null) as CRMDialerSession | null
       const launchedAttempts = (json.attempts ?? []) as CRMDialerAttempt[]
 
+      // Replace optimistic attempt with real data from backend
+      setAttempts(prev => {
+        const withoutTemp = prev.filter(a => a.id !== tempAttemptId)
+        return [...withoutTemp, ...launchedAttempts]
+      })
+      
       setSession(launchedSession)
-      setAttempts(launchedAttempts)
       setCallStartedAt(new Date().toISOString())
       setCallProviderStatus(json.twilio_status ?? 'queued')
-      setCallProviderMessage(json.message ?? 'Dialing lead attempt.')
+      setCallProviderMessage(json.message ?? `Line ${json.queue_slot ?? tempQueueSlot} — ${dialLead.first_name} ${dialLead.last_name} dialing...`)
 
       const launchedParallel = Math.min(Math.max(launchedSession?.target_parallel_lines ?? targetParallelLines, 1), 5) > 1
       if (!launchedParallel) {
@@ -893,6 +1105,8 @@ export default function DialerClient() {
         toast.success(json.message ?? 'Lead attempt launched.')
       }
     } catch {
+      // Remove optimistic attempt if network error
+      setAttempts(prev => prev.filter(a => a.id !== tempAttemptId))
       if (!options?.silent) {
         toast.error('Failed to authorize call')
       }
@@ -924,12 +1138,16 @@ export default function DialerClient() {
         ? new Date(Date.now() + (disposition.key === 'busy' ? 2 : disposition.key === 'call_back' ? 24 : 4) * 60 * 60 * 1000).toISOString().slice(0, 16)
         : nextFollowUpAt
 
+    // INSTANT UI FEEDBACK: Show immediate visual feedback
+    setCallProviderMessage(`Saving ${disposition.label}...`)
+    
     if (disposition.key === 'dnc') {
-      await fetch(`/api/admin/crm/leads/${current.id}`, {
+      // Don't block UI for DNC update
+      fetch(`/api/admin/crm/leads/${current.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ do_not_call: true }),
-      })
+      }).catch(() => {})
     }
 
     const durationSeconds = options?.durationOverride ?? (
@@ -938,7 +1156,8 @@ export default function DialerClient() {
         : null
     )
 
-    const callRes = await fetch('/api/admin/crm/calls', {
+    // PARALLEL DISPOSITION LOGGING: Don't block UI while saving
+    const callPromise = fetch('/api/admin/crm/calls', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -971,46 +1190,89 @@ export default function DialerClient() {
         },
       }),
     })
-    const callJson = await callRes.json()
-    if (!callRes.ok) {
-      toast.error(callJson.error ?? 'Failed to log call')
-      return false
-    }
 
-    const disconnectResult = options?.skipDisconnect || isTerminalTwilioStatus(effectiveCallStatus)
-      ? { ok: true, alreadyEnded: true }
-      : await disconnectLeadLeg(resolvedCallId)
+    // INSTANT DISCONNECT: Start disconnect immediately while logging
+    const disconnectPromise = (options?.skipDisconnect || isTerminalTwilioStatus(effectiveCallStatus))
+      ? Promise.resolve({ ok: true, alreadyEnded: true } as const)
+      : disconnectLeadLeg(resolvedCallId)
 
-    if (!disconnectResult.ok) {
-      toast.error(disconnectResult.error ?? 'Disposition saved, but lead leg cleanup failed')
-      return false
-    }
+    // PARALLEL EXECUTION: Run both operations in parallel
+    const [callRes, disconnectResult] = await Promise.allSettled([
+      callPromise.then(async (res) => {
+        const data = await res.json()
+        return { ok: res.ok, data }
+      }),
+      disconnectPromise
+    ])
 
-    if (callJson.degraded) {
-      setCallLoggingNotice(callJson.message || 'Call outcomes are saving without full call history until CRM call logging is configured.')
+    // Handle results
+    const callSucceeded = callRes.status === 'fulfilled' && callRes.value.ok
+    const disconnectSucceeded = disconnectResult.status === 'fulfilled' && disconnectResult.value.ok
+
+    if (callSucceeded) {
+      const callJson = callRes.value.data
+      if (callJson.degraded) {
+        setCallLoggingNotice(callJson.message || 'Call outcomes are saving without full call history until CRM call logging is configured.')
+      } else {
+        setCallLoggingNotice(null)
+      }
     } else {
-      setCallLoggingNotice(null)
+      const errorMsg = callRes.status === 'rejected' 
+        ? 'Failed to save disposition' 
+        : callRes.value?.data?.error ?? 'Failed to log call'
+      toast.error(errorMsg)
     }
 
+    if (!disconnectSucceeded && disconnectResult.status === 'rejected') {
+      toast.error(disconnectResult.reason?.message ?? 'Failed to disconnect lead leg')
+    }
+
+    // Update UI state immediately
     setDone(d => d + 1)
     
-    // Refresh session state immediately so refill logic can trigger without waiting for the poll
+    // CRITICAL: Clear waiting_for_disposition flag immediately to prevent UI confusion
+    setSession((currentSession) => currentSession ? {
+      ...currentSession,
+      waiting_for_disposition: false, // Clear flag immediately
+    } : currentSession)
+    
+    // Refresh session state immediately so refill logic can trigger without waiting for poll
     void loadSession()
 
     if (autoAdvance) {
+      // SMOOTH ADVANCE: Advance immediately without waiting
       advance()
     } else {
-      setCalled(false)
-      setActiveCallId(null)
-      setCallProviderStatus(null)
-      setCallProviderMessage(options?.autoTriggered ? `Auto-dispositioned: ${disposition.label}` : null)
-      loadSession().catch(() => {})
-      if (!options?.autoTriggered) {
-        toast.success('Disposition saved')
+      // SINGLE LINE DIALER: Always auto-advance for single line mode
+      const isSingleLine = targetParallelLines <= 1
+      if (isSingleLine) {
+        // For single line, always advance to next lead
+        setTimeout(() => {
+          advance()
+          toast.success(`${disposition.label} saved - Moving to next lead`)
+        }, 500)
+      } else {
+        // INSTANT RESET: Reset UI state immediately for multi-line
+        setCalled(false)
+        setActiveCallId(null)
+        setCallProviderStatus(null)
+        // CRITICAL: Clear waiting_for_disposition flag immediately to avoid confusion
+        setSession((currentSession) => currentSession ? {
+          ...currentSession,
+          waiting_for_disposition: false,
+          session_status: 'waiting',
+          current_lead_id: null,
+          current_crm_call_id: null,
+        } : currentSession)
+        setCallProviderMessage(options?.autoTriggered ? `Auto-dispositioned: ${disposition.label}` : `${disposition.label} saved`)
+        loadSession().catch(() => {}) // Backup sync to ensure consistency
+        if (!options?.autoTriggered) {
+          toast.success(`${disposition.label} saved`)
+        }
       }
     }
 
-    return true
+    return callSucceeded && disconnectSucceeded
   }
 
   async function logAndAdvance(disposition: typeof DISPOSITIONS[number]) {
@@ -1041,6 +1303,7 @@ export default function DialerClient() {
       session_status: 'waiting',
       current_lead_id: null,
       current_crm_call_id: null,
+      waiting_for_disposition: false, // CRITICAL: Clear the disposition flag!
     } : currentSession)
     setIndex(i => i + 1)
   }
@@ -1456,8 +1719,12 @@ export default function DialerClient() {
                       type="checkbox"
                       checked={autoAdvance}
                       onChange={e => setAutoAdvance(e.target.checked)}
+                      disabled={targetParallelLines <= 1} // Hide for single line - always auto-advances
                     />
                     Auto-next
+                    {targetParallelLines <= 1 && (
+                      <span className="text-[10px] text-gray-500 ml-1">(Always on for single line)</span>
+                    )}
                   </label>
                 </div>
 

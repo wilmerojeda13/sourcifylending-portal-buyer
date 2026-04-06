@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Bell } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import toast from 'react-hot-toast'
 import {
   getAdminNotificationCategory,
   getDesktopNotificationRoute,
@@ -219,20 +220,33 @@ export default function NotificationRuntime() {
         seenIds.add(notification.id)
         persistSeenIds(seenKey, seenIds)
 
+        const event = notification.portal_events
         const category = getAdminNotificationCategory(notification)
+
+        // Always show an in-app toast when the user is actively on the page
+        // This is the primary alert on mobile and while in the dialer
+        if (!document.hidden) {
+          toast(event.title || 'New admin notification', {
+            icon: '🔔',
+            duration: 8000,
+            style: { background: '#1f2937', color: '#f9fafb', fontSize: '14px' },
+          })
+          return
+        }
+
+        // Tab is in background — fire a desktop browser notification (desktop only)
         if (
           !isDesktopNotificationSupported() ||
           typeof Notification === 'undefined' ||
           Notification.permission !== 'granted' ||
           !adminPrefs.desktop_enabled ||
-          !adminPrefs.categories[category] ||
-          !document.hidden
+          !adminPrefs.categories[category]
         ) {
           return
         }
 
-        const browserNotification = new Notification(notification.portal_events.title || 'Admin alert', {
-          body: notification.portal_events.message || 'Open the admin activity feed for details.',
+        const browserNotification = new Notification(event.title || 'Admin alert', {
+          body: event.message || 'Open the admin activity feed for details.',
           tag: `admin-${notification.id}`,
         })
         browserNotification.onclick = () => {
@@ -244,8 +258,8 @@ export default function NotificationRuntime() {
     }
 
     void pollAdminNotifications()
-    // Slowed from 30s to 120s — admin desktop notifications are not time-critical
-    const interval = window.setInterval(() => { void pollAdminNotifications() }, 120000)
+    // 30s poll — fast enough to catch analyzer completions and signups while on mobile/dialer
+    const interval = window.setInterval(() => { void pollAdminNotifications() }, 30000)
     return () => window.clearInterval(interval)
   }, [adminPrefs, isAdmin, router])
 

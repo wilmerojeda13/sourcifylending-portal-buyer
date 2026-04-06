@@ -136,7 +136,15 @@ function NewLeadModal({ onClose, onCreated }: { onClose:()=>void; onCreated:(l:C
         body: JSON.stringify({ ...form, program_interest: form.program_interest||null, follow_up_at: form.follow_up_at||null, email: form.email||null, business_name: form.business_name||null }),
       })
       const json = await res.json()
-      if (!res.ok) { toast.error(json.error ?? 'Failed'); return }
+      if (!res.ok) {
+        if (res.status === 409 && json.duplicate_lead_id) {
+          toast.error(`Duplicate phone — lead already exists. Opening existing record...`, { duration: 4000 })
+          setTimeout(() => { window.location.href = `/admin/crm/${json.duplicate_lead_id}` }, 1500)
+          return
+        }
+        toast.error(json.error ?? 'Failed')
+        return
+      }
       toast.success('Lead created!')
       onCreated(json.lead)
     } catch { toast.error('Network error') } finally { setSaving(false) }
@@ -758,7 +766,7 @@ export default function CRMClient() {
                 <select
                   value={temperatureFilter}
                   onChange={e => setTemperatureFilter(e.target.value)}
-                  className="input-field h-10 w-[140px] text-sm"
+                  className="input-field h-10 w-[110px] text-sm shrink-0"
                 >
                   <option value="">All temps</option>
                   <option value="hot">Hot</option>
@@ -768,17 +776,17 @@ export default function CRMClient() {
                 <select
                   value={callabilityFilter}
                   onChange={e => setCallabilityFilter(e.target.value)}
-                  className="input-field h-10 w-[170px] text-sm"
+                  className="input-field h-10 w-[140px] text-sm shrink-0"
                 >
-                  <option value="">All call windows</option>
+                  <option value="">Call window</option>
                   <option value="callable_now">Callable now</option>
-                  <option value="blocked_by_timezone">Blocked by timezone</option>
-                  <option value="unknown_timezone">Unknown timezone</option>
+                  <option value="blocked_by_timezone">Blocked</option>
+                  <option value="unknown_timezone">Unknown TZ</option>
                 </select>
                 <button
                   onClick={() => setOpenTasksOnly(value => !value)}
                   className={cn(
-                    'h-10 rounded-xl border px-3 text-sm font-medium transition-colors',
+                    'h-10 shrink-0 whitespace-nowrap rounded-xl border px-3 text-sm font-medium transition-colors',
                     openTasksOnly
                       ? 'border-green-600 bg-green-600 text-white'
                       : 'border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'

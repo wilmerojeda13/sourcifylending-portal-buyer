@@ -198,6 +198,22 @@ export async function POST(req: NextRequest) {
 
   const phoneIntelligence = await inferLeadPhoneIntelligence(body.phone.trim())
 
+  // Duplicate phone check — block creation if a lead with the same phone already exists
+  const normalizedPhone = phoneIntelligence.phone_e164 || body.phone.trim()
+  const { data: existingDupe } = await supabase
+    .from('crm_leads')
+    .select('id, first_name, last_name, stage')
+    .or(`phone_e164.eq.${normalizedPhone},phone.eq.${body.phone.trim()}`)
+    .limit(1)
+    .maybeSingle()
+
+  if (existingDupe) {
+    return NextResponse.json({
+      error: `A lead with this phone number already exists: ${existingDupe.first_name} ${existingDupe.last_name} (${existingDupe.stage})`,
+      duplicate_lead_id: existingDupe.id,
+    }, { status: 409 })
+  }
+
   const baseInsert = {
     first_name:       body.first_name.trim(),
     last_name:        body.last_name?.trim() ?? '',

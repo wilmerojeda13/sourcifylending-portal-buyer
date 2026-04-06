@@ -192,6 +192,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
     })
 
-    return NextResponse.json({ error: 'Failed to send text message' }, { status: 500 })
+    const twilioMessage = error instanceof Error ? error.message : 'Unknown Twilio error'
+    return NextResponse.json({ error: `SMS failed: ${twilioMessage}` }, { status: 500 })
   }
 }

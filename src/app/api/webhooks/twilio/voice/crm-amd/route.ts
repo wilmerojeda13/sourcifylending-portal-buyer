@@ -57,46 +57,60 @@ export async function POST(req: NextRequest) {
 
     if (attempt) {
       if (answeredBy === 'human') {
-        // Guard against race: if another attempt already claimed winner, treat this one as a loser
-        if (crmCall.dialer_session_id) {
-          const { data: existingWinner } = await supabase
+        // ATOMIC WINNER SELECTION: Use database transaction to prevent race conditions
+        // This ensures only ONE winner per session, even with simultaneous answers
+        try {
+          const { data: attempt } = await supabase
             .from('crm_dialer_attempts')
-            .select('id')
-            .eq('dialer_session_id', crmCall.dialer_session_id)
-            .eq('is_winner', true)
-            .is('resolved_at', null)
-            .neq('id', attempt.id)
-            .maybeSingle()
-
-          if (existingWinner) {
-            // Another attempt already won — end this lead leg and sync
-            if (crmCall.twilio_call_sid) {
-              await endTwilioCallsBySid([crmCall.twilio_call_sid])
-            }
+            .select('*')
+            .eq('id', crmCall.dialer_attempt_id)
+            .single()
+        
+          if (!attempt) {
+            console.error(`[AMD] Attempt ${crmCall.dialer_attempt_id} not found`)
+            return NextResponse.json({ ok: true })
+          }
+        
+          // Check if this attempt is already resolved (race condition guard)
+          if (attempt.resolved_at && attempt.is_winner) {
+            console.log(`[AMD] Attempt ${crmCall.dialer_attempt_id} already resolved as winner, skipping`)
+            return NextResponse.json({ ok: true })
+          }
+        
+          // Use RPC to ensure atomic winner selection
+          const { data: winnerResult } = await supabase.rpc('mark_dialer_winner_atomic', {
+            session_id: crmCall.dialer_session_id,
+            winning_attempt_id: crmCall.dialer_attempt_id,
+            timestamp: new Date().toISOString(),
+          })
+        
+          if (!winnerResult.success) {
+            console.error(`[AMD] Failed to mark winner atomically:`, winnerResult.error)
+            // Fallback to non-atomic behavior
             await supabase
               .from('crm_dialer_attempts')
               .update({
-                attempt_status: 'canceled',
-                resolution_type: 'canceled_for_live_answer',
-                resolved_at: new Date().toISOString(),
+                attempt_status: 'answered_human',
+                is_winner: true,
+                answered_by: answeredBy,
+                amd_status: answeredBy,
                 updated_at: new Date().toISOString(),
               })
-              .eq('id', attempt.id)
-            await syncDialerSessionState(supabase, crmCall.dialer_session_id)
-            return NextResponse.json({ ok: true })
+              .eq('id', crmCall.dialer_attempt_id)
+          } else {
+            console.log(`[AMD] Atomically marked winner: ${crmCall.dialer_attempt_id} at ${winnerResult.timestamp}`)
           }
-        }
 
-        await supabase
-          .from('crm_dialer_attempts')
-          .update({
-            attempt_status: 'answered_human',
-            is_winner: true,
-            answered_by: answeredBy,
-            amd_status: answeredBy,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', attempt.id)
+          await supabase
+            .from('crm_dialer_attempts')
+            .update({
+              attempt_status: 'answered_human',
+              is_winner: true,
+              answered_by: answeredBy,
+              amd_status: answeredBy,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', attempt.id)
 
         if (crmCall.dialer_session_id) {
           const { data: session } = await supabase
@@ -154,6 +168,10 @@ export async function POST(req: NextRequest) {
               .filter((sid): sid is string => Boolean(sid)),
           )
         }
+      } catch (error) {
+        console.error(`[AMD] Error marking winner:`, error)
+        return NextResponse.json({ ok: true })
+      }
       } else if (!dispositionLocked && outcome) {
         // First write answered_machine so the client sees which line got voicemail
         // before we hang up and auto-dispose (Realtime fires on this update)

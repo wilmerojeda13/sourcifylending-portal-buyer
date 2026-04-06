@@ -283,7 +283,7 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
                 className={cn(
                   "rounded-lg border p-3 transition-all duration-200",
                   attempt?.is_winner
-                    ? "border-green-500 bg-green-500/10 shadow-lg shadow-green-500/20"
+                    ? "border-green-500 bg-green-500/10 shadow-lg shadow-green-500/20 ring-2 ring-green-500/50 animate-pulse"
                     : status === 'answered_machine'
                       ? "border-orange-500 bg-orange-500/10 shadow-lg shadow-orange-500/20"
                       : "border-gray-700 bg-gray-800/50"
@@ -292,7 +292,10 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-gray-400">Line {lineNumber}</span>
                   {attempt?.is_winner && (
-                    <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                      <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>
+                    </div>
                   )}
                   {!attempt?.is_winner && status === 'answered_machine' && (
                     <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full">VM</span>
@@ -310,9 +313,9 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
                   <div className="space-y-1">
                     <div className={cn(
                       "truncate font-semibold",
-                      attempt?.is_winner ? "text-sm text-green-300" : "text-xs text-gray-300"
+                      attempt?.is_winner ? "text-sm text-green-300 font-bold" : "text-xs text-gray-300"
                     )}>
-                      {lineStatus.lead.first_name} {lineStatus.lead.last_name}
+                      {attempt?.is_winner && "🎯 "}{lineStatus.lead.first_name} {lineStatus.lead.last_name}
                     </div>
                     {lineStatus.lead.business_name && (
                       <div className="text-xs text-gray-500 truncate">

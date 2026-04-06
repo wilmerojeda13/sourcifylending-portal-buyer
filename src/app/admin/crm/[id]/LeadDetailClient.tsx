@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -274,6 +274,7 @@ function buildGCalUrl(lead: CRMLead, startIso: string, durationMins: number, mee
     dates:   `${toGCal(start.toISOString())}/${toGCal(end.toISOString())}`,
     details,
     sf:      'true',
+    ...(lead.email ? { add: lead.email } : {}),
   })
   return `https://calendar.google.com/calendar/render?${params}`
 }
@@ -407,6 +408,19 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   const [showEmail, setShowEmail]         = useState(false)
   const [taskTitle, setTaskTitle]         = useState('')
   const [taskDueAt, setTaskDueAt]         = useState('')
+  const [duplicateLeads, setDuplicateLeads] = useState<{id: string, first_name: string, last_name: string, stage: string}[]>([])
+
+  // Check for duplicate phone leads on mount
+  useEffect(() => {
+    if (!lead.phone) return
+    fetch(`/api/admin/crm/leads?search=${encodeURIComponent(lead.phone)}&limit=10`)
+      .then(r => r.json())
+      .then(json => {
+        const dupes = (json.leads ?? []).filter((l: { id: string }) => l.id !== lead.id)
+        setDuplicateLeads(dupes)
+      })
+      .catch(() => {})
+  }, [lead.phone, lead.id])
   const [taskPriority, setTaskPriority]   = useState('High')
   const [taskSaving, setTaskSaving]       = useState(false)
   const [authorizingCall, setAuthorizingCall] = useState(false)
@@ -831,6 +845,29 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
         </div>
       </div>
 
+      {/* ── Duplicate warning banner ── */}
+      {duplicateLeads.length > 0 && (
+        <div className="border-b border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-700/50 dark:bg-amber-900/20">
+          <div className="mx-auto max-w-5xl">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+              ⚠️ Duplicate phone number detected — {duplicateLeads.length} other lead{duplicateLeads.length > 1 ? 's' : ''} share this number:
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {duplicateLeads.map(d => (
+                <Link
+                  key={d.id}
+                  href={`/admin/crm/${d.id}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200 dark:bg-amber-800/40 dark:text-amber-200 dark:hover:bg-amber-800/60"
+                >
+                  {d.first_name} {d.last_name} · {d.stage.replace('_', ' ')}
+                </Link>
+              ))}
+              <span className="text-xs text-amber-700 dark:text-amber-400 self-center">— open the duplicate and scroll down to delete it</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Content ── */}
       <div className="mx-auto max-w-2xl space-y-5 px-4 py-5 lg:max-w-5xl sm:space-y-4 sm:py-4">
 
@@ -1244,11 +1281,6 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
             className="flex-1 h-10 btn-secondary flex items-center justify-center gap-1.5 font-semibold text-sm sm:h-12 sm:gap-2">
             <CalendarPlus size={16}/> Demo
           </button>
-          <Link href={`/admin/voice/campaigns/new?from_crm=1&lead_id=${lead.id}`} target="_blank" rel="noopener noreferrer"
-            className="hidden h-10 w-10 btn-secondary items-center justify-center shrink-0 sm:flex sm:h-12 sm:w-12"
-            aria-label="New Campaign">
-            <Megaphone size={16}/>
-          </Link>
         </div>
       </div>
 

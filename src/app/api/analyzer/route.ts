@@ -78,8 +78,9 @@ export async function POST(req: NextRequest) {
           severity: 'info',
         })
       }
-    } catch {
-      // Non-fatal — continue even if save fails
+    } catch (err) {
+      // Non-fatal — continue even if save fails, but log so we can diagnose notification issues
+      console.error('[analyzer] Failed to save result or fire portal event notification:', err)
     }
 
     return NextResponse.json(result)
