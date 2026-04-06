@@ -1988,13 +1988,27 @@ useEffect(() => {
                       
                       {/* Action buttons */}
                       <div className="mt-4 grid grid-cols-2 gap-2">
-                        <a
-                          href={`tel:${current.phone_e164 || current.phone}`}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Open tel: link in new window/tab to preserve current dialer page
+                            const phoneNumber = current.phone_e164 || current.phone
+                            const newWindow = window.open(`tel:${phoneNumber}`, '_blank')
+                            
+                            // Fallback: if new window is blocked, open in same tab but with confirmation
+                            if (!newWindow) {
+                              if (confirm(`Open phone app to call ${phoneNumber}?\n\nThis will navigate away from the dialer.`)) {
+                                window.location.href = `tel:${phoneNumber}`
+                              }
+                            } else {
+                              toast.success('Opening phone app...')
+                            }
+                          }}
                           className="flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-500"
                         >
                           <Phone size={16} />
                           Call Now
-                        </a>
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
