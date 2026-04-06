@@ -614,8 +614,11 @@ export default function DialerClient() {
 
   const total   = leads.length
   const winnerLead = session?.current_lead_id ? leads.find((lead) => lead.id === session.current_lead_id) : undefined
-  // INSTANT WINNER LEAD: Use winner attempt directly for immediate UI updates
-  const instantWinnerLead = winnerAttempt?.lead_id ? leads.find((lead) => lead.id === winnerAttempt.lead_id) : undefined
+  // INSTANT WINNER LEAD: Use only currently active winner attempt for immediate UI updates
+  // Filter out old winner attempts from previous calls
+  const instantWinnerLead = winnerAttempt?.lead_id && ['answered_human', 'bridged'].includes(winnerAttempt.attempt_status) 
+    ? leads.find((lead) => lead.id === winnerAttempt.lead_id) 
+    : undefined
   const nextQueueLead = leads[index]
   const current = instantWinnerLead ?? winnerLead ?? nextQueueLead ?? (total > 0 ? leads[Math.max(total - 1, 0)] : undefined)
   const remaining = Math.max(total - index, 0)
