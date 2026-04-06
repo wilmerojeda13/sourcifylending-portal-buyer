@@ -728,6 +728,11 @@ useEffect(() => {
     if (autoDialLeadIdsRef.current.has(nextQueueLead.id)) return
 
     // WATCHDOG: Add safety check for stuck dialer
+    // Initialize dial activity timestamp to prevent premature watchdog trigger
+    if (!lastDialAttempt.current) {
+      lastDialAttempt.current = new Date()
+    }
+    
     // Clear any existing stuck dial timeout
     if (dialStuckTimeout.current) {
       clearTimeout(dialStuckTimeout.current)
