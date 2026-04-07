@@ -617,28 +617,29 @@ export default function DialerClient() {
   const total   = leads.length
   const winnerLead = session?.current_lead_id ? leads.find((lead) => lead.id === session.current_lead_id) : undefined
   
-  // CRITICAL FIX: Prevent stale lead context during live calls
-  // Only show nextQueueLead when there's no active call activity
+  // SIMPLIFIED LEAD CONTEXT: Prevent stale lead display
   const activeAttempts = attempts.filter((attempt) => isActiveAttemptStatus(attempt.attempt_status))
   const hasActiveCallActivity = activeAttempts.length > 0 || session?.session_status === 'in_call'
   
-  // INSTANT WINNER LEAD: Use only currently active winner attempt for immediate UI updates
-  // Filter out old winner attempts from previous calls
-  const instantWinnerLead = winnerAttempt?.lead_id && ['answered_human', 'bridged'].includes(winnerAttempt.attempt_status) 
+  // WINNER LEAD: Show the current winner if there's an active call
+  const currentWinnerLead = winnerAttempt?.lead_id && ['answered_human', 'bridged'].includes(winnerAttempt.attempt_status) 
     ? leads.find((lead) => lead.id === winnerAttempt.lead_id) 
-    : undefined
+    : null
   
-  // SAFE FALLBACK: Only show nextQueueLead when there's no call activity
-  // This prevents showing stale previous lead during new calls
-  const safeNextQueueLead = hasActiveCallActivity ? undefined : nextQueueLead
-  const current = instantWinnerLead ?? winnerLead ?? safeNextQueueLead
+  // SESSION LEAD: Fall back to session current lead if no active winner
+  const sessionCurrentLead = session?.current_lead_id 
+    ? leads.find((lead) => lead.id === session.current_lead_id) 
+    : null
   
-  // SAFE CONTEXT STATE: Determine if we should show placeholder instead of stale context
-  const shouldShowPlaceholder = hasActiveCallActivity && !instantWinnerLead && !winnerLead
+  // SIMPLIFIED LOGIC: Show winner lead first, then session lead, then next queue lead
+  const current = currentWinnerLead || sessionCurrentLead || (!hasActiveCallActivity ? nextQueueLead : null)
+  
+  // PLACEHOLDER: Show placeholder when there's activity but no lead context
+  const shouldShowPlaceholder = hasActiveCallActivity && !currentWinnerLead && !sessionCurrentLead
   const remaining = Math.max(total - index, 0)
   const targetParallelLines = 1
   const activeAttemptCount = activeAttempts.length
-  const callStatusLabel = buildCallStatusLabel(current)
+  const callStatusLabel = buildCallStatusLabel(current || undefined)
   const sessionStatus = buildSessionStatusCopy(session, deviceStatus)
   const callStatusTone = current?.call_window_status === 'callable_now'
     ? 'border-green-500/30 bg-green-500/10 text-green-200'
@@ -1340,13 +1341,16 @@ useEffect(() => {
     // INSTANT UI FEEDBACK: Show immediate visual feedback
     setCallProviderMessage(`Saving ${disposition.label}...`)
     
-    // MARK LEAD AS DO_NOT_CALL: Prevent re-calling after refresh
-    // All dispositions should mark lead as processed to avoid duplicate calls
-    fetch(`/api/admin/crm/leads/${current.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ do_not_call: true }),
-    }).catch(() => {})
+    // MARK LEAD AS DO_NOT_CALL: Only for terminal dispositions
+    // Only mark DNC and Not Interested as do_not_call to prevent re-calling
+    const shouldMarkDNC = ['dnc', 'not_interested', 'bad_number'].includes(disposition.key)
+    if (shouldMarkDNC) {
+      fetch(`/api/admin/crm/leads/${current.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ do_not_call: true }),
+      }).catch(() => {})
+    }
 
     const durationSeconds = options?.durationOverride ?? (
       startedAt
@@ -1980,7 +1984,7 @@ useEffect(() => {
                             type="button"
                             onClick={() => {
                               setSmsTemplateKey(template.key)
-                              setSmsBody(buildSmsTemplate(template.key, current))
+                              setSmsBody(buildSmsTemplate(template.key, current || undefined))
                             }}
                             className={cn(
                               'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',

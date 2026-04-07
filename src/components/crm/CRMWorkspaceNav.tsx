@@ -25,7 +25,7 @@ export default function CRMWorkspaceNav() {
           const active = item.mode === 'overview'
             ? pathname === '/admin/crm' && searchParams.get('view') !== 'board' && searchParams.get('focus') !== 'leads'
             : item.mode === 'leads'
-              ? pathname === '/admin/crm' && searchParams.get('view') !== 'board' && searchParams.get('focus') === 'leads'
+              ? pathname === '/admin/crm' && searchParams.get('focus') === 'leads'
               : item.mode === 'pipeline'
                 ? pathname === '/admin/crm' && searchParams.get('view') === 'board'
                 : pathname.startsWith(item.href)

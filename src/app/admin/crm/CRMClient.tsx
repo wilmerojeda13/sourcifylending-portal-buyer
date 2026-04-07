@@ -511,7 +511,7 @@ export default function CRMClient() {
   const [openTasksOnly, setOpenTasksOnly] = useState(crmState.openTasksOnly || searchParams.get('open_tasks') === 'true')
   const [showNew, setShowNew]       = useState(false)
   const [showCleanup, setShowCleanup] = useState(false)
-  const [view, setView]             = useState<'list' | 'board'>(crmState.view || (searchParams.get('view') === 'board' ? 'board' : 'list'))
+  const [view, setView]             = useState<'list' | 'board'>((searchParams.get('view') === 'board' ? 'board' : 'list'))
   const [listPage, setListPage]     = useState(crmState.listPage || 1)
   const [boardPages, setBoardPages] = useState<Record<string, number>>(crmState.boardPages || {})
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -533,7 +533,8 @@ export default function CRMClient() {
   }, [search, stageFilter, temperatureFilter, callabilityFilter, openTasksOnly, view, listPage, boardPages, saveCRMState])
 
   useEffect(() => {
-    setView(searchParams.get('view') === 'board' ? 'board' : 'list')
+    const newView = searchParams.get('view') === 'board' ? 'board' : 'list'
+    setView(newView)
     setStageFilter(searchParams.get('stage') ?? '')
     setTemperatureFilter(searchParams.get('temperature') ?? '')
     setCallabilityFilter(searchParams.get('callability') ?? '')
