@@ -7,7 +7,7 @@ import {
   Phone, ChevronLeft, ChevronRight, Building2, Mail,
   ThumbsUp, ThumbsDown, Voicemail, PhoneMissed, CalendarPlus,
   Ban, Loader2, Users, CheckCircle2, Filter, X, Flame, Send, PhoneOff, Clock3,
-  PhoneCall, Clock,
+  PhoneCall, Clock, Power,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMirror'
@@ -1761,17 +1761,31 @@ useEffect(() => {
                       )}
                     </div>
 
-                    {/* Action button — right side */}
+                    {/* Action buttons — right side */}
                     {!session ? null : (
-                      <button
-                        type="button"
-                        onClick={hangUpCurrentCall}
-                        disabled={sessionBusy}
-                        className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-950/40 border border-red-500/20 px-3 py-2 text-sm font-semibold text-red-200 transition-colors hover:bg-red-950/60"
-                      >
-                        {sessionBusy ? <Loader2 size={14} className="animate-spin" /> : <PhoneOff size={14} />}
-                        End
-                      </button>
+                      <div className="flex gap-2">
+                        {/* End Call button - hang up current call and advance */}
+                        <button
+                          type="button"
+                          onClick={hangUpCurrentCall}
+                          disabled={sessionBusy}
+                          className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-950/40 border border-red-500/20 px-3 py-2 text-sm font-semibold text-red-200 transition-colors hover:bg-red-950/60"
+                        >
+                          {sessionBusy ? <Loader2 size={14} className="animate-spin" /> : <PhoneOff size={14} />}
+                          End Call
+                        </button>
+                        
+                        {/* End Session button - end entire session */}
+                        <button
+                          type="button"
+                          onClick={setNotReady}
+                          disabled={sessionBusy}
+                          className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gray-950/40 border border-gray-500/20 px-3 py-2 text-sm font-semibold text-gray-200 transition-colors hover:bg-gray-950/60"
+                        >
+                          {sessionBusy ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
+                          End Session
+                        </button>
+                      </div>
                     )}
                   </div>
 
