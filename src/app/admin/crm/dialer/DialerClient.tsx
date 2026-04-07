@@ -1946,10 +1946,10 @@ useEffect(() => {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Text Message</p>
                       <p className="mt-1 text-xs text-gray-400">
-                        {current.last_sms_sent_at
+                        {current?.last_sms_sent_at
                           ? `${current.last_sms_status ?? 'sent'} · ${formatInviteTimestamp(current.last_sms_sent_at) ?? 'just now'}`
                           : 'No text sent yet'}
-                        {current.sms_clicked_count ? ` • ${current.sms_clicked_count} clicked` : ''}
+                        {current?.sms_clicked_count ? ` • ${current.sms_clicked_count} clicked` : ''}
                       </p>
                     </div>
                     <button
