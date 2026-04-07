@@ -8,6 +8,7 @@ import {
   Ban, Loader2, Users, CheckCircle2, Filter, X, Flame, Send, PhoneOff, Clock3,
   PhoneCall, Clock, Power, Volume2, VolumeX,
 } from 'lucide-react'
+import { checkDialerEligibility, applyDispositionEligibilityUpdates } from '@/lib/crm-dialer-eligibility'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -105,7 +106,7 @@ export default function SimpleDialerClient() {
     }
   }, [])
 
-  // Load leads
+  // Load leads with eligibility filtering
   const loadLeads = useCallback(async () => {
     setLoading(true)
     try {
@@ -123,11 +124,30 @@ export default function SimpleDialerClient() {
 
       if (error) throw error
       
-      setLeads(data || [])
-      if (data && data.length > 0) {
-        setCurrentLead(data[0])
+      // Filter leads by dialer eligibility
+      const eligibleLeads = (data || []).filter(lead => {
+        const eligibility = checkDialerEligibility(lead)
+        if (!eligibility.is_eligible) {
+          console.log(`Lead ${lead.id} excluded: ${eligibility.exclusion_reason}`)
+        }
+        return eligibility.is_eligible
+      })
+      
+      setLeads(eligibleLeads)
+      if (eligibleLeads.length > 0) {
+        setCurrentLead(eligibleLeads[0])
         setIndex(0)
       }
+      
+      // Show notification if any leads were excluded
+      const excludedCount = (data || []).length - eligibleLeads.length
+      if (excludedCount > 0) {
+        toast(`${excludedCount} leads excluded due to terminal outcomes or scheduling`, {
+          icon: '⚠️',
+          duration: 4000,
+        })
+      }
+      
     } catch (error) {
       console.error('Failed to load leads:', error)
       toast.error('Failed to load leads')
@@ -309,13 +329,14 @@ export default function SimpleDialerClient() {
     }, 500)
   }, [currentLead, callStartTime, callDuration, stopRingingTone])
 
-  // Save disposition
+  // Save disposition with error handling
   const saveDisposition = useCallback(async (disposition: DispositionOption) => {
     if (!currentLead) return
 
     setDispositionSaving(true)
 
     try {
+      // Save call with disposition
       const response = await fetch('/api/admin/crm/calls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -325,41 +346,47 @@ export default function SimpleDialerClient() {
           notes: note.trim() || null,
           next_follow_up_at: nextFollowUpAt ? new Date(nextFollowUpAt).toISOString() : null,
           lead_temperature: temperature,
+          call_ended_at: new Date().toISOString(),
+          call_started_at: callStartTime || new Date().toISOString(),
+          duration_seconds: callDuration,
         }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to save disposition')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save disposition')
       }
 
-      // Update lead stage if specified
-      if (disposition.newStage) {
-        await supabaseRef.current
-          .from('crm_leads')
-          .update({ stage: disposition.newStage })
-          .eq('id', currentLead.id)
-      }
-
-      // Handle DNC
-      if (disposition.key === 'dnc') {
-        await supabaseRef.current
-          .from('crm_leads')
-          .update({ do_not_call: true })
-          .eq('id', currentLead.id)
-      }
-
-      toast.success('Disposition saved')
+      const result = await response.json()
       
-      // Move to next lead
+      // Verify disposition was saved successfully
+      if (!result.degraded && !result.call) {
+        throw new Error('Disposition save verification failed')
+      }
+
+      toast.success('Disposition saved successfully')
+      
+      // Check if this was a terminal outcome and show appropriate message
+      if (disposition.key === 'dnc' || disposition.key === 'not_interested' || disposition.outcome.includes('Bad Number') || disposition.outcome.includes('Wrong Number')) {
+        toast(`${currentLead.first_name} removed from active dialing`, {
+          icon: '🚫',
+          duration: 5000,
+        })
+      }
+      
+      // Move to next lead only after successful save
       moveToNextLead()
       
     } catch (error) {
       console.error('Failed to save disposition:', error)
-      toast.error('Failed to save disposition')
+      toast.error(`Failed to save disposition: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      
+      // Do NOT move to next lead on failure - user must retry
+      return
     } finally {
       setDispositionSaving(false)
     }
-  }, [currentLead, note, nextFollowUpAt, temperature])
+  }, [currentLead, note, nextFollowUpAt, temperature, callStartTime, callDuration, moveToNextLead])
 
   // Move to next lead
   const moveToNextLead = useCallback(() => {

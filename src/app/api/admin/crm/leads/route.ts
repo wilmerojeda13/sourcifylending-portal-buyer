@@ -5,6 +5,7 @@ import { getLeadCompliance, inferLeadPhoneIntelligence } from '@/lib/crm-call-co
 import { CRM_DIALER_RETRY_OUTCOMES, getLeadDialerPriority } from '@/lib/crm-dialer'
 import { getCrmInviteSummaryMap } from '@/lib/crm-invites'
 import { getCrmSmsSummaryMap } from '@/lib/crm-sms'
+import { checkDialerEligibility, TERMINAL_OUTCOMES } from '@/lib/crm-dialer-eligibility'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -128,21 +129,13 @@ export async function GET(req: NextRequest) {
   const dialerEligibleLeads = dialerMode
     ? filteredLeads
       .filter((lead) => {
-        if (lead.do_not_call) return false
-
-        const callbackDueAt = lead.callback_due_at ? new Date(lead.callback_due_at).getTime() : null
-        const followUpAt = lead.follow_up_at ? new Date(lead.follow_up_at).getTime() : null
-        const now = Date.now()
-
-        if (callbackDueAt && callbackDueAt > now) return false
-        if (followUpAt && followUpAt > now && lead.stage === 'follow_up') return false
-
-        if (lead.last_call_at && CRM_DIALER_RETRY_OUTCOMES.has(lead.last_call_outcome ?? '')) {
-          const cooldownHours = lead.last_call_outcome === 'Busy' ? 2 : 4
-          const nextEligibleAt = new Date(lead.last_call_at).getTime() + (cooldownHours * 60 * 60 * 1000)
-          if (nextEligibleAt > now && !callbackDueAt && !followUpAt) {
-            return false
-          }
+        // Check dialer eligibility using comprehensive rules
+        const eligibility = checkDialerEligibility(lead)
+        
+        if (!eligibility.is_eligible) {
+          // Log exclusion for debugging
+          console.log(`Lead ${lead.id} excluded from dialer: ${eligibility.exclusion_reason}`)
+          return false
         }
 
         return true

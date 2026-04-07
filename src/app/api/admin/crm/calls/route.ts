@@ -9,6 +9,7 @@ import {
 } from '@/lib/crm'
 import { syncDialerSessionState } from '@/lib/crm-dialer-attempts'
 import { getRelationUnavailableMessage, isMissingRelationError, isSchemaDriftError } from '@/lib/supabase-schema'
+import { applyDispositionEligibilityUpdates, isTerminalDisposition } from '@/lib/crm-dialer-eligibility'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -241,6 +242,13 @@ export async function POST(req: NextRequest) {
     console.error('crm_calls unavailable in POST /api/admin/crm/calls', callError)
   }
 
+  // Apply dialer eligibility updates based on disposition
+  const eligibilityUpdates = applyDispositionEligibilityUpdates(
+    outcome || 'Follow Up',
+    body.follow_up_at,
+    body.next_follow_up_at
+  )
+
   const leadUpdate: Record<string, unknown> = {
     last_contacted_at: startedAt,
     last_call_at: startedAt,
@@ -252,6 +260,7 @@ export async function POST(req: NextRequest) {
     converted_to_client: Boolean(body.converted_to_client),
     close_probability: probabilityFromTemperature((temperature || 'cold') as 'cold' | 'warm' | 'hot'),
     updated_at: new Date().toISOString(),
+    ...eligibilityUpdates,
   }
 
   const mappedStage = outcome ? outcomeToLegacyStage(outcome as never) : null
@@ -261,6 +270,7 @@ export async function POST(req: NextRequest) {
   const fallbackLeadUpdate: Record<string, unknown> = {
     last_contacted_at: startedAt,
     updated_at: new Date().toISOString(),
+    ...eligibilityUpdates,
   }
   if (mappedStage) fallbackLeadUpdate.stage = mappedStage
   if (body.follow_up_at) fallbackLeadUpdate.follow_up_at = body.follow_up_at
