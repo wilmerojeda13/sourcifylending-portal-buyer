@@ -1076,6 +1076,27 @@ useEffect(() => {
     }
   }
 
+  async function hangUpCurrentCall() {
+    if (!activeCallId || sessionBusy) return
+    setSessionBusy(true)
+    try {
+      await disconnectLeadLeg(activeCallId)
+      setCalled(false)
+      setActiveCallId(null)
+      setCallProviderStatus(null)
+      setCallProviderMessage('Call ended - Ready for next lead')
+      
+      // Auto-advance to next lead for single-line mode
+      setTimeout(() => {
+        advance()
+      }, 500)
+    } catch {
+      toast.error('Failed to hang up call')
+    } finally {
+      setSessionBusy(false)
+    }
+  }
+
   async function setNotReady() {
     if (sessionBusy) return
     setSessionBusy(true)
@@ -1743,7 +1764,7 @@ useEffect(() => {
                     {!session ? null : (
                       <button
                         type="button"
-                        onClick={setNotReady}
+                        onClick={hangUpCurrentCall}
                         disabled={sessionBusy}
                         className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-950/40 border border-red-500/20 px-3 py-2 text-sm font-semibold text-red-200 transition-colors hover:bg-red-950/60"
                       >
