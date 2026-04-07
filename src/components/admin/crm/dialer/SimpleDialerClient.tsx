@@ -107,10 +107,8 @@ export default function SimpleDialerClient() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   
-  // Audio state
-  const [audioDevice, setAudioDevice] = useState<MediaStream | null>(null)
-  const [ringingAudio, setRingingAudio] = useState<HTMLAudioElement | null>(null)
-  const [callAudio, setCallAudio] = useState<HTMLAudioElement | null>(null)
+  // Audio state - simplified, managed by CallAudioFeed
+  const [sessionActive, setSessionActive] = useState(false)
   
   // Disposition state
   const [note, setNote] = useState('')
@@ -119,7 +117,6 @@ export default function SimpleDialerClient() {
   const [dispositionSaving, setDispositionSaving] = useState(false)
   
   // Session state
-  const [sessionActive, setSessionActive] = useState(false)
   const [callStartTime, setCallStartTime] = useState<string | null>(null)
   const [callDuration, setCallDuration] = useState(0)
   const [activeCallId, setActiveCallId] = useState<string | null>(null)
@@ -209,14 +206,17 @@ export default function SimpleDialerClient() {
     }
   }, [])
 
-  // Initialize browser audio
+  // Initialize browser audio - simplified version
   const initializeAudio = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: true, 
+      await navigator.mediaDevices.getUserMedia({ 
+        audio: { 
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }, 
         video: false 
       })
-      setAudioDevice(stream)
       setSessionActive(true)
       toast.success('Browser audio connected')
     } catch (error) {
@@ -225,45 +225,18 @@ export default function SimpleDialerClient() {
     }
   }
 
-  // Play ringing tone
-  const playRingingTone = useCallback(() => {
-    if (!audioContextRef.current) return
-
-    // Create oscillators for ringback tone (440Hz + 480Hz)
-    const ctx = audioContextRef.current
-    const osc1 = ctx.createOscillator()
-    const osc2 = ctx.createOscillator()
-    const gainNode = ctx.createGain()
-    
-    osc1.frequency.setValueAtTime(440, ctx.currentTime)
-    osc2.frequency.setValueAtTime(480, ctx.currentTime)
-    
-    osc1.connect(gainNode)
-    osc2.connect(gainNode)
-    gainNode.connect(ctx.destination)
-    
-    gainNode.gain.setValueAtTime(0.1, ctx.currentTime)
-    
-    // Create on/off pattern for ringing
-    const now = ctx.currentTime
-    for (let i = 0; i < 10; i++) {
-      gainNode.gain.setValueAtTime(0.1, now + i * 2)
-      gainNode.gain.setValueAtTime(0, now + i * 2 + 1)
-    }
-    
-    osc1.start(now)
-    osc2.start(now)
-    osc1.stop(now + 20)
-    osc2.stop(now + 20)
+  // Start call timer
+  const startCallTimer = useCallback(() => {
+    const startTime = Date.now()
+    callTimerRef.current = setInterval(() => {
+      setCallDuration(Math.floor((Date.now() - startTime) / 1000))
+    }, 1000)
   }, [])
 
-  // Stop ringing tone
+  // Stop ringing tone - simplified version
   const stopRingingTone = useCallback(() => {
-    if (ringingAudio) {
-      ringingAudio.pause()
-      setRingingAudio(null)
-    }
-  }, [ringingAudio])
+    // This will be handled by CallAudioFeed component
+  }, [])
 
   // Play DTMF tone for softphone keypad
   const playDTMFTone = useCallback((digit: string) => {
@@ -335,14 +308,6 @@ export default function SimpleDialerClient() {
       setCallProviderMessage(null)
     }
   }, [sessionActive])
-
-  // Start call timer
-  const startCallTimer = useCallback(() => {
-    const startTime = Date.now()
-    callTimerRef.current = setInterval(() => {
-      setCallDuration(Math.floor((Date.now() - startTime) / 1000))
-    }, 1000)
-  }, [])
 
   // Poll call status for real-time updates
   const startCallStatusPolling = useCallback((callId: string | null) => {
@@ -880,8 +845,17 @@ export default function SimpleDialerClient() {
             {/* Audio Feed */}
             <CallAudioFeed 
               callState={callState}
-              onConnect={() => setCallProviderMessage('Audio connected')}
-              onDisconnect={() => setCallProviderMessage('Audio disconnected')}
+              onConnect={() => {
+                setSessionActive(true)
+                toast.success('Audio connected')
+              }}
+              onDisconnect={() => {
+                setSessionActive(false)
+                toast.error('Audio disconnected')
+              }}
+              onDTMFSent={(digit) => {
+                console.log(`DTMF digit ${digit} sent`)
+              }}
             />
 
             {/* Progress */}
