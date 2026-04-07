@@ -622,7 +622,7 @@ export default function DialerClient() {
   const nextQueueLead = leads[index]
   const current = instantWinnerLead ?? winnerLead ?? nextQueueLead ?? (total > 0 ? leads[Math.max(total - 1, 0)] : undefined)
   const remaining = Math.max(total - index, 0)
-  const targetParallelLines = Math.min(Math.max(session?.target_parallel_lines ?? 1, 1), 5)
+  const targetParallelLines = 1
   const activeAttempts = attempts.filter((attempt) => isActiveAttemptStatus(attempt.attempt_status))
   const activeAttemptCount = activeAttempts.length
   const callStatusLabel = buildCallStatusLabel(current)
