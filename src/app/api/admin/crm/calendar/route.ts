@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
   const cursor = searchParams.get('cursor')
   const { start, end } = getRange(view, cursor)
 
-  const [{ data: settingsRow }, tasksRes, callsRes] = await Promise.all([
+  const [{ data: settingsRow }, tasksRes] = await Promise.all([
     supabase
       .from('voice_agent_settings')
       .select('google_client_id, google_client_secret, google_refresh_token, google_calendar_id, booking_timezone')
@@ -65,19 +65,9 @@ export async function GET(req: NextRequest) {
       .gte('due_at', start.toISOString())
       .lt('due_at', end.toISOString())
       .order('due_at', { ascending: true }),
-    supabase
-      .from('crm_calls')
-      .select('id, lead_id, lead_name, company_name, phone_number, next_follow_up_at, lead_temperature, strategy_call_booked, crm_leads(id, first_name, last_name, business_name)')
-      .not('next_follow_up_at', 'is', null)
-      .gte('next_follow_up_at', start.toISOString())
-      .lt('next_follow_up_at', end.toISOString())
-      .order('next_follow_up_at', { ascending: true }),
   ])
 
   if (tasksRes.error && !isMissingRelationError(tasksRes.error, 'crm_tasks')) {
-    return NextResponse.json({ error: 'Unable to load CRM calendar items right now.' }, { status: 500 })
-  }
-  if (callsRes.error && !isMissingRelationError(callsRes.error, 'crm_calls')) {
     return NextResponse.json({ error: 'Unable to load CRM calendar items right now.' }, { status: 500 })
   }
 
@@ -111,10 +101,6 @@ export async function GET(req: NextRequest) {
     console.error('crm_tasks unavailable in GET /api/admin/crm/calendar', tasksRes.error)
     warnings.push(getRelationUnavailableMessage('CRM tasks'))
   }
-  if (callsRes.error) {
-    console.error('crm_calls unavailable in GET /api/admin/crm/calendar', callsRes.error)
-    warnings.push(getRelationUnavailableMessage('CRM callbacks'))
-  }
 
   const crmTaskEvents = ((tasksRes.error ? [] : tasksRes.data) ?? []).map(task => {
     const lead = Array.isArray(task.crm_leads) ? task.crm_leads[0] : task.crm_leads
@@ -135,26 +121,6 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  const crmCallbackEvents = ((callsRes.error ? [] : callsRes.data) ?? [])
-    .filter(call => call.next_follow_up_at) // Only include callbacks with actual scheduled datetime
-    .map(call => {
-      const lead = Array.isArray(call.crm_leads) ? call.crm_leads[0] : call.crm_leads
-      return {
-        id: `callback-${call.id}`,
-        source: 'crm_callback',
-        type: 'callback',
-        title: `Callback: ${call.lead_name}`,
-        start: call.next_follow_up_at,
-        end: call.next_follow_up_at,
-        temperature: call.lead_temperature,
-        strategy_call_booked: call.strategy_call_booked,
-        lead_id: call.lead_id,
-        lead_name: call.lead_name,
-        business_name: call.company_name || lead?.business_name || null,
-        detail_url: call.lead_id ? `/admin/crm/${call.lead_id}` : '/admin/crm/calls',
-      }
-    })
-
   const merged = [
     ...googleEvents.map(event => ({
       id: event.id,
@@ -169,7 +135,6 @@ export async function GET(req: NextRequest) {
       detail_url: event.htmlLink || null,
     })),
     ...crmTaskEvents,
-    ...crmCallbackEvents,
   ].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 
   return NextResponse.json({
