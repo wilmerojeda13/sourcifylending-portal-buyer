@@ -135,23 +135,25 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  const crmCallbackEvents = ((callsRes.error ? [] : callsRes.data) ?? []).map(call => {
-    const lead = Array.isArray(call.crm_leads) ? call.crm_leads[0] : call.crm_leads
-    return {
-      id: `callback-${call.id}`,
-      source: 'crm_callback',
-      type: 'callback',
-      title: `Callback: ${call.lead_name}`,
-      start: call.next_follow_up_at,
-      end: call.next_follow_up_at,
-      temperature: call.lead_temperature,
-      strategy_call_booked: call.strategy_call_booked,
-      lead_id: call.lead_id,
-      lead_name: call.lead_name,
-      business_name: call.company_name || lead?.business_name || null,
-      detail_url: call.lead_id ? `/admin/crm/${call.lead_id}` : '/admin/crm/calls',
-    }
-  })
+  const crmCallbackEvents = ((callsRes.error ? [] : callsRes.data) ?? [])
+    .filter(call => call.next_follow_up_at) // Only include callbacks with actual scheduled datetime
+    .map(call => {
+      const lead = Array.isArray(call.crm_leads) ? call.crm_leads[0] : call.crm_leads
+      return {
+        id: `callback-${call.id}`,
+        source: 'crm_callback',
+        type: 'callback',
+        title: `Callback: ${call.lead_name}`,
+        start: call.next_follow_up_at,
+        end: call.next_follow_up_at,
+        temperature: call.lead_temperature,
+        strategy_call_booked: call.strategy_call_booked,
+        lead_id: call.lead_id,
+        lead_name: call.lead_name,
+        business_name: call.company_name || lead?.business_name || null,
+        detail_url: call.lead_id ? `/admin/crm/${call.lead_id}` : '/admin/crm/calls',
+      }
+    })
 
   const merged = [
     ...googleEvents.map(event => ({
