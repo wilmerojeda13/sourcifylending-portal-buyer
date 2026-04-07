@@ -619,6 +619,7 @@ export default function DialerClient() {
   
   // CRITICAL FIX: Prevent stale lead context during live calls
   // Only show nextQueueLead when there's no active call activity
+  const activeAttempts = attempts.filter((attempt) => isActiveAttemptStatus(attempt.attempt_status))
   const hasActiveCallActivity = activeAttempts.length > 0 || session?.session_status === 'in_call'
   
   // INSTANT WINNER LEAD: Use only currently active winner attempt for immediate UI updates
@@ -636,7 +637,6 @@ export default function DialerClient() {
   const shouldShowPlaceholder = hasActiveCallActivity && !instantWinnerLead && !winnerLead
   const remaining = Math.max(total - index, 0)
   const targetParallelLines = 1
-  const activeAttempts = attempts.filter((attempt) => isActiveAttemptStatus(attempt.attempt_status))
   const activeAttemptCount = activeAttempts.length
   const callStatusLabel = buildCallStatusLabel(current)
   const sessionStatus = buildSessionStatusCopy(session, deviceStatus)
