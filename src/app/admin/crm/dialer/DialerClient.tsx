@@ -1355,6 +1355,11 @@ useEffect(() => {
     )
 
     // PARALLEL DISPOSITION LOGGING: Don't block UI while saving
+    if (!current) {
+      console.error('[Dialer] Cannot log call: no current lead')
+      return
+    }
+    
     const callPromise = fetch('/api/admin/crm/calls', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2069,13 +2074,13 @@ useEffect(() => {
                   </div>
                 )}
 
-                {current.email && (
+                {current?.email && (
                   <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-500">
                     <Mail size={11}/> {current.email}
                   </p>
                 )}
 
-                {current.notes && (
+                {current?.notes && (
                   <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-800/80 p-4">
                     <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">Existing Notes</p>
                     <p className="text-sm leading-relaxed text-gray-300">{current.notes}</p>
@@ -2148,9 +2153,11 @@ useEffect(() => {
                   <div className="flex items-center justify-center text-center text-xs text-gray-600">
                     {index + 1} / {total}
                   </div>
-                  <Link href={`/admin/crm/${current.id}`} className="flex items-center justify-center gap-2 rounded-2xl bg-gray-800 py-3.5 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-700">
-                    <Users size={15}/> Full Profile
-                  </Link>
+                  {current && (
+                    <Link href={`/admin/crm/${current.id}`} className="flex items-center justify-center gap-2 rounded-2xl bg-gray-800 py-3.5 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-700">
+                      <Users size={15}/> Full Profile
+                    </Link>
+                  )}
                 </div>
               </div>
 
