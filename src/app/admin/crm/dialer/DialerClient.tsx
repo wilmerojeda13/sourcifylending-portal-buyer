@@ -428,48 +428,49 @@ export default function DialerClient() {
           
           // INSTANT WINNER DETECTION: Check if this is a winner update
           if (payload.new && (payload.new as any).is_winner && ['answered_human', 'bridged'].includes((payload.new as any).attempt_status)) {
-            // INSTANT WINNER FEEDBACK: Play sound and update UI immediately
-            try {
-              const ctx = new AudioContext()
-              const playNote = (freq: number, startTime: number, duration: number) => {
+            // CRITICAL FIX: Force immediate lead context update
+            const leadId = (payload.new as any).lead_id
+            const winnerLead = leads.find(l => l.id === leadId)
+            
+            if (winnerLead) {
+              // INSTANT UI UPDATE: Force immediate winner display
+              console.log('[Dialer] INSTANT WINNER DETECTED:', { leadId, leadName: `${winnerLead.first_name} ${winnerLead.last_name}` })
+              
+              // Force session state update to ensure current lead is set immediately
+              setSession(prev => prev ? { ...prev, current_lead_id: leadId } : null)
+              
+              // Play winner sound feedback
+              try {
+                const ctx = new AudioContext()
                 const osc = ctx.createOscillator()
                 const gain = ctx.createGain()
                 osc.connect(gain)
                 gain.connect(ctx.destination)
-                osc.type = 'sine'
-                osc.frequency.value = freq
-                gain.gain.setValueAtTime(0, startTime)
-                gain.gain.linearRampToValueAtTime(0.25, startTime + 0.01)
-                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration)
-                osc.start(startTime)
-                osc.stop(startTime + duration)
+                osc.frequency.setValueAtTime(800, ctx.currentTime)
+                osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1)
+                gain.gain.setValueAtTime(0.3, ctx.currentTime)
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2)
+                osc.start(ctx.currentTime)
+                osc.stop(ctx.currentTime + 0.2)
+              } catch { /* ignore audio errors */ }
+              
+              // INSTANT UI UPDATE: Force immediate winner display
+              const winnerStatus = (payload.new as any).attempt_status === 'answered_human' ? 'Human answered!' : 'Connected!'
+              setCallProviderMessage(` WINNER: ${winnerStatus}`)
+              
+              // SINGLE LINE OPTIMIZATION: For single line, show lead info immediately
+              if (targetParallelLines <= 1) {
+                setCallProviderMessage(` ${winnerLead.first_name} ${winnerLead.last_name} — ${winnerStatus}`)
               }
-              const now = ctx.currentTime
-              playNote(880, now, 0.15)        // A5
-              playNote(1100, now + 0.15, 0.2) // C#6 — ascending ding-ding
-            } catch { /* ignore audio errors */ }
-            
-            // INSTANT UI UPDATE: Force immediate winner display
-            const winnerStatus = (payload.new as any).attempt_status === 'answered_human' ? 'Human answered!' : 'Connected!'
-            setCallProviderMessage(`🎯 WINNER: ${winnerStatus}`)
-            
-            // SINGLE LINE OPTIMIZATION: For single line, show lead info immediately
-            const isSingleLine = (payload.new as any).queue_slot <= 1
-            if (isSingleLine) {
-              const winnerLead = leads.find(l => l.id === (payload.new as any).lead_id)
-              if (winnerLead) {
-                setCallProviderMessage(prev => prev?.includes('WINNER') ? prev : `🎯 ${winnerLead.first_name} ${winnerLead.last_name} - ${winnerStatus}`)
-              }
+              
+              // Delayed status message for line cancellation
+              setTimeout(() => {
+                setCallProviderMessage(prev => {
+                  if (!prev || prev.includes('WINNER')) return prev
+                  return ` WINNER: ${(payload.new as any).attempt_status === 'answered_human' ? 'Human answered!' : 'Connected!'} - Canceling other lines...`
+                })
+              }, 500)
             }
-            
-            // INSTANT SIBLING CANCELLATION: Auto-cancel other lines immediately
-            // This provides instant feedback that other lines are being cleaned up
-            setTimeout(() => {
-              setCallProviderMessage(prev => {
-                if (!prev || prev.includes('WINNER')) return prev
-                return `🎯 WINNER: ${(payload.new as any).attempt_status === 'answered_human' ? 'Human answered!' : 'Connected!'} - Canceling other lines...`
-              })
-            }, 500)
             
             // CANCEL OTHER ATTEMPTS: Immediately cancel all other active attempts
             setTimeout(async () => {
@@ -612,15 +613,27 @@ export default function DialerClient() {
     return () => clearInterval(t)
   }, [winnerAttempt?.id, winnerStartTime])
 
+  const nextQueueLead = leads[index]
   const total   = leads.length
   const winnerLead = session?.current_lead_id ? leads.find((lead) => lead.id === session.current_lead_id) : undefined
+  
+  // CRITICAL FIX: Prevent stale lead context during live calls
+  // Only show nextQueueLead when there's no active call activity
+  const hasActiveCallActivity = activeAttempts.length > 0 || session?.session_status === 'in_call'
+  
   // INSTANT WINNER LEAD: Use only currently active winner attempt for immediate UI updates
   // Filter out old winner attempts from previous calls
   const instantWinnerLead = winnerAttempt?.lead_id && ['answered_human', 'bridged'].includes(winnerAttempt.attempt_status) 
     ? leads.find((lead) => lead.id === winnerAttempt.lead_id) 
     : undefined
-  const nextQueueLead = leads[index]
-  const current = instantWinnerLead ?? winnerLead ?? nextQueueLead
+  
+  // SAFE FALLBACK: Only show nextQueueLead when there's no call activity
+  // This prevents showing stale previous lead during new calls
+  const safeNextQueueLead = hasActiveCallActivity ? undefined : nextQueueLead
+  const current = instantWinnerLead ?? winnerLead ?? safeNextQueueLead
+  
+  // SAFE CONTEXT STATE: Determine if we should show placeholder instead of stale context
+  const shouldShowPlaceholder = hasActiveCallActivity && !instantWinnerLead && !winnerLead
   const remaining = Math.max(total - index, 0)
   const targetParallelLines = 1
   const activeAttempts = attempts.filter((attempt) => isActiveAttemptStatus(attempt.attempt_status))
@@ -1671,34 +1684,57 @@ useEffect(() => {
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)] lg:items-start">
             <div className="space-y-4">
               <div className="rounded-3xl border border-gray-800 bg-gray-900 p-4 lg:p-6">
-                {/* Lead identity */}
+                {/* Lead identity - with safe fallback for unresolved context */}
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className="truncate text-xl font-bold text-white lg:text-2xl">{current.first_name} {current.last_name}</h2>
-                    {current.business_name && (
-                      <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-400">
-                        <Building2 size={13}/> {current.business_name}
-                      </p>
+                    {shouldShowPlaceholder ? (
+                      // SAFE FALLBACK: Show placeholder instead of stale context
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Loader2 size={16} className="animate-spin text-gray-500" />
+                          <h2 className="text-xl font-bold text-gray-400">Resolving lead context...</h2>
+                        </div>
+                        <p className="text-sm text-gray-500">Connecting to live contact...</p>
+                        {callProviderMessage && (
+                          <p className="text-xs text-gray-600 mt-1">{callProviderMessage}</p>
+                        )}
+                      </div>
+                    ) : current ? (
+                      // NORMAL: Show resolved lead information
+                      <>
+                        <h2 className="truncate text-xl font-bold text-white lg:text-2xl">{current.first_name} {current.last_name}</h2>
+                        {current.business_name && (
+                          <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-400">
+                            <Building2 size={13}/> {current.business_name}
+                          </p>
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {current.phone_invalid && (
+                            <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-200">
+                              Phone needs review
+                            </span>
+                          )}
+                          {(current.duplicate_phone_count ?? 0) > 1 && (
+                            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                              Dupe ×{current.duplicate_phone_count}
+                            </span>
+                          )}
+                          {current.last_call_outcome && (
+                            <span className="rounded-full border border-white/10 bg-gray-950 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-300">
+                              Last: {current.last_call_outcome}
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      // NO LEAD: Show empty state
+                      <div className="space-y-2">
+                        <h2 className="text-xl font-bold text-gray-400">No lead selected</h2>
+                        <p className="text-sm text-gray-500">Ready to dial next lead...</p>
+                      </div>
                     )}
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {current.phone_invalid && (
-                        <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-200">
-                          Phone needs review
-                        </span>
-                      )}
-                      {(current.duplicate_phone_count ?? 0) > 1 && (
-                        <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
-                          Dupe ×{current.duplicate_phone_count}
-                        </span>
-                      )}
-                      {current.last_call_outcome && (
-                        <span className="rounded-full border border-white/10 bg-gray-950 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-300">
-                          Last: {current.last_call_outcome}
-                        </span>
-                      )}
-                    </div>
                   </div>
-                  {current.program_interest && (
+                  {current && current.program_interest && (
                     <span className={cn('badge shrink-0 px-2.5 py-1 text-xs', PROGRAM_BADGE[current.program_interest])}>
                       {PROGRAM_LABEL[current.program_interest]}
                     </span>
@@ -1706,37 +1742,39 @@ useEffect(() => {
                 </div>
 
                 {/* Call Window — single compact line on mobile, expanded on desktop */}
-                <div className={cn('mb-3 rounded-2xl border px-3 py-2 lg:mb-4 lg:px-4 lg:py-3', callStatusTone)}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <p className="text-xs font-semibold opacity-80 shrink-0">Window:</p>
-                      <p className="text-sm font-semibold truncate">{callStatusLabel}</p>
-                      {current.recipient_local_time && (
-                        <p className="hidden text-xs opacity-70 lg:block">· {current.recipient_local_time}</p>
+                {current && (
+                  <div className={cn('mb-3 rounded-2xl border px-3 py-2 lg:mb-4 lg:px-4 lg:py-3', callStatusTone)}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-xs font-semibold opacity-80 shrink-0">Window:</p>
+                        <p className="text-sm font-semibold truncate">{callStatusLabel}</p>
+                        {current.recipient_local_time && (
+                          <p className="hidden text-xs opacity-70 lg:block">· {current.recipient_local_time}</p>
+                        )}
+                      </div>
+                      {current.timezone_abbreviation && (
+                        <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide opacity-90">
+                          {current.timezone_abbreviation}
+                        </span>
                       )}
                     </div>
-                    {current.timezone_abbreviation && (
-                      <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide opacity-90">
-                        {current.timezone_abbreviation}
-                      </span>
-                    )}
+                    {/* Full timezone detail — desktop only */}
+                    <div className="hidden lg:block mt-2">
+                      {current.recipient_local_time && (
+                        <p className="text-xs opacity-80">Recipient local time: {current.recipient_local_time}</p>
+                      )}
+                      {(current.timezone_source_label || current.timezone_source) && (
+                        <p className="mt-1 text-xs opacity-80">
+                          Source: {current.timezone_source_label ?? current.timezone_source}
+                          {current.timezone_reason_label ? ` • ${current.timezone_reason_label}` : ''}
+                        </p>
+                      )}
+                      {current.call_window_message && (
+                        <p className="mt-2 text-xs leading-relaxed opacity-90">{current.call_window_message}</p>
+                      )}
+                    </div>
                   </div>
-                  {/* Full timezone detail — desktop only */}
-                  <div className="hidden lg:block mt-2">
-                    {current.recipient_local_time && (
-                      <p className="text-xs opacity-80">Recipient local time: {current.recipient_local_time}</p>
-                    )}
-                    {(current.timezone_source_label || current.timezone_source) && (
-                      <p className="mt-1 text-xs opacity-80">
-                        Source: {current.timezone_source_label ?? current.timezone_source}
-                        {current.timezone_reason_label ? ` • ${current.timezone_reason_label}` : ''}
-                      </p>
-                    )}
-                    {current.call_window_message && (
-                      <p className="mt-2 text-xs leading-relaxed opacity-90">{current.call_window_message}</p>
-                    )}
-                  </div>
-                </div>
+                )}
 
                 <div className={cn('mb-3 rounded-2xl border px-3 py-3 lg:mb-4 lg:px-4', sessionStatus.tone)}>
                   <div className="flex items-center justify-between gap-3">

@@ -772,7 +772,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
         <div className="mx-auto flex max-w-5xl items-start justify-between gap-3 sm:items-center">
         <div className="min-w-0 flex-1">
           <CRMBackButton className="text-xs text-gray-400 hover:text-green-600 font-medium inline-flex items-center gap-0.5 leading-none mb-0.5" />
-          <CRMBackButton className="flex items-center gap-1 text-sm text-gray-500 hover:text-green-700 font-medium" showLabel={true} size="md" />
+          <CRMBackButton className="flex items-center gap-1 text-sm text-gray-500 hover:text-green-700 font-medium" size="md" />
         </div>
         <div className="ml-auto flex max-w-[54%] flex-wrap items-center justify-end gap-2 sm:max-w-none sm:flex-nowrap sm:gap-1.5">
           <button
