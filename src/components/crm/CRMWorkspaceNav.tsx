@@ -1,7 +1,6 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const ITEMS = [
@@ -17,6 +16,11 @@ const ITEMS = [
 export default function CRMWorkspaceNav() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const router = useRouter()
+
+  const handleNavigation = (href: string) => {
+    router.push(href)
+  }
 
   return (
     <div className="overflow-x-auto no-scrollbar">
@@ -33,9 +37,9 @@ export default function CRMWorkspaceNav() {
                 : pathname.startsWith(item.href)
 
           return (
-            <Link
+            <button
               key={`${item.href}-${item.label}`}
-              href={item.href}
+              onClick={() => handleNavigation(item.href)}
               className={cn(
                 'rounded-xl px-3.5 py-2 text-sm font-medium transition-colors',
                 active
@@ -44,7 +48,7 @@ export default function CRMWorkspaceNav() {
               )}
             >
               {item.label}
-            </Link>
+            </button>
           )
         })}
       </div>
