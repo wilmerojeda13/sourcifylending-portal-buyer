@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Volume2, VolumeX, Phone, PhoneOff } from 'lucide-react'
+import { Volume2, VolumeX, Phone, PhoneOff, Headphones } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type CallAudioState = 'idle' | 'connecting' | 'dialing' | 'ringing' | 'connected' | 'ended' | 'disposition_pending'
@@ -10,17 +10,20 @@ interface CallAudioFeedProps {
   callState: CallAudioState
   onConnect?: () => void
   onDisconnect?: () => void
+  onDTMFSent?: (digit: string) => void
 }
 
-export default function CallAudioFeed({ callState, onConnect, onDisconnect }: CallAudioFeedProps) {
+export default function CallAudioFeed({ callState, onConnect, onDisconnect, onDTMFSent }: CallAudioFeedProps) {
   const [audioDevice, setAudioDevice] = useState<MediaStream | null>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState(0.7)
+  const [isRinging, setIsRinging] = useState(false)
   
   const audioContextRef = useRef<AudioContext | null>(null)
   const ringingOscillatorsRef = useRef<OscillatorNode[]>([])
   const gainNodeRef = useRef<GainNode | null>(null)
   const audioElementRef = useRef<HTMLAudioElement | null>(null)
+  const ringingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Initialize audio context
   useEffect(() => {
@@ -35,6 +38,9 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect }: Ca
       stopAllAudio()
       if (audioContextRef.current) {
         audioContextRef.current.close()
+      }
+      if (ringingIntervalRef.current) {
+        clearInterval(ringingIntervalRef.current)
       }
     }
   }, [])
@@ -70,6 +76,7 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect }: Ca
     if (!audioContextRef.current || !gainNodeRef.current) return
 
     stopAllAudio()
+    setIsRinging(true)
 
     const ctx = audioContextRef.current
     const gain = gainNodeRef.current
@@ -84,30 +91,43 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect }: Ca
     osc1.connect(gain)
     osc2.connect(gain)
     
-    // Ringing pattern: 2 seconds on, 4 seconds off, repeat
-    const now = ctx.currentTime
-    const totalDuration = 30 // 30 seconds of ringing max
-    
-    for (let i = 0; i < 5; i++) {
-      const onTime = now + (i * 6)
-      const offTime = onTime + 2
+    // Ringing pattern: 2 seconds on, 4 seconds off, repeat indefinitely
+    const startRingingPattern = () => {
+      const now = ctx.currentTime
       
-      if (onTime >= now + totalDuration) break
-      
-      gain.gain.setValueAtTime(volume * 0.3, onTime)
-      gain.gain.setValueAtTime(0, offTime)
+      // Create on/off pattern
+      for (let i = 0; i < 20; i++) { // 20 cycles = 2 minutes of ringing
+        const onTime = now + (i * 6)
+        const offTime = onTime + 2
+        
+        gain.gain.setValueAtTime(volume * 0.3, onTime)
+        gain.gain.setValueAtTime(0, offTime)
+      }
     }
     
-    osc1.start(now)
-    osc2.start(now)
-    osc1.stop(now + totalDuration)
-    osc2.stop(now + totalDuration)
+    startRingingPattern()
+    
+    // Restart pattern every 2 minutes to prevent audio context issues
+    ringingIntervalRef.current = setInterval(() => {
+      startRingingPattern()
+    }, 120000)
+    
+    osc1.start(ctx.currentTime)
+    osc2.start(ctx.currentTime)
     
     ringingOscillatorsRef.current = [osc1, osc2]
   }, [volume])
 
   // Stop all audio
   const stopAllAudio = useCallback(() => {
+    setIsRinging(false)
+    
+    // Clear ringing interval
+    if (ringingIntervalRef.current) {
+      clearInterval(ringingIntervalRef.current)
+      ringingIntervalRef.current = null
+    }
+    
     // Stop ringing oscillators
     ringingOscillatorsRef.current.forEach(osc => {
       try {
@@ -126,6 +146,45 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect }: Ca
     }
   }, [])
 
+  // Play DTMF tone for softphone keypad
+  const playDTMFTone = useCallback((digit: string) => {
+    if (!audioContextRef.current || !digit) return
+
+    const ctx = audioContextRef.current
+    const dtmfFrequencies: Record<string, [number, number]> = {
+      '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
+      '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
+      '7': [852, 1209], '8': [852, 1336], '9': [852, 1477],
+      '*': [941, 1209], '0': [941, 1336], '#': [941, 1477],
+    }
+    
+    const frequencies = dtmfFrequencies[digit]
+    if (!frequencies) return
+    
+    const [lowFreq, highFreq] = frequencies
+    
+    const osc1 = ctx.createOscillator()
+    const osc2 = ctx.createOscillator()
+    const gainNode = ctx.createGain()
+    
+    osc1.frequency.setValueAtTime(lowFreq, ctx.currentTime)
+    osc2.frequency.setValueAtTime(highFreq, ctx.currentTime)
+    
+    osc1.connect(gainNode)
+    osc2.connect(gainNode)
+    gainNode.connect(ctx.destination)
+    
+    gainNode.gain.setValueAtTime(volume * 0.3, ctx.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15)
+    
+    osc1.start(ctx.currentTime)
+    osc2.start(ctx.currentTime)
+    osc1.stop(ctx.currentTime + 0.15)
+    osc2.stop(ctx.currentTime + 0.15)
+    
+    // Notify parent component
+    onDTMFSent?.(digit)
+  }, [volume, onDTMFSent])
   // Handle call state changes
   useEffect(() => {
     switch (callState) {
@@ -174,11 +233,16 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect }: Ca
     <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold flex items-center gap-2">
-          {callState === 'ringing' && <Phone className="animate-pulse text-yellow-500" />}
-          {callState === 'connected' && <Volume2 className="text-green-500" />}
+          {isRinging && <Phone className="animate-pulse text-yellow-500" />}
+          {callState === 'connected' && <Headphones className="text-green-500" />}
           {callState === 'idle' && <Volume2 className="text-gray-400" />}
           {callState === 'ended' && <PhoneOff className="text-gray-500" />}
           Audio Feed
+          {isRinging && (
+            <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full animate-pulse">
+              Ringing
+            </span>
+          )}
         </h3>
         
         {audioDevice && (
@@ -243,6 +307,24 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect }: Ca
             />
           </div>
 
+          {/* Softphone Keypad */}
+          {callState === 'connected' && (
+            <div className="mt-4">
+              <h4 className="text-sm font-medium text-gray-400 mb-2">DTMF Keypad</h4>
+              <div className="grid grid-cols-3 gap-1">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(digit => (
+                  <button
+                    key={digit}
+                    onClick={() => playDTMFTone(digit)}
+                    className="py-2 bg-gray-800 hover:bg-gray-700 rounded text-xs font-mono transition-colors"
+                  >
+                    {digit}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Audio Info */}
           <div className="text-xs text-gray-500 space-y-1">
             <div>Microphone: {isMuted ? 'Muted' : 'Active'}</div>
@@ -252,7 +334,7 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect }: Ca
           {/* Disconnect Button */}
           <button
             onClick={disconnectAudio}
-            className="w-full py-2 bg-red-600/20 border border-red-600 rounded-lg text-red-400 text-sm font-medium hover:bg-red-600/30"
+            className="w-full py-2 bg-red-600/20 border border-red-600 rounded-lg text-red-400 text-sm font-medium hover:bg-red-600/30 transition-colors"
           >
             Disconnect Audio
           </button>

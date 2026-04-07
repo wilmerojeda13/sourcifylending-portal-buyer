@@ -9,8 +9,10 @@ import {
   PhoneCall, Clock, Power, Volume2, VolumeX,
 } from 'lucide-react'
 import { checkDialerEligibility, applyDispositionEligibilityUpdates } from '@/lib/crm-dialer-eligibility'
+import { normalizePhone } from '@/modules/voice-agent/utils/phone'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import CallAudioFeed from './CallAudioFeed'
 
 // Types
 type CallState = 'idle' | 'connecting' | 'dialing' | 'ringing' | 'connected' | 'ended' | 'disposition_pending'
@@ -36,6 +38,12 @@ interface CRMLead {
   duplicate_phone_count?: number
   phone_invalid?: boolean
   lead_temperature?: 'cold' | 'warm' | 'hot'
+  likely_timezone?: string | null
+  timezone_confidence?: 'high' | 'medium' | 'low' | 'unknown'
+  call_window_status?: 'callable_now' | 'blocked_by_timezone' | 'unknown_timezone'
+  call_window_message?: string | null
+  blocked_until_label?: string | null
+  is_archived?: boolean
   // Add other fields as needed
 }
 
@@ -60,11 +68,15 @@ const DTMF_FREQUENCIES: Record<string, [number, number]> = {
 // Disposition options
 const DISPOSITION_OPTIONS: DispositionOption[] = [
   { key: 'interested', label: 'Interested', icon: ThumbsUp, color: 'bg-green-500 hover:bg-green-600 text-white', outcome: 'Interested', newStage: 'qualified' },
-  { key: 'book_demo', label: 'Book Demo', icon: CalendarPlus, color: 'bg-purple-500 hover:bg-purple-600 text-white', outcome: 'Booked Call', newStage: 'demo_scheduled' },
-  { key: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'bg-amber-500 hover:bg-amber-600 text-white', outcome: 'Left Voicemail', newStage: 'contacted' },
-  { key: 'no_answer', label: 'No Answer', icon: PhoneMissed, color: 'bg-gray-500 hover:bg-gray-600 text-white', outcome: 'No Answer', newStage: 'contacted' },
-  { key: 'not_interested', label: 'Not Interested', icon: ThumbsDown, color: 'bg-red-500 hover:bg-red-600 text-white', outcome: 'Not Interested', newStage: 'closed_lost' },
-  { key: 'dnc', label: 'DNC', icon: Ban, color: 'bg-red-700 hover:bg-red-800 text-white', outcome: 'Do Not Call' },
+  { key: 'appointment_set', label: 'Appointment Set', icon: CalendarPlus, color: 'bg-purple-500 hover:bg-purple-600 text-white', outcome: 'Appointment Set', newStage: 'demo_scheduled' },
+  { key: 'follow_up', label: 'Follow Up', icon: Clock3, color: 'bg-blue-500 hover:bg-blue-600 text-white', outcome: 'Follow Up', newStage: 'follow_up' },
+  { key: 'call_back', label: 'Call Back', icon: Clock3, color: 'bg-cyan-500 hover:bg-cyan-600 text-white', outcome: 'Call Back', newStage: 'follow_up' },
+  { key: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'bg-amber-500 hover:bg-amber-600 text-white', outcome: 'Voicemail', newStage: 'contacted' },
+  { key: 'no_answer', label: 'No Answer', icon: PhoneMissed, color: 'bg-gray-400 hover:bg-gray-500 text-white', outcome: 'No Answer', newStage: 'contacted' },
+  { key: 'busy', label: 'Busy', icon: PhoneOff, color: 'bg-gray-600 hover:bg-gray-700 text-white', outcome: 'Busy', newStage: 'contacted' },
+  { key: 'bad_number', label: 'Bad Number', icon: X, color: 'bg-orange-700 hover:bg-orange-800 text-white', outcome: 'Bad Number', newStage: 'closed_lost' },
+  { key: 'not_interested', label: 'Not Interested', icon: ThumbsDown, color: 'bg-red-400 hover:bg-red-500 text-white', outcome: 'Not Interested', newStage: 'closed_lost' },
+  { key: 'dnc', label: 'DNC / Remove', icon: Ban, color: 'bg-red-700 hover:bg-red-800 text-white', outcome: 'Do Not Call' },
 ]
 
 export default function SimpleDialerClient() {
@@ -90,6 +102,9 @@ export default function SimpleDialerClient() {
   const [sessionActive, setSessionActive] = useState(false)
   const [callStartTime, setCallStartTime] = useState<string | null>(null)
   const [callDuration, setCallDuration] = useState(0)
+  const [activeCallId, setActiveCallId] = useState<string | null>(null)
+  const [callProviderStatus, setCallProviderStatus] = useState<string | null>(null)
+  const [callProviderMessage, setCallProviderMessage] = useState<string | null>(null)
   
   // Refs
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -246,7 +261,7 @@ export default function SimpleDialerClient() {
     try {
       setCallState('dialing')
       setCurrentLead(lead)
-      playRingingTone()
+      setCallProviderMessage('Initiating call...')
       
       // Initiate call via API
       const response = await fetch('/api/admin/crm/calls', {
@@ -258,34 +273,30 @@ export default function SimpleDialerClient() {
           company_name: lead.business_name,
           phone_number: lead.phone,
           call_started_at: new Date().toISOString(),
+          single_line_mode: true, // Flag for simplified mode
+          session_mode: 'single_line', // Override session mode
         }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to initiate call')
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to initiate call')
       }
 
       const callData = await response.json()
+      setActiveCallId(callData.call?.id || null)
+      setCallProviderMessage('Call initiated, waiting for connection...')
       
-      // Simulate call progression (replace with real-time updates)
-      setTimeout(() => {
-        setCallState('ringing')
-      }, 1000)
-
-      setTimeout(() => {
-        stopRingingTone()
-        setCallState('connected')
-        setCallStartTime(new Date().toISOString())
-        startCallTimer()
-      }, 3000) // Assume answered after 3 seconds for demo
+      // Start polling for call status updates
+      startCallStatusPolling(callData.call?.id || null)
 
     } catch (error) {
       console.error('Failed to dial lead:', error)
-      toast.error('Failed to initiate call')
+      toast.error(`Failed to initiate call: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setCallState('idle')
-      stopRingingTone()
+      setCallProviderMessage(null)
     }
-  }, [sessionActive, playRingingTone, stopRingingTone])
+  }, [sessionActive])
 
   // Start call timer
   const startCallTimer = useCallback(() => {
@@ -295,6 +306,80 @@ export default function SimpleDialerClient() {
     }, 1000)
   }, [])
 
+  // Poll call status for real-time updates
+  const startCallStatusPolling = useCallback((callId: string | null) => {
+    if (!callId) return
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/admin/crm/calls/${callId}`)
+        if (!response.ok) {
+          clearInterval(pollInterval)
+          return
+        }
+
+        const { call } = await response.json()
+        if (!call) {
+          clearInterval(pollInterval)
+          return
+        }
+
+        setCallProviderStatus(call.twilio_status)
+
+        // Update call state based on Twilio status
+        switch (call.twilio_status) {
+          case 'ringing':
+            if (callState !== 'ringing') {
+              setCallState('ringing')
+              setCallProviderMessage(`${currentLead?.first_name} ${currentLead?.last_name} - Ringing...`)
+            }
+            break
+          case 'in-progress':
+          case 'answered':
+            if (callState !== 'connected') {
+              setCallState('connected')
+              setCallStartTime(call.call_started_at || new Date().toISOString())
+              startCallTimer()
+              setCallProviderMessage(`🎯 Connected with ${currentLead?.first_name} ${currentLead?.last_name}!`)
+            }
+            break
+          case 'completed':
+          case 'busy':
+          case 'no-answer':
+          case 'failed':
+          case 'canceled':
+            // Call ended - move to disposition
+            clearInterval(pollInterval)
+            setCallState('ended')
+            setCallDuration(call.duration_seconds || 0)
+            if (callTimerRef.current) {
+              clearInterval(callTimerRef.current)
+              callTimerRef.current = null
+            }
+            
+            // Auto-detect outcome if available
+            if (call.call_outcome && call.call_outcome !== 'Interested') {
+              setCallProviderMessage(`Call ended: ${call.call_outcome}`)
+            } else {
+              setCallProviderMessage('Call ended - please disposition')
+            }
+            
+            setTimeout(() => {
+              setCallState('disposition_pending')
+            }, 500)
+            break
+        }
+      } catch (error) {
+        console.error('Error polling call status:', error)
+      }
+    }, 2000) // Poll every 2 seconds
+
+    // Clean up polling after 5 minutes max
+    setTimeout(() => {
+      clearInterval(pollInterval)
+    }, 5 * 60 * 1000)
+  }, [callState, currentLead])
+
   // End call
   const endCall = useCallback(async () => {
     if (callTimerRef.current) {
@@ -303,23 +388,20 @@ export default function SimpleDialerClient() {
     }
 
     setCallState('ended')
-    stopRingingTone()
     
-    // Log call end
-    if (currentLead && callStartTime) {
+    // Try to end the active call via API
+    if (activeCallId) {
       try {
-        await fetch('/api/admin/crm/calls', {
-          method: 'POST',
+        await fetch(`/api/admin/crm/calls/${activeCallId}`, {
+          method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            lead_id: currentLead.id,
             call_ended_at: new Date().toISOString(),
-            call_started_at: callStartTime,
             duration_seconds: callDuration,
           }),
         })
       } catch (error) {
-        console.error('Failed to log call end:', error)
+        console.error('Failed to end call:', error)
       }
     }
 
@@ -327,7 +409,7 @@ export default function SimpleDialerClient() {
     setTimeout(() => {
       setCallState('disposition_pending')
     }, 500)
-  }, [currentLead, callStartTime, callDuration, stopRingingTone])
+  }, [activeCallId, callDuration])
 
   // Save disposition with error handling
   const saveDisposition = useCallback(async (disposition: DispositionOption) => {
@@ -349,6 +431,9 @@ export default function SimpleDialerClient() {
           call_ended_at: new Date().toISOString(),
           call_started_at: callStartTime || new Date().toISOString(),
           duration_seconds: callDuration,
+          single_line_mode: true, // Flag for simplified mode
+          session_mode: 'single_line', // Override session mode
+          call_id: activeCallId, // Update existing call if available
         }),
       })
 
@@ -374,6 +459,11 @@ export default function SimpleDialerClient() {
         })
       }
       
+      // Apply eligibility updates for terminal outcomes
+      if (result.call && supabaseRef.current) {
+        await applyDispositionEligibilityUpdates(supabaseRef.current, result.call.id, disposition.outcome)
+      }
+      
       // Move to next lead only after successful save
       moveToNextLead()
       
@@ -386,7 +476,24 @@ export default function SimpleDialerClient() {
     } finally {
       setDispositionSaving(false)
     }
-  }, [currentLead, note, nextFollowUpAt, temperature, callStartTime, callDuration])
+  }, [currentLead, note, nextFollowUpAt, temperature, callStartTime, callDuration, activeCallId, moveToNextLead])
+
+  // Reset call state
+  const resetCallState = useCallback(() => {
+    setCallState('idle')
+    setCallDuration(0)
+    setCallStartTime(null)
+    setActiveCallId(null)
+    setCallProviderStatus(null)
+    setCallProviderMessage(null)
+    setNote('')
+    setNextFollowUpAt('')
+    setTemperature('cold')
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current)
+      callTimerRef.current = null
+    }
+  }, [])
 
   // Move to next lead
   const moveToNextLead = useCallback(() => {
@@ -401,13 +508,8 @@ export default function SimpleDialerClient() {
     }
 
     // Reset call state
-    setCallState('idle')
-    setCallDuration(0)
-    setCallStartTime(null)
-    setNote('')
-    setNextFollowUpAt('')
-    setTemperature('cold')
-  }, [index, leads])
+    resetCallState()
+  }, [index, leads, resetCallState])
 
   // Skip current lead
   const skipLead = useCallback(() => {
@@ -514,6 +616,28 @@ export default function SimpleDialerClient() {
                       <span>{currentLead.email}</span>
                     </div>
                   )}
+                  {currentLead.lead_temperature && (
+                    <div className="flex items-center gap-2">
+                      <Flame size={16} className={cn(
+                        currentLead.lead_temperature === 'hot' ? 'text-red-400' :
+                        currentLead.lead_temperature === 'warm' ? 'text-orange-400' :
+                        'text-blue-400'
+                      )} />
+                      <span className="capitalize">{currentLead.lead_temperature} Lead</span>
+                    </div>
+                  )}
+                  {currentLead.call_window_status && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className={cn(
+                        currentLead.call_window_status === 'callable_now' ? 'text-green-400' :
+                        'text-amber-400'
+                      )} />
+                      <span className="text-xs">
+                        {currentLead.call_window_status === 'callable_now' ? 'Callable Now' :
+                         currentLead.blocked_until_label || 'Check Calling Window'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Call Controls */}
@@ -567,19 +691,19 @@ export default function SimpleDialerClient() {
                       </div>
 
                       {/* Disposition Options */}
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-2">
                         {DISPOSITION_OPTIONS.map(disposition => (
                           <button
                             key={disposition.key}
                             onClick={() => saveDisposition(disposition)}
                             disabled={dispositionSaving}
                             className={cn(
-                              'p-3 rounded-lg font-medium flex items-center justify-center gap-2',
+                              'p-2 rounded-lg font-medium flex items-center justify-center gap-1 text-sm',
                               disposition.color,
                               'disabled:opacity-50 disabled:cursor-not-allowed'
                             )}
                           >
-                            <disposition.icon size={16} />
+                            <disposition.icon size={14} />
                             {disposition.label}
                           </button>
                         ))}
@@ -654,7 +778,19 @@ export default function SimpleDialerClient() {
                 <Icon size={20} className={callStateDisplay.color} />
                 <span className={callStateDisplay.color}>{callStateDisplay.label}</span>
               </div>
+              {callProviderMessage && (
+                <div className="mt-2 text-sm text-gray-400">
+                  {callProviderMessage}
+                </div>
+              )}
             </div>
+
+            {/* Audio Feed */}
+            <CallAudioFeed 
+              callState={callState}
+              onConnect={() => setCallProviderMessage('Audio connected')}
+              onDisconnect={() => setCallProviderMessage('Audio disconnected')}
+            />
 
             {/* Progress */}
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
