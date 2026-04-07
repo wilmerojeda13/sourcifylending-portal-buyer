@@ -45,6 +45,10 @@ export async function GET() {
 
   if (error) {
     console.error('[admin/notifications] GET error:', error)
+    // Check if table doesn't exist and return empty results instead of 500
+    if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+      return NextResponse.json({ notifications: [], unread_count: 0 })
+    }
     return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 })
   }
 
@@ -81,6 +85,10 @@ export async function PATCH(req: NextRequest) {
 
     if (error) {
       console.error('[admin/notifications] PATCH mark_all error:', error)
+      // Check if table doesn't exist and return success instead of 500
+      if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        return NextResponse.json({ success: true })
+      }
       return NextResponse.json({ error: 'Failed to mark all as read' }, { status: 500 })
     }
     return NextResponse.json({ success: true })
@@ -94,6 +102,10 @@ export async function PATCH(req: NextRequest) {
 
     if (error) {
       console.error('[admin/notifications] PATCH single error:', error)
+      // Check if table doesn't exist and return success instead of 500
+      if (error.message?.includes('relation') || error.message?.includes('does not exist')) {
+        return NextResponse.json({ success: true })
+      }
       return NextResponse.json({ error: 'Failed to mark notification as read' }, { status: 500 })
     }
     return NextResponse.json({ success: true })

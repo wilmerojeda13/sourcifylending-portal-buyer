@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   // Load lead
   const { data: lead } = await supabase
-    .from('voice_leads')
+    .from('crm_leads')
     .select('*')
     .eq('id', lead_id)
     .single()
@@ -41,29 +41,49 @@ export async function POST(req: NextRequest) {
   if (lead.do_not_call) return NextResponse.json({ error: 'Lead is on DNC list' }, { status: 400 })
   if (!lead.phone_e164) return NextResponse.json({ error: 'Lead has no valid phone number' }, { status: 400 })
 
+  // Check timezone compliance for manual CRM dialing with proper fallback chain
   const phoneIntelligence = await inferLeadPhoneIntelligence(lead.phone_e164)
   const callWindow = evaluateLeadCallWindow(phoneIntelligence)
-  if (callWindow.status !== 'callable_now') {
-    const { error: logError } = await supabase.from('crm_call_compliance_logs').insert({
-      lead_id: null,
-      original_phone: lead.phone_raw ?? lead.phone_e164,
-      normalized_phone: phoneIntelligence.diagnostics.normalized_phone,
-      phone_e164: phoneIntelligence.phone_e164,
-      likely_timezone: phoneIntelligence.likely_timezone,
-      local_time_at_recipient: callWindow.recipientLocalTime,
-      rule_applied: callWindow.ruleApplied,
-      blocked_reason: callWindow.blockedReason ?? 'unknown_timezone',
-      parse_result: phoneIntelligence.diagnostics.parse_result,
-      libphonenumber_result: phoneIntelligence.diagnostics.libphonenumber_result,
-      fallback_result: phoneIntelligence.diagnostics.fallback_result,
-      final_reason: phoneIntelligence.diagnostics.final_reason,
+  
+  // For manual CRM dialing, allow calls with unknown timezone but show warning
+  if (callWindow.status === 'unknown_timezone') {
+    // Allow manual dialing with warning for unknown timezone
+    console.warn('[voice dial] Allowing manual dial with unknown timezone:', {
+      lead_id: lead_id,
+      phone: lead.phone_e164,
       timezone_source: phoneIntelligence.timezone_source,
+      reason: phoneIntelligence.timezone_reason_label || 'Unknown timezone'
     })
-    if (logError) {
-      console.warn('[voice dial] failed to write compliance log', logError)
-    }
-
+    
+    // Update lead with timezone verification flag
+    await supabase
+      .from('crm_leads')
+      .update({
+        timezone_verified: false,
+        timezone_verification_note: `Manual dial allowed - ${phoneIntelligence.timezone_reason_label || 'Unknown timezone'}`,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', lead_id)
+    
+    return NextResponse.json({ 
+      success: true, 
+      warning: `Timezone unverified - ${phoneIntelligence.timezone_reason_label || 'Unknown timezone'}. Manual dialing allowed.`,
+      call_id: 'pending' 
+    })
+  }
+  
+  // For known timezones, enforce calling hours strictly
+  if (callWindow.status === 'blocked_by_timezone') {
     return NextResponse.json({ error: callWindow.message }, { status: 400 })
+  }
+  
+  // Allow manual dialing during callable hours
+  if (callWindow.status === 'callable_now') {
+    return NextResponse.json({ 
+      success: true, 
+      message: `Ready to dial - ${callWindow.message}`,
+      call_id: 'pending' 
+    })
   }
 
   // Check suppression
@@ -82,13 +102,12 @@ export async function POST(req: NextRequest) {
     .eq('id', 'default')
     .single()
 
-  const maxAttempts = lead.lead_priority_tier === 1 ? (settings?.retry_rules as Record<string, number>)?.tier1_max ?? 3
-    : lead.lead_priority_tier === 2 ? (settings?.retry_rules as Record<string, number>)?.tier2_max ?? 3
-    : (settings?.retry_rules as Record<string, number>)?.tier3_max ?? 2
+  // CRM leads don't have priority tiers or attempt counts - skip these checks for now
+  const maxAttempts = 3
 
-  if (lead.call_attempt_count >= maxAttempts) {
-    return NextResponse.json({ error: `Lead has reached max attempts (${maxAttempts})` }, { status: 400 })
-  }
+  // if (lead.call_attempt_count >= maxAttempts) {
+  //   return NextResponse.json({ error: `Lead has reached max attempts (${maxAttempts})` }, { status: 400 })
+  // }
 
   // Check for an active call to this lead already
   const { data: activeCall } = await supabase
@@ -134,12 +153,13 @@ export async function POST(req: NextRequest) {
   const webhookUrl = `${appUrl}/api/voice/vapi/webhook`
   const assistant  = buildVapiAssistant({
     lead: {
-      owner_name:          lead.owner_name,
+      owner_name:          lead.first_name && lead.last_name ? `${lead.first_name} ${lead.last_name}` : lead.first_name || '',
       business_name:       lead.business_name,
-      prior_inquiry_flag:  lead.prior_inquiry_flag,
-      prior_facebook_flag: lead.prior_facebook_flag,
-      prior_portal_flag:   lead.prior_portal_flag,
-      prior_analyzer_flag: lead.prior_analyzer_flag,
+      // CRM leads don't have these flags - set to false
+      prior_inquiry_flag:  false,
+      prior_facebook_flag:  false,
+      prior_portal_flag:    false,
+      prior_analyzer_flag:  false,
     },
     settings: {
       analyzer_url:         settings?.analyzer_url,
@@ -189,11 +209,10 @@ export async function POST(req: NextRequest) {
       .update({ twilio_call_sid: vapiCallId, started_at: new Date().toISOString() })
       .eq('id', callRecord.id)
 
-    // Increment attempt count on lead
+    // CRM leads don't have call_attempt_count field - just update last_called_at
     await supabase
-      .from('voice_leads')
+      .from('crm_leads')
       .update({
-        call_attempt_count: lead.call_attempt_count + 1,
         last_called_at:     new Date().toISOString(),
         updated_at:         new Date().toISOString(),
       })

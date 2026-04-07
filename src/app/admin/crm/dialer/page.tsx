@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import SimpleDialerClient from '@/components/admin/crm/dialer/SimpleDialerClient'
 
-export const metadata = { title: 'Dialer Mode — CRM' }
+export const metadata = { title: 'Power Dialer — CRM' }
 
 export default async function DialerPage() {
   const authClient = await createClient()

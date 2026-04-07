@@ -699,28 +699,32 @@ export default function DialerClient() {
           setCalled(false)
           setActiveCallId(null)
 
+          // CRITICAL: Always require disposition after call ends
+          if (session) {
+            setSession(prev => prev ? { ...prev, waiting_for_disposition: true } : null)
+          }
+
           if (humanAnswered) {
             setCallProviderMessage('Conversation ended. Choose a disposition to continue.')
-          } else if (autoAdvance && !session?.waiting_for_disposition) {
-            setCallProviderMessage(call.call_outcome ? `Auto-dispositioned: ${call.call_outcome}` : 'Lead leg ended.')
-            // Refill logic in useEffect will pick this up when activeAttemptCount drops
-            advance()
           } else if (call.call_outcome) {
-            setCallProviderMessage(`Lead leg ended: ${call.call_outcome}`)
+            setCallProviderMessage(`Call ended: ${call.call_outcome} - disposition required`)
           } else if (nextStatus) {
-            setCallProviderMessage(`Lead leg ended: ${nextStatus}`)
+            setCallProviderMessage(`Call ended: ${nextStatus} - disposition required`)
           } else {
-            setCallProviderMessage('Lead leg ended.')
+            setCallProviderMessage('Call ended - disposition required')
           }
           return
         }
 
+        // REAL CALL STATE: Show actual provider status, not generic messages
         if (nextStatus === 'ringing') {
-          setCallProviderMessage('Lead leg is ringing now.')
+          setCallProviderMessage('📞 Ringing...')
         } else if (nextStatus === 'in-progress' || nextStatus === 'answered') {
-          setCallProviderMessage('Lead is connected inside the live rep session.')
+          setCallProviderMessage('🎯 Connected!')
         } else if (nextStatus === 'queued' || nextStatus === 'initiated') {
-          setCallProviderMessage('Lead leg is dialing into your live session.')
+          setCallProviderMessage('📞 Dialing...')
+        } else {
+          setCallProviderMessage(`Status: ${nextStatus}`)
         }
       } catch {
         // Ignore transient poll errors.
@@ -1003,14 +1007,10 @@ useEffect(() => {
       device.on('unregistered', () => {
         console.log('[Dialer] Device unregistered - token expired or network issue')
         setDeviceStatus('offline')
-        setCallProviderMessage('Browser audio disconnected. Click Not Ready then Ready to reconnect.')
-        // CRITICAL: Clear any hanging dialer state
-        setSession(null)
-        setAttempts([])
-        setCalled(false)
-        setActiveCallId(null)
-        setCallStartedAt(null)
-        setCallProviderStatus(null)
+        // FIX: Only show one toast message and don't clear session state
+        setCallProviderMessage('Browser audio disconnected. Click Ready to reconnect.')
+        // CRITICAL: Keep session state intact - only clear device connection
+        // This allows reconnection without losing call context
       })
 
       // Add device health monitoring
@@ -1091,20 +1091,23 @@ useEffect(() => {
     }
   }
 
+  // End current call only - keep browser audio connected
   async function hangUpCurrentCall() {
     if (!activeCallId || sessionBusy) return
     setSessionBusy(true)
     try {
+      // Only disconnect the lead leg, keep browser audio session alive
       await disconnectLeadLeg(activeCallId)
       setCalled(false)
       setActiveCallId(null)
       setCallProviderStatus(null)
-      setCallProviderMessage('Call ended - Ready for next lead')
+      setCallProviderMessage('Call ended - disposition required')
       
-      // Auto-advance to next lead for single-line mode
-      setTimeout(() => {
-        advance()
-      }, 500)
+      // CRITICAL: Do NOT reset to idle - require disposition first
+      // Move to disposition pending state instead of advancing
+      if (session) {
+        setSession(prev => prev ? { ...prev, waiting_for_disposition: true } : null)
+      }
     } catch {
       toast.error('Failed to hang up call')
     } finally {
@@ -1570,7 +1573,51 @@ useEffect(() => {
   )
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col">
+    <div className="min-h-screen bg-gray-950 text-gray-100">
+      {/* ── MANDATORY DISPOSITION OVERLAY ── */}
+      {session?.waiting_for_disposition && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start justify-center pt-20">
+          <div className="bg-gray-900 border-2 border-amber-500 rounded-2xl p-6 max-w-lg mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center animate-pulse">
+                <Clock3 size={24} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Disposition Required</h3>
+                <p className="text-sm text-gray-300">Save call outcome before continuing</p>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-400 mb-3">Select call outcome:</p>
+              <div className="grid grid-cols-2 gap-2">
+                {DISPOSITIONS.map(d => {
+                  const Icon = d.icon
+                  return (
+                    <button
+                      key={d.key}
+                      onClick={() => logAndAdvance(d)}
+                      disabled={acting}
+                      className={cn(
+                        'flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition-all active:scale-[0.95] disabled:opacity-50',
+                        d.color,
+                      )}
+                    >
+                      <Icon size={16} /> {d.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            
+            <div className="text-xs text-gray-500 text-center">
+              {acting ? 'Saving disposition...' : 'You must save a disposition to continue dialing'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Header ── */}
       <OfflineCRMSilentMirror />
 
       {/* ── Top bar ── */}

@@ -64,12 +64,13 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect, onDT
         video: false 
       })
       setAudioDevice(stream)
+      onConnect?.()
       return stream
     } catch (error) {
       console.error('Failed to initialize audio:', error)
       throw error
     }
-  }, [])
+  }, [onConnect])
 
   // Play ringing tone (US ringback tone: 440Hz + 480Hz, 2 seconds on, 4 seconds off)
   const playRingingTone = useCallback(() => {
@@ -227,7 +228,8 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect, onDT
       setAudioDevice(null)
     }
     stopAllAudio()
-  }, [audioDevice, stopAllAudio])
+    onDisconnect?.()
+  }, [audioDevice, stopAllAudio, onDisconnect])
 
   return (
     <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
@@ -307,7 +309,7 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect, onDT
             />
           </div>
 
-          {/* Softphone Keypad */}
+          {/* Softphone Keypad - Only during active connected calls */}
           {callState === 'connected' && (
             <div className="mt-4">
               <h4 className="text-sm font-medium text-gray-400 mb-2">DTMF Keypad</h4>

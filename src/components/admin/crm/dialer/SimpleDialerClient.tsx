@@ -276,17 +276,11 @@ export default function SimpleDialerClient() {
       setCallProviderMessage('Initiating call...')
       
       // Initiate call via API
-      const response = await fetch('/api/admin/crm/calls', {
+      const response = await fetch('/api/voice/dial', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lead_id: lead.id,
-          lead_name: `${lead.first_name} ${lead.last_name}`.trim(),
-          company_name: lead.business_name,
-          phone_number: lead.phone,
-          call_started_at: new Date().toISOString(),
-          single_line_mode: true, // Flag for simplified mode
-          session_mode: 'single_line', // Override session mode
         }),
       })
 
@@ -296,11 +290,11 @@ export default function SimpleDialerClient() {
       }
 
       const callData = await response.json()
-      setActiveCallId(callData.call?.id || null)
+      setActiveCallId(callData.call_id || null)
       setCallProviderMessage('Call initiated, waiting for connection...')
       
       // Start polling for call status updates
-      startCallStatusPolling(callData.call?.id || null)
+      startCallStatusPolling(callData.call_id || null)
 
     } catch (error) {
       console.error('Failed to dial lead:', error)
@@ -316,7 +310,7 @@ export default function SimpleDialerClient() {
 
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/admin/crm/calls/${callId}`)
+        const response = await fetch(`/api/voice/calls/${callId}`)
         if (!response.ok) {
           clearInterval(pollInterval)
           return
@@ -328,10 +322,10 @@ export default function SimpleDialerClient() {
           return
         }
 
-        setCallProviderStatus(call.twilio_status)
+        setCallProviderStatus(call.status)
 
-        // Update call state based on Twilio status
-        switch (call.twilio_status) {
+        // Update call state based on voice call status
+        switch (call.status) {
           case 'ringing':
             if (callState !== 'ringing') {
               setCallState('ringing')
@@ -339,19 +333,16 @@ export default function SimpleDialerClient() {
             }
             break
           case 'in-progress':
-          case 'answered':
             if (callState !== 'connected') {
               setCallState('connected')
-              setCallStartTime(call.call_started_at || new Date().toISOString())
+              setCallStartTime(call.started_at || new Date().toISOString())
               startCallTimer()
               setCallProviderMessage(`🎯 Connected with ${currentLead?.first_name} ${currentLead?.last_name}!`)
             }
             break
           case 'completed':
-          case 'busy':
-          case 'no-answer':
           case 'failed':
-          case 'canceled':
+          case 'ended':
             // Call ended - move to disposition
             clearInterval(pollInterval)
             setCallState('ended')
@@ -393,14 +384,15 @@ export default function SimpleDialerClient() {
 
     setCallState('ended')
     
-    // Try to end the active call via API
+    // Try to end the active voice call via API
     if (activeCallId) {
       try {
-        await fetch(`/api/admin/crm/calls/${activeCallId}`, {
+        await fetch(`/api/voice/calls/${activeCallId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            call_ended_at: new Date().toISOString(),
+            status: 'completed',
+            ended_at: new Date().toISOString(),
             duration_seconds: callDuration,
           }),
         })
@@ -455,7 +447,7 @@ export default function SimpleDialerClient() {
     setDispositionSaving(true)
 
     try {
-      // Save call with disposition
+      // Save call with disposition using CRM calls API
       const response = await fetch('/api/admin/crm/calls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -491,7 +483,7 @@ export default function SimpleDialerClient() {
       // Check if this was a terminal outcome and show appropriate message
       if (disposition.key === 'dnc' || disposition.key === 'not_interested' || disposition.outcome.includes('Bad Number') || disposition.outcome.includes('Wrong Number')) {
         toast(`${currentLead.first_name} removed from active dialing`, {
-          icon: '??',
+          icon: '🚫',
           duration: 5000,
         })
       }
@@ -700,14 +692,16 @@ export default function SimpleDialerClient() {
                       <Phone size={24} />
                       Dial Now
                     </button>
-                  ) : callState === 'connected' ? (
+                  ) : (callState === 'dialing' || callState === 'connected' || callState === 'ringing') ? (
                     <div className="space-y-4">
                       <div className="text-center">
-                        <Icon size={32} className={callStateDisplay.color + ' mx-auto mb-2'} />
+                        <Icon size={32} className={cn(callStateDisplay.color, 'mx-auto mb-2', callStateDisplay.animate && 'animate-pulse')} />
                         <p className={callStateDisplay.color}>{callStateDisplay.label}</p>
-                        <div className="text-2xl font-mono mt-2">
-                          {Math.floor(callDuration / 60)}:{(callDuration % 60).toString().padStart(2, '0')}
-                        </div>
+                        {callState === 'connected' && (
+                          <div className="text-2xl font-mono mt-2">
+                            {Math.floor(callDuration / 60)}:{(callDuration % 60).toString().padStart(2, '0')}
+                          </div>
+                        )}
                       </div>
 
                       {/* Call Controls */}
@@ -715,27 +709,28 @@ export default function SimpleDialerClient() {
                         <button
                           onClick={endCall}
                           className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
-                          disabled={callState !== 'connected'}
                         >
                           <PhoneOff size={20} />
                           End Call
                         </button>
 
-                        {/* DTMF Keypad */}
-                        <div className="bg-gray-800 rounded-lg p-3">
-                          <h4 className="text-sm font-medium text-gray-400 mb-2 text-center">DTMF Keypad</h4>
-                          <div className="grid grid-cols-3 gap-2">
-                            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(digit => (
-                              <button
-                                key={digit}
-                                onClick={() => playDTMFTone(digit)}
-                                className="py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white font-mono text-lg transition-colors"
-                              >
-                                {digit}
-                              </button>
-                            ))}
+                        {/* DTMF Keypad - Only available during connected calls */}
+                        {callState === 'connected' && (
+                          <div className="bg-gray-800 rounded-lg p-3">
+                            <h4 className="text-sm font-medium text-gray-400 mb-2 text-center">DTMF Keypad</h4>
+                            <div className="grid grid-cols-3 gap-2">
+                              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(digit => (
+                                <button
+                                  key={digit}
+                                  onClick={() => playDTMFTone(digit)}
+                                  className="py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white font-mono text-lg transition-colors"
+                                >
+                                  {digit}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   ) : callState === 'disposition_pending' ? (
@@ -848,11 +843,11 @@ export default function SimpleDialerClient() {
             <CallAudioFeed 
               callState={callState}
               onConnect={() => {
-                // sessionActive state is managed by CallAudioFeed
+                setSessionActive(true)
                 toast.success('Audio connected')
               }}
               onDisconnect={() => {
-                // sessionActive state is managed by CallAudioFeed
+                setSessionActive(false)
                 toast.error('Audio disconnected')
               }}
               onDTMFSent={(digit) => {
