@@ -88,9 +88,18 @@ export async function ensureSignupCrmLead({
     complianceSnapshot,
   })
 
+  // Check for existing analyzer result first to link to existing CRM lead
+  const { data: existingAnalyzer } = await supabase
+    .from('analyzer_results')
+    .select('readiness_status, assigned_program, risk_flags, estimated_funding_range, created_at')
+    .eq('user_email', normalizedEmail)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
   const { data: existingLead, error: existingLeadError } = await supabase
     .from('crm_leads')
-    .select('id, notes, business_name, first_name, last_name, source')
+    .select('id, notes, business_name, first_name, last_name, source, readiness_status, assigned_program, estimated_funding_range')
     .eq('email', normalizedEmail)
     .order('updated_at', { ascending: false })
     .limit(1)
@@ -99,20 +108,30 @@ export async function ensureSignupCrmLead({
   if (existingLeadError) throw existingLeadError
 
   if (existingLead) {
-    const { error: updateError } = await supabase
+    // Update existing lead with latest analyzer data if available
+    const updatePayload: Record<string, unknown> = {
+      first_name: existingLead.first_name || firstName,
+      last_name: existingLead.last_name || lastName,
+      business_name: existingLead.business_name || businessName || null,
+      source: existingLead.source || crmSource,
+      notes: mergeSignupNote(existingLead.notes, signupNote),
+      updated_at: new Date().toISOString(),
+    }
+
+    // Sync analyzer data to existing CRM lead
+    if (existingAnalyzer) {
+      updatePayload.readiness_status = existingAnalyzer.readiness_status
+      updatePayload.assigned_program = existingAnalyzer.assigned_program
+      updatePayload.estimated_funding_range = existingAnalyzer.estimated_funding_range
+      updatePayload.risk_flags = existingAnalyzer.risk_flags
+    }
+
+    const { error } = await supabase
       .from('crm_leads')
-      .update({
-        first_name: existingLead.first_name || firstName,
-        last_name: existingLead.last_name || lastName,
-        business_name: existingLead.business_name || businessName || null,
-        source: existingLead.source || crmSource,
-        notes: mergeSignupNote(existingLead.notes, signupNote),
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', existingLead.id)
 
-    if (updateError) throw updateError
-
+    if (error) throw error
     return { leadId: existingLead.id, action: 'updated' as const }
   }
 
