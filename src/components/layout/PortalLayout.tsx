@@ -450,7 +450,8 @@ export default function PortalLayout({
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <div className="px-1 pb-2">
-          <BusinessSwitcher />
+          {/* Hide business switcher from dashboard homepage only */}
+          {pathname !== '/dashboard' && <BusinessSwitcher />}
         </div>
         {sidebarNavItems.map((item) => (
           <NavLink key={item.href} {...item} />
@@ -611,7 +612,7 @@ export default function PortalLayout({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {hasMultipleBusinesses && (
+            {hasMultipleBusinesses && pathname !== '/dashboard' && (
               <div className="hidden sm:block">
                 <BusinessSwitcher compact />
               </div>
@@ -635,7 +636,7 @@ export default function PortalLayout({
 
         {/* Page Content */}
         <main className="flex-1 p-4 md:p-6 pb-24 lg:pb-6 max-w-5xl w-full mx-auto">
-          {(hasMultipleBusinesses || canManageBusinesses) && (
+          {(hasMultipleBusinesses || canManageBusinesses) && pathname !== '/dashboard' && (
             <div className="lg:hidden mb-4">
               <BusinessSwitcher />
             </div>
