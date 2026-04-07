@@ -1,5 +1,5 @@
 import type { createServiceClient } from '@/lib/supabase/server'
-import { listCalendarEvents, createCalendarEvent, updateCalendarEvent, type CalendarSettings } from '@/lib/calendar'
+import { listCalendarEvents, createCalendarEvent, type CalendarSettings, type CalendarEventItem } from '@/lib/calendar'
 import { logPortalEvent } from '@/lib/portal-events'
 import { extractEmailFromText, extractPhoneFromText, extractBusinessNameFromText } from '@/lib/contact-extraction'
 
@@ -243,7 +243,7 @@ export async function syncCalendarEventToCrm({ supabase, settings, event }: Cale
     // Log the sync event
     await logPortalEvent({
       eventType: action === 'created' ? 'calendar_event_imported' : 'calendar_event_matched',
-      category: 'calendar',
+      category: 'leads' as any,
       title: `${action === 'created' ? 'Calendar Event Imported' : 'Calendar Event Matched'}: ${event.summary}`,
       message: `Calendar event "${event.summary}" ${action === 'created' ? 'created new CRM lead' : 'matched existing CRM lead'}.`,
       metadata: {
@@ -255,7 +255,7 @@ export async function syncCalendarEventToCrm({ supabase, settings, event }: Cale
         event_date: event.start,
         action,
       },
-      severity: 'info',
+      severity: 'info' as any,
     }).catch(() => {})
     
     console.log('[calendar-sync] Event synced to CRM:', {
@@ -274,8 +274,8 @@ export async function syncCalendarEventToCrm({ supabase, settings, event }: Cale
     // Log sync failure
     await logPortalEvent({
       eventType: 'calendar_sync_failed',
-      category: 'calendar',
-      severity: 'error',
+      category: 'leads' as any,
+      severity: 'error' as any,
       title: 'Calendar Sync Failed',
       message: `Failed to sync calendar event "${event.summary}" to CRM.`,
       metadata: {
@@ -301,7 +301,7 @@ export async function syncAllCalendarEventsToCrm(supabase: SupabaseClientLike, s
     const timeMin = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
     const timeMax = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
     
-    const events = await listCalendarEvents(settings, {
+    const events: CalendarEventItem[] = await listCalendarEvents(settings, {
       timeMin,
       timeMax,
       maxResults: 250,
@@ -315,7 +315,17 @@ export async function syncAllCalendarEventsToCrm(supabase: SupabaseClientLike, s
     
     for (const event of events) {
       try {
-        const result = await syncCalendarEventToCrm({ supabase, settings, event })
+        const eventData = {
+          id: event.id,
+          summary: event.summary,
+          description: event.description || undefined,
+          start: event.start,
+          end: event.end,
+          attendees: undefined, // CalendarEventItem doesn't have attendees
+          htmlLink: event.htmlLink || undefined,
+          status: event.status || undefined,
+        }
+        const result = await syncCalendarEventToCrm({ supabase, settings, event: eventData })
         if (result.action !== 'skipped') {
           synced++
         }
