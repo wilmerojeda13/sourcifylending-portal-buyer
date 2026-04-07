@@ -14,7 +14,7 @@ interface NavigationState {
     view: 'list' | 'board'
     listPage: number
     boardPages: Record<string, number>
-    selectedStage?: string
+    selectedStage: string
   }
   // Admin portal state
   admin: {
@@ -62,6 +62,7 @@ function getDefaultState(): NavigationState {
       view: 'list',
       listPage: 1,
       boardPages: {},
+      selectedStage: 'overview',
     },
     admin: {
       currentPage: '',
@@ -138,6 +139,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
           callability: searchParams.get('callability') ?? '',
           openTasksOnly: searchParams.get('open_tasks') === 'true',
           view: searchParams.get('view') === 'board' ? 'board' : 'list',
+          selectedStage: searchParams.get('focus') === 'leads' ? 'leads' : 'overview',
         }
       }))
     }
