@@ -1790,23 +1790,7 @@ useEffect(() => {
                     </div>
                   )}
 
-                  {/* Lines control — only when session active */}
-                  {session && (
-                    <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-white/10 pt-2">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide opacity-70">Lines</span>
-                      <select value={targetParallelLines}
-                        onChange={(event) => void updateParallelLines(Number(event.target.value))}
-                        disabled={pacingBusy || sessionBusy}
-                        className="rounded-lg border border-white/10 bg-gray-950 px-2 py-1 text-xs text-white focus:outline-none">
-                        {[1, 2, 3, 4, 5].map((lines) => (
-                          <option key={lines} value={lines}>{lines}</option>
-                        ))}
-                      </select>
-                      <span className="text-[11px] opacity-70">
-                        {targetParallelLines > 1 ? 'Power mode' : 'Single-line'}
-                      </span>
-                    </div>
-                  )}
+                  {/* Lines control removed for single-line only */}
                 </div>
 
                 <button
