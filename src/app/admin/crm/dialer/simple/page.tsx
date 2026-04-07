@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import SimpleDialerClient from '@/components/admin/crm/dialer/SimpleDialerClient'
+import DialerClient from '../DialerClient'
 import CallAudioFeed from '@/components/admin/crm/dialer/CallAudioFeed'
 import SoftphoneKeypad from '@/components/admin/crm/dialer/SoftphoneKeypad'
 import DispositionPanel from '@/components/admin/crm/dialer/DispositionPanel'
@@ -118,7 +118,7 @@ export default function SimpleDialerPage() {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Main Dialer */}
             <div className="lg:col-span-3">
-              <SimpleDialerClient />
+              <DialerClient />
             </div>
 
             {/* Sidebar */}

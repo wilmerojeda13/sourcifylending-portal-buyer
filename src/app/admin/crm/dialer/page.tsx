@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import SimpleDialerClient from '@/components/admin/crm/dialer/SimpleDialerClient'
+import DialerClient from '@/components/admin/crm/dialer/DialerClient'
 
 export const metadata = { title: 'Power Dialer — CRM' }
 
@@ -11,5 +11,5 @@ export default async function DialerPage() {
   const supabase = await createServiceClient()
   const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
   if (!profile?.is_admin) redirect('/dashboard')
-  return <SimpleDialerClient />
+  return <DialerClient />
 }

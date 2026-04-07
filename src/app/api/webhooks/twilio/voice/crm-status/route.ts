@@ -16,10 +16,23 @@ async function readBody(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  console.log('[CRM STATUS WEBHOOK] === PRODUCTION WEBHOOK TRACE START ===')
+  console.log('[CRM STATUS WEBHOOK] Request timestamp:', new Date().toISOString())
+  
   const crmCallId = req.nextUrl.searchParams.get('crmCallId')
   const sessionId = req.nextUrl.searchParams.get('sessionId')
   const leg = req.nextUrl.searchParams.get('leg') ?? 'lead'
   const body = await readBody(req)
+
+  console.log('[CRM STATUS WEBHOOK] Webhook params:', { crmCallId, sessionId, leg })
+  console.log('[CRM STATUS WEBHOOK] Twilio status update:', {
+    callSid: body.CallSid,
+    callStatus: body.CallStatus,
+    answeredBy: body.AnsweredBy,
+    callDuration: body.CallDuration,
+    from: body.From,
+    to: body.To
+  })
 
   const callSid = body.CallSid
   const callStatus = body.CallStatus
@@ -184,5 +197,8 @@ export async function POST(req: NextRequest) {
     await syncDialerSessionState(supabase, sessionId)
   }
 
+  console.log('[CRM STATUS WEBHOOK] Database updates completed for call:', crmCallId)
+  console.log('[CRM STATUS WEBHOOK] === PRODUCTION WEBHOOK TRACE END ===')
+  
   return NextResponse.json({ ok: true })
 }

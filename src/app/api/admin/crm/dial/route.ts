@@ -60,15 +60,24 @@ async function loadActiveSession(supabase: Awaited<ReturnType<typeof createServi
 }
 
 export async function POST(req: NextRequest) {
+  console.log('[CRM DIAL] === PRODUCTION DIALER TRACE START ===')
+  console.log('[CRM DIAL] Request timestamp:', new Date().toISOString())
+  
   const admin = await assertAdmin()
-  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!admin) {
+    console.log('[CRM DIAL] ERROR: Unauthorized')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { lead_id, auto_advance } = await req.json().catch(() => ({})) as {
     lead_id?: string
     auto_advance?: boolean
   }
 
+  console.log('[CRM DIAL] Request payload:', { lead_id, auto_advance, userId: admin.userId })
+
   if (!lead_id) {
+    console.log('[CRM DIAL] ERROR: Missing lead_id')
     return NextResponse.json({ error: 'lead_id is required' }, { status: 400 })
   }
 
@@ -255,6 +264,9 @@ export async function POST(req: NextRequest) {
   })
 
   try {
+    console.log('[CRM DIAL] Creating Twilio outbound call...')
+    console.log('[CRM DIAL] Twilio config:', { accountSid: accountSid ? 'SET' : 'MISSING', authToken: authToken ? 'SET' : 'MISSING', callerId })
+    
     const client = twilio(accountSid, authToken)
     const outboundCall = await client.calls.create({
       to: compliance.phone_e164,
@@ -270,6 +282,13 @@ export async function POST(req: NextRequest) {
       asyncAmdStatusCallbackMethod: 'POST',
       timeout: 25,
     } as unknown as Parameters<typeof client.calls.create>[0])
+
+    console.log('[CRM DIAL] Twilio call CREATED successfully:', {
+      callSid: outboundCall.sid,
+      status: outboundCall.status,
+      to: compliance.phone_e164,
+      from: callerId
+    })
 
     await admin.supabase
       .from('crm_calls')
@@ -299,6 +318,16 @@ export async function POST(req: NextRequest) {
 
     const synced = await syncDialerSessionState(admin.supabase, activeSession.id)
 
+    console.log('[CRM DIAL] Database updates completed')
+    console.log('[CRM DIAL] Returning success response:', {
+      allowed: true,
+      call_id: createdCall.id,
+      attempt_id: attempt.id,
+      queue_slot: queueSlot,
+      twilio_call_sid: outboundCall.sid,
+      twilio_status: outboundCall.status
+    })
+
     await admin.supabase.from('crm_activities').insert({
       lead_id,
       type: 'call',
@@ -327,6 +356,7 @@ export async function POST(req: NextRequest) {
       active_attempt_count: synced?.active_attempt_count ?? activeAttemptCount + 1,
       target_parallel_lines: maxParallelLines,
       twilio_status: outboundCall.status ?? 'queued',
+      twilio_call_sid: outboundCall.sid,
       rep_phone_number: activeSession.rep_phone_number,
       from_number: callerId,
       session_status: synced?.session_status ?? activeSession.session_status,
@@ -334,9 +364,9 @@ export async function POST(req: NextRequest) {
       attempts: synced?.attempts ?? [],
       message: maxParallelLines > 1
         ? `Lead attempt launched on line ${queueSlot}.`
-        : 'Dialing the lead into your live Twilio rep session.',
+        : 'Dialing lead into your live Twilio rep session.',
     })
-  } catch (dialError) {
+    
     await admin.supabase
       .from('crm_calls')
       .update({
@@ -363,10 +393,13 @@ export async function POST(req: NextRequest) {
 
     await syncDialerSessionState(admin.supabase, activeSession.id)
 
+    console.log('[CRM DIAL] Returning error response to frontend')
     return NextResponse.json({
       error: dialError instanceof Error ? dialError.message : 'Failed to initiate Twilio lead call',
     }, { status: 500 })
   }
+  
+  console.log('[CRM DIAL] === PRODUCTION DIALER TRACE END ===')
 }
 
 export async function DELETE(req: NextRequest) {

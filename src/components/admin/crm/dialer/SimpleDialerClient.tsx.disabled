@@ -268,13 +268,20 @@ export default function SimpleDialerClient() {
 
   // Start call
   const dialLead = useCallback(async (lead: CRMLead) => {
-    if (!sessionActive || !lead) return
+    console.log('[SIMPLE DIALER] === FRONTEND DIAL TRACE START ===')
+    console.log('[SIMPLE DIALER] Dial Now clicked:', { leadId: lead.id, leadName: `${lead.first_name} ${lead.last_name}`, phone: lead.phone })
+    
+    if (!sessionActive) {
+      console.log('[SIMPLE DIALER] ERROR: Session not active')
+      return
+    }
 
     try {
       setCallState('dialing')
       setCurrentLead(lead)
       setCallProviderMessage('Initiating call...')
       
+      console.log('[SIMPLE DIALER] Calling API: /api/voice/dial')
       // Initiate call via API
       const response = await fetch('/api/voice/dial', {
         method: 'POST',
@@ -284,12 +291,17 @@ export default function SimpleDialerClient() {
         }),
       })
 
+      console.log('[SIMPLE DIALER] API response status:', response.status)
+      
       if (!response.ok) {
         const error = await response.json()
+        console.log('[SIMPLE DIALER] API error response:', error)
         throw new Error(error.error || 'Failed to initiate call')
       }
 
       const callData = await response.json()
+      console.log('[SIMPLE DIALER] API success response:', callData)
+      
       setActiveCallId(callData.call_id || null)
       setCallProviderMessage('Call initiated, waiting for connection...')
       
@@ -297,7 +309,7 @@ export default function SimpleDialerClient() {
       startCallStatusPolling(callData.call_id || null)
 
     } catch (error) {
-      console.error('Failed to dial lead:', error)
+      console.error('[SIMPLE DIALER] Dial lead failed:', error)
       toast.error(`Failed to initiate call: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setCallState('idle')
       setCallProviderMessage(null)
@@ -306,34 +318,44 @@ export default function SimpleDialerClient() {
 
   // Poll call status for real-time updates
   const startCallStatusPolling = useCallback((callId: string | null) => {
-    if (!callId) return
+    console.log('[SIMPLE DIALER] Starting call status polling for:', callId)
+    if (!callId) {
+      console.log('[SIMPLE DIALER] No callId provided, skipping polling')
+      return
+    }
 
     const pollInterval = setInterval(async () => {
       try {
+        console.log('[SIMPLE DIALER] Polling call status for:', callId)
         const response = await fetch(`/api/voice/calls/${callId}`)
         if (!response.ok) {
+          console.log('[SIMPLE DIALER] Polling failed, stopping:', response.status)
           clearInterval(pollInterval)
           return
         }
 
         const { call } = await response.json()
         if (!call) {
+          console.log('[SIMPLE DIALER] No call data found, stopping polling')
           clearInterval(pollInterval)
           return
         }
 
+        console.log('[SIMPLE DIALER] Call status update:', { callId, status: call.status, twilioStatus: call.twilio_status })
         setCallProviderStatus(call.status)
 
         // Update call state based on voice call status
         switch (call.status) {
           case 'ringing':
             if (callState !== 'ringing') {
+              console.log('[SIMPLE DIALER] State change: ringing')
               setCallState('ringing')
               setCallProviderMessage(`${currentLead?.first_name} ${currentLead?.last_name} - Ringing...`)
             }
             break
           case 'in-progress':
             if (callState !== 'connected') {
+              console.log('[SIMPLE DIALER] State change: connected')
               setCallState('connected')
               setCallStartTime(call.started_at || new Date().toISOString())
               startCallTimer()
@@ -344,6 +366,7 @@ export default function SimpleDialerClient() {
           case 'failed':
           case 'ended':
             // Call ended - move to disposition
+            console.log('[SIMPLE DIALER] State change: ended', call.status)
             clearInterval(pollInterval)
             setCallState('ended')
             setCallDuration(call.duration_seconds || 0)
@@ -365,18 +388,22 @@ export default function SimpleDialerClient() {
             break
         }
       } catch (error) {
-        console.error('Error polling call status:', error)
+        console.error('[SIMPLE DIALER] Error polling call status:', error)
       }
     }, 2000) // Poll every 2 seconds
 
     // Clean up polling after 5 minutes max
     setTimeout(() => {
+      console.log('[SIMPLE DIALER] Polling timeout reached, stopping')
       clearInterval(pollInterval)
     }, 5 * 60 * 1000)
   }, [callState, currentLead])
 
   // End call
   const endCall = useCallback(async () => {
+    console.log('[SIMPLE DIALER] === END CALL TRACE START ===')
+    console.log('[SIMPLE DIALER] End call clicked, activeCallId:', activeCallId)
+    
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current)
       callTimerRef.current = null
@@ -387,7 +414,8 @@ export default function SimpleDialerClient() {
     // Try to end the active voice call via API
     if (activeCallId) {
       try {
-        await fetch(`/api/voice/calls/${activeCallId}`, {
+        console.log('[SIMPLE DIALER] Calling API to end call:', activeCallId)
+        const response = await fetch(`/api/voice/calls/${activeCallId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -396,15 +424,28 @@ export default function SimpleDialerClient() {
             duration_seconds: callDuration,
           }),
         })
+        
+        console.log('[SIMPLE DIALER] End call API response:', response.status)
+        if (!response.ok) {
+          const error = await response.json()
+          console.log('[SIMPLE DIALER] End call API error:', error)
+        } else {
+          console.log('[SIMPLE DIALER] Call ended successfully via API')
+        }
       } catch (error) {
-        console.error('Failed to end call:', error)
+        console.error('[SIMPLE DIALER] Failed to end call via API:', error)
       }
+    } else {
+      console.log('[SIMPLE DIALER] No activeCallId, skipping API call')
     }
 
     // Show disposition panel
     setTimeout(() => {
+      console.log('[SIMPLE DIALER] Moving to disposition state')
       setCallState('disposition_pending')
     }, 500)
+    
+    console.log('[SIMPLE DIALER] === END CALL TRACE END ===')
   }, [activeCallId, callDuration])
 
   // Reset call state
