@@ -248,7 +248,7 @@ export function calculateLeadHealthScore(analytics: LeadAnalytics): LeadHealthSc
   score += Math.max(0, analytics.days_since_last_contact * SCORE_WEIGHTS.daysSinceContact)
   
   if (analytics.days_since_last_contact <= 7) {
-    score += SCORE_WEIGHTS.recentActivityActivity
+    score += SCORE_WEIGHTS.recentActivity
   }
 
   // Clamp score to 0-100
