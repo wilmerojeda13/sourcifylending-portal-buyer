@@ -9,6 +9,7 @@ import { Phone, Settings, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type CallState = 'idle' | 'connecting' | 'dialing' | 'ringing' | 'connected' | 'ended' | 'disposition_pending'
+type CallAudioState = CallState // Make them the same type
 
 interface CRMLead {
   id: string

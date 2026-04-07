@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Volume2, VolumeX, Phone, PhoneOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type CallAudioState = 'idle' | 'ringing' | 'connected' | 'ended'
+type CallAudioState = 'idle' | 'connecting' | 'dialing' | 'ringing' | 'connected' | 'ended' | 'disposition_pending'
 
 interface CallAudioFeedProps {
   callState: CallAudioState
@@ -129,6 +129,7 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect }: Ca
   // Handle call state changes
   useEffect(() => {
     switch (callState) {
+      case 'dialing':
       case 'ringing':
         playRingingTone()
         break
@@ -137,10 +138,12 @@ export default function CallAudioFeed({ callState, onConnect, onDisconnect }: Ca
         onConnect?.()
         break
       case 'ended':
+      case 'disposition_pending':
         stopAllAudio()
         onDisconnect?.()
         break
       case 'idle':
+      case 'connecting':
         stopAllAudio()
         break
     }
