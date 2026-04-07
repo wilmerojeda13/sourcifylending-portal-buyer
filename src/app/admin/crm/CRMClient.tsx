@@ -8,7 +8,7 @@ import {
   X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
   CheckCircle2, XCircle, Upload, Zap, Filter,
   LayoutList, Columns, Trash2, Bot, CheckSquare, Square, MinusSquare,
-  Archive,
+  Archive, Voicemail, PhoneMissed, Ban, Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import CRMWorkspaceNav from '@/components/crm/CRMWorkspaceNav'
@@ -71,6 +71,17 @@ interface CRMLead {
   analyzer_submitted?: boolean
   analyzer_submitted_at?: string | null
   created_at: string
+  // Smart lead scrubber fields
+  smart_status?: 'active' | 'voicemail_heavy' | 'unresponsive' | 'bad_number' | 'retry_later' | 'dnc' | 'nurture' | null
+  smart_status_confidence?: number | null
+  smart_status_reasons?: string[] | null
+  smart_status_updated_at?: string | null
+  smart_status_requires_review?: boolean | null
+  lead_health_score?: number | null
+  lead_health_tier?: number | null
+  lead_health_factors?: any | null
+  lead_health_recommendations?: string[] | null
+  last_scrubbed_at?: string | null
 }
 
 type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost' | 'active_client'
@@ -94,6 +105,25 @@ const PROGRAM_BADGE: Record<string, string> = {
   program_c: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
 }
 const PROGRAM_LABEL: Record<string, string> = { program_a: 'Prog A', program_b: 'Prog B', program_c: 'Prog C' }
+
+// Smart status constants
+const SMART_STATUS_CONFIG: Record<string, { label: string; color: string; dot: string; icon: React.ElementType }> = {
+  active: { label: 'Active', color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300', dot: 'bg-green-500', icon: CheckCircle2 },
+  voicemail_heavy: { label: 'Voicemail Heavy', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', dot: 'bg-amber-500', icon: Voicemail },
+  unresponsive: { label: 'Unresponsive', color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300', dot: 'bg-red-500', icon: PhoneMissed },
+  bad_number: { label: 'Bad Number', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', dot: 'bg-gray-500', icon: Ban },
+  retry_later: { label: 'Retry Later', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', dot: 'bg-blue-500', icon: Clock },
+  dnc: { label: 'DNC', color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300', dot: 'bg-red-700', icon: Ban },
+  nurture: { label: 'Nurture', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300', dot: 'bg-purple-500', icon: Users },
+}
+
+const HEALTH_TIER_CONFIG: Record<number, { label: string; color: string }> = {
+  1: { label: 'Excellent', color: 'text-green-600' },
+  2: { label: 'Good', color: 'text-blue-600' },
+  3: { label: 'Fair', color: 'text-amber-600' },
+  4: { label: 'Poor', color: 'text-orange-600' },
+  5: { label: 'Critical', color: 'text-red-600' },
+}
 
 const BOARD_PAGE_SIZE = 20
 
