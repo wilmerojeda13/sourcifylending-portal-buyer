@@ -786,7 +786,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
             <Ban size={12}/>
             <span className="whitespace-nowrap">DNC</span>
           </button>
-          <Link href={`/admin/voice/campaigns/new?crm_lead=${lead.id}`} target="_blank" rel="noopener noreferrer" className="hidden h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 font-medium dark:border-gray-700 sm:flex sm:h-auto sm:w-auto sm:px-2.5 sm:py-1.5">
+          <Link href={`/admin/voice/campaigns/new?crm_lead=${lead.id}`} target="_blank" rel="noopener noreferrer" className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 font-medium dark:border-gray-700 sm:h-auto sm:w-auto sm:px-2.5 sm:py-1.5">
             <Megaphone size={13}/>
           </Link>
           {!editing ? (

@@ -128,7 +128,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
 
   // Sync with URL params for CRM
   useEffect(() => {
-    if (pathname.startsWith('/admin/crm') && !pathname.includes('/admin/crm/')) {
+    if (pathname.startsWith('/admin/crm')) {
       setState(prev => ({
         ...prev,
         crm: {

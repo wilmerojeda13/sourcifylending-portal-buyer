@@ -745,7 +745,7 @@ export default function CRMClient() {
               <p className="text-xs text-gray-500">{total.toLocaleString()} leads</p>
             </div>
             <div className="flex items-center gap-2">
-              {/* Desktop-only action buttons */}
+              {/* Desktop action buttons */}
               <Link
                 href="/admin/crm/campaign"
                 target="_blank"
@@ -762,8 +762,12 @@ export default function CRMClient() {
               <Link href="/admin/crm/import" className="btn-secondary text-xs px-3 py-2 hidden sm:flex items-center gap-1.5">
                 <Upload size={13}/> Import
               </Link>
-              <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-3 sm:px-4 flex items-center gap-1.5 text-sm">
+              <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-3 sm:px-4 hidden sm:flex items-center gap-1.5 text-sm">
                 <Plus size={15}/> <span>Add Lead</span>
+              </button>
+              {/* Mobile action buttons */}
+              <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-3 sm:hidden flex items-center gap-1.5 text-sm">
+                <Plus size={15}/> <span>Add</span>
               </button>
             </div>
           </div>
