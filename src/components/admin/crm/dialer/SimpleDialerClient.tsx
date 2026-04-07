@@ -411,6 +411,39 @@ export default function SimpleDialerClient() {
     }, 500)
   }, [activeCallId, callDuration])
 
+  // Move to next lead
+  const moveToNextLead = useCallback(() => {
+    const nextIndex = index + 1
+    if (nextIndex < leads.length) {
+      setIndex(nextIndex)
+      setCurrentLead(leads[nextIndex])
+    } else {
+      // No more leads
+      setCurrentLead(null)
+      toast.success('All leads completed!')
+    }
+
+    // Reset call state
+    resetCallState()
+  }, [index, leads, resetCallState])
+
+  // Reset call state
+  const resetCallState = useCallback(() => {
+    setCallState('idle')
+    setCallDuration(0)
+    setCallStartTime(null)
+    setActiveCallId(null)
+    setCallProviderStatus(null)
+    setCallProviderMessage(null)
+    setNote('')
+    setNextFollowUpAt('')
+    setTemperature('cold')
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current)
+      callTimerRef.current = null
+    }
+  }, [])
+
   // Save disposition with error handling
   const saveDisposition = useCallback(async (disposition: DispositionOption) => {
     if (!currentLead) return
@@ -454,7 +487,7 @@ export default function SimpleDialerClient() {
       // Check if this was a terminal outcome and show appropriate message
       if (disposition.key === 'dnc' || disposition.key === 'not_interested' || disposition.outcome.includes('Bad Number') || disposition.outcome.includes('Wrong Number')) {
         toast(`${currentLead.first_name} removed from active dialing`, {
-          icon: '🚫',
+          icon: '??',
           duration: 5000,
         })
       }
@@ -477,39 +510,6 @@ export default function SimpleDialerClient() {
       setDispositionSaving(false)
     }
   }, [currentLead, note, nextFollowUpAt, temperature, callStartTime, callDuration, activeCallId, moveToNextLead])
-
-  // Reset call state
-  const resetCallState = useCallback(() => {
-    setCallState('idle')
-    setCallDuration(0)
-    setCallStartTime(null)
-    setActiveCallId(null)
-    setCallProviderStatus(null)
-    setCallProviderMessage(null)
-    setNote('')
-    setNextFollowUpAt('')
-    setTemperature('cold')
-    if (callTimerRef.current) {
-      clearInterval(callTimerRef.current)
-      callTimerRef.current = null
-    }
-  }, [])
-
-  // Move to next lead
-  const moveToNextLead = useCallback(() => {
-    const nextIndex = index + 1
-    if (nextIndex < leads.length) {
-      setIndex(nextIndex)
-      setCurrentLead(leads[nextIndex])
-    } else {
-      // No more leads
-      setCurrentLead(null)
-      toast.success('All leads completed!')
-    }
-
-    // Reset call state
-    resetCallState()
-  }, [index, leads, resetCallState])
 
   // Skip current lead
   const skipLead = useCallback(() => {
