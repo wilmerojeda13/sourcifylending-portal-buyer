@@ -411,22 +411,6 @@ export default function SimpleDialerClient() {
     }, 500)
   }, [activeCallId, callDuration])
 
-  // Move to next lead
-  const moveToNextLead = useCallback(() => {
-    const nextIndex = index + 1
-    if (nextIndex < leads.length) {
-      setIndex(nextIndex)
-      setCurrentLead(leads[nextIndex])
-    } else {
-      // No more leads
-      setCurrentLead(null)
-      toast.success('All leads completed!')
-    }
-
-    // Reset call state
-    resetCallState()
-  }, [index, leads, resetCallState])
-
   // Reset call state
   const resetCallState = useCallback(() => {
     setCallState('idle')
@@ -443,6 +427,22 @@ export default function SimpleDialerClient() {
       callTimerRef.current = null
     }
   }, [])
+
+  // Move to next lead
+  const moveToNextLead = useCallback(() => {
+    const nextIndex = index + 1
+    if (nextIndex < leads.length) {
+      setIndex(nextIndex)
+      setCurrentLead(leads[nextIndex])
+    } else {
+      // No more leads
+      setCurrentLead(null)
+      toast.success('All leads completed!')
+    }
+
+    // Reset call state
+    resetCallState()
+  }, [index, leads, resetCallState])
 
   // Save disposition with error handling
   const saveDisposition = useCallback(async (disposition: DispositionOption) => {
