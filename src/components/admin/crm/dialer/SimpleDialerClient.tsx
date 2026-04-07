@@ -691,7 +691,7 @@ export default function SimpleDialerClient() {
                       <VolumeX size={48} className="mx-auto mb-4" />
                       <p>Connect browser audio to start dialing</p>
                     </div>
-                  ) : callState === 'idle' ? (
+                  ) : callState === 'idle' && sessionActive && currentLead ? (
                     <button
                       onClick={() => dialLead(currentLead)}
                       className="w-full py-4 bg-green-600 hover:bg-green-700 rounded-lg font-semibold text-lg flex items-center justify-center gap-2"
