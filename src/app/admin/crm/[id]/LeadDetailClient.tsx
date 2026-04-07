@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { CRMBackButton } from '@/components/ui/SmartBackButton'
 import {
-  ChevronLeft, Phone, Mail, Building2, Calendar, Edit3, Save,
+  Phone, Mail, Building2, Calendar, Edit3, Save,
   X, Loader2, MessageSquare, PhoneCall, CheckCircle2,
   Megaphone, Trash2, Ban, CalendarPlus, ExternalLink,
 } from 'lucide-react'
@@ -770,12 +771,8 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
       <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 px-3 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:px-4 sm:py-3">
         <div className="mx-auto flex max-w-5xl items-start justify-between gap-3 sm:items-center">
         <div className="min-w-0 flex-1">
-          <Link href="/admin" className="text-xs text-gray-400 hover:text-green-600 font-medium inline-flex items-center gap-0.5 leading-none mb-0.5">
-            <ChevronLeft size={12}/> Admin
-          </Link>
-            <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-500 hover:text-green-700 font-medium">
-            <ChevronLeft size={18}/> Leads
-          </Link>
+          <CRMBackButton className="text-xs text-gray-400 hover:text-green-600 font-medium inline-flex items-center gap-0.5 leading-none mb-0.5" />
+          <CRMBackButton className="flex items-center gap-1 text-sm text-gray-500 hover:text-green-700 font-medium" showLabel={true} size="md" />
         </div>
         <div className="ml-auto flex max-w-[54%] flex-wrap items-center justify-end gap-2 sm:max-w-none sm:flex-nowrap sm:gap-1.5">
           <button

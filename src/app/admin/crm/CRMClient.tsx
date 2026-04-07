@@ -14,6 +14,9 @@ import { cn } from '@/lib/utils'
 import CRMWorkspaceNav from '@/components/crm/CRMWorkspaceNav'
 import CRMSalesOverview from '@/components/crm/CRMSalesOverview'
 import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMirror'
+import { useCRMNavigationState, buildCRMUrl } from '@/contexts/NavigationContext'
+import { CRMBackButton } from '@/components/ui/SmartBackButton'
+import { useWindowScrollPosition } from '@/hooks/useScrollPosition'
 import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -467,21 +470,37 @@ function ListBatchControls({
 export default function CRMClient() {
   const searchParams = useSearchParams()
   const focus = searchParams.get('focus') === 'leads' ? 'leads' : 'overview'
+  const { crmState, saveCRMState, saveScrollPosition, getScrollPosition } = useCRMNavigationState()
+  useWindowScrollPosition('crm-main', { threshold: 50, debounceMs: 150 })
   const [leads, setLeads]           = useState<CRMLead[]>([])
   const [loading, setLoading]       = useState(true)
-  const [search, setSearch]         = useState(searchParams.get('search') ?? '')
-  const [stageFilter, setStageFilter] = useState(searchParams.get('stage') ?? '')
-  const [temperatureFilter, setTemperatureFilter] = useState(searchParams.get('temperature') ?? '')
-  const [callabilityFilter, setCallabilityFilter] = useState(searchParams.get('callability') ?? '')
-  const [openTasksOnly, setOpenTasksOnly] = useState(searchParams.get('open_tasks') === 'true')
+  const [search, setSearch]         = useState(crmState.search || searchParams.get('search') || '')
+  const [stageFilter, setStageFilter] = useState(crmState.stage || searchParams.get('stage') || '')
+  const [temperatureFilter, setTemperatureFilter] = useState(crmState.temperature || searchParams.get('temperature') || '')
+  const [callabilityFilter, setCallabilityFilter] = useState(crmState.callability || searchParams.get('callability') || '')
+  const [openTasksOnly, setOpenTasksOnly] = useState(crmState.openTasksOnly || searchParams.get('open_tasks') === 'true')
   const [showNew, setShowNew]       = useState(false)
   const [showCleanup, setShowCleanup] = useState(false)
-  const [view, setView]             = useState<'list' | 'board'>(searchParams.get('view') === 'board' ? 'board' : 'list')
-  const [listPage, setListPage]     = useState(1)
-  const [boardPages, setBoardPages] = useState<Record<string, number>>({})
+  const [view, setView]             = useState<'list' | 'board'>(crmState.view || (searchParams.get('view') === 'board' ? 'board' : 'list'))
+  const [listPage, setListPage]     = useState(crmState.listPage || 1)
+  const [boardPages, setBoardPages] = useState<Record<string, number>>(crmState.boardPages || {})
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkStageOpen, setBulkStageOpen] = useState(false)
+
+  // Save CRM state to navigation context whenever it changes
+  useEffect(() => {
+    saveCRMState({
+      search,
+      stage: stageFilter,
+      temperature: temperatureFilter,
+      callability: callabilityFilter,
+      openTasksOnly,
+      view,
+      listPage,
+      boardPages,
+    })
+  }, [search, stageFilter, temperatureFilter, callabilityFilter, openTasksOnly, view, listPage, boardPages, saveCRMState])
 
   useEffect(() => {
     setView(searchParams.get('view') === 'board' ? 'board' : 'list')
@@ -690,9 +709,7 @@ export default function CRMClient() {
         <div className="max-w-screen-xl mx-auto px-4 pt-4 pb-3">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <Link href="/admin" className="text-xs text-gray-400 hover:text-green-600 font-medium mb-0.5 inline-flex items-center gap-1">
-                <ChevronLeft size={13}/> Admin Portal
-              </Link>
+              <CRMBackButton className="text-xs text-gray-400 hover:text-green-600 font-medium mb-0.5 inline-flex items-center gap-1" />
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Sales CRM</h1>
               <p className="text-xs text-gray-500">{total.toLocaleString()} leads</p>
             </div>
