@@ -8,15 +8,12 @@ import {
   X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
   CheckCircle2, XCircle, Upload, Zap, Filter,
   LayoutList, Columns, Trash2, Bot, CheckSquare, Square, MinusSquare,
-  Archive, Voicemail, PhoneMissed, Ban, Clock,
+  Archive,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import CRMWorkspaceNav from '@/components/crm/CRMWorkspaceNav'
 import CRMSalesOverview from '@/components/crm/CRMSalesOverview'
 import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMirror'
-import { useCRMNavigationState, buildCRMUrl } from '@/contexts/NavigationContext'
-import { CRMBackButton } from '@/components/ui/SmartBackButton'
-import { useWindowScrollPosition } from '@/hooks/useScrollPosition'
 import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -71,17 +68,6 @@ interface CRMLead {
   analyzer_submitted?: boolean
   analyzer_submitted_at?: string | null
   created_at: string
-  // Smart lead scrubber fields
-  smart_status?: 'active' | 'voicemail_heavy' | 'unresponsive' | 'bad_number' | 'retry_later' | 'dnc' | 'nurture' | null
-  smart_status_confidence?: number | null
-  smart_status_reasons?: string[] | null
-  smart_status_updated_at?: string | null
-  smart_status_requires_review?: boolean | null
-  lead_health_score?: number | null
-  lead_health_tier?: number | null
-  lead_health_factors?: any | null
-  lead_health_recommendations?: string[] | null
-  last_scrubbed_at?: string | null
 }
 
 type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost' | 'active_client'
@@ -105,25 +91,6 @@ const PROGRAM_BADGE: Record<string, string> = {
   program_c: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
 }
 const PROGRAM_LABEL: Record<string, string> = { program_a: 'Prog A', program_b: 'Prog B', program_c: 'Prog C' }
-
-// Smart status constants
-const SMART_STATUS_CONFIG: Record<string, { label: string; color: string; dot: string; icon: React.ElementType }> = {
-  active: { label: 'Active', color: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300', dot: 'bg-green-500', icon: CheckCircle2 },
-  voicemail_heavy: { label: 'Voicemail Heavy', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', dot: 'bg-amber-500', icon: Voicemail },
-  unresponsive: { label: 'Unresponsive', color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300', dot: 'bg-red-500', icon: PhoneMissed },
-  bad_number: { label: 'Bad Number', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', dot: 'bg-gray-500', icon: Ban },
-  retry_later: { label: 'Retry Later', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300', dot: 'bg-blue-500', icon: Clock },
-  dnc: { label: 'DNC', color: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300', dot: 'bg-red-700', icon: Ban },
-  nurture: { label: 'Nurture', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300', dot: 'bg-purple-500', icon: Users },
-}
-
-const HEALTH_TIER_CONFIG: Record<number, { label: string; color: string }> = {
-  1: { label: 'Excellent', color: 'text-green-600' },
-  2: { label: 'Good', color: 'text-blue-600' },
-  3: { label: 'Fair', color: 'text-amber-600' },
-  4: { label: 'Poor', color: 'text-orange-600' },
-  5: { label: 'Critical', color: 'text-red-600' },
-}
 
 const BOARD_PAGE_SIZE = 20
 
@@ -500,41 +467,24 @@ function ListBatchControls({
 export default function CRMClient() {
   const searchParams = useSearchParams()
   const focus = searchParams.get('focus') === 'leads' ? 'leads' : 'overview'
-  const { crmState, saveCRMState, saveScrollPosition, getScrollPosition } = useCRMNavigationState()
-  useWindowScrollPosition('crm-main', { threshold: 50, debounceMs: 150 })
   const [leads, setLeads]           = useState<CRMLead[]>([])
   const [loading, setLoading]       = useState(true)
-  const [search, setSearch]         = useState(crmState.search || searchParams.get('search') || '')
-  const [stageFilter, setStageFilter] = useState(crmState.stage || searchParams.get('stage') || '')
-  const [temperatureFilter, setTemperatureFilter] = useState(crmState.temperature || searchParams.get('temperature') || '')
-  const [callabilityFilter, setCallabilityFilter] = useState(crmState.callability || searchParams.get('callability') || '')
-  const [openTasksOnly, setOpenTasksOnly] = useState(crmState.openTasksOnly || searchParams.get('open_tasks') === 'true')
+  const [search, setSearch]         = useState(searchParams.get('search') ?? '')
+  const [stageFilter, setStageFilter] = useState(searchParams.get('stage') ?? '')
+  const [temperatureFilter, setTemperatureFilter] = useState(searchParams.get('temperature') ?? '')
+  const [callabilityFilter, setCallabilityFilter] = useState(searchParams.get('callability') ?? '')
+  const [openTasksOnly, setOpenTasksOnly] = useState(searchParams.get('open_tasks') === 'true')
   const [showNew, setShowNew]       = useState(false)
   const [showCleanup, setShowCleanup] = useState(false)
-  const [view, setView]             = useState<'list' | 'board'>((searchParams.get('view') === 'board' ? 'board' : 'list'))
-  const [listPage, setListPage]     = useState(crmState.listPage || 1)
-  const [boardPages, setBoardPages] = useState<Record<string, number>>(crmState.boardPages || {})
+  const [view, setView]             = useState<'list' | 'board'>(searchParams.get('view') === 'board' ? 'board' : 'list')
+  const [listPage, setListPage]     = useState(1)
+  const [boardPages, setBoardPages] = useState<Record<string, number>>({})
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkStageOpen, setBulkStageOpen] = useState(false)
 
-  // Save CRM state to navigation context whenever it changes
   useEffect(() => {
-    saveCRMState({
-      search,
-      stage: stageFilter,
-      temperature: temperatureFilter,
-      callability: callabilityFilter,
-      openTasksOnly,
-      view,
-      listPage,
-      boardPages,
-    })
-  }, [search, stageFilter, temperatureFilter, callabilityFilter, openTasksOnly, view, listPage, boardPages, saveCRMState])
-
-  useEffect(() => {
-    const newView = searchParams.get('view') === 'board' ? 'board' : 'list'
-    setView(newView)
+    setView(searchParams.get('view') === 'board' ? 'board' : 'list')
     setStageFilter(searchParams.get('stage') ?? '')
     setTemperatureFilter(searchParams.get('temperature') ?? '')
     setCallabilityFilter(searchParams.get('callability') ?? '')
@@ -740,12 +690,14 @@ export default function CRMClient() {
         <div className="max-w-screen-xl mx-auto px-4 pt-4 pb-3">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <CRMBackButton className="text-xs text-gray-400 hover:text-green-600 font-medium mb-0.5 inline-flex items-center gap-1" />
+              <Link href="/admin" className="text-xs text-gray-400 hover:text-green-600 font-medium mb-0.5 inline-flex items-center gap-1">
+                <ChevronLeft size={13}/> Admin Portal
+              </Link>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Sales CRM</h1>
               <p className="text-xs text-gray-500">{total.toLocaleString()} leads</p>
             </div>
             <div className="flex items-center gap-2">
-              {/* Desktop action buttons */}
+              {/* Desktop-only action buttons */}
               <Link
                 href="/admin/crm/campaign"
                 target="_blank"
@@ -762,12 +714,8 @@ export default function CRMClient() {
               <Link href="/admin/crm/import" className="btn-secondary text-xs px-3 py-2 hidden sm:flex items-center gap-1.5">
                 <Upload size={13}/> Import
               </Link>
-              <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-3 sm:px-4 hidden sm:flex items-center gap-1.5 text-sm">
+              <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-3 sm:px-4 flex items-center gap-1.5 text-sm">
                 <Plus size={15}/> <span>Add Lead</span>
-              </button>
-              {/* Mobile action buttons */}
-              <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-3 sm:hidden flex items-center gap-1.5 text-sm">
-                <Plus size={15}/> <span>Add</span>
               </button>
             </div>
           </div>

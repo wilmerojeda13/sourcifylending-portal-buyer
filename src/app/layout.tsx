@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
-import { NavigationProvider } from '@/contexts/NavigationContext'
 import NotificationRuntime from '@/components/notifications/NotificationRuntime'
 
 export const metadata: Metadata = {
@@ -35,9 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          <NavigationProvider>
-            {children}
-          </NavigationProvider>
+          {children}
           <NotificationRuntime />
           <Toaster
             position="top-right"
