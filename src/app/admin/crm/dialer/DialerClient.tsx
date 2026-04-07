@@ -2028,7 +2028,7 @@ useEffect(() => {
                   </div>
                 </div>
 
-                {current.email && (
+                {current?.email && (
                   <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-950 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Invite Actions</p>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
