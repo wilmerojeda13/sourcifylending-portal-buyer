@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import DialerClient from '@/components/admin/crm/dialer/DialerClient'
+import DialerClient from './DialerClient'
 
 export const metadata = { title: 'Power Dialer — CRM' }
 

@@ -366,6 +366,15 @@ export async function POST(req: NextRequest) {
         ? `Lead attempt launched on line ${queueSlot}.`
         : 'Dialing lead into your live Twilio rep session.',
     })
+
+    } catch (dialError: unknown) {
+    console.log('[CRM DIAL] ERROR: Failed to create Twilio call:', dialError)
+    
+    // Cleanup failed call record
+    if (!admin) {
+      console.log('[CRM DIAL] ERROR: Admin is null in catch block')
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
     
     await admin.supabase
       .from('crm_calls')
@@ -399,7 +408,7 @@ export async function POST(req: NextRequest) {
     }, { status: 500 })
   }
   
-  console.log('[CRM DIAL] === PRODUCTION DIALER TRACE END ===')
+  console.log('[CRM DIAL] === PRODUCTION DIALER TRACE END ===');
 }
 
 export async function DELETE(req: NextRequest) {
