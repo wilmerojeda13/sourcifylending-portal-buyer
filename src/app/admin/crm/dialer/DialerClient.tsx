@@ -1289,7 +1289,8 @@ useEffect(() => {
       setSession(launchedSession)
       setCallStartedAt(new Date().toISOString())
       setCallProviderStatus(json.twilio_status ?? 'queued')
-      setCallProviderMessage(json.message ?? `Line ${json.queue_slot ?? tempQueueSlot} — ${dialLead.first_name} ${dialLead.last_name} dialing...`)
+      // Only show message if real Twilio call was created successfully
+      setCallProviderMessage(json.message ?? (json.call_id ? `Line ${json.queue_slot ?? tempQueueSlot} — ${dialLead.first_name} ${dialLead.last_name} dialing...` : 'Initializing call...'))
 
       const launchedParallel = Math.min(Math.max(launchedSession?.target_parallel_lines ?? targetParallelLines, 1), 5) > 1
       if (!launchedParallel) {
@@ -1858,27 +1859,29 @@ useEffect(() => {
                     {/* Action buttons — right side */}
                     {!session ? null : (
                       <div className="flex gap-2">
-                        {/* End Call button - hang up current call and advance */}
-                        <button
-                          type="button"
-                          onClick={hangUpCurrentCall}
-                          disabled={sessionBusy}
-                          className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-950/40 border border-red-500/20 px-3 py-2 text-sm font-semibold text-red-200 transition-colors hover:bg-red-950/60"
-                        >
-                          {sessionBusy ? <Loader2 size={14} className="animate-spin" /> : <PhoneOff size={14} />}
-                          End Call
-                        </button>
-                        
-                        {/* End Session button - end entire session */}
-                        <button
-                          type="button"
-                          onClick={setNotReady}
-                          disabled={sessionBusy}
-                          className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-600 border border-red-500/20 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 active:scale-[0.98]"
-                        >
-                          {sessionBusy ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
-                          End Session
-                        </button>
+                        {/* End Call button - hang up current call only, keep browser audio */}
+                        {(called || activeCallId) ? (
+                          <button
+                            type="button"
+                            onClick={hangUpCurrentCall}
+                            disabled={sessionBusy}
+                            className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-950/40 border border-red-500/20 px-3 py-2 text-sm font-semibold text-red-200 transition-colors hover:bg-red-950/60"
+                          >
+                            {sessionBusy ? <Loader2 size={14} className="animate-spin" /> : <PhoneOff size={14} />}
+                            End Call
+                          </button>
+                        ) : (
+                          /* End Session button - end entire session (only when no active call) */
+                          <button
+                            type="button"
+                            onClick={setNotReady}
+                            disabled={sessionBusy}
+                            className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-600 border border-red-500/20 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 active:scale-[0.98]"
+                          >
+                            {sessionBusy ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
+                            End Session
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
