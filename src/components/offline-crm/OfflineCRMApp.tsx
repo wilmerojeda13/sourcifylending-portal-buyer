@@ -380,7 +380,7 @@ export default function OfflineCRMApp() {
                     <p className="mt-1 text-sm text-gray-400">{selectedLead.business_name || 'No business name'} · {selectedLead.email || 'No email on file'}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <a href={`tel:${selectedLead.phone}`} className="rounded-2xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"><Phone className="mr-2 inline h-4 w-4" />Call</a>
+                    <a href={`tel:${selectedLead.phone}`} target="_blank" rel="noopener noreferrer" className="rounded-2xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500"><Phone className="mr-2 inline h-4 w-4" />Call</a>
                     <button onClick={saveLeadDetail} className="rounded-2xl border border-gray-700 bg-gray-950 px-4 py-2 text-sm font-medium text-gray-200">Save local changes</button>
                   </div>
                 </div>

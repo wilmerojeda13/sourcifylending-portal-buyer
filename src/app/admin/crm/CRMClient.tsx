@@ -331,6 +331,8 @@ function LeadCard({ lead, selected, onToggle }: { lead: CRMLead; selected?: bool
         </div>
         <a
           href={`tel:${lead.phone}`}
+          target="_blank"
+          rel="noopener noreferrer"
           onClick={e => e.stopPropagation()}
           className="text-xs text-green-600 dark:text-green-400 shrink-0 hidden lg:block hover:underline"
         >

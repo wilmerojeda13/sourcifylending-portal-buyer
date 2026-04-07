@@ -304,6 +304,8 @@ export default function OfflineCRMDialer() {
 
               <a
                 href={`tel:${current.phone}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={() => {
                   setCalled(true)
                   setCallStartedAt(new Date().toISOString())

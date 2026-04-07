@@ -529,7 +529,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
         blocked_until_label: json.blocked_until_label,
       }))
 
-      window.location.href = `tel:${json.phone_e164 || lead.phone}`
+      window.open(`tel:${json.phone_e164 || lead.phone}`, '_blank')
     } catch {
       toast.error('Unable to verify the calling window right now.')
     } finally {
@@ -821,7 +821,7 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
               {lead.do_not_call && <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">DNC</span>}
             </h1>
             {lead.business_name && <p className="text-sm text-gray-500 flex items-center gap-1"><Building2 size={12}/> {lead.business_name}</p>}
-            <a href={`tel:${lead.phone}`} className="text-base font-semibold text-green-600 flex items-center gap-1.5 mt-1">
+            <a href={`tel:${lead.phone}`} target="_blank" rel="noopener noreferrer" className="text-base font-semibold text-green-600 flex items-center gap-1.5 mt-1">
               <Phone size={15}/> {lead.phone}
             </a>
           </div>
