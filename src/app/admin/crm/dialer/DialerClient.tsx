@@ -287,7 +287,7 @@ export default function DialerClient() {
   const [sessionBusy, setSessionBusy] = useState(false)
   const [pacingBusy, setPacingBusy] = useState(false)
   const [deviceStatus, setDeviceStatus] = useState<'offline' | 'connecting' | 'connected' | 'error'>('offline')
-  const [dialerMode, setDialerMode] = useState<'power' | 'manual'>('power')
+  const [dialerMode, setDialerMode] = useState<'power' | 'manual'>('manual')
   const [connectionMode, setConnectionMode] = useState<'browser' | 'phone'>('browser')
   const [profileActionHref, setProfileActionHref] = useState<string | null>(null)
   const [repPhoneConfigured, setRepPhoneConfigured] = useState(false)
@@ -869,7 +869,7 @@ useEffect(() => {
       console.log('[Dialer] Starting setReady with connectionMode:', connectionMode)
       const requestBody = {
         mode: connectionMode,
-        target_parallel_lines: dialerMode === 'power' ? 3 : 1,
+        target_parallel_lines: 1,
       }
       console.log('[Dialer] Session request body:', requestBody)
       
@@ -1756,33 +1756,12 @@ useEffect(() => {
                   {/* Go Live section — no session */}
                   {!session && (
                     <div className="mt-3 space-y-2.5">
-                      <div className="flex flex-wrap gap-2">
-                        <div className="flex rounded-xl bg-gray-950 p-1 border border-white/5">
-                          <button type="button" onClick={() => setDialerMode('power')}
-                            className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', dialerMode === 'power' ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
-                            Power (3-Line)
-                          </button>
-                          <button type="button" onClick={() => setDialerMode('manual')}
-                            className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', dialerMode === 'manual' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
-                            Manual
-                          </button>
-                        </div>
-                        <div className="flex rounded-xl bg-gray-950 p-1 border border-white/5">
-                          <button type="button" onClick={() => setConnectionMode('browser')}
-                            className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', connectionMode === 'browser' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
-                            Browser
-                          </button>
-                          <button type="button" onClick={() => setConnectionMode('phone')}
-                            className={cn('rounded-lg px-3 py-2 text-xs font-bold transition-all', connectionMode === 'phone' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200')}>
-                            Phone
-                          </button>
-                        </div>
-                      </div>
+                      {/* Hidden controls - always single-line browser mode */}
+                      <input type="hidden" value="manual" />
+                      <input type="hidden" value="browser" />
                       <button type="button" onClick={setReady} disabled={sessionBusy || sessionLoading}
                         className={cn('flex w-full items-center justify-center gap-2 rounded-xl py-4 text-base font-bold transition-all active:scale-[0.98]',
-                          dialerMode === 'power' && connectionMode === 'browser'
-                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 hover:bg-green-500'
-                            : 'bg-gray-100 text-gray-900 hover:bg-white')}>
+                          'bg-green-600 text-white shadow-lg shadow-green-900/20 hover:bg-green-500')}>
                         {sessionBusy ? <Loader2 size={18} className="animate-spin" /> : <Phone size={18} />}
                         Go Live (Ready)
                       </button>
