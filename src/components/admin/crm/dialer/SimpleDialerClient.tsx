@@ -65,6 +65,20 @@ const DTMF_FREQUENCIES: Record<string, [number, number]> = {
   '*': [941, 1209], '0': [941, 1336], '#': [941, 1477],
 }
 
+// Stage options for filtering
+const STAGE_OPTIONS: { value: Stage | 'all'; label: string; color: string }[] = [
+  { value: 'all', label: 'All Stages', color: 'bg-gray-500' },
+  { value: 'new', label: 'New', color: 'bg-blue-500' },
+  { value: 'contacted', label: 'Contacted', color: 'bg-purple-500' },
+  { value: 'qualified', label: 'Qualified', color: 'bg-green-500' },
+  { value: 'demo_scheduled', label: 'Demo Scheduled', color: 'bg-indigo-500' },
+  { value: 'demo_held', label: 'Demo Held', color: 'bg-cyan-500' },
+  { value: 'follow_up', label: 'Follow Up', color: 'bg-amber-500' },
+  { value: 'closed_won', label: 'Closed Won', color: 'bg-emerald-500' },
+  { value: 'closed_lost', label: 'Closed Lost', color: 'bg-red-500' },
+  { value: 'active_client', label: 'Active Client', color: 'bg-teal-500' },
+]
+
 // Disposition options
 const DISPOSITION_OPTIONS: DispositionOption[] = [
   { key: 'interested', label: 'Interested', icon: ThumbsUp, color: 'bg-green-500 hover:bg-green-600 text-white', outcome: 'Interested', newStage: 'qualified' },
@@ -82,10 +96,16 @@ const DISPOSITION_OPTIONS: DispositionOption[] = [
 export default function SimpleDialerClient() {
   // Core state
   const [leads, setLeads] = useState<CRMLead[]>([])
+  const [filteredLeads, setFilteredLeads] = useState<CRMLead[]>([])
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [callState, setCallState] = useState<CallState>('idle')
   const [currentLead, setCurrentLead] = useState<CRMLead | null>(null)
+  
+  // Filtering and search state
+  const [selectedStage, setSelectedStage] = useState<Stage | 'all'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
   
   // Audio state
   const [audioDevice, setAudioDevice] = useState<MediaStream | null>(null)
@@ -111,6 +131,39 @@ export default function SimpleDialerClient() {
   const callTimerRef = useRef<NodeJS.Timeout | null>(null)
   const supabaseRef = useRef<any>(null)
 
+  // Apply filters to leads
+  const applyFilters = useCallback(() => {
+    let filtered = leads
+
+    // Stage filter
+    if (selectedStage !== 'all') {
+      filtered = filtered.filter(lead => lead.stage === selectedStage)
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(lead => 
+        lead.first_name.toLowerCase().includes(query) ||
+        lead.last_name.toLowerCase().includes(query) ||
+        lead.business_name?.toLowerCase().includes(query) ||
+        lead.email?.toLowerCase().includes(query) ||
+        lead.phone.includes(query)
+      )
+    }
+
+    setFilteredLeads(filtered)
+    
+    // Reset index and current lead
+    if (filtered.length > 0) {
+      setIndex(0)
+      setCurrentLead(filtered[0])
+    } else {
+      setIndex(0)
+      setCurrentLead(null)
+    }
+  }, [leads, selectedStage, searchQuery])
+
   // Initialize audio context
   useEffect(() => {
     audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -127,42 +180,27 @@ export default function SimpleDialerClient() {
     try {
       const supabase = await createSupabaseBrowserClient()
       supabaseRef.current = supabase
-      
+
       const { data, error } = await supabase
         .from('crm_leads')
         .select('*')
-        .eq('do_not_call', false)
         .eq('is_archived', false)
-        .order('follow_up_at', { ascending: true })
+        .neq('do_not_call', true)
         .order('created_at', { ascending: false })
-        .limit(100)
+        .limit(1000)
 
       if (error) throw error
-      
-      // Filter leads by dialer eligibility
-      const eligibleLeads = (data || []).filter(lead => {
-        const eligibility = checkDialerEligibility(lead)
-        if (!eligibility.is_eligible) {
-          console.log(`Lead ${lead.id} excluded: ${eligibility.exclusion_reason}`)
-        }
-        return eligibility.is_eligible
-      })
-      
+
+      const eligibleLeads = data.filter(lead => 
+        checkDialerEligibility(lead).is_eligible
+      )
+
       setLeads(eligibleLeads)
+      setFilteredLeads(eligibleLeads)
+      
       if (eligibleLeads.length > 0) {
         setCurrentLead(eligibleLeads[0])
-        setIndex(0)
       }
-      
-      // Show notification if any leads were excluded
-      const excludedCount = (data || []).length - eligibleLeads.length
-      if (excludedCount > 0) {
-        toast(`${excludedCount} leads excluded due to terminal outcomes or scheduling`, {
-          icon: '⚠️',
-          duration: 4000,
-        })
-      }
-      
     } catch (error) {
       console.error('Failed to load leads:', error)
       toast.error('Failed to load leads')
@@ -431,9 +469,9 @@ export default function SimpleDialerClient() {
   // Move to next lead
   const moveToNextLead = useCallback(() => {
     const nextIndex = index + 1
-    if (nextIndex < leads.length) {
+    if (nextIndex < filteredLeads.length) {
       setIndex(nextIndex)
-      setCurrentLead(leads[nextIndex])
+      setCurrentLead(filteredLeads[nextIndex])
     } else {
       // No more leads
       setCurrentLead(null)
@@ -442,7 +480,7 @@ export default function SimpleDialerClient() {
 
     // Reset call state
     resetCallState()
-  }, [index, leads, resetCallState])
+  }, [index, filteredLeads, resetCallState])
 
   // Save disposition with error handling
   const saveDisposition = useCallback(async (disposition: DispositionOption) => {
@@ -516,6 +554,11 @@ export default function SimpleDialerClient() {
     moveToNextLead()
   }, [moveToNextLead])
 
+  // Apply filters when dependencies change
+  useEffect(() => {
+    applyFilters()
+  }, [applyFilters])
+
   // Initialize
   useEffect(() => {
     loadLeads()
@@ -562,25 +605,61 @@ export default function SimpleDialerClient() {
   return (
     <div className="min-h-screen bg-gray-950 text-white p-4">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Power Dialer</h1>
-          <div className="flex items-center gap-4">
-            {!sessionActive ? (
-              <button
-                onClick={initializeAudio}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-medium"
-              >
-                <Volume2 size={20} />
-                Connect Audio
-              </button>
-            ) : (
-              <div className="flex items-center gap-2 px-4 py-2 bg-green-600/20 border border-green-600 rounded-lg">
-                <Volume2 size={20} className="text-green-400" />
-                <span className="text-green-400">Audio Connected</span>
-              </div>
-            )}
+        {/* Header with Filters */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold">Power Dialer</h2>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm flex items-center gap-2 transition-colors"
+            >
+              <Filter size={16} />
+              Filters
+            </button>
           </div>
+
+          {/* Filters Panel */}
+          {showFilters && (
+            <div className="bg-gray-800 rounded-lg p-4 space-y-3">
+              {/* Stage Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Filter by Stage:</label>
+                <div className="flex flex-wrap gap-2">
+                  {STAGE_OPTIONS.map(stage => (
+                    <button
+                      key={stage.value}
+                      onClick={() => setSelectedStage(stage.value)}
+                      className={cn(
+                        'px-3 py-1 rounded-full text-xs font-medium transition-colors',
+                        selectedStage === stage.value
+                          ? `${stage.color} text-white`
+                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      )}
+                    >
+                      {stage.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Search Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Search Leads:</label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name, email, phone, or company..."
+                  className="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+                />
+              </div>
+
+              {/* Results Count */}
+              <div className="text-sm text-gray-400">
+                Showing {filteredLeads.length} of {leads.length} leads
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Main Content */}
@@ -657,100 +736,113 @@ export default function SimpleDialerClient() {
                     </button>
                   ) : callState === 'connected' ? (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-center gap-2 text-green-400">
-                        <Icon size={24} className={callStateDisplay.animate ? 'animate-pulse' : ''} />
-                        <span className="font-medium">{callStateDisplay.label}</span>
-                      </div>
-                      
-                      {/* Softphone Keypad */}
-                      <div className="grid grid-cols-3 gap-2">
-                        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(digit => (
-                          <button
-                            key={digit}
-                            onClick={() => playDTMFTone(digit)}
-                            className="py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-mono text-lg"
-                          >
-                            {digit}
-                          </button>
-                        ))}
+                      <div className="text-center">
+                        <Icon size={32} className={callStateDisplay.color + ' mx-auto mb-2'} />
+                        <p className={callStateDisplay.color}>{callStateDisplay.label}</p>
+                        <div className="text-2xl font-mono mt-2">
+                          {Math.floor(callDuration / 60)}:{(callDuration % 60).toString().padStart(2, '0')}
+                        </div>
                       </div>
 
-                      <button
-                        onClick={endCall}
-                        className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold flex items-center justify-center gap-2"
-                      >
-                        <PhoneOff size={20} />
-                        End Call
-                      </button>
+                      {/* Call Controls */}
+                      <div className="space-y-3">
+                        <button
+                          onClick={endCall}
+                          className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <PhoneOff size={20} />
+                          End Call
+                        </button>
+
+                        {/* DTMF Keypad */}
+                        <div className="bg-gray-800 rounded-lg p-3">
+                          <h4 className="text-sm font-medium text-gray-400 mb-2 text-center">DTMF Keypad</h4>
+                          <div className="grid grid-cols-3 gap-2">
+                            {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(digit => (
+                              <button
+                                key={digit}
+                                onClick={() => playDTMFTone(digit)}
+                                className="py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white font-mono text-lg transition-colors"
+                              >
+                                {digit}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ) : callState === 'disposition_pending' ? (
                     <div className="space-y-4">
                       <div className="text-center">
                         <Icon size={32} className={callStateDisplay.color + ' mx-auto mb-2'} />
                         <p className={callStateDisplay.color}>{callStateDisplay.label}</p>
+                        <div className="text-sm text-gray-400 mt-1">
+                          Call Duration: {Math.floor(callDuration / 60)}:{(callDuration % 60).toString().padStart(2, '0')}
+                        </div>
                       </div>
 
                       {/* Disposition Options */}
-                      <div className="grid grid-cols-2 gap-2">
-                        {DISPOSITION_OPTIONS.map(disposition => (
-                          <button
-                            key={disposition.key}
-                            onClick={() => saveDisposition(disposition)}
-                            disabled={dispositionSaving}
-                            className={cn(
-                              'p-2 rounded-lg font-medium flex items-center justify-center gap-1 text-sm',
-                              disposition.color,
-                              'disabled:opacity-50 disabled:cursor-not-allowed'
-                            )}
-                          >
-                            <disposition.icon size={14} />
-                            {disposition.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Call Notes */}
                       <div>
-                        <label className="block text-sm font-medium mb-2">Call Notes</label>
-                        <textarea
-                          value={note}
-                          onChange={(e) => setNote(e.target.value)}
-                          placeholder="Add notes about this call..."
-                          className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg resize-none h-20"
-                        />
-                      </div>
-
-                      {/* Follow-up */}
-                      <div>
-                        <label className="block text-sm font-medium mb-2">Follow-up (optional)</label>
-                        <input
-                          type="datetime-local"
-                          value={nextFollowUpAt}
-                          onChange={(e) => setNextFollowUpAt(e.target.value)}
-                          className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg"
-                        />
-                      </div>
-
-                      {/* Temperature */}
-                      <div>
-                        <label className="block text-sm font-medium mb-2">Lead Temperature</label>
-                        <div className="flex gap-2">
-                          {(['cold', 'warm', 'hot'] as const).map(temp => (
+                        <h4 className="text-sm font-medium text-gray-400 mb-2">Select Disposition:</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {DISPOSITION_OPTIONS.map(disposition => (
                             <button
-                              key={temp}
-                              onClick={() => setTemperature(temp)}
+                              key={disposition.key}
+                              onClick={() => saveDisposition(disposition)}
+                              disabled={dispositionSaving}
                               className={cn(
-                                'flex-1 py-2 rounded-lg border capitalize',
-                                temperature === temp
-                                  ? 'bg-blue-600 border-blue-600 text-white'
-                                  : 'bg-gray-800 border-gray-700 text-gray-300'
+                                'p-2 rounded-lg font-medium flex items-center justify-center gap-1 text-sm',
+                                disposition.color,
+                                'disabled:opacity-50 disabled:cursor-not-allowed'
                               )}
                             >
-                              {temp}
+                              <disposition.icon size={14} />
+                              {disposition.label}
                             </button>
                           ))}
                         </div>
                       </div>
+
+                      {/* Call Notes */}
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-400 mb-2">Call Notes (Optional):</h4>
+                        <textarea
+                          value={note}
+                          onChange={(e) => setNote(e.target.value)}
+                          placeholder="Add notes about this call..."
+                          className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 resize-none"
+                          rows={3}
+                        />
+                      </div>
+
+                      {/* Follow-up Options */}
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-400 mb-2">Follow-up (Optional):</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            value={temperature}
+                            onChange={(e) => setTemperature(e.target.value as 'cold' | 'warm' | 'hot')}
+                            className="p-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                          >
+                            <option value="cold">Cold Lead</option>
+                            <option value="warm">Warm Lead</option>
+                            <option value="hot">Hot Lead</option>
+                          </select>
+                          <input
+                            type="datetime-local"
+                            value={nextFollowUpAt}
+                            onChange={(e) => setNextFollowUpAt(e.target.value)}
+                            className="p-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Status Message */}
+                      {dispositionSaving && (
+                        <div className="text-center text-sm text-blue-400">
+                          Saving disposition...
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-8">
@@ -796,15 +888,41 @@ export default function SimpleDialerClient() {
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
               <h3 className="font-semibold mb-3">Progress</h3>
               <div className="text-sm text-gray-400">
-                <div>Lead {index + 1} of {leads.length}</div>
+                <div>Lead {index + 1} of {filteredLeads.length}</div>
                 <div className="mt-2">
                   <div className="w-full bg-gray-700 rounded-full h-2">
                     <div 
                       className="bg-green-600 h-2 rounded-full transition-all"
-                      style={{ width: `${((index + 1) / leads.length) * 100}%` }}
+                      style={{ width: `${filteredLeads.length > 0 ? ((index + 1) / filteredLeads.length) * 100 : 0}%` }}
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Lead Navigation */}
+            <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+              <h3 className="font-semibold mb-3">Navigation</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={skipLead}
+                  disabled={!currentLead || callState !== 'idle'}
+                  className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+                >
+                  Skip Lead
+                </button>
+                <button
+                  onClick={() => {
+                    if (index > 0) {
+                      setIndex(index - 1)
+                      setCurrentLead(filteredLeads[index - 1])
+                    }
+                  }}
+                  disabled={index === 0 || callState !== 'idle'}
+                  className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+                >
+                  Previous
+                </button>
               </div>
             </div>
 
@@ -813,7 +931,6 @@ export default function SimpleDialerClient() {
               <h3 className="font-semibold mb-3">Quick Actions</h3>
               <div className="space-y-2">
                 <button
-                  onClick={skipLead}
                   disabled={callState !== 'idle' || !currentLead}
                   className="w-full py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
