@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
         // Sync to CRM leads table so admin interface sees analyzer data
         try {
           const { upsertAnalyzerCrmLead } = await import('@/lib/analyzer-crm')
-          await upsertAnalyzerCrmLead({
+          const crmResult = await upsertAnalyzerCrmLead({
             supabase,
             fullName: input.business_name || 'Unknown',
             email: user.email || '',
@@ -73,8 +73,22 @@ export async function POST(req: NextRequest) {
             syncMode: 'identity',
             createIfMissing: true,
           })
+          console.log('[analyzer] CRM sync result:', {
+            email: user.email,
+            action: crmResult.action,
+            crmLeadId: crmResult.id,
+            readinessScore: result.readiness_score,
+            assignedProgram: result.assigned_program,
+          })
         } catch (crmErr) {
           console.error('[analyzer] Failed to sync to CRM leads table:', crmErr)
+          // Log failure for debugging
+          await logActivity(user.id, 'analyzer_completed', {
+            error: crmErr instanceof Error ? crmErr.message : 'Unknown error',
+            email: user.email,
+            readiness_score: result.readiness_score,
+            assigned_program: result.assigned_program,
+          }, req)
         }
 
         await logActivity(user.id, 'analyzer_completed', {

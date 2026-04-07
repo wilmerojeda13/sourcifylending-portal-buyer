@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <>
       <div id="admin-shell-floaters">
         <div className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6">
-          <AdminNotificationBell />
+          {/* AdminNotificationBell removed */}
         </div>
         <AdminAIPanel />
       </div>
