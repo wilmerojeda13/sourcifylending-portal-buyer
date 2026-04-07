@@ -386,7 +386,7 @@ export default function SimpleDialerClient() {
     } finally {
       setDispositionSaving(false)
     }
-  }, [currentLead, note, nextFollowUpAt, temperature, callStartTime, callDuration, moveToNextLead])
+  }, [currentLead, note, nextFollowUpAt, temperature, callStartTime, callDuration])
 
   // Move to next lead
   const moveToNextLead = useCallback(() => {

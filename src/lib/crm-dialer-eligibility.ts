@@ -259,6 +259,6 @@ export function getExclusionReasonText(result: DialerEligibilityResult): string 
     case 'retry_cooldown':
       return `Retry Cooldown - ${result.exclusion_reason}`
     default:
-      return result.exclusion_reason
+      return `Unknown exclusion: ${result.exclusion_reason || 'No reason provided'}`
   }
 }
