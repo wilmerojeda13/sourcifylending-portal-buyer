@@ -107,7 +107,8 @@ export default function SimpleDialerClient() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   
-  // Audio state - simplified, managed by CallAudioFeed
+  // Audio state - managed by CallAudioFeed
+  // Note: sessionActive is now managed by CallAudioFeed component
   const [sessionActive, setSessionActive] = useState(false)
   
   // Disposition state
@@ -217,7 +218,7 @@ export default function SimpleDialerClient() {
         }, 
         video: false 
       })
-      setSessionActive(true)
+      // Note: sessionActive will be set by CallAudioFeed component
       toast.success('Browser audio connected')
     } catch (error) {
       console.error('Failed to initialize audio:', error)
@@ -714,6 +715,7 @@ export default function SimpleDialerClient() {
                         <button
                           onClick={endCall}
                           className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+                          disabled={callState !== 'connected'}
                         >
                           <PhoneOff size={20} />
                           End Call
@@ -846,11 +848,11 @@ export default function SimpleDialerClient() {
             <CallAudioFeed 
               callState={callState}
               onConnect={() => {
-                setSessionActive(true)
+                // sessionActive state is managed by CallAudioFeed
                 toast.success('Audio connected')
               }}
               onDisconnect={() => {
-                setSessionActive(false)
+                // sessionActive state is managed by CallAudioFeed
                 toast.error('Audio disconnected')
               }}
               onDTMFSent={(digit) => {
