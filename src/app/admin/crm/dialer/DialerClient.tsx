@@ -727,6 +727,7 @@ useEffect(() => {
   async function refillLogic() {
     if (!autoAdvance || !session || pacingBusy || authorizingCall || sessionBusy) return
     if (session.waiting_for_disposition || !nextQueueLead || callBlocked || !canDialLead) return
+    // Allow refill when waiting for disposition to enable continuous single-line dialing
     if (activeAttemptCount >= targetParallelLines) return
 
     // Prevent double-dialing of same lead ID in parallel
