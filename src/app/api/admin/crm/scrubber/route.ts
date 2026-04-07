@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       category: 'leads' as any,
       title: force_backfill ? 'CRM Scrubber Backfill Completed' : 'CRM Weekly Scrubber Completed',
       message: `Processed ${report.total_leads_processed} leads in ${processingTime}ms`,
-      metadata: report as Record<string, unknown>,
+      metadata: report as unknown as Record<string, unknown>,
       severity: 'info' as any,
     }).catch(() => {})
 
