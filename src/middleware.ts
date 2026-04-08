@@ -71,6 +71,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // IMPORTANT: exclude webhook/TwiML endpoints from auth/session middleware.
+    // Twilio must receive raw 200 text/xml without redirects or cookie mutations.
+    '/((?!_next/static|_next/image|favicon.ico|api/webhooks/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

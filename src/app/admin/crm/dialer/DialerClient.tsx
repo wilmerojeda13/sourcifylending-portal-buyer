@@ -299,6 +299,7 @@ export default function DialerClient() {
   const sessionIdRef = useRef<string | null>(null)
   const endingRepSessionRef = useRef(false)
   const agentAudioRejoinRef = useRef(false)
+  const lastAgentErrorRef = useRef<{ code?: unknown; message?: unknown; at: number } | null>(null)
   // WATCHDOG: Move refs to component level to fix React hook violation
   const lastDialAttempt = useRef<Date | null>(null)
   const dialStuckTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -322,6 +323,15 @@ export default function DialerClient() {
         setCallProviderMessage('Session ended.')
         return
       }
+      // If the call dropped due to a Twilio "application error" (bad TwiML URL/XML, auth redirect, etc),
+      // do NOT loop reconnects. Surface the error and require manual reconnect after fixing the root cause.
+      const lastErr = lastAgentErrorRef.current
+      if (lastErr && Date.now() - lastErr.at < 60_000) {
+        setDeviceStatus('error')
+        setCallProviderMessage('Browser audio failed (Twilio application error). Fix TwiML app Voice URL then click Reconnect.')
+        return
+      }
+
       if (connectionMode === 'browser' && deviceRef.current && sessionIdRef.current) {
         if (agentAudioRejoinRef.current) return
         agentAudioRejoinRef.current = true
@@ -349,6 +359,12 @@ export default function DialerClient() {
 
     agentCall.on('error', (error: unknown) => {
       console.error('[Dialer] Agent call error:', error)
+      const anyErr = error as any
+      lastAgentErrorRef.current = {
+        code: anyErr?.code,
+        message: anyErr?.message,
+        at: Date.now(),
+      }
       setDeviceStatus('error')
       setCallProviderMessage('Browser call error. Click Not Ready then Ready to reconnect.')
     })
