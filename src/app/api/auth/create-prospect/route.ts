@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendWelcomeEmail } from '@/lib/email'
-import { upsertAnalyzerCrmLead } from '@/lib/analyzer-crm'
 import { linkCrmInviteAccount, markCrmInviteEvent } from '@/lib/crm-invites'
 import { logPortalEvent } from '@/lib/portal-events'
 import { recordConsentRecord } from '@/lib/public-form-audit'
@@ -253,71 +252,36 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      if (analyzer_result) {
-        const crmLead = await upsertAnalyzerCrmLead({
-          supabase,
-          fullName: assessment.normalizedFullName,
-          email: normalizedEmail,
-          businessName: assessment.normalizedBusinessName || null,
-          input: {
-            business_name: business_name ?? '',
-            business_age: '',
-            entity_type: '',
-            industry: '',
-            monthly_revenue_range: '',
-            monthly_deposit_range: '',
-            nsf_last_90_days: false,
-            credit_score_range: '',
-            utilization_range: '',
-            inquiry_count_last_90_days: '',
-            business_credit_reporting_status: '',
-            primary_goal: 'build_ein_credit',
-          },
-          result: analyzer_result,
-          syncMode: 'identity',
-        })
+      const crmLead = await ensureSignupCrmLead({
+        supabase,
+        userId,
+        fullName: assessment.normalizedFullName,
+        email: normalizedEmail,
+        businessName: assessment.normalizedBusinessName || null,
+        source: 'create_prospect',
+        suspicious,
+        riskScore: assessment.riskScore,
+        reasons: assessment.reasons,
+        complianceSnapshot,
+        analyzerResult: analyzer_result ?? null,
+      })
 
-        await logPortalEvent({
-          userId,
-          eventType: 'signup_crm_lead_created',
-          category: 'leads',
-          severity: suspicious ? 'warning' : 'success',
-          title: 'Prospect CRM lead created',
-          message: normalizedEmail,
-          metadata: {
-            lead_id: crmLead.id,
-            action: crmLead.action,
-            source: 'create_prospect',
-          },
-        })
-      } else {
-        const crmLead = await ensureSignupCrmLead({
-          supabase,
-          userId,
-          fullName: assessment.normalizedFullName,
-          email: normalizedEmail,
-          businessName: assessment.normalizedBusinessName || null,
+      await logPortalEvent({
+        userId,
+        eventType: 'signup_crm_lead_created',
+        category: 'leads',
+        severity: suspicious ? 'warning' : 'success',
+        title: 'Prospect CRM lead created',
+        message: normalizedEmail,
+        metadata: {
+          lead_id: crmLead.leadId,
+          action: crmLead.action,
           source: 'create_prospect',
-          suspicious,
-          riskScore: assessment.riskScore,
-          reasons: assessment.reasons,
-          complianceSnapshot,
-        })
-
-        await logPortalEvent({
-          userId,
-          eventType: 'signup_crm_lead_created',
-          category: 'leads',
-          severity: suspicious ? 'warning' : 'success',
-          title: 'Prospect CRM lead created',
-          message: normalizedEmail,
-          metadata: {
-            lead_id: crmLead.leadId,
-            action: crmLead.action,
-            source: 'create_prospect',
-          },
-        })
-      }
+          merged_with_analyzer: crmLead.mergedWithAnalyzer ?? false,
+          duplicate_review_required: crmLead.duplicateRisk ?? false,
+          notification_sent: crmLead.notificationSent ?? false,
+        },
+      })
     } catch (crmErr) {
       console.error('CRM lead sync during create-prospect failed:', crmErr)
       await recordSignupAutomationFailure({

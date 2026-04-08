@@ -20,7 +20,7 @@ export const CRM_LEAD_TEMPERATURES = ['cold', 'warm', 'hot'] as const
 export const CRM_CALL_STATUSES = ['completed', 'attempted', 'scheduled', 'missed'] as const
 export const CRM_TASK_PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'] as const
 export const CRM_TASK_STATUSES = ['To Do', 'In Progress', 'Waiting', 'Done'] as const
-export const CRM_TASK_TYPES = ['Callback', 'Follow-Up', 'Send Email', 'Review Docs', 'Book Call', 'Close Deal', 'General'] as const
+export const CRM_TASK_TYPES = ['Callback', 'Follow-Up', 'Analyzer Follow-Up', 'Send Email', 'Review Docs', 'Book Call', 'Close Deal', 'General'] as const
 
 export type CRMCallOutcome = typeof CRM_CALL_OUTCOMES[number]
 export type CRMLeadTemperature = typeof CRM_LEAD_TEMPERATURES[number]
@@ -59,13 +59,13 @@ export function outcomeToLegacyStage(outcome: CRMCallOutcome): string | null {
     'Bad Number': 'closed_lost',
     'Not Interested': 'closed_lost',
     'Do Not Call': 'closed_lost',
-    'Call Back': 'follow_up',
-    'Call Back Later': 'follow_up',
+    'Call Back': 'callback',
+    'Call Back Later': 'callback',
     'Follow Up': 'follow_up',
-    'Interested': 'qualified',
-    'Appointment Set': 'demo_scheduled',
-    'Booked Call': 'demo_scheduled',
-    'Closed Won': 'closed_won',
+    'Interested': 'interested',
+    'Appointment Set': 'qualified',
+    'Booked Call': 'qualified',
+    'Closed Won': 'active_client',
     'Closed Lost': 'closed_lost',
   }
   return map[outcome]

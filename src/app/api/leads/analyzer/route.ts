@@ -233,6 +233,14 @@ export async function POST(req: NextRequest) {
       .eq('email', normalizedEmail)
       .maybeSingle()
 
+    const submittedAt = new Date().toISOString()
+    const scoreBreakdown = {
+      top_blockers: result.top_blockers,
+      recommendation: result.recommendation,
+      recommended_next_step: result.recommended_next_step,
+      upgrade_cta: result.upgrade_cta,
+    }
+
     // Upsert lead into Supabase (deduped by email + source)
     const { data: existingLead } = await supabase
       .from('leads')
@@ -257,8 +265,14 @@ export async function POST(req: NextRequest) {
           source: 'free_analyzer',
           assigned_program: result.assigned_program,
           readiness_status: result.readiness_status,
+          readiness_score: result.readiness_score,
+          estimated_funding_range: result.estimated_funding_range,
           risk_flags: result.risk_flags,
           analyzer_answers: answers,
+          summary: result.summary,
+          score_breakdown: scoreBreakdown,
+          raw_result_payload: result,
+          submitted_at: submittedAt,
         })
         .select('id')
         .single()
@@ -279,8 +293,14 @@ export async function POST(req: NextRequest) {
             business_name: business_name || null,
             assigned_program: result.assigned_program,
             readiness_status: result.readiness_status,
+            readiness_score: result.readiness_score,
+            estimated_funding_range: result.estimated_funding_range,
             risk_flags: result.risk_flags,
             analyzer_answers: answers,
+            summary: result.summary,
+            score_breakdown: scoreBreakdown,
+            raw_result_payload: result,
+            submitted_at: submittedAt,
             ...(existingProfile?.id ? { converted_to_user_id: existingProfile.id } : {}),
           })
           .eq('id', existingLead.id)
@@ -298,9 +318,9 @@ export async function POST(req: NextRequest) {
           assigned_program: result.assigned_program,
           readiness_status: result.readiness_status,
           latest_analyzer_result: result,
-          analyzed_at: new Date().toISOString(),
+          analyzed_at: submittedAt,
           ...(existingLead?.id ? { lead_id: existingLead.id } : {}),
-          updated_at: new Date().toISOString(),
+          updated_at: submittedAt,
         })
         .eq('id', existingProfile.id)
 
@@ -368,23 +388,27 @@ export async function POST(req: NextRequest) {
         businessName: business_name,
         input,
         result,
-        createIfMissing: !existingProfile,
+        createIfMissing: true,
         complianceSnapshot: complianceSnapshot ?? undefined,
+        userId: existingProfile?.id ?? null,
       })
 
       if (crmLead.action !== 'skipped') {
         logPortalEvent({
-          eventType: crmLead.action === 'created' ? 'crm_lead_added' : 'crm_lead_updated',
+          eventType: crmLead.action === 'created' ? 'crm_contact_created' : 'crm_contact_updated',
           category: 'leads',
-          title: `${crmLead.action === 'created' ? 'New CRM Lead' : 'CRM Lead Updated'}: ${full_name}`,
-          message: `Free analyzer completion ${crmLead.action === 'created' ? 'created' : 'updated'} a CRM lead record.`,
+          title: `${crmLead.action === 'created' ? 'New CRM contact' : 'CRM contact updated'}: ${full_name}`,
+          message: `Free analyzer completion ${crmLead.action === 'created' ? 'created' : 'updated'} a CRM contact.`,
           metadata: {
-            crm_lead_id: crmLead.id,
+            lead_id: crmLead.id,
             email: normalizedEmail,
-            source: 'free_analyzer',
+            source: 'free_business_analyzer',
             readiness_score: result.readiness_score,
             estimated_funding_range: result.estimated_funding_range,
             assigned_program: result.assigned_program,
+            duplicate_review_required: crmLead.duplicateRisk ?? false,
+            task_created: crmLead.taskCreated ?? false,
+            notification_sent: crmLead.notificationSent ?? false,
           },
           severity: 'info',
         }).catch(() => {})

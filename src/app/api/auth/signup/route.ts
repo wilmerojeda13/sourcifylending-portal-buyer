@@ -319,6 +319,9 @@ export async function POST(req: NextRequest) {
           action: crmResult.action,
           source: 'email_password',
           suspicious,
+          merged_with_analyzer: crmResult.mergedWithAnalyzer ?? false,
+          duplicate_review_required: crmResult.duplicateRisk ?? false,
+          notification_sent: crmResult.notificationSent ?? false,
         },
       })
     } catch (crmError) {

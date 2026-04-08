@@ -32,13 +32,16 @@ export async function POST(req: NextRequest) {
       const { data: { user } } = await authClient.auth.getUser()
       const supabase = await createServiceClient()
       if (user) {
+        const submittedAt = new Date().toISOString()
         await supabase.from('analyzer_results').upsert({
           user_id: user.id,
           ...input,
           readiness_status: result.readiness_status,
+          summary: result.summary,
+          recommendation: result.recommendation,
           assigned_program: result.assigned_program,
           risk_flags: result.risk_flags,
-          created_at: new Date().toISOString(),
+          created_at: submittedAt,
         })
 
         // Update profile
@@ -56,7 +59,9 @@ export async function POST(req: NextRequest) {
           business_credit_reporting_status: input.business_credit_reporting_status,
           assigned_program: result.assigned_program,
           readiness_status: result.readiness_status,
-          updated_at: new Date().toISOString(),
+          latest_analyzer_result: result,
+          analyzed_at: submittedAt,
+          updated_at: submittedAt,
         }).eq('id', user.id)
 
         // Sync to CRM leads table so admin interface sees analyzer data
@@ -70,8 +75,8 @@ export async function POST(req: NextRequest) {
             businessName: input.business_name,
             input,
             result,
-            syncMode: 'identity',
             createIfMissing: true,
+            userId: user.id,
           })
           console.log('[analyzer] CRM sync result:', {
             email: user.email,

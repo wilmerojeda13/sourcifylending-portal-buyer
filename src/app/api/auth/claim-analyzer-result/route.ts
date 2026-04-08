@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { upsertAnalyzerCrmLead } from '@/lib/analyzer-crm'
 import { markCrmInviteEvent } from '@/lib/crm-invites'
+import { ensureSignupCrmLead } from '@/lib/signup-crm'
 import type { AnalyzerResult } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -87,27 +87,15 @@ export async function POST(req: NextRequest) {
 
     if (normalizedEmail) {
       try {
-        await upsertAnalyzerCrmLead({
+        await ensureSignupCrmLead({
           supabase: serviceClient,
+          userId: user.id,
           fullName: contact_name || profile?.full_name || user.user_metadata?.full_name || normalizedEmail,
           email: normalizedEmail,
           businessName: business_name || profile?.business_name || null,
-          input: {
-            business_name: business_name || profile?.business_name || '',
-            business_age: '',
-            entity_type: '',
-            industry: '',
-            monthly_revenue_range: '',
-            monthly_deposit_range: '',
-            nsf_last_90_days: false,
-            credit_score_range: '',
-            utilization_range: '',
-            inquiry_count_last_90_days: '',
-            business_credit_reporting_status: '',
-            primary_goal: 'build_ein_credit',
-          },
-          result,
-          syncMode: 'identity',
+          source: 'google_oauth',
+          suspicious: false,
+          analyzerResult: result,
         })
       } catch (crmErr) {
         console.error('CRM lead sync during analyzer claim failed (non-fatal):', crmErr)

@@ -59,6 +59,18 @@ interface CRMLead {
   analyzer_started_at?: string | null
   analyzer_submitted?: boolean
   analyzer_submitted_at?: string | null
+  readiness_score?: number | null
+  readiness_status?: string | null
+  assigned_program?: 'program_a' | 'program_b' | 'program_c' | null
+  estimated_funding_range?: string | null
+  risk_flags?: string[] | null
+  analyzer_summary?: string | null
+  analyzer_answers?: Record<string, unknown> | null
+  analyzer_score_breakdown?: Record<string, unknown> | null
+  duplicate_review_required?: boolean
+  duplicate_review_reason?: string | null
+  assigned_to_name?: string | null
+  assigned_to_user_id?: string | null
   sms_sent_count?: number
   sms_delivered_count?: number
   sms_clicked_count?: number
@@ -389,6 +401,13 @@ function buildDetailCallStatusLabel(lead: CRMLead) {
     return `Blocked Until ${lead.blocked_until_label ?? ''}`.trim()
   }
   return lead.timezone_reason_label ? `Unknown: ${lead.timezone_reason_label}` : 'Unknown Timezone'
+}
+
+function formatAnswerValue(value: unknown) {
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (Array.isArray(value)) return value.join(', ')
+  if (value == null || value === '') return '—'
+  return String(value)
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -931,6 +950,86 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
                   : 'No SMS activity yet'}
             </p>
           </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-bold text-gray-900 dark:text-white">Analyzer tracking</h2>
+              <p className="text-sm text-gray-500">
+                Source: {lead.source || '—'}{lead.assigned_to_name ? ` • Assigned rep: ${lead.assigned_to_name}` : ' • Unassigned'}
+              </p>
+            </div>
+            {lead.duplicate_review_required && (
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                Duplicate review
+              </span>
+            )}
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Analyzer submitted</p>
+              <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">{lead.analyzer_submitted ? 'Yes' : 'No'}</p>
+              <p className="mt-1 text-xs text-gray-500">{lead.analyzer_submitted_at ? formatDateTime(lead.analyzer_submitted_at) : '—'}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Readiness score</p>
+              <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">{typeof lead.readiness_score === 'number' ? `${lead.readiness_score}/100` : '—'}</p>
+              <p className="mt-1 text-xs text-gray-500">{lead.readiness_status || 'No status'}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Account created</p>
+              <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">{lead.account_created ? 'Yes' : 'No'}</p>
+              <p className="mt-1 text-xs text-gray-500">{lead.account_created_at ? formatDateTime(lead.account_created_at) : '—'}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Program / funding</p>
+              <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">{lead.assigned_program || '—'}</p>
+              <p className="mt-1 text-xs text-gray-500">{lead.estimated_funding_range || 'No estimate saved'}</p>
+            </div>
+          </div>
+
+          {(lead.analyzer_summary || (lead.risk_flags?.length ?? 0) > 0 || lead.duplicate_review_reason) && (
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Summary</p>
+                <p className="mt-2 text-sm leading-relaxed text-gray-700 dark:text-gray-200">{lead.analyzer_summary || 'No analyzer summary saved.'}</p>
+                {(lead.risk_flags?.length ?? 0) > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {lead.risk_flags?.map((flag) => (
+                      <span key={flag} className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                        {flag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Timeline</p>
+                <div className="mt-2 space-y-2 text-sm text-gray-700 dark:text-gray-200">
+                  <div>Analyzer submitted: {lead.analyzer_submitted_at ? formatDateTime(lead.analyzer_submitted_at) : '—'}</div>
+                  <div>Account created: {lead.account_created_at ? formatDateTime(lead.account_created_at) : '—'}</div>
+                  <div>Assigned rep: {lead.assigned_to_name || 'Unassigned'}</div>
+                  {lead.duplicate_review_reason && <div>Duplicate review: {lead.duplicate_review_reason}</div>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {lead.analyzer_answers && Object.keys(lead.analyzer_answers).length > 0 && (
+            <div className="mt-4 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Analyzer answers</p>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {Object.entries(lead.analyzer_answers).map(([key, value]) => (
+                  <div key={key} className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{key.replace(/_/g, ' ')}</p>
+                    <p className="mt-1 text-sm text-gray-800 dark:text-gray-100">{formatAnswerValue(value)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Info / Edit */}

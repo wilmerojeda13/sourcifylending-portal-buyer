@@ -359,6 +359,9 @@ export async function GET(request: NextRequest) {
                 lead_id: crmResult.leadId,
                 action: crmResult.action,
                 source,
+                merged_with_analyzer: crmResult.mergedWithAnalyzer ?? false,
+                duplicate_review_required: crmResult.duplicateRisk ?? false,
+                notification_sent: crmResult.notificationSent ?? false,
               },
             })
           } catch (crmErr) {
