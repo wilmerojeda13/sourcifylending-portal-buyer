@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { CRM_CALL_OUTCOMES, CRM_CALL_STATUSES, CRM_LEAD_TEMPERATURES } from '@/lib/crm'
 import { getRelationUnavailableMessage, isMissingRelationError } from '@/lib/supabase-schema'
+// import twilio from 'twilio' // DISABLED for build
 
 async function assertAdmin() {
   const authClient = await createClient()

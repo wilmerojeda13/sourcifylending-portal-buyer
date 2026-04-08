@@ -453,6 +453,13 @@ export async function DELETE(req: NextRequest) {
 
   if (call.dialer_session_id) {
     await syncDialerSessionState(admin.supabase, call.dialer_session_id)
+    await admin.supabase
+      .from('crm_dialer_sessions')
+      .update({
+        waiting_for_disposition: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', call.dialer_session_id)
   }
 
   return NextResponse.json({ ok: true, message: 'Lead leg disconnected. Rep session is still live.' })

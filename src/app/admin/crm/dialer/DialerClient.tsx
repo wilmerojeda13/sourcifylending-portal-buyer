@@ -13,8 +13,8 @@ import { cn } from '@/lib/utils'
 import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMirror'
 import LiveCallFeed from '@/components/admin/crm/dialer/LiveCallFeed'
 import BrowserAudio from '@/components/admin/crm/dialer/BrowserAudio'
+import SoftphoneKeypad from '@/components/admin/crm/dialer/SoftphoneKeypad'
 import toast from 'react-hot-toast'
-import { loadSessionAttempts, syncDialerSessionState, cancelOtherActiveAttempts, applyAutoDisposition } from '@/lib/crm-dialer-attempts'
 import { type CRMDialerRepState } from '@/lib/crm-dialer'
 import { normalizePhone } from '@/modules/voice-agent/utils/phone'
 
@@ -296,9 +296,102 @@ export default function DialerClient() {
   const deviceRef = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const agentCallRef = useRef<any>(null)
+  const sessionIdRef = useRef<string | null>(null)
+  const endingRepSessionRef = useRef(false)
+  const agentAudioRejoinRef = useRef(false)
   // WATCHDOG: Move refs to component level to fix React hook violation
   const lastDialAttempt = useRef<Date | null>(null)
   const dialStuckTimeout = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    sessionIdRef.current = session?.id ?? null
+  }, [session?.id])
+
+  const wireAgentBrowserCall = useCallback((agentCall: any) => {
+    agentCall.on('accept', () => {
+      console.log('[Dialer] Agent call accepted')
+      setDeviceStatus('connected')
+      setCallProviderMessage('Browser audio live. Dial leads when ready.')
+      setSession((prev) => (prev ? { ...prev, session_status: 'waiting', rep_state: 'waiting' } : prev))
+    })
+
+    agentCall.on('disconnect', () => {
+      console.log('[Dialer] Agent call disconnected')
+      agentCallRef.current = null
+      if (endingRepSessionRef.current) {
+        setCallProviderMessage('Session ended.')
+        return
+      }
+      if (connectionMode === 'browser' && deviceRef.current && sessionIdRef.current) {
+        if (agentAudioRejoinRef.current) return
+        agentAudioRejoinRef.current = true
+        setCallProviderMessage('Restoring browser audio for the next call...')
+        deviceRef.current
+          .connect({ params: { sessionId: sessionIdRef.current } })
+          .then((next: any) => {
+            agentCallRef.current = next
+            wireAgentBrowserCall(next)
+            setDeviceStatus('connected')
+            setCallProviderMessage('Browser audio live. Dial leads when ready.')
+          })
+          .catch((err: unknown) => {
+            console.error('[Dialer] Failed to rejoin conference audio:', err)
+            setDeviceStatus('error')
+            setCallProviderMessage('Browser audio dropped. Click Not Ready then Ready to reconnect.')
+          })
+          .finally(() => {
+            agentAudioRejoinRef.current = false
+          })
+        return
+      }
+      setDeviceStatus('offline')
+    })
+
+    agentCall.on('error', (error: unknown) => {
+      console.error('[Dialer] Agent call error:', error)
+      setDeviceStatus('error')
+      setCallProviderMessage('Browser call error. Click Not Ready then Ready to reconnect.')
+    })
+  }, [connectionMode])
+
+  const handleDtmfPress = useCallback(async (digit: string) => {
+    const call = agentCallRef.current as { sendDigits?: (d: string) => void } | null
+    if (!call || typeof call.sendDigits !== 'function') {
+      toast.error('Browser audio must be live before sending keypad tones.')
+      return
+    }
+    try {
+      call.sendDigits(digit)
+    } catch (e) {
+      console.error('[Dialer] sendDigits failed:', e)
+      toast.error('Could not send tone.')
+    }
+  }, [])
+
+  // Add timeout for stuck dialing states
+  useEffect(() => {
+    if (authorizingCall && lastDialAttempt.current) {
+      // Clear any existing timeout
+      if (dialStuckTimeout.current) {
+        clearTimeout(dialStuckTimeout.current)
+      }
+      
+      // Set new timeout for 30 seconds
+      dialStuckTimeout.current = setTimeout(() => {
+        setAuthorizingCall(false)
+        toast.error('Dialing timed out. Please try again.')
+        setCallProviderMessage('Dialing timed out - please try again')
+        // Remove optimistic attempts
+        setAttempts(prev => prev.filter(a => !a.id.startsWith('temp-')))
+      }, 30000)
+      
+      return () => {
+        if (dialStuckTimeout.current) {
+          clearTimeout(dialStuckTimeout.current)
+        }
+      }
+    }
+  }, [authorizingCall, lastDialAttempt.current])
 
   const load = useCallback(async (stage: string) => {
     setLoading(true)
@@ -659,6 +752,14 @@ export default function DialerClient() {
     && activeAttempts.some((attempt) => attempt.lead_id === nextQueueLead.id)
   )
 
+  const showDialerKeypad =
+    connectionMode === 'browser' &&
+    Boolean(
+      session &&
+        !session.waiting_for_disposition &&
+        (authorizingCall || called || activeCallId || activeAttemptCount > 0),
+    )
+
   useEffect(() => {
     if (!current) return
     setTemperature(current.lead_temperature ?? 'cold')
@@ -974,10 +1075,9 @@ useEffect(() => {
             throw new Error('Failed to refresh token')
           }
           
-          const { session } = await res.json()
-          if (session?.token) {
-            // Update device with fresh token before it expires
-            await device.updateToken(session.token)
+          const refreshJson = await res.json() as { token?: string }
+          if (refreshJson.token) {
+            await device.updateToken(refreshJson.token)
             setCallProviderMessage('Connection refreshed')
             console.log('[Dialer] Token refreshed successfully')
           }
@@ -1039,33 +1139,7 @@ useEffect(() => {
         })
         console.log('[Dialer] device.connect() succeeded, agentCall created')
         agentCallRef.current = agentCall
-
-        agentCall.on('accept', () => {
-          console.log('[Dialer] Agent call accepted')
-          setDeviceStatus('connected')
-          setCallProviderMessage('Browser audio live. Dial leads when ready.')
-          setSession((prev) => prev ? { ...prev, session_status: 'waiting', rep_state: 'waiting' } : prev)
-        })
-
-        agentCall.on('disconnect', () => {
-          console.log('[Dialer] Agent call disconnected')
-          // Keep device connected for continued dialing, only clear the call reference
-          if (connectionMode === 'browser' && deviceRef.current) {
-            // Device should stay connected for browser mode to continue dialing
-            // Don't set to 'offline' unless session is ending
-            setCallProviderMessage('Call ended. Ready to dial next lead.')
-          } else {
-            setDeviceStatus('offline')
-          }
-          agentCallRef.current = null
-        })
-
-        agentCall.on('error', (error: unknown) => {
-          console.error('[Dialer] Agent call error:', error)
-          console.error('[Dialer] Agent call error details:', JSON.stringify(error, null, 2))
-          setDeviceStatus('error')
-          setCallProviderMessage('Browser call error. Click Not Ready then Ready to reconnect.')
-        })
+        wireAgentBrowserCall(agentCall)
       } catch (connectError) {
         console.error('[Dialer] device.connect() threw error:', connectError)
         console.error('[Dialer] Connect error type:', typeof connectError)
@@ -1118,6 +1192,7 @@ useEffect(() => {
   async function setNotReady() {
     if (sessionBusy) return
     setSessionBusy(true)
+    endingRepSessionRef.current = true
     try {
       // Disconnect browser device first
       if (agentCallRef.current) {
@@ -1146,6 +1221,7 @@ useEffect(() => {
     } catch {
       toast.error('Failed to end the session')
     } finally {
+      endingRepSessionRef.current = false
       setSessionBusy(false)
     }
   }
@@ -2163,6 +2239,14 @@ useEffect(() => {
                       setReady()
                     }, 1000)
                   }}
+                />
+              )}
+
+              {showDialerKeypad && (
+                <SoftphoneKeypad
+                  onDigitPress={handleDtmfPress}
+                  disabled={false}
+                  className="mt-4"
                 />
               )}
 

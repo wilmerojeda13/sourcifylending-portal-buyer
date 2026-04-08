@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { mapAmdAnsweredByToOutcome } from '@/lib/crm-dialer'
-import { applyAutoDisposition, cancelOtherActiveAttempts, endTwilioCallsBySid, syncDialerSessionState, type DialerAttemptRow, updateConferenceParticipant } from '@/lib/crm-dialer-attempts'
+import { cancelOtherActiveAttempts, endTwilioCallsBySid, syncDialerSessionState, type DialerAttemptRow, updateConferenceParticipant } from '@/lib/crm-dialer-attempts'
 
 async function readBody(req: NextRequest) {
   const contentType = req.headers.get('content-type') ?? ''
@@ -34,19 +34,20 @@ export async function POST(req: NextRequest) {
   const currentMetadata = (crmCall.metadata as Record<string, unknown> | null) ?? {}
   const dispositionLocked = Boolean(currentMetadata.manual_disposition_locked)
 
-  await supabase
-    .from('crm_calls')
-    .update({
-      answered_by: answeredBy,
-      amd_status: answeredBy,
-      call_outcome: dispositionLocked ? undefined : outcome ?? undefined,
-      metadata: {
-        ...currentMetadata,
-        amd_callback: body,
-      },
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', crmCallId)
+  const callRowUpdates: Record<string, unknown> = {
+    answered_by: answeredBy,
+    amd_status: answeredBy,
+    metadata: {
+      ...currentMetadata,
+      amd_callback: body,
+    },
+    updated_at: new Date().toISOString(),
+  }
+  if (!dispositionLocked && !crmCall.dialer_session_id && outcome) {
+    callRowUpdates.call_outcome = outcome
+  }
+
+  await supabase.from('crm_calls').update(callRowUpdates).eq('id', crmCallId)
 
   if (crmCall.dialer_attempt_id) {
     const { data: attempt } = await supabase
@@ -172,9 +173,9 @@ export async function POST(req: NextRequest) {
         console.error(`[AMD] Error marking winner:`, error)
         return NextResponse.json({ ok: true })
       }
-      } else if (!dispositionLocked && outcome) {
-        // First write answered_machine so the client sees which line got voicemail
-        // before we hang up and auto-dispose (Realtime fires on this update)
+      } else if (outcome) {
+        // Machine / unknown: keep the lead leg alive in the conference so the rep can hear
+        // voicemail or audio and hang up manually — no auto-disposition or forced hang-up.
         await supabase
           .from('crm_dialer_attempts')
           .update({
@@ -184,18 +185,6 @@ export async function POST(req: NextRequest) {
             updated_at: new Date().toISOString(),
           })
           .eq('id', attempt.id)
-
-        if (crmCall.twilio_call_sid) {
-          await endTwilioCallsBySid([crmCall.twilio_call_sid])
-        }
-
-        await applyAutoDisposition(supabase, {
-          attempt,
-          outcome,
-          resolutionType: outcome === 'Voicemail' ? 'auto_voicemail' : 'auto_bad_number',
-          answeredBy,
-          twilioStatus: 'completed',
-        })
       }
     }
   }

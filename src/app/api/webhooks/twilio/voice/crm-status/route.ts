@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { mapAmdAnsweredByToOutcome, mapTwilioStatusToAttemptStatus, mapTwilioStatusToCrmCallStatus, mapTwilioStatusToOutcome } from '@/lib/crm-dialer'
-import { applyAutoDisposition, syncDialerSessionState, type DialerAttemptRow } from '@/lib/crm-dialer-attempts'
+import { syncDialerSessionState, type DialerAttemptRow } from '@/lib/crm-dialer-attempts'
 
 async function readBody(req: NextRequest) {
   const contentType = req.headers.get('content-type') ?? ''
@@ -108,7 +108,8 @@ export async function POST(req: NextRequest) {
   if (['completed', 'busy', 'failed', 'no-answer', 'canceled'].includes(callStatus ?? '')) {
     updates.call_ended_at = new Date().toISOString()
     updates.duration_seconds = durationSeconds
-    if (!dispositionLocked || !currentCall.call_outcome) {
+    const dialerLeadLeg = Boolean(currentCall.dialer_session_id) && leg === 'lead'
+    if (!dialerLeadLeg && (!dispositionLocked || !currentCall.call_outcome)) {
       updates.call_outcome = callOutcome
     }
   }
@@ -143,46 +144,16 @@ export async function POST(req: NextRequest) {
         })
         .eq('id', attempt.id)
 
-      const humanAnswered = `${currentCall.answered_by ?? currentCall.amd_status ?? answeredBy ?? ''}`.toLowerCase() === 'human'
-      const shouldAutoDisposition =
-        !dispositionLocked &&
-        !attempt.is_winner &&
-        ['busy', 'failed', 'no-answer', 'canceled'].includes(callStatus ?? '')
-
-      if (shouldAutoDisposition && outcomeFromStatus) {
-        await applyAutoDisposition(supabase, {
-          attempt: {
-            ...attempt,
-            last_twilio_status: callStatus ?? null,
-            answered_by: answeredBy ?? attempt.answered_by,
-          },
-          outcome: outcomeFromStatus,
-          resolutionType:
-            outcomeFromStatus === 'Busy' ? 'auto_busy'
-            : outcomeFromStatus === 'No Answer' ? 'auto_no_answer'
-            : 'auto_bad_number',
-          twilioStatus: callStatus ?? null,
-          answeredBy: answeredBy ?? null,
-          durationSeconds,
-        })
-      } else if (!humanAnswered && !attempt.is_winner && callStatus === 'completed' && outcomeFromAmd) {
-        await applyAutoDisposition(supabase, {
-          attempt: {
-            ...attempt,
-            last_twilio_status: callStatus ?? null,
-            answered_by: answeredBy ?? attempt.answered_by,
-          },
-          outcome: outcomeFromAmd,
-          resolutionType: outcomeFromAmd === 'Voicemail' ? 'auto_voicemail' : 'auto_bad_number',
-          twilioStatus: callStatus ?? null,
-          answeredBy: answeredBy ?? null,
-          durationSeconds,
-        })
-      }
     }
   }
 
-  if (currentCall.lead_id && ['busy', 'failed', 'no-answer', 'canceled', 'completed'].includes(callStatus ?? '')) {
+  // Power dialer: outcomes are saved only when the rep chooses a disposition — do not mutate
+  // the lead row from Twilio status callbacks while this call belongs to a dialer session.
+  if (
+    currentCall.lead_id &&
+    !currentCall.dialer_session_id &&
+    ['busy', 'failed', 'no-answer', 'canceled', 'completed'].includes(callStatus ?? '')
+  ) {
     await supabase
       .from('crm_leads')
       .update({
@@ -195,6 +166,21 @@ export async function POST(req: NextRequest) {
 
   if (sessionId) {
     await syncDialerSessionState(supabase, sessionId)
+  }
+
+  if (
+    sessionId &&
+    leg === 'lead' &&
+    currentCall.dialer_session_id &&
+    ['busy', 'failed', 'no-answer', 'canceled', 'completed'].includes(callStatus ?? '')
+  ) {
+    await supabase
+      .from('crm_dialer_sessions')
+      .update({
+        waiting_for_disposition: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId)
   }
 
   console.log('[CRM STATUS WEBHOOK] Database updates completed for call:', crmCallId)
