@@ -88,20 +88,26 @@ export async function syncDialerSessionState(supabase: ServiceClient, sessionId:
     repState = 'waiting'
   }
 
-  // Preserve waiting_for_disposition=true after a human call ends naturally (call completes
-  // but rep hasn't saved a disposition yet). Only auto-clear it when the session itself
-  // is dead (not_ready/ended/error), or when the manual disposition API explicitly sets
-  // waiting_for_disposition=false on the session row before calling syncDialerSessionState.
+  // Preserve waiting_for_disposition=true after any power-dial attempt ends. The rep must
+  // manually disposition before the next lead is allowed to start. Only auto-clear it when
+  // the session itself is dead (not_ready/ended/error), or when the manual disposition API
+  // explicitly sets waiting_for_disposition=false on the session row before syncing state.
   const sessionIsLive = repState !== 'not_ready' && repState !== 'error'
   const waitingForDisposition = sessionIsLive
     ? Boolean(winner) || (session.waiting_for_disposition ?? false)
     : false
+  const pendingLeadId = waitingForDisposition
+    ? winner?.lead_id ?? session.current_lead_id ?? null
+    : null
+  const pendingCallId = waitingForDisposition
+    ? winner?.crm_call_id ?? session.current_crm_call_id ?? null
+    : null
 
   const update = {
     rep_state: repState,
     session_status: mapRepStateToSessionStatus(repState),
-    current_lead_id: winner?.lead_id ?? null,
-    current_crm_call_id: winner?.crm_call_id ?? null,
+    current_lead_id: pendingLeadId,
+    current_crm_call_id: pendingCallId,
     winning_attempt_id: winner?.id ?? null,
     waiting_for_disposition: waitingForDisposition,
     active_attempt_count: activeAttempts.length,

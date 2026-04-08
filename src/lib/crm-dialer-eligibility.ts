@@ -27,6 +27,33 @@ export const NON_TERMINAL_OUTCOMES = new Set([
   'Send Link',
 ] as const)
 
+export const CALLBACK_OUTCOMES = new Set([
+  'Call Back',
+  'Call Back Later',
+] as const)
+
+export const FOLLOW_UP_OUTCOMES = new Set([
+  'Follow Up',
+] as const)
+
+export const RETRY_OUTCOMES = new Set([
+  'No Answer',
+  'Voicemail',
+  'Left Voicemail',
+  'Busy',
+] as const)
+
+export type DialerQueueFilter =
+  | 'new'
+  | 'contacted'
+  | 'interested'
+  | 'callback'
+  | 'follow_up'
+  | 'qualified'
+  | 'demo_held'
+  | 'active_client'
+  | 'closed_lost'
+
 export interface DialerEligibilityResult {
   is_eligible: boolean
   exclusion_reason?: string
@@ -83,43 +110,63 @@ export function checkDialerEligibility(lead: {
     }
   }
 
-  // 4. Check callback due date (must wait for scheduled callbacks)
-  if (lead.callback_due_at) {
-    const callbackDue = new Date(lead.callback_due_at)
-    if (callbackDue > now) {
+  // 4. Callback queue entries only re-enter when their callback time is due.
+  if (lead.last_call_outcome && CALLBACK_OUTCOMES.has(lead.last_call_outcome as any)) {
+    const callbackDue = lead.callback_due_at ? new Date(lead.callback_due_at) : null
+    if (callbackDue && callbackDue > now) {
       return {
         is_eligible: false,
         exclusion_reason: `Callback scheduled for ${callbackDue.toLocaleString()}`,
         exclusion_type: 'callback_pending',
         next_eligible_at: callbackDue.toISOString(),
-        latest_disposition: lead.last_call_outcome || undefined,
+        latest_disposition: lead.last_call_outcome,
         latest_disposition_date: lead.last_call_at || undefined,
       }
     }
   }
 
-  // 5. Check follow-up due date (only block if in follow_up stage)
-  if (lead.follow_up_at && lead.stage === 'follow_up') {
-    const followUpDue = new Date(lead.follow_up_at)
-    if (followUpDue > now) {
+  // 5. Follow-up queue entries only re-enter when their follow-up time is due.
+  if (lead.last_call_outcome && FOLLOW_UP_OUTCOMES.has(lead.last_call_outcome as any)) {
+    const followUpDue = lead.follow_up_at ? new Date(lead.follow_up_at) : null
+    if (followUpDue && followUpDue > now) {
       return {
         is_eligible: false,
         exclusion_reason: `Follow-up scheduled for ${followUpDue.toLocaleString()}`,
         exclusion_type: 'follow_up_pending',
         next_eligible_at: followUpDue.toISOString(),
-        latest_disposition: lead.last_call_outcome || undefined,
+        latest_disposition: lead.last_call_outcome,
         latest_disposition_date: lead.last_call_at || undefined,
       }
     }
   }
 
-  // 6. Check retry cooldown for non-terminal outcomes
+  // 6. Retry outcomes only re-enter when the retry time is due.
+  if (lead.last_call_outcome && RETRY_OUTCOMES.has(lead.last_call_outcome as any)) {
+    const retryDue = lead.follow_up_at ? new Date(lead.follow_up_at) : null
+
+    if (retryDue && retryDue > now) {
+      return {
+        is_eligible: false,
+        exclusion_reason: `Retry scheduled for ${retryDue.toLocaleString()}`,
+        exclusion_type: 'retry_cooldown',
+        next_eligible_at: retryDue.toISOString(),
+        latest_disposition: lead.last_call_outcome,
+        latest_disposition_date: lead.last_call_at || undefined,
+      }
+    }
+  }
+
+  // 7. Backward-compatible cooldown if older rows do not yet have an explicit due timestamp.
   if (lead.last_call_at && lead.last_call_outcome && NON_TERMINAL_OUTCOMES.has(lead.last_call_outcome as any)) {
     const lastCallTime = new Date(lead.last_call_at)
     const cooldownHours = getRetryCooldownHours(lead.last_call_outcome)
     const nextEligibleAt = new Date(lastCallTime.getTime() + (cooldownHours * 60 * 60 * 1000))
-    
-    if (nextEligibleAt > now) {
+
+    const hasExplicitDueAt =
+      (CALLBACK_OUTCOMES.has(lead.last_call_outcome as any) && Boolean(lead.callback_due_at)) ||
+      ((FOLLOW_UP_OUTCOMES.has(lead.last_call_outcome as any) || RETRY_OUTCOMES.has(lead.last_call_outcome as any)) && Boolean(lead.follow_up_at))
+
+    if (!hasExplicitDueAt && nextEligibleAt > now) {
       return {
         is_eligible: false,
         exclusion_reason: `Retry cooldown for ${lead.last_call_outcome} (${cooldownHours}h)`,
@@ -175,6 +222,7 @@ export interface LeadEligibilityUpdate {
   stage?: string
   callback_due_at?: string | null
   follow_up_at?: string | null
+  appointment_at?: string | null
   last_call_outcome?: string
   last_call_at?: string
 }
@@ -185,7 +233,8 @@ export interface LeadEligibilityUpdate {
 export function applyDispositionEligibilityUpdates(
   disposition: string,
   followUpAt?: string | null,
-  callbackAt?: string | null
+  callbackAt?: string | null,
+  appointmentAt?: string | null,
 ): Partial<LeadEligibilityUpdate> {
   const updates: Partial<LeadEligibilityUpdate> = {
     last_call_outcome: disposition,
@@ -194,39 +243,46 @@ export function applyDispositionEligibilityUpdates(
 
   // Handle terminal outcomes
   if (TERMINAL_OUTCOMES.has(disposition as any)) {
+    updates.callback_due_at = null
+    updates.follow_up_at = null
+
     switch (disposition) {
       case 'Do Not Call':
+      case 'Not Interested':
+      case 'Bad Number':
         updates.do_not_call = true
+        updates.stage = 'closed_lost'
         break
       case 'Closed Lost':
       case 'Unqualified':
-        updates.stage = 'closed_lost'
-        break
-      case 'Bad Number':
       case 'Wrong Number':
       case 'Business Closed':
       case 'Personal Line':
         updates.stage = 'closed_lost'
         break
-      case 'Not Interested':
-        updates.stage = 'closed_lost'
-        break
     }
   }
 
-  // Handle follow-up scheduling
-  if (followUpAt) {
-    updates.follow_up_at = followUpAt
-    if (disposition === 'Booked Call') {
-      updates.stage = 'demo_scheduled'
-    } else if (disposition === 'Interested') {
-      updates.stage = 'qualified'
-    }
+  if (disposition === 'Interested') {
+    updates.stage = 'interested'
   }
 
-  // Handle callback scheduling
-  if (callbackAt) {
-    updates.callback_due_at = callbackAt
+  if (disposition === 'Appointment Set' || disposition === 'Booked Call') {
+    updates.stage = 'qualified'
+  }
+
+  if (CALLBACK_OUTCOMES.has(disposition as any)) {
+    updates.callback_due_at = callbackAt ?? followUpAt ?? null
+    updates.follow_up_at = null
+  } else if (FOLLOW_UP_OUTCOMES.has(disposition as any) || RETRY_OUTCOMES.has(disposition as any)) {
+    updates.follow_up_at = followUpAt ?? callbackAt ?? null
+    updates.callback_due_at = null
+  }
+
+  if (disposition === 'Appointment Set') {
+    updates.callback_due_at = null
+    updates.follow_up_at = null
+    updates.appointment_at = appointmentAt ?? null
   }
 
   return updates
@@ -237,6 +293,35 @@ export function applyDispositionEligibilityUpdates(
  */
 export function isTerminalDisposition(disposition: string): boolean {
   return TERMINAL_OUTCOMES.has(disposition as any)
+}
+
+export function matchesDialerQueueFilter(
+  lead: {
+    do_not_call?: boolean
+    is_archived?: boolean
+    last_call_outcome?: string | null
+    last_call_at?: string | null
+    callback_due_at?: string | null
+    follow_up_at?: string | null
+    stage?: string | null
+  },
+  queue: DialerQueueFilter | null | undefined,
+  nowIso = new Date().toISOString(),
+) {
+  switch (queue) {
+    case 'new':
+    case 'contacted':
+    case 'interested':
+    case 'callback':
+    case 'follow_up':
+    case 'qualified':
+    case 'demo_held':
+    case 'active_client':
+    case 'closed_lost':
+      return lead.stage === queue
+    default:
+      return true
+  }
 }
 
 /**

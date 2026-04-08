@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Phone, Loader2, CheckCircle2, X, PhoneOff, Clock, User, Voicemail, AlertCircle, PhoneCall } from 'lucide-react'
+import { Phone, Loader2, CheckCircle2, X, PhoneOff, Clock, AlertCircle, PhoneCall } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface LeadSummary {
@@ -55,8 +55,8 @@ const statusConfig: Record<string, { icon: React.ElementType; color: string; lab
   queued: { icon: Clock, color: 'text-blue-500', label: 'Queued', animate: true },
   dialing: { icon: Phone, color: 'text-yellow-500', label: 'Dialing', animate: true },
   ringing: { icon: Phone, color: 'text-yellow-500', label: 'Ringing', animate: true },
-  answered_human: { icon: User, color: 'text-green-500', label: 'Human Detected' },
-  answered_machine: { icon: Voicemail, color: 'text-orange-500', label: 'Voicemail' },
+  answered_human: { icon: PhoneCall, color: 'text-green-500', label: 'Connected' },
+  answered_machine: { icon: PhoneCall, color: 'text-green-500', label: 'Connected' },
   bridged: { icon: CheckCircle2, color: 'text-green-500', label: 'Connected' },
   no_answer: { icon: X, color: 'text-gray-500', label: 'No Answer' },
   busy: { icon: X, color: 'text-red-500', label: 'Busy' },
@@ -130,30 +130,21 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
     const newEvents: FeedEvent[] = []
     const newLineStatuses = new Map<number, any>()
 
-    const VM_LINGER_MS = 30_000 // show voicemail line for 30s after it resolves
+      // attempts arrive newest-first; first occurrence per slot wins so the
+      // most-recent (active) attempt is always shown, never overwritten by
+      // old completed attempts from earlier in the same session.
+      attempts.forEach((attempt) => {
+        const slot = attempt.queue_slot
+        if (newLineStatuses.has(slot)) return          // newest already set
 
-    // attempts arrive newest-first; first occurrence per slot wins so the
-    // most-recent (active) attempt is always shown, never overwritten by
-    // old completed attempts from earlier in the same session.
-    attempts.forEach((attempt) => {
-      const slot = attempt.queue_slot
-      if (newLineStatuses.has(slot)) return          // newest already set
+        if (attempt.resolved_at && !ACTIVE_STATUSES.has(
+          getAttemptStatus(attempt.attempt_status, attempt.amd_status, attempt.last_twilio_status)
+        )) return   // skip old resolved attempts — show idle instead
 
-      // Keep recently-resolved voicemail attempts visible for VM_LINGER_MS
-      const isRecentVoicemail =
-        attempt.resolved_at &&
-        (Date.now() - new Date(attempt.resolved_at).getTime()) < VM_LINGER_MS &&
-        (attempt.amd_status?.startsWith('machine') || attempt.resolution_type === 'auto_voicemail' || attempt.was_auto_dispositioned)
-
-      if (attempt.resolved_at && !ACTIVE_STATUSES.has(
-        getAttemptStatus(attempt.attempt_status, attempt.amd_status, attempt.last_twilio_status)
-      ) && !isRecentVoicemail) return   // skip old resolved attempts — show idle instead
-
-      const lead = attempt.crm_call?.lead ?? leads.find((l) => l.id === attempt.lead_id)
-      // For recently-resolved voicemail, force display as answered_machine
-      const rawStatus = getAttemptStatus(attempt.attempt_status, attempt.amd_status, attempt.last_twilio_status)
-      const status = (isRecentVoicemail && rawStatus !== 'answered_machine') ? 'answered_machine' : rawStatus
-      const config = statusConfig[status]
+        const lead = attempt.crm_call?.lead ?? leads.find((l) => l.id === attempt.lead_id)
+        const rawStatus = getAttemptStatus(attempt.attempt_status, attempt.amd_status, attempt.last_twilio_status)
+        const status = rawStatus
+        const config = statusConfig[status]
 
       newLineStatuses.set(slot, {
         attempt,
@@ -165,7 +156,7 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
         duration: attempt.crm_call?.duration_seconds,
       })
 
-      // Play ding and generate winner event first time human detected
+      // Play ding and generate winner event first time a live connection is detected
       if (status === 'answered_human' && !humanDetectedRef.current.has(attempt.id)) {
         humanDetectedRef.current.add(attempt.id)
         playAnswerTone()
@@ -173,7 +164,7 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
           id: `${attempt.id}-winner`,
           timestamp: new Date().toISOString(),
           type: 'winner',
-          message: `Line ${slot} — human answered: ${lead?.first_name ?? ''} ${lead?.last_name ?? ''}`.trim(),
+          message: `Line ${slot} — connected: ${lead?.first_name ?? ''} ${lead?.last_name ?? ''}`.trim(),
           leadName: `${lead?.first_name} ${lead?.last_name}`,
           lineNumber: slot,
           isWinner: true,
@@ -188,18 +179,6 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
           message: `Line ${slot} dialing ${lead?.first_name ?? ''} ${lead?.last_name ?? ''}`,
           leadName: `${lead?.first_name} ${lead?.last_name}`,
           lineNumber: slot,
-        })
-      }
-
-      if (status === 'answered_machine') {
-        newEvents.push({
-          id: `${attempt.id}-voicemail`,
-          timestamp: attempt.resolved_at ?? new Date().toISOString(),
-          type: 'voicemail',
-          message: `Line ${slot} — voicemail: ${lead?.first_name ?? ''} ${lead?.last_name ?? ''}`.trim(),
-          leadName: `${lead?.first_name} ${lead?.last_name}`,
-          lineNumber: slot,
-          isWinner: true, // highlight in activity feed so rep sees it
         })
       }
 
@@ -284,8 +263,8 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
                   "rounded-lg border p-3 transition-all duration-200",
                   attempt?.is_winner
                     ? "border-green-500 bg-green-500/10 shadow-lg shadow-green-500/20 ring-2 ring-green-500/50 animate-pulse"
-                    : status === 'answered_machine'
-                      ? "border-orange-500 bg-orange-500/10 shadow-lg shadow-orange-500/20"
+                    : (status === 'answered_human' || status === 'answered_machine' || status === 'bridged')
+                      ? "border-green-500 bg-green-500/10 shadow-lg shadow-green-500/20"
                       : "border-gray-700 bg-gray-800/50"
                 )}
               >
@@ -296,9 +275,6 @@ export default function LiveCallFeed({ attempts, targetParallelLines, activeCall
                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                       <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded-full font-bold animate-pulse">LIVE</span>
                     </div>
-                  )}
-                  {!attempt?.is_winner && status === 'answered_machine' && (
-                    <span className="text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full">VM</span>
                   )}
                 </div>
 

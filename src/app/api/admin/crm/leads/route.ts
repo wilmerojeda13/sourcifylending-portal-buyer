@@ -2,10 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logPortalEvent } from '@/lib/portal-events'
 import { getLeadCompliance, inferLeadPhoneIntelligence } from '@/lib/crm-call-compliance'
-import { CRM_DIALER_RETRY_OUTCOMES, getLeadDialerPriority } from '@/lib/crm-dialer'
+import { getLeadDialerPriority } from '@/lib/crm-dialer'
 import { getCrmInviteSummaryMap } from '@/lib/crm-invites'
 import { getCrmSmsSummaryMap } from '@/lib/crm-sms'
-import { checkDialerEligibility, TERMINAL_OUTCOMES } from '@/lib/crm-dialer-eligibility'
+import { checkDialerEligibility, matchesDialerQueueFilter, type DialerQueueFilter } from '@/lib/crm-dialer-eligibility'
+import { 
+  rankSearchResults, 
+  normalizePhoneForSearch,
+  normalizeText,
+  type UnifiedSearchResult 
+} from '@/lib/crm-unified-search'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -20,7 +26,7 @@ function isMissingLeadTimezoneColumn(error: { code?: string | null; message?: st
   return error?.code === '42703' || error?.message?.includes('crm_leads.phone_e164 does not exist') || false
 }
 
-// GET /api/admin/crm/leads?stage=&source=&program=&search=&follow_up_due=&archived=&temperature=&callback_due=&open_tasks=
+// GET /api/admin/crm/leads?stage=&source=&program=&search=&follow_up_due=&archived=&temperature=&callback_due=&open_tasks=&unified_search=true
 export async function GET(req: NextRequest) {
   const supabase = await assertAdmin()
   if (!supabase) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -36,43 +42,99 @@ export async function GET(req: NextRequest) {
   const openTasks    = searchParams.get('open_tasks')
   const callability  = searchParams.get('callability')
   const dialerMode   = searchParams.get('dialer_mode') === 'true'
+  const dialerQueue  = searchParams.get('queue') as DialerQueueFilter | null
   const archived     = searchParams.get('archived') === 'true'
+  // Use unified search for client-side ranking (default: true for search queries)
+  const unifiedSearch = searchParams.get('unified_search') !== 'false' && !!search
 
   const requiresPostFilter = callability === 'callable_now' || callability === 'blocked_by_timezone' || callability === 'unknown_timezone'
-
-  let query = supabase
-    .from('crm_leads')
-    .select('*', { count: 'exact' })
-    .eq('is_archived', archived)
-    .order('follow_up_at', { ascending: true, nullsFirst: false })
-    .order('created_at', { ascending: false })
-
-  if (stage)       query = query.eq('stage', stage)
-  if (source)      query = query.eq('source', source)
-  if (program)     query = query.eq('program_interest', program)
-  if (temperature) query = query.eq('lead_temperature', temperature)
-  if (followUpDue === 'true') {
-    query = query.lte('follow_up_at', new Date().toISOString()).not('follow_up_at', 'is', null)
-  }
-  if (callbackDue === 'true') {
-    query = query.lte('callback_due_at', new Date().toISOString()).not('callback_due_at', 'is', null)
-  }
-  if (search) {
-    query = query.or(
-      `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,business_name.ilike.%${search}%,phone.ilike.%${search}%`
-    )
+  const applyLeadFilters = (query: any) => {
+    let nextQuery: any = query.eq('is_archived', archived)
+    if (stage) nextQuery = nextQuery.eq('stage', stage)
+    if (source) nextQuery = nextQuery.eq('source', source)
+    if (program) nextQuery = nextQuery.eq('program_interest', program)
+    if (temperature) nextQuery = nextQuery.eq('lead_temperature', temperature)
+    if (followUpDue === 'true') {
+      nextQuery = nextQuery.lte('follow_up_at', new Date().toISOString()).not('follow_up_at', 'is', null)
+    }
+    if (callbackDue === 'true') {
+      nextQuery = nextQuery.lte('callback_due_at', new Date().toISOString()).not('callback_due_at', 'is', null)
+    }
+    // When using unified search, fetch more leads for client-side ranking
+    // Otherwise use the original ILIKE search for database-side filtering
+    if (search) {
+      if (unifiedSearch) {
+        // For unified search, we fetch broader results and rank client-side
+        // Use partial matching to get candidates
+        const searchNorm = normalizeText(search)
+        const phoneDigits = normalizePhoneForSearch(search)
+        nextQuery = nextQuery.or(
+          `first_name.ilike.%${searchNorm}%,last_name.ilike.%${searchNorm}%,email.ilike.%${searchNorm}%,business_name.ilike.%${searchNorm}%${phoneDigits ? `,phone_digits.ilike.%${phoneDigits}%` : ''}`
+        )
+      } else {
+        // Original behavior: database-side filtering
+        nextQuery = nextQuery.or(
+          `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,business_name.ilike.%${search}%,phone.ilike.%${search}%`
+        )
+      }
+    }
+    return nextQuery
+      .order('follow_up_at', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false })
   }
 
   const page  = parseInt(searchParams.get('page')  ?? '0')
   const limit = parseInt(searchParams.get('limit') ?? '1000')
-  if (!requiresPostFilter) {
-    query = query.range(page * limit, (page + 1) * limit - 1)
+  let leads: any[] = []
+  let count: number | null = null
+
+  if (dialerMode) {
+    const chunkSize = 1000
+    let from = 0
+
+    while (true) {
+      const query = applyLeadFilters(
+        supabase
+          .from('crm_leads')
+          .select('*', { count: from === 0 ? 'exact' : undefined })
+          .range(from, from + chunkSize - 1)
+      )
+      const { data, error, count: batchCount } = await query
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+      if (from === 0) {
+        count = batchCount ?? 0
+      }
+
+      const batch = data ?? []
+      leads.push(...batch)
+
+      if (batch.length < chunkSize) {
+        break
+      }
+
+      from += chunkSize
+    }
+  } else {
+    // For unified search, fetch up to 500 candidates for client-side ranking
+    // This provides a good balance between coverage and performance
+    const searchFetchLimit = unifiedSearch ? Math.min(limit * 5, 500) : limit
+    
+    let query = applyLeadFilters(
+      supabase
+        .from('crm_leads')
+        .select('*', { count: 'exact' })
+    )
+
+    if (!requiresPostFilter) {
+      query = query.range(page * searchFetchLimit, (page + 1) * searchFetchLimit - 1)
+    }
+
+    const { data, error, count: queryCount } = await query
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    leads = data ?? []
+    count = queryCount ?? 0
   }
-
-  const { data, error, count } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  let leads = data ?? []
 
   if (openTasks === 'true' && leads.length > 0) {
     const leadIds = leads.map(lead => lead.id)
@@ -129,12 +191,14 @@ export async function GET(req: NextRequest) {
   const dialerEligibleLeads = dialerMode
     ? filteredLeads
       .filter((lead) => {
-        // Check dialer eligibility using comprehensive rules
         const eligibility = checkDialerEligibility(lead)
-        
+
         if (!eligibility.is_eligible) {
-          // Log exclusion for debugging
           console.log(`Lead ${lead.id} excluded from dialer: ${eligibility.exclusion_reason}`)
+          return false
+        }
+
+        if (!matchesDialerQueueFilter(lead, dialerQueue)) {
           return false
         }
 
@@ -143,7 +207,7 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => getLeadDialerPriority(b) - getLeadDialerPriority(a))
     : filteredLeads
 
-  const pagedLeads = requiresPostFilter
+  const pagedLeads = requiresPostFilter || dialerMode
     ? dialerEligibleLeads.slice(page * limit, (page + 1) * limit)
     : dialerEligibleLeads
 
@@ -163,19 +227,39 @@ export async function GET(req: NextRequest) {
     pagedLeads.map(lead => lead.id),
   )
 
-  const responseLeads = pagedLeads.map(lead => ({
+  // Apply unified search ranking if enabled
+  let searchResults: UnifiedSearchResult<any>[] | null = null
+  if (unifiedSearch && search && pagedLeads.length > 0) {
+    searchResults = rankSearchResults(pagedLeads, search, { limit })
+  }
+
+  const responseLeads = (searchResults ?? pagedLeads.map(lead => ({
     ...lead,
-    duplicate_phone_count: duplicatePhoneCounts.get(lead.phone_e164 || lead.phone || '') ?? 0,
-    phone_invalid: !lead.phone_e164,
-    ...(inviteSummaryMap.get(lead.id) ?? {}),
-    ...(smsSummaryMap.get(lead.id) ?? {}),
-  }))
+    search_match: null as { primaryMatch: string; score: number; matchedField: string } | null,
+  }))).map((result: any) => {
+    const lead = typeof result.lead === 'object' ? result.lead : result
+    const searchMatch = typeof result.lead === 'object' ? {
+      primaryMatch: result.primaryMatch,
+      score: result.score,
+      matchedField: result.matches?.[0]?.field ?? null,
+    } : null
+    
+    return {
+      ...lead,
+      search_match: searchMatch,
+      duplicate_phone_count: duplicatePhoneCounts.get(lead.phone_e164 || lead.phone || '') ?? 0,
+      phone_invalid: !lead.phone_e164,
+      ...(inviteSummaryMap.get(lead.id) ?? {}),
+      ...(smsSummaryMap.get(lead.id) ?? {}),
+    }
+  })
 
   return NextResponse.json({
     leads: responseLeads,
-    total: requiresPostFilter ? dialerEligibleLeads.length : (openTasks === 'true' ? dialerEligibleLeads.length : count ?? 0),
+    total: requiresPostFilter || dialerMode ? dialerEligibleLeads.length : (openTasks === 'true' ? dialerEligibleLeads.length : count ?? 0),
     page,
     limit,
+    search_used: unifiedSearch && !!search ? 'unified' : 'standard',
   })
 }
 

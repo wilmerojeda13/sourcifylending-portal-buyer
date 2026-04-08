@@ -4,12 +4,11 @@ import {
   CRM_CALL_OUTCOMES,
   CRM_CALL_STATUSES,
   CRM_LEAD_TEMPERATURES,
-  outcomeToLegacyStage,
   probabilityFromTemperature,
 } from '@/lib/crm'
 import { syncDialerSessionState } from '@/lib/crm-dialer-attempts'
 import { getRelationUnavailableMessage, isMissingRelationError, isSchemaDriftError } from '@/lib/supabase-schema'
-import { applyDispositionEligibilityUpdates, isTerminalDisposition } from '@/lib/crm-dialer-eligibility'
+import { applyDispositionEligibilityUpdates } from '@/lib/crm-dialer-eligibility'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -148,6 +147,8 @@ export async function POST(req: NextRequest) {
 
   let resolvedCallId = body.call_id as string | null | undefined
   let existingMetadata: Record<string, unknown> | null = null
+  let existingDialerSessionId: string | null = null
+  let existingDialerAttemptId: string | null = null
 
   if (resolvedCallId) {
     const { data: existingCall } = await admin.supabase
@@ -158,6 +159,8 @@ export async function POST(req: NextRequest) {
 
     if (existingCall) {
       existingMetadata = existingCall.metadata ?? null
+      existingDialerSessionId = existingCall.dialer_session_id ?? null
+      existingDialerAttemptId = existingCall.dialer_attempt_id ?? null
     }
   }
 
@@ -175,6 +178,8 @@ export async function POST(req: NextRequest) {
     if (fallbackCall) {
       resolvedCallId = fallbackCall.id
       existingMetadata = fallbackCall.metadata ?? null
+      existingDialerSessionId = fallbackCall.dialer_session_id ?? null
+      existingDialerAttemptId = fallbackCall.dialer_attempt_id ?? null
     }
   }
 
@@ -246,16 +251,17 @@ export async function POST(req: NextRequest) {
   const eligibilityUpdates = applyDispositionEligibilityUpdates(
     outcome || 'Follow Up',
     body.follow_up_at,
-    body.next_follow_up_at
+    body.callback_due_at ?? body.next_follow_up_at,
+    body.appointment_at ?? null,
   )
+  const resolvedOutcomeAt = endedAt || startedAt
 
   const leadUpdate: Record<string, unknown> = {
     last_contacted_at: startedAt,
-    last_call_at: startedAt,
+    last_call_at: resolvedOutcomeAt,
     last_call_outcome: outcome || 'Follow Up',
     latest_call_note: body.notes?.trim() || null,
     lead_temperature: temperature || 'cold',
-    callback_due_at: body.next_follow_up_at || null,
     strategy_call_booked: Boolean(body.strategy_call_booked),
     converted_to_client: Boolean(body.converted_to_client),
     close_probability: probabilityFromTemperature((temperature || 'cold') as 'cold' | 'warm' | 'hot'),
@@ -263,46 +269,19 @@ export async function POST(req: NextRequest) {
     ...eligibilityUpdates,
   }
 
-  const mappedStage = outcome ? outcomeToLegacyStage(outcome as never) : null
-  if (mappedStage) leadUpdate.stage = mappedStage
-  if (body.follow_up_at) leadUpdate.follow_up_at = body.follow_up_at
-
   const fallbackLeadUpdate: Record<string, unknown> = {
     last_contacted_at: startedAt,
+    last_call_at: resolvedOutcomeAt,
+    last_call_outcome: outcome || 'Follow Up',
     updated_at: new Date().toISOString(),
     ...eligibilityUpdates,
   }
-  if (mappedStage) fallbackLeadUpdate.stage = mappedStage
-  if (body.follow_up_at) fallbackLeadUpdate.follow_up_at = body.follow_up_at
 
   const leadResult = await updateLeadWithFallback(admin.supabase, body.lead_id, leadUpdate, fallbackLeadUpdate)
   const leadError = leadResult.error
   if (leadError) {
     console.error('crm_leads update failed after call log attempt', leadError)
     return NextResponse.json({ error: 'Call outcome could not be saved to the lead.' }, { status: 500 })
-  }
-
-  if (body.create_follow_up_task && body.next_follow_up_at) {
-    const { error: taskError } = await admin.supabase
-      .from('crm_tasks')
-      .insert({
-        lead_id: body.lead_id,
-        related_call_id: inserted?.id ?? null,
-        title: `Follow up with ${body.lead_name}`,
-        description: body.notes?.trim() || null,
-        task_type: 'Callback',
-        priority: temperature === 'hot' ? 'Urgent' : temperature === 'warm' ? 'High' : 'Medium',
-        status: 'To Do',
-        due_at: body.next_follow_up_at,
-        owner_user_id: admin.userId,
-        owner_name: admin.userName,
-        pipeline_stage: mappedStage || null,
-        notes: outcome ? `Created from call outcome: ${outcome}` : null,
-        created_by_user_id: admin.userId,
-      })
-    if (taskError) {
-      console.error('crm_tasks insert failed after call log attempt', taskError)
-    }
   }
 
   const { error: activityError } = await admin.supabase
@@ -327,18 +306,14 @@ export async function POST(req: NextRequest) {
     console.error('crm_activities insert failed after call log attempt', activityError)
   }
 
-  if (callLoggingUnavailable || leadResult.degraded) {
-    return NextResponse.json({
-      call: null,
-      degraded: true,
-      message: callLoggingUnavailable
-        ? 'Call outcome was saved to the lead, but detailed call logging is still being set up.'
-        : 'Call outcome was saved with limited CRM fields while the sales workspace schema finishes updating.',
-    }, { status: 202 })
-  }
-
-  const dialerSessionId = (inserted as { dialer_session_id?: string | null } | null)?.dialer_session_id ?? null
-  const dialerAttemptId = (inserted as { dialer_attempt_id?: string | null } | null)?.dialer_attempt_id ?? null
+  const dialerSessionId =
+    (inserted as { dialer_session_id?: string | null } | null)?.dialer_session_id
+    ?? existingDialerSessionId
+    ?? null
+  const dialerAttemptId =
+    (inserted as { dialer_attempt_id?: string | null } | null)?.dialer_attempt_id
+    ?? existingDialerAttemptId
+    ?? null
 
   if (dialerAttemptId) {
     await admin.supabase
@@ -361,6 +336,16 @@ export async function POST(req: NextRequest) {
       .update({ waiting_for_disposition: false, updated_at: new Date().toISOString() })
       .eq('id', dialerSessionId)
     await syncDialerSessionState(admin.supabase, dialerSessionId)
+  }
+
+  if (callLoggingUnavailable || leadResult.degraded) {
+    return NextResponse.json({
+      call: null,
+      degraded: true,
+      message: callLoggingUnavailable
+        ? 'Call outcome was saved to the lead, but detailed call logging is still being set up.'
+        : 'Call outcome was saved with limited CRM fields while the sales workspace schema finishes updating.',
+    }, { status: 202 })
   }
 
   return NextResponse.json({ call: inserted }, { status: 201 })

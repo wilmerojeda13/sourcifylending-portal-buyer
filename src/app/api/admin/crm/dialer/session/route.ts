@@ -81,10 +81,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  console.log('[Session] POST /api/admin/crm/dialer/session START')
   const admin = await assertAdmin()
-  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!admin) {
+    console.error('[Session] Admin authorization failed')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { mode = 'browser', target_parallel_lines = 3 } = await req.json().catch(() => ({}))
+  console.log('[Session] Request params:', { mode, target_parallel_lines })
 
   const existingSession = await loadActiveSession(admin.supabase, admin.userId)
   if (existingSession) {

@@ -17,6 +17,12 @@ import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMir
 import toast from 'react-hot-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+interface SearchMatch {
+  primaryMatch: string
+  score: number
+  matchedField: string | null
+}
+
 interface CRMLead {
   id: string
   first_name: string
@@ -68,6 +74,8 @@ interface CRMLead {
   analyzer_submitted?: boolean
   analyzer_submitted_at?: string | null
   created_at: string
+  // Search match metadata from unified search
+  search_match?: SearchMatch | null
 }
 
 type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost' | 'active_client'
@@ -322,9 +330,24 @@ function LeadCard({ lead, selected, onToggle }: { lead: CRMLead; selected?: bool
       >
         <span className={cn('w-2 h-2 rounded-full shrink-0', stage.dot)}/>
         <div className="min-w-0 flex-1 flex items-center gap-2">
-          <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
-            {lead.first_name} {lead.last_name}
-          </p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
+              {lead.first_name} {lead.last_name}
+            </p>
+            {/* Search match indicator */}
+            {lead.search_match && (
+              <span className={cn(
+                'text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0',
+                lead.search_match.score >= 90 
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                  : lead.search_match.score >= 60
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                    : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+              )}>
+                {lead.search_match.matchedField?.replace('_', ' ')}
+              </span>
+            )}
+          </div>
           {lead.business_name && (
             <p className="text-xs text-gray-400 truncate hidden lg:block flex-1">{lead.business_name}</p>
           )}

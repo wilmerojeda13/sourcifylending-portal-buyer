@@ -9,13 +9,13 @@ import { bootstrapOfflineCRM, createLocalId, queueCallWithLeadUpdate, queueLeadU
 import type { OfflineCall, OfflineCallOutcome, OfflineLead, OfflineLeadStage, OfflineLeadTemperature, OfflineTask, OfflineTaskPriority, OfflineTaskStatus, OfflineTaskType } from '@/lib/offline-crm-types'
 import OfflineCRMNav from '@/components/offline-crm/OfflineCRMNav'
 
-const STAGES: OfflineLeadStage[] = ['new', 'contacted', 'qualified', 'demo_scheduled', 'demo_held', 'follow_up', 'closed_won', 'closed_lost', 'active_client']
+const STAGES: OfflineLeadStage[] = ['new', 'contacted', 'interested', 'callback', 'follow_up', 'qualified', 'demo_held', 'active_client', 'closed_lost']
 const DISPOSITIONS: { outcome: OfflineCallOutcome; stage: OfflineLeadStage; label: string }[] = [
-  { outcome: 'Interested', stage: 'qualified', label: 'Interested' },
-  { outcome: 'Booked Call', stage: 'demo_scheduled', label: 'Booked Call' },
+  { outcome: 'Interested', stage: 'interested', label: 'Interested' },
+  { outcome: 'Booked Call', stage: 'qualified', label: 'Booked Call' },
   { outcome: 'Left Voicemail', stage: 'contacted', label: 'Voicemail' },
   { outcome: 'No Answer', stage: 'contacted', label: 'No Answer' },
-  { outcome: 'Call Back Later', stage: 'follow_up', label: 'Call Back Later' },
+  { outcome: 'Call Back Later', stage: 'callback', label: 'Call Back Later' },
   { outcome: 'Not Interested', stage: 'closed_lost', label: 'Not Interested' },
 ]
 

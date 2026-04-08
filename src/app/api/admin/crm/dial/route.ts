@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
 
   if (activeSession.waiting_for_disposition) {
     return NextResponse.json({
-      error: 'Finish the live conversation disposition before starting new outbound attempts.',
+      error: 'Save a disposition for the last power-dialed contact before starting another outbound attempt.',
       call_id: activeSession.current_crm_call_id ?? null,
     }, { status: 409 })
   }

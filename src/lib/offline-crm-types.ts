@@ -1,13 +1,13 @@
 export type OfflineLeadStage =
   | 'new'
   | 'contacted'
-  | 'qualified'
-  | 'demo_scheduled'
-  | 'demo_held'
+  | 'interested'
+  | 'callback'
   | 'follow_up'
-  | 'closed_won'
-  | 'closed_lost'
+  | 'qualified'
+  | 'demo_held'
   | 'active_client'
+  | 'closed_lost'
 
 export type OfflineLeadTemperature = 'cold' | 'warm' | 'hot'
 export type OfflineTaskPriority = 'Low' | 'Medium' | 'High' | 'Urgent'

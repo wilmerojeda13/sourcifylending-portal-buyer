@@ -116,6 +116,8 @@ export async function POST(req: NextRequest) {
 
   await supabase.from('crm_calls').update(updates).eq('id', crmCallId)
 
+  let currentAttempt: DialerAttemptRow | null = null
+
   if (currentCall.dialer_attempt_id) {
     const { data: attempt } = await supabase
       .from('crm_dialer_attempts')
@@ -124,6 +126,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle<DialerAttemptRow>()
 
     if (attempt) {
+      currentAttempt = attempt
       const attemptMetadata = (attempt.metadata as Record<string, unknown> | null) ?? {}
       const attemptStatus = mapTwilioStatusToAttemptStatus(callStatus)
       await supabase
@@ -164,23 +167,39 @@ export async function POST(req: NextRequest) {
       .eq('id', currentCall.lead_id)
   }
 
-  if (sessionId) {
-    await syncDialerSessionState(supabase, sessionId)
-  }
-
   if (
     sessionId &&
     leg === 'lead' &&
     currentCall.dialer_session_id &&
     ['busy', 'failed', 'no-answer', 'canceled', 'completed'].includes(callStatus ?? '')
   ) {
-    await supabase
-      .from('crm_dialer_sessions')
-      .update({
-        waiting_for_disposition: true,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', sessionId)
+    const requiresManualDisposition = true
+
+    console.log('[CRM STATUS WEBHOOK] Dialer terminal leg disposition gate:', {
+      crmCallId,
+      callStatus,
+      answeredBy,
+      currentCallAnsweredBy: currentCall.answered_by,
+      currentCallAmdStatus: currentCall.amd_status,
+      isWinner: currentAttempt?.is_winner ?? false,
+      requiresManualDisposition,
+    })
+
+    if (requiresManualDisposition) {
+      await supabase
+        .from('crm_dialer_sessions')
+        .update({
+          waiting_for_disposition: true,
+          current_lead_id: currentCall.lead_id,
+          current_crm_call_id: currentCall.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sessionId)
+    }
+  }
+
+  if (sessionId) {
+    await syncDialerSessionState(supabase, sessionId)
   }
 
   console.log('[CRM STATUS WEBHOOK] Database updates completed for call:', crmCallId)

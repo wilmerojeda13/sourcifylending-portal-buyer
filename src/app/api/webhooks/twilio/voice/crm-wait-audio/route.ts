@@ -1,24 +1,22 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import twilio from 'twilio'
 
-// While the lead leg is ringing, the rep is alone in the conference with waitUrl.
-// Silence made it seem like browser audio was dead; loop quiet hold audio so the line feels live.
-// (True PSTN ring-back is not forwarded into the conference until the callee answers.)
-function buildWaitTwiml() {
+function buildWaitTwiml(req: NextRequest) {
+  const origin = req.nextUrl.origin
+  const loopUrl = req.nextUrl.href
+  const ringbackUrl = `${origin}/api/webhooks/twilio/voice/crm-ringback`
   const response = new twilio.twiml.VoiceResponse()
-  response.play(
-    { loop: 0 },
-    'https://s3.amazonaws.com/com.twilio.music.classical/Haydn_Symph_104_2.mp3',
-  )
+  response.play(ringbackUrl)
+  response.redirect({ method: 'GET' }, loopUrl)
   return response.toString()
 }
 
-export async function GET() {
-  return new NextResponse(buildWaitTwiml(), {
+export async function GET(req: NextRequest) {
+  return new NextResponse(buildWaitTwiml(req), {
     headers: { 'Content-Type': 'text/xml' },
   })
 }
 
-export async function POST() {
-  return GET()
+export async function POST(req: NextRequest) {
+  return GET(req)
 }

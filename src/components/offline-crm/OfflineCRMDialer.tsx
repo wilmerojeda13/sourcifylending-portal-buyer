@@ -8,15 +8,16 @@ import { getOfflineMeta, listOfflineLeads } from '@/lib/offline-crm-db'
 import { createLocalId, queueCallWithLeadUpdate } from '@/lib/offline-crm-sync'
 import type { OfflineCallOutcome, OfflineLead, OfflineLeadStage } from '@/lib/offline-crm-types'
 
-type StageFilter = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'active_client'
+type StageFilter = 'new' | 'contacted' | 'interested' | 'callback' | 'follow_up' | 'qualified' | 'demo_held' | 'active_client'
 
 const STAGE_OPTIONS: { key: StageFilter; label: string }[] = [
   { key: 'new', label: 'New' },
   { key: 'contacted', label: 'Contacted' },
-  { key: 'qualified', label: 'Qualified' },
-  { key: 'demo_scheduled', label: 'Demo Scheduled' },
-  { key: 'demo_held', label: 'Demo Held' },
+  { key: 'interested', label: 'Interested' },
+  { key: 'callback', label: 'Callback' },
   { key: 'follow_up', label: 'Follow Up' },
+  { key: 'qualified', label: 'Qualified' },
+  { key: 'demo_held', label: 'Demo Held' },
   { key: 'active_client', label: 'Active Client' },
 ]
 
@@ -28,8 +29,8 @@ const DISPOSITIONS: {
   outcome: OfflineCallOutcome
   newStage: OfflineLeadStage | null
 }[] = [
-  { key: 'interested', label: 'Interested', icon: ThumbsUp, color: 'bg-green-500 hover:bg-green-600 text-white', outcome: 'Interested', newStage: 'qualified' },
-  { key: 'book_demo', label: 'Book Demo', icon: CalendarPlus, color: 'bg-purple-500 hover:bg-purple-600 text-white', outcome: 'Booked Call', newStage: 'demo_scheduled' },
+  { key: 'interested', label: 'Interested', icon: ThumbsUp, color: 'bg-green-500 hover:bg-green-600 text-white', outcome: 'Interested', newStage: 'interested' },
+  { key: 'book_demo', label: 'Book Demo', icon: CalendarPlus, color: 'bg-purple-500 hover:bg-purple-600 text-white', outcome: 'Booked Call', newStage: 'qualified' },
   { key: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'bg-amber-500 hover:bg-amber-600 text-white', outcome: 'Left Voicemail', newStage: 'contacted' },
   { key: 'no_answer', label: 'No Answer', icon: PhoneMissed, color: 'bg-gray-400 hover:bg-gray-500 text-white', outcome: 'No Answer', newStage: 'contacted' },
   { key: 'not_interested', label: 'Not Interested', icon: ThumbsDown, color: 'bg-red-400 hover:bg-red-500 text-white', outcome: 'Not Interested', newStage: 'closed_lost' },

@@ -1617,10 +1617,14 @@ useEffect(() => {
     }
 
     const dialUrl = buildDeviceDialUrl(normalizedPhone.e164)
-    const newTab = window.open(dialUrl, '_self')
+    
+    // Open phone app in a NEW window to prevent replacing the portal tab
+    // Use _blank with noopener for security and to ensure a new window opens
+    const newWindow = window.open(dialUrl, '_blank', 'noopener,noreferrer')
 
-    if (!newTab) {
-      setManualCallError('Your device could not open the phone app. Check that calling is supported on this device and try again.')
+    if (!newWindow) {
+      // Popup was blocked - inform the user
+      setManualCallError('Popup was blocked. Please allow popups for this site or your device may not support tel: links.')
       return
     }
 
@@ -2539,14 +2543,6 @@ useEffect(() => {
                 </div>
               )}
 
-              {showDialerKeypad && (
-                <SoftphoneKeypad
-                  onDigitPress={handleDtmfPress}
-                  disabled={false}
-                  className="mt-4"
-                />
-              )}
-
               <div className="hidden rounded-3xl border border-gray-800 bg-gray-900/90 p-4 lg:block lg:p-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Call Outcome</p>
@@ -2582,6 +2578,14 @@ useEffect(() => {
                   )}
                 </div>
               </div>
+
+              {showDialerKeypad && (
+                <SoftphoneKeypad
+                  onDigitPress={handleDtmfPress}
+                  disabled={false}
+                  className="mt-4"
+                />
+              )}
 
               {current?.email && (
                 <div className="hidden rounded-3xl border border-gray-800 bg-gray-900/90 p-4 lg:block lg:p-5">

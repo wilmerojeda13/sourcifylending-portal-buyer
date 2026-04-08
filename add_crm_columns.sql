@@ -1,0 +1,1 @@
+ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS analyzer_submitted_at TIMESTAMPTZ, ADD COLUMN IF NOT EXISTS account_created_at TIMESTAMPTZ;
