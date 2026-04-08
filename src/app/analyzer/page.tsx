@@ -19,6 +19,7 @@ import {
 } from '@/lib/public-form-compliance'
 
 const TOTAL_STEPS = 11
+const CRM_ANALYZER_SESSION_COOKIE = 'crm_analyzer_session'
 
 const QUESTIONS = [
   {
@@ -81,6 +82,7 @@ export default function AnalyzerPage() {
   const supabase = createClient()
   const searchParams = useSearchParams()
   const crmInviteId = searchParams.get('crm_invite')
+  const analyzerSessionId = searchParams.get(CRM_ANALYZER_SESSION_COOKIE)
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [result, setResult] = useState<AnalyzerApiResult | null>(null)
@@ -121,17 +123,32 @@ export default function AnalyzerPage() {
   useEffect(() => {
     if (!crmInviteId) return
     document.cookie = `${CRM_INVITE_COOKIE}=${encodeURIComponent(crmInviteId)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
-    fetch(`/api/crm/invites/${crmInviteId}/engagement`, {
+  }, [crmInviteId])
+
+  useEffect(() => {
+    if (!analyzerSessionId) return
+    document.cookie = `${CRM_ANALYZER_SESSION_COOKIE}=${encodeURIComponent(analyzerSessionId)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+    fetch(`/api/analyzer/session/${analyzerSessionId}/event`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'analyzer_started', metadata: { page: 'analyzer' } }),
+      body: JSON.stringify({ event: 'link_opened', metadata: { page: 'analyzer' } }),
     }).catch(() => {})
-  }, [crmInviteId])
+  }, [analyzerSessionId])
 
   const current = QUESTIONS[step]
   const progress = (step / TOTAL_STEPS) * 100
 
-  const setValue = (val: string) => setAnswers({ ...answers, [current.id]: val })
+  const setValue = (val: string) => {
+    setAnswers({ ...answers, [current.id]: val })
+    if (!hasTrackedAnalyzerStart && analyzerSessionId) {
+      setHasTrackedAnalyzerStart(true)
+      fetch(`/api/analyzer/session/${analyzerSessionId}/event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'analyzer_started', metadata: { question_id: current.id } }),
+      }).catch(() => {})
+    }
+  }
   const currentVal = answers[current.id] || ''
 
   const submitAnalyzer = async (
@@ -154,6 +171,7 @@ export default function AnalyzerPage() {
           business_name: answers.business_name || undefined,
           answers,
           crm_invite_id: crmInviteId || null,
+          crm_analyzer_session_id: analyzerSessionId || null,
           compliance,
         }),
       })
@@ -231,6 +249,7 @@ export default function AnalyzerPage() {
         contactName={loggedInUser?.name || fullName}
         contactBusinessName={answers.business_name}
         crmInviteId={crmInviteId}
+        crmAnalyzerSessionId={analyzerSessionId}
         isLoggedIn={!!loggedInUser}
         loggedInUserName={loggedInUser?.name}
         loggedInAssignedProgram={loggedInUser?.assignedProgram}
@@ -476,6 +495,7 @@ function AnalyzerResults({
   contactName,
   contactBusinessName,
   crmInviteId,
+  crmAnalyzerSessionId,
   isLoggedIn,
   loggedInUserName,
   loggedInAssignedProgram: _loggedInAssignedProgram,
@@ -487,6 +507,7 @@ function AnalyzerResults({
   contactName?: string
   contactBusinessName?: string
   crmInviteId?: string | null
+  crmAnalyzerSessionId?: string | null
   isLoggedIn?: boolean
   loggedInUserName?: string
   loggedInAssignedProgram?: string
@@ -516,6 +537,7 @@ function AnalyzerResults({
         contact_name: contactName ?? null,
         business_name: contactBusinessName ?? null,
         crm_invite_id: crmInviteId ?? null,
+        crm_analyzer_session_id: crmAnalyzerSessionId ?? null,
       }))
     } catch {
       // sessionStorage not available (private mode etc) — safe to ignore
@@ -561,6 +583,7 @@ function AnalyzerResults({
           lead_id: leadId || null,
           analyzer_result: result,
           crm_invite_id: crmInviteId || null,
+          crm_analyzer_session_id: crmAnalyzerSessionId || null,
           turnstileToken: signupTurnstileToken,
           compliance: {
             enabled: true,
@@ -834,3 +857,4 @@ function AnalyzerResults({
     </div>
   )
 }
+  const [hasTrackedAnalyzerStart, setHasTrackedAnalyzerStart] = useState(false)

@@ -13,6 +13,7 @@ import {
   linkCrmInviteAccount,
   normalizeInviteEmail,
 } from '@/lib/crm-invites'
+import { createTrackedAnalyzerSession } from '@/lib/crm-analyzer-sessions'
 
 async function requireAdmin() {
   const authClient = await createClient()
@@ -152,7 +153,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: insertError?.message ?? 'Failed to create invite' }, { status: 500 })
   }
 
-  const inviteLink = buildCrmInviteLink(inserted.id, inviteType, req.nextUrl.origin)
+  let inviteLink = buildCrmInviteLink(inserted.id, inviteType, req.nextUrl.origin)
+  let analyzerSessionId: string | null = null
+  if (inviteType === 'pre_analyzer') {
+    const session = await createTrackedAnalyzerSession({
+      supabase: admin.supabase,
+      leadId: lead.id,
+      repUserId: admin.userId,
+      repName: admin.userName,
+      sourceContext: 'crm_pre_analyzer_invite',
+      origin: req.nextUrl.origin,
+      crmInviteId: inserted.id,
+      metadata: {
+        invite_type: inviteType,
+        email: normalizedEmail,
+      },
+    })
+    analyzerSessionId = session.session.id
+    inviteLink = `${session.trackedUrl}&crm_invite=${encodeURIComponent(inserted.id)}`
+  }
   const html = buildInviteEmailHtml({
     leadName: `${lead.first_name} ${lead.last_name ?? ''}`.trim(),
     businessName: lead.business_name,
@@ -218,6 +237,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       invite_type: inviteType,
       resend_email_id: emailJson?.id ?? null,
       source: CRM_INVITE_SOURCE,
+      analyzer_session_id: analyzerSessionId,
     },
   ).catch(() => {})
 
@@ -249,6 +269,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       email: normalizedEmail,
       invite_type: inviteType,
       source: CRM_INVITE_SOURCE,
+      analyzer_session_id: analyzerSessionId,
     },
     severity: 'info',
     createdBy: admin.userName,

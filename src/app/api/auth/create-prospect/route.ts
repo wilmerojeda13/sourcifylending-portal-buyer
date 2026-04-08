@@ -5,6 +5,7 @@ import { linkCrmInviteAccount, markCrmInviteEvent } from '@/lib/crm-invites'
 import { logPortalEvent } from '@/lib/portal-events'
 import { recordConsentRecord } from '@/lib/public-form-audit'
 import { ensureSignupCrmLead } from '@/lib/signup-crm'
+import { CRM_ANALYZER_SESSION_COOKIE, recordAnalyzerSessionEvent } from '@/lib/crm-analyzer-sessions'
 import {
   buildComplianceSnapshot,
   validateCompliancePayload,
@@ -40,10 +41,12 @@ export async function POST(req: NextRequest) {
       lead_id?: string | null
       analyzer_result?: AnalyzerResult | null
       crm_invite_id?: string | null
+      crm_analyzer_session_id?: string | null
       turnstileToken?: string | null
       compliance?: CompliancePayload
     } = body
     const meta = getSignupRequestMeta(req)
+    const analyzerSessionId = body.crm_analyzer_session_id || req.cookies.get(CRM_ANALYZER_SESSION_COOKIE)?.value || null
     const complianceValidation = validateCompliancePayload(body.compliance, 'public_analyzer_create_account')
     if (!complianceValidation.ok) {
       return NextResponse.json({ error: complianceValidation.error }, { status: 400 })
@@ -282,6 +285,19 @@ export async function POST(req: NextRequest) {
           notification_sent: crmLead.notificationSent ?? false,
         },
       })
+
+      if (analyzerSessionId) {
+        await recordAnalyzerSessionEvent({
+          supabase,
+          sessionId: analyzerSessionId,
+          eventType: 'account_created',
+          metadata: {
+            user_id: userId,
+            email: normalizedEmail,
+            lead_id: crmLead.leadId,
+          },
+        }).catch(() => {})
+      }
     } catch (crmErr) {
       console.error('CRM lead sync during create-prospect failed:', crmErr)
       await recordSignupAutomationFailure({

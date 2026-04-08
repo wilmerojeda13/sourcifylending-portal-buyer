@@ -13,6 +13,7 @@ import {
   markCrmSmsEvent,
   renderCrmSmsTemplate,
 } from '@/lib/crm-sms'
+import { createTrackedAnalyzerSession } from '@/lib/crm-analyzer-sessions'
 
 async function requireAdmin() {
   const authClient = await createClient()
@@ -80,6 +81,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const now = new Date().toISOString()
+  const templateKey = getString(body.template_key) || 'portal_invite'
   const { data: created, error: insertError } = await admin.supabase
     .from('crm_lead_sms')
     .insert({
@@ -97,7 +99,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       destination_url: getCrmPortalSignupUrl(req.nextUrl.origin),
       metadata: {
         source: CRM_SMS_SOURCE,
-        template_key: body.template_key ?? 'portal_invite',
+        template_key: templateKey,
         dialer_stage: body.dialer_stage ?? lead.stage ?? null,
       },
       created_at: now,
@@ -111,6 +113,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const trackedLink = buildCrmSmsTrackedLink(created.id, req.nextUrl.origin)
+  let liveAnalyzerLink: string | null = null
+  let analyzerSessionId: string | null = null
+  if (templateKey === 'analyzer_link') {
+    const session = await createTrackedAnalyzerSession({
+      supabase: admin.supabase,
+      leadId: lead.id,
+      repUserId: admin.userId,
+      repName: admin.userName,
+      sourceContext: 'crm_sms_analyzer_link',
+      origin: req.nextUrl.origin,
+      crmSmsId: created.id,
+      metadata: { phone: normalizedPhone },
+    })
+    liveAnalyzerLink = session.trackedUrl
+    analyzerSessionId = session.session.id
+  }
   const template = getString(body.message_body)
     || getString(settings?.sms_template)
     || buildDefaultCrmSmsBody(lead.first_name, req.nextUrl.origin)
@@ -121,9 +139,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     full_name: [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim(),
     business_name: lead.business_name ?? '',
     portal_link: getCrmPortalSignupUrl(req.nextUrl.origin),
+    analyzer_link: liveAnalyzerLink ?? '',
   })
 
-  const finalBody = injectTrackedPortalLink(rendered, trackedLink, req.nextUrl.origin)
+  const finalBody = templateKey === 'analyzer_link'
+    ? rendered.replaceAll('{{analyzer_link}}', liveAnalyzerLink ?? '').trim()
+    : injectTrackedPortalLink(rendered, trackedLink, req.nextUrl.origin)
   const statusCallback = `${req.nextUrl.origin}/api/webhooks/twilio/sms`
 
   const client = twilio(accountSid, authToken)
@@ -142,8 +163,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         message_body: finalBody,
         twilio_message_sid: message.sid,
         delivery_status: message.status ?? 'queued',
-        destination_url: getCrmPortalSignupUrl(req.nextUrl.origin),
+        destination_url: liveAnalyzerLink ?? getCrmPortalSignupUrl(req.nextUrl.origin),
         updated_at: new Date().toISOString(),
+        metadata: {
+          source: CRM_SMS_SOURCE,
+          template_key: templateKey,
+          analyzer_session_id: analyzerSessionId,
+        },
       })
       .eq('id', created.id)
 
@@ -155,8 +181,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       createdBy: admin.userName,
       metadata: {
         source: CRM_SMS_SOURCE,
-        template_key: body.template_key ?? 'portal_invite',
+        template_key: templateKey,
         tracked_link: trackedLink,
+        analyzer_session_id: analyzerSessionId,
+        live_analyzer_link: liveAnalyzerLink,
       },
     })
 
@@ -166,6 +194,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       sms: rows[0] ?? created,
       sms_summary: buildCrmSmsSummary(rows),
       tracked_link: trackedLink,
+      analyzer_link: liveAnalyzerLink,
     })
   } catch (error) {
     await admin.supabase
@@ -174,7 +203,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         message_body: finalBody,
         status: 'failed',
         delivery_status: 'failed',
-        destination_url: getCrmPortalSignupUrl(req.nextUrl.origin),
+        destination_url: liveAnalyzerLink ?? getCrmPortalSignupUrl(req.nextUrl.origin),
         error_message: error instanceof Error ? error.message : 'sms_send_failed',
         updated_at: new Date().toISOString(),
       })
@@ -189,6 +218,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       metadata: {
         source: CRM_SMS_SOURCE,
         tracked_link: trackedLink,
+        analyzer_session_id: analyzerSessionId,
+        live_analyzer_link: liveAnalyzerLink,
       },
     })
 

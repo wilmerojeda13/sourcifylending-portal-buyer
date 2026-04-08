@@ -7,19 +7,20 @@ import {
   Phone, ChevronLeft, ChevronRight, Building2, Mail,
   ThumbsUp, ThumbsDown, Voicemail, PhoneMissed, CalendarPlus,
   Ban, Loader2, Users, CheckCircle2, Filter, X, Flame, Send, PhoneOff, Clock3,
-  PhoneCall, Clock, Power,
+  PhoneCall, Clock, Power, Pause,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMirror'
 import LiveCallFeed from '@/components/admin/crm/dialer/LiveCallFeed'
 import BrowserAudio from '@/components/admin/crm/dialer/BrowserAudio'
 import SoftphoneKeypad from '@/components/admin/crm/dialer/SoftphoneKeypad'
+import AnalyzerLivePanel from '@/components/admin/crm/AnalyzerLivePanel'
 import toast from 'react-hot-toast'
 import { type CRMDialerRepState } from '@/lib/crm-dialer'
 import { normalizePhone } from '@/modules/voice-agent/utils/phone'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost' | 'active_client'
+type Stage = 'new' | 'contacted' | 'interested' | 'callback' | 'follow_up' | 'qualified' | 'demo_held' | 'active_client' | 'closed_lost'
 
 interface CRMLead {
   id: string
@@ -73,6 +74,7 @@ interface CRMLead {
   last_sms_clicked_at?: string | null
   sms_account_created?: boolean
   sms_account_created_at?: string | null
+  appointment_at?: string | null
 }
 
 interface CRMDialerSession {
@@ -134,18 +136,29 @@ type CallDispositionKey =
   | 'follow_up'
   | 'appointment_set'
 
+type DialerQueueKey =
+  | 'new'
+  | 'contacted'
+  | 'interested'
+  | 'callback'
+  | 'follow_up'
+  | 'qualified'
+  | 'demo_held'
+  | 'active_client'
+  | 'closed_lost'
+
 // ─── Dispositions ─────────────────────────────────────────────────────────────
 const DISPOSITIONS = [
-  { key: 'interested', label: 'Interested', icon: ThumbsUp, color: 'bg-green-500 hover:bg-green-600 text-white', outcome: 'Interested', newStage: 'qualified' as Stage },
-  { key: 'appointment_set', label: 'Appointment Set', icon: CalendarPlus, color: 'bg-purple-500 hover:bg-purple-600 text-white', outcome: 'Appointment Set', newStage: 'demo_scheduled' as Stage },
+  { key: 'interested', label: 'Interested', icon: ThumbsUp, color: 'bg-green-500 hover:bg-green-600 text-white', outcome: 'Interested', newStage: 'interested' as Stage },
+  { key: 'appointment_set', label: 'Appointment Set', icon: CalendarPlus, color: 'bg-purple-500 hover:bg-purple-600 text-white', outcome: 'Appointment Set', newStage: 'qualified' as Stage },
   { key: 'follow_up', label: 'Follow Up', icon: Clock3, color: 'bg-blue-500 hover:bg-blue-600 text-white', outcome: 'Follow Up', newStage: 'follow_up' as Stage },
-  { key: 'call_back', label: 'Call Back', icon: Clock3, color: 'bg-cyan-500 hover:bg-cyan-600 text-white', outcome: 'Call Back', newStage: 'follow_up' as Stage },
-  { key: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'bg-amber-500 hover:bg-amber-600 text-white', outcome: 'Voicemail', newStage: 'contacted' as Stage },
-  { key: 'no_answer', label: 'No Answer', icon: PhoneMissed, color: 'bg-gray-400 hover:bg-gray-500 text-white', outcome: 'No Answer', newStage: 'contacted' as Stage },
-  { key: 'busy', label: 'Busy', icon: PhoneOff, color: 'bg-gray-600 hover:bg-gray-700 text-white', outcome: 'Busy', newStage: 'contacted' as Stage },
+  { key: 'call_back', label: 'Call Back', icon: Clock3, color: 'bg-cyan-500 hover:bg-cyan-600 text-white', outcome: 'Call Back', newStage: 'callback' as Stage },
+  { key: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'bg-amber-500 hover:bg-amber-600 text-white', outcome: 'Voicemail', newStage: null },
+  { key: 'no_answer', label: 'No Answer', icon: PhoneMissed, color: 'bg-gray-400 hover:bg-gray-500 text-white', outcome: 'No Answer', newStage: null },
+  { key: 'busy', label: 'Busy', icon: PhoneOff, color: 'bg-gray-600 hover:bg-gray-700 text-white', outcome: 'Busy', newStage: null },
   { key: 'bad_number', label: 'Bad Number', icon: X, color: 'bg-orange-700 hover:bg-orange-800 text-white', outcome: 'Bad Number', newStage: 'closed_lost' as Stage },
   { key: 'not_interested', label: 'Not Interested', icon: ThumbsDown, color: 'bg-red-400 hover:bg-red-500 text-white', outcome: 'Not Interested', newStage: 'closed_lost' as Stage },
-  { key: 'dnc', label: 'DNC / Remove', icon: Ban, color: 'bg-red-700 hover:bg-red-800 text-white', outcome: 'Do Not Call', newStage: null },
+  { key: 'dnc', label: 'DNC / Remove', icon: Ban, color: 'bg-red-700 hover:bg-red-800 text-white', outcome: 'Do Not Call', newStage: 'closed_lost' as Stage },
 ] as const satisfies ReadonlyArray<{
   key: CallDispositionKey
   label: string
@@ -154,6 +167,29 @@ const DISPOSITIONS = [
   outcome: string
   newStage: Stage | null
 }>
+
+const DIALER_QUEUE_OPTIONS: ReadonlyArray<{
+  key: DialerQueueKey
+  label: string
+  sub: string
+  color: string
+}> = [
+  { key: 'new', label: 'New Lead', sub: 'Fresh leads', color: 'border-blue-600 hover:border-blue-400' },
+  { key: 'contacted', label: 'Contacted', sub: 'Previously contacted', color: 'border-gray-600 hover:border-gray-400' },
+  { key: 'interested', label: 'Interested', sub: 'Shown interest', color: 'border-green-600 hover:border-green-400' },
+  { key: 'callback', label: 'Callback', sub: 'Scheduled callbacks', color: 'border-cyan-600 hover:border-cyan-400' },
+  { key: 'follow_up', label: 'Follow Up', sub: 'Follow-up needed', color: 'border-blue-600 hover:border-blue-400' },
+  { key: 'qualified', label: 'Qualified', sub: 'Qualified leads', color: 'border-purple-600 hover:border-purple-400' },
+  { key: 'demo_held', label: 'Demo Held', sub: 'Demo completed', color: 'border-indigo-600 hover:border-indigo-400' },
+  { key: 'active_client', label: 'Active Client', sub: 'Current clients', color: 'border-emerald-600 hover:border-emerald-400' },
+  { key: 'closed_lost', label: 'Closed Lost', sub: 'Lost opportunities', color: 'border-red-600 hover:border-red-400' },
+] as const
+
+const TERMINAL_DISPOSITION_KEYS = new Set<CallDispositionKey>(['bad_number', 'not_interested', 'dnc'])
+
+function queueLabel(queueKey: string | null) {
+  return DIALER_QUEUE_OPTIONS.find((option) => option.key === queueKey)?.label ?? 'Stage'
+}
 
 const PROGRAM_LABEL: Record<string, string> = { program_a: 'Program A', program_b: 'Program B', program_c: 'Program C' }
 const PROGRAM_BADGE: Record<string, string> = {
@@ -176,15 +212,19 @@ function formatInviteTimestamp(iso: string | null | undefined) {
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
-function buildSmsTemplate(type: 'portal_invite' | 'follow_up' | 'demo_booking', lead: CRMLead | undefined) {
+function buildSmsTemplate(type: 'portal_invite' | 'analyzer_link' | 'follow_up' | 'demo_booking', lead: CRMLead | undefined) {
   const firstName = lead?.first_name?.trim() || 'there'
   const portalLink = 'https://app.sourcifylending.com/signup'
+  const analyzerLink = '{{analyzer_link}}'
 
   if (type === 'follow_up') {
     return `Hi ${firstName}, this is Abel with SourcifyLending. Following up from my call. Here’s the portal link when you’re ready: ${portalLink}`
   }
   if (type === 'demo_booking') {
     return `Hi ${firstName}, this is Abel with SourcifyLending. Here’s the portal link so you can get started before we book your demo: ${portalLink}`
+  }
+  if (type === 'analyzer_link') {
+    return `Hi ${firstName}, this is Abel with SourcifyLending. Here’s your live analyzer link so we can review your score together on this call: ${analyzerLink}`
   }
   return `Hi ${firstName}, this is Abel with SourcifyLending. Here’s the link to get started in the portal: ${portalLink}`
 }
@@ -251,6 +291,51 @@ function isActiveAttemptStatus(status: string | null | undefined) {
   return ['queued', 'dialing', 'ringing', 'answered_human', 'answered_machine', 'bridged'].includes(status ?? '')
 }
 
+function wasRecentlyDisposed(
+  lastDisposedCall: { callId: string | null; at: number },
+  callId: string | null | undefined,
+) {
+  return Boolean(
+    callId &&
+    lastDisposedCall.callId &&
+    callId === lastDisposedCall.callId &&
+    Date.now() - lastDisposedCall.at < 15_000,
+  )
+}
+
+function buildDeviceDialUrl(e164Phone: string) {
+  return `tel:${e164Phone}`
+}
+
+function getCurrentLeadManualCallPhone(lead: CRMLead | null | undefined) {
+  if (!lead) {
+    return { valid: false as const, e164: null, reason: 'missing_lead' as const }
+  }
+
+  if (lead.phone_e164?.trim()) {
+    const normalizedE164 = normalizePhone(lead.phone_e164)
+    if (normalizedE164.valid) {
+      return normalizedE164
+    }
+  }
+
+  return normalizePhone(lead.phone)
+}
+
+function getManualCallErrorMessage(reason: string) {
+  switch (reason) {
+    case 'missing_lead':
+      return 'No lead is loaded for manual calling.'
+    case 'empty':
+      return 'This lead does not have a phone number.'
+    case 'invalid_number':
+    case 'parse_error':
+      return 'This lead’s phone number is invalid and could not be normalized for the phone app.'
+    default:
+      return 'This lead’s phone number could not be prepared for the phone app.'
+  }
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DialerClient() {
   const [leads, setLeads]         = useState<CRMLead[]>([])
@@ -265,13 +350,14 @@ export default function DialerClient() {
   const [strategyBooked, setStrategyBooked] = useState(false)
   const [converted, setConverted] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
-  const [stageFilter, setStageFilter] = useState<string | null>(null)
+  const [queueFilter, setQueueFilter] = useState<DialerQueueKey | null>(null)
   const [programFilter, setProgramFilter] = useState('')
   const [skipped, setSkipped]     = useState(0)
   const [done, setDone]           = useState(0)
   const [callLoggingNotice, setCallLoggingNotice] = useState<string | null>(null)
   const [authorizingCall, setAuthorizingCall] = useState(false)
   const [activeCallId, setActiveCallId] = useState<string | null>(null)
+  const [pendingDispositionCallId, setPendingDispositionCallId] = useState<string | null>(null)
   const [callProviderStatus, setCallProviderStatus] = useState<string | null>(null)
   const [callProviderMessage, setCallProviderMessage] = useState<string | null>(null)
   const [autoAdvance, setAutoAdvance] = useState(true)
@@ -279,8 +365,9 @@ export default function DialerClient() {
   const [inviteSuccess, setInviteSuccess] = useState<InviteType | null>(null)
   const [showSmsComposer, setShowSmsComposer] = useState(false)
   const [smsBody, setSmsBody] = useState('')
-  const [smsTemplateKey, setSmsTemplateKey] = useState<'portal_invite' | 'follow_up' | 'demo_booking'>('portal_invite')
+  const [smsTemplateKey, setSmsTemplateKey] = useState<'portal_invite' | 'analyzer_link' | 'follow_up' | 'demo_booking'>('portal_invite')
   const [smsSending, setSmsSending] = useState(false)
+  const [manualCallError, setManualCallError] = useState<string | null>(null)
   const [session, setSession] = useState<CRMDialerSession | null>(null)
   const [attempts, setAttempts] = useState<CRMDialerAttempt[]>([])
   const [sessionLoading, setSessionLoading] = useState(true)
@@ -300,6 +387,7 @@ export default function DialerClient() {
   const endingRepSessionRef = useRef(false)
   const agentAudioRejoinRef = useRef(false)
   const lastAgentErrorRef = useRef<{ code?: unknown; message?: unknown; at: number } | null>(null)
+  const lastDisposedCallRef = useRef<{ callId: string | null; at: number }>({ callId: null, at: 0 })
   // WATCHDOG: Move refs to component level to fix React hook violation
   const lastDialAttempt = useRef<Date | null>(null)
   const dialStuckTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -308,16 +396,38 @@ export default function DialerClient() {
     sessionIdRef.current = session?.id ?? null
   }, [session?.id])
 
+  const connectBrowserAgentCall = useCallback(async (
+    device: any,
+    rawSessionId: string | null | undefined,
+    source: 'setReady' | 'reconnect',
+  ) => {
+    const sessionId = typeof rawSessionId === 'string' ? rawSessionId.trim() : ''
+    console.log('[dialer] session id for connect:', sessionId || '(empty)')
+
+    if (!sessionId) {
+      console.error('[dialer] agent call error:', { source, reason: 'missing_session_id' })
+      setDeviceStatus('error')
+      setCallProviderMessage('Browser audio could not connect because the dialer session id is missing.')
+      toast.error('Dialer session id missing. Browser audio was not connected.')
+      throw new Error('Missing dialer session id for browser connect.')
+    }
+
+    const connectParams = { params: { sessionId } }
+    console.log('[dialer] device.connect params:', connectParams)
+    console.log('[dialer] device.connect started')
+    return await device.connect(connectParams)
+  }, [])
+
   const wireAgentBrowserCall = useCallback((agentCall: any) => {
     agentCall.on('accept', () => {
-      console.log('[Dialer] Agent call accepted')
+      console.log('[dialer] agent call accepted')
       setDeviceStatus('connected')
       setCallProviderMessage('Browser audio live. Dial leads when ready.')
       setSession((prev) => (prev ? { ...prev, session_status: 'waiting', rep_state: 'waiting' } : prev))
     })
 
     agentCall.on('disconnect', () => {
-      console.log('[Dialer] Agent call disconnected')
+      console.log('[dialer] agent call disconnected')
       agentCallRef.current = null
       if (endingRepSessionRef.current) {
         setCallProviderMessage('Session ended.')
@@ -337,7 +447,17 @@ export default function DialerClient() {
         agentAudioRejoinRef.current = true
         setCallProviderMessage('Restoring browser audio for the next call...')
         deviceRef.current
-          .connect({ params: { sessionId: sessionIdRef.current } })
+          .connect((() => {
+            const reconnectSessionId = sessionIdRef.current?.trim() ?? ''
+            console.log('[dialer] session id for connect:', reconnectSessionId || '(empty)')
+            if (!reconnectSessionId) {
+              throw new Error('Missing dialer session id for browser reconnect.')
+            }
+            const connectParams = { params: { sessionId: reconnectSessionId } }
+            console.log('[dialer] device.connect params:', connectParams)
+            console.log('[dialer] device.connect started')
+            return connectParams
+          })())
           .then((next: any) => {
             agentCallRef.current = next
             wireAgentBrowserCall(next)
@@ -345,9 +465,14 @@ export default function DialerClient() {
             setCallProviderMessage('Browser audio live. Dial leads when ready.')
           })
           .catch((err: unknown) => {
+            console.error('[dialer] agent call error:', err)
             console.error('[Dialer] Failed to rejoin conference audio:', err)
             setDeviceStatus('error')
-            setCallProviderMessage('Browser audio dropped. Click Not Ready then Ready to reconnect.')
+            setCallProviderMessage(
+              err instanceof Error && err.message.includes('Missing dialer session id')
+                ? 'Browser audio dropped and cannot reconnect because the dialer session id is missing.'
+                : 'Browser audio dropped. Click Not Ready then Ready to reconnect.',
+            )
           })
           .finally(() => {
             agentAudioRejoinRef.current = false
@@ -358,7 +483,7 @@ export default function DialerClient() {
     })
 
     agentCall.on('error', (error: unknown) => {
-      console.error('[Dialer] Agent call error:', error)
+      console.error('[dialer] agent call error:', error)
       const anyErr = error as any
       lastAgentErrorRef.current = {
         code: anyErr?.code,
@@ -409,7 +534,7 @@ export default function DialerClient() {
     }
   }, [authorizingCall, lastDialAttempt.current])
 
-  const load = useCallback(async (stage: string) => {
+  const load = useCallback(async (queue: DialerQueueKey) => {
     setLoading(true)
     setIndex(0)
     setCalled(false)
@@ -425,8 +550,8 @@ export default function DialerClient() {
     autoDialLeadIdsRef.current.clear()
     try {
       const p = new URLSearchParams()
-      p.set('stage', stage)
       p.set('dialer_mode', 'true')
+      p.set('stage', queue)
       if (programFilter) p.set('program', programFilter)
       const res  = await fetch(`/api/admin/crm/leads?${p}`)
       const json = await res.json()
@@ -443,7 +568,13 @@ export default function DialerClient() {
       if (!res.ok) {
         throw new Error(json.error || 'Failed to load dialer session')
       }
-      const sessionData = (json.session ?? null) as CRMDialerSession | null
+      let sessionData = (json.session ?? null) as CRMDialerSession | null
+      const sessionAttempts = (json.attempts ?? []) as CRMDialerAttempt[]
+      const hasResolvedLeadContext = sessionAttempts.some(
+        (attempt) =>
+          isActiveAttemptStatus(attempt.attempt_status) ||
+          (attempt.is_winner && ['answered_human', 'bridged'].includes(attempt.attempt_status)),
+      )
       
       // SAFEGUARD: Clear stuck waiting_for_disposition flag if backend says it's false
       if (sessionData && !sessionData.waiting_for_disposition && session?.waiting_for_disposition) {
@@ -451,8 +582,40 @@ export default function DialerClient() {
         setCallProviderMessage(null) // Clear any "Save disposition first" messages
       }
       
+      // Clear stale session state so loaded queues do not fall through to "Queue Complete"
+      // when there is no active winner, no active attempts, and no current lead context.
+      if (
+        sessionData &&
+        sessionData.session_status === 'in_call' &&
+        !sessionData.current_lead_id &&
+        !sessionData.current_crm_call_id &&
+        !hasResolvedLeadContext
+      ) {
+        sessionData = {
+          ...sessionData,
+          session_status: 'waiting',
+          rep_state: 'waiting',
+          waiting_for_disposition: false,
+        }
+        setCallProviderMessage(null)
+      }
+
+      if (
+        sessionData &&
+        wasRecentlyDisposed(lastDisposedCallRef.current, sessionData.current_crm_call_id)
+      ) {
+        sessionData = {
+          ...sessionData,
+          session_status: 'waiting',
+          rep_state: 'waiting',
+          current_lead_id: null,
+          current_crm_call_id: null,
+          waiting_for_disposition: false,
+        }
+      }
+      
       setSession(sessionData)
-      setAttempts(json.attempts ?? [])
+      setAttempts(sessionAttempts)
       setRepPhoneConfigured(Boolean(json.has_rep_phone))
       setProfileActionHref(json.action_href ?? null)
       // For phone-leg sessions, mirror Twilio session state into deviceStatus
@@ -490,8 +653,8 @@ export default function DialerClient() {
   }, [])
 
   useEffect(() => {
-    if (stageFilter) load(stageFilter)
-  }, [stageFilter, load])
+    if (queueFilter) load(queueFilter)
+  }, [queueFilter, load])
 
   useEffect(() => {
     loadSession()
@@ -564,7 +727,7 @@ export default function DialerClient() {
               } catch { /* ignore audio errors */ }
               
               // INSTANT UI UPDATE: Force immediate winner display
-              const winnerStatus = (payload.new as any).attempt_status === 'answered_human' ? 'Human answered!' : 'Connected!'
+              const winnerStatus = 'Connected!'
               setCallProviderMessage(` WINNER: ${winnerStatus}`)
               
               // SINGLE LINE OPTIMIZATION: For single line, show lead info immediately
@@ -576,7 +739,7 @@ export default function DialerClient() {
               setTimeout(() => {
                 setCallProviderMessage(prev => {
                   if (!prev || prev.includes('WINNER')) return prev
-                  return ` WINNER: ${(payload.new as any).attempt_status === 'answered_human' ? 'Human answered!' : 'Connected!'} - Canceling other lines...`
+                  return ' WINNER: Connected! - Canceling other lines...'
                 })
               }, 500)
             }
@@ -600,31 +763,6 @@ export default function DialerClient() {
             }, 200) // Cancel siblings after 200ms delay
           }
           
-          // INSTANT VOICEMAIL DETECTION: Check if this is voicemail
-          if (payload.new && (
-            (payload.new as any).attempt_status === 'answered_machine' ||
-            (payload.new as any).amd_status?.startsWith('machine') ||
-            ((payload.new as any).resolution_type === 'auto_voicemail' || (payload.new as any).was_auto_dispositioned)
-          )) {
-            // INSTANT VOICEMAIL FEEDBACK: Play sound and update UI immediately
-            try {
-              const ctx = new AudioContext()
-              const osc = ctx.createOscillator()
-              const gain = ctx.createGain()
-              osc.connect(gain)
-              gain.connect(ctx.destination)
-              osc.type = 'sine'
-              osc.frequency.value = 400
-              gain.gain.setValueAtTime(0.1, ctx.currentTime)
-              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
-              osc.start(ctx.currentTime)
-              osc.stop(ctx.currentTime + 0.3)
-            } catch { /* ignore audio errors */ }
-            
-            // INSTANT UI UPDATE: Force immediate voicemail display
-            setCallProviderMessage(`📞 Voicemail detected on line ${(payload.new as any).queue_slot}`)
-          }
-          
           // INSTANT STATUS UPDATES: Show immediate feedback for all status changes
           if (payload.new && (payload.new as any).attempt_status !== (payload.old as any)?.attempt_status) {
             const status = (payload.new as any).attempt_status
@@ -632,8 +770,8 @@ export default function DialerClient() {
             const statusMessages = {
               'dialing': `📞 Line ${slot} dialing...`,
               'ringing': `📞 Line ${slot} ringing...`,
-              'answered_human': `🎯 Line ${slot} — HUMAN ANSWERED!`,
-              'answered_machine': `📞 Line ${slot} — Voicemail`,
+              'answered_human': `✅ Line ${slot} — Connected`,
+              'answered_machine': `✅ Line ${slot} — Connected`,
               'bridged': `✅ Line ${slot} — Connected!`,
               'no_answer': `❌ Line ${slot} — No answer`,
               'busy': `📞 Line ${slot} — Busy`,
@@ -642,7 +780,7 @@ export default function DialerClient() {
             }
             
             const message = statusMessages[status as keyof typeof statusMessages]
-            if (message && !['answered_human', 'answered_machine'].includes(status)) {
+            if (message) {
               setCallProviderMessage(message)
             }
             
@@ -654,7 +792,7 @@ export default function DialerClient() {
               if (lead) {
                 setTimeout(() => {
                   setCallProviderMessage(prev => {
-                    if (prev?.includes('ANSWERED') || prev?.includes('CONNECTED') || prev?.includes('HUMAN')) return prev
+                    if (prev?.includes('CONNECTED')) return prev
                     return `${message} - ${lead.first_name} ${lead.last_name}`
                   })
                 }, 200)
@@ -756,11 +894,21 @@ export default function DialerClient() {
       ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
       : 'border-gray-700 bg-gray-950 text-gray-300'
   const callBlocked = nextQueueLead?.call_window_status === 'blocked_by_timezone' || nextQueueLead?.call_window_status === 'unknown_timezone'
+  const dispositionRequired = Boolean(
+    pendingDispositionCallId ||
+    (
+      session?.waiting_for_disposition &&
+      !wasRecentlyDisposed(lastDisposedCallRef.current, session.current_crm_call_id) &&
+      !authorizingCall &&
+      !activeCallId &&
+      activeAttemptCount === 0
+    ),
+  )
   const canDialLead = Boolean(
     session
     && deviceStatus === 'connected'
     && ['ready', 'waiting', 'in_call'].includes(session.session_status)
-    && !session.waiting_for_disposition
+    && !dispositionRequired
     && activeAttemptCount < targetParallelLines
   )
   const leadAttemptActive = Boolean(
@@ -769,11 +917,12 @@ export default function DialerClient() {
   )
 
   const showDialerKeypad =
+    dialerMode === 'power' &&
     connectionMode === 'browser' &&
     Boolean(
       session &&
-        !session.waiting_for_disposition &&
-        (authorizingCall || called || activeCallId || activeAttemptCount > 0),
+        !dispositionRequired &&
+        (authorizingCall || called || activeCallId || attempts.some(a => isActiveAttemptStatus(a.attempt_status))),
     )
 
   useEffect(() => {
@@ -781,6 +930,7 @@ export default function DialerClient() {
     setTemperature(current.lead_temperature ?? 'cold')
     setNextFollowUpAt((current.callback_due_at || current.follow_up_at) ? new Date(current.callback_due_at || current.follow_up_at || '').toISOString().slice(0, 16) : '')
     setInviteSuccess(null)
+    setManualCallError(null)
     setShowSmsComposer(false)
     setSmsTemplateKey('portal_invite')
     setSmsBody(buildSmsTemplate('portal_invite', current))
@@ -790,6 +940,12 @@ export default function DialerClient() {
     if (!session) {
       setCalled(false)
       setActiveCallId(null)
+      setPendingDispositionCallId(null)
+      return
+    }
+    if (wasRecentlyDisposed(lastDisposedCallRef.current, session.current_crm_call_id)) {
+      setCalled(false)
+      setActiveCallId(null)
       return
     }
     setCalled(Boolean(session.current_crm_call_id))
@@ -797,7 +953,7 @@ export default function DialerClient() {
   }, [session])
 
   useEffect(() => {
-    if (!activeCallId) return
+    if (!activeCallId || session?.waiting_for_disposition) return
 
     const syncCall = async () => {
       try {
@@ -809,6 +965,11 @@ export default function DialerClient() {
         const nextStatus = call.twilio_status ?? null
         const terminal = isTerminalTwilioStatus(nextStatus)
         const humanAnswered = `${call.answered_by ?? call.amd_status ?? ''}`.toLowerCase() === 'human'
+        const currentAttempt = attempts.find((attempt) => attempt.crm_call_id === activeCallId) ?? null
+        const requiresManualDisposition =
+          terminal &&
+          dialerMode === 'power' &&
+          Boolean(currentAttempt || pendingDispositionCallId === activeCallId || session?.id)
 
         setCallProviderStatus(nextStatus)
 
@@ -816,19 +977,40 @@ export default function DialerClient() {
           setCalled(false)
           setActiveCallId(null)
 
-          // CRITICAL: Always require disposition after call ends
-          if (session) {
-            setSession(prev => prev ? { ...prev, waiting_for_disposition: true } : null)
-          }
-
-          if (humanAnswered) {
-            setCallProviderMessage('Conversation ended. Choose a disposition to continue.')
-          } else if (call.call_outcome) {
-            setCallProviderMessage(`Call ended: ${call.call_outcome} - disposition required`)
-          } else if (nextStatus) {
-            setCallProviderMessage(`Call ended: ${nextStatus} - disposition required`)
+          if (requiresManualDisposition) {
+            setSession(prev => prev ? {
+              ...prev,
+              waiting_for_disposition: true,
+              current_lead_id: currentAttempt?.lead_id ?? prev.current_lead_id,
+              current_crm_call_id: activeCallId,
+            } : null)
+            setPendingDispositionCallId(activeCallId)
+            if (humanAnswered) {
+              setCallProviderMessage('Conversation ended. Choose a disposition to continue.')
+            } else if (call.call_outcome) {
+              setCallProviderMessage(`Call ended: ${call.call_outcome} - disposition required`)
+            } else if (nextStatus) {
+              setCallProviderMessage(`Call ended: ${nextStatus} - disposition required`)
+            } else {
+              setCallProviderMessage('Call ended - disposition required')
+            }
           } else {
-            setCallProviderMessage('Call ended - disposition required')
+            setPendingDispositionCallId(null)
+            setSession(prev => prev ? {
+              ...prev,
+              waiting_for_disposition: false,
+              session_status: 'waiting',
+              rep_state: 'waiting',
+              current_lead_id: null,
+              current_crm_call_id: null,
+            } : prev)
+            setCallProviderMessage(
+              call.call_outcome
+                ? `Call ended: ${call.call_outcome}. Dialing next lead...`
+                : nextStatus
+                  ? `Call ended: ${nextStatus}. Dialing next lead...`
+                  : 'Call ended. Dialing next lead...',
+            )
           }
           return
         }
@@ -855,7 +1037,7 @@ export default function DialerClient() {
     }, 3000) // 3s is responsive enough for call status — AMD takes 5–30s anyway
 
     return () => window.clearInterval(timer)
-}, [activeCallId, autoAdvance, callStartedAt, session?.waiting_for_disposition, targetParallelLines])
+}, [activeCallId, attempts, pendingDispositionCallId, session?.waiting_for_disposition])
 
 // 3-line dialer refill logic with enhanced error handling and watchdog
 useEffect(() => {
@@ -976,7 +1158,7 @@ useEffect(() => {
         body: JSON.stringify({
           message_body: smsBody,
           template_key: smsTemplateKey,
-          dialer_stage: stageFilter,
+          dialer_queue: queueFilter,
         }),
       })
       const json = await res.json()
@@ -1002,6 +1184,7 @@ useEffect(() => {
     if (sessionBusy) return
     setSessionBusy(true)
     try {
+      console.log('[dialer] setReady called')
       console.log('[Dialer] Starting setReady with connectionMode:', connectionMode)
       const requestBody = {
         mode: connectionMode,
@@ -1017,6 +1200,7 @@ useEffect(() => {
       
       console.log('[Dialer] Session response status:', res.status)
       const json = await res.json()
+      console.log('[dialer] session response:', json)
       console.log('[Dialer] Session response body:', json)
       
       if (!res.ok) {
@@ -1028,6 +1212,8 @@ useEffect(() => {
 
       setSession(json.session ?? null)
       setAttempts(json.attempts ?? [])
+      const sessionIdForConnect = typeof json?.session?.id === 'string' ? json.session.id.trim() : ''
+      sessionIdRef.current = sessionIdForConnect || null
 
       if (connectionMode === 'phone') {
         setDeviceStatus('connecting')
@@ -1150,9 +1336,7 @@ useEffect(() => {
       // Connect browser into the conference immediately after device setup
       console.log('[Dialer] Starting device.connect() with sessionId:', json.session.id)
       try {
-        const agentCall = await device.connect({
-          params: { sessionId: json.session.id },
-        })
+        const agentCall = await connectBrowserAgentCall(device, sessionIdForConnect, 'setReady')
         console.log('[Dialer] device.connect() succeeded, agentCall created')
         agentCallRef.current = agentCall
         wireAgentBrowserCall(agentCall)
@@ -1182,21 +1366,35 @@ useEffect(() => {
   }
 
   // End current call only - keep browser audio connected
-  async function hangUpCurrentCall() {
-    if (!activeCallId || sessionBusy) return
+  async function hangUpCurrentCall(callIdOverride?: string | null) {
+    const resolvedCallId = callIdOverride ?? activeCallId
+    if (!resolvedCallId || sessionBusy) return
     setSessionBusy(true)
     try {
       // Only disconnect the lead leg, keep browser audio session alive
-      await disconnectLeadLeg(activeCallId)
+      await disconnectLeadLeg(resolvedCallId)
+      const endedAt = new Date().toISOString()
+      setPendingDispositionCallId(resolvedCallId)
       setCalled(false)
       setActiveCallId(null)
       setCallProviderStatus(null)
-      setCallProviderMessage('Call ended - disposition required')
+      setCallProviderMessage('Call ended. Choose a disposition to continue.')
+      setAttempts(prev => prev.map(attempt => attempt.crm_call_id === resolvedCallId ? {
+        ...attempt,
+        attempt_status: 'completed',
+        last_twilio_status: 'completed',
+        resolved_at: endedAt,
+      } : attempt))
       
       // CRITICAL: Do NOT reset to idle - require disposition first
       // Move to disposition pending state instead of advancing
       if (session) {
-        setSession(prev => prev ? { ...prev, waiting_for_disposition: true } : null)
+        setSession(prev => prev ? {
+          ...prev,
+          waiting_for_disposition: true,
+          session_status: 'waiting',
+          rep_state: 'waiting',
+        } : null)
       }
     } catch {
       toast.error('Failed to hang up call')
@@ -1305,10 +1503,9 @@ useEffect(() => {
     const dialLead = leadOverride ?? nextQueueLead
     if (!dialLead) return
 
-    // Manual clicks must wait for current authorization to finish
-    if (!options?.silent && authorizingCall) return
+    if (authorizingCall) return
 
-    if (!options?.silent) setAuthorizingCall(true)
+    setAuthorizingCall(true)
 
     // INSTANT LINE OWNERSHIP: Show lead assignment immediately before backend response
     const tempAttemptId = `temp-${dialLead.id}-${Date.now()}`
@@ -1407,8 +1604,31 @@ useEffect(() => {
         toast.error('Failed to authorize call')
       }
     } finally {
-      if (!options?.silent) setAuthorizingCall(false)
+      setAuthorizingCall(false)
     }
+  }
+
+  function startManualCall() {
+    const normalizedPhone = getCurrentLeadManualCallPhone(current)
+    if (!normalizedPhone.valid || !normalizedPhone.e164) {
+      const errorReason = normalizedPhone.valid ? 'invalid_number' : normalizedPhone.reason
+      setManualCallError(getManualCallErrorMessage(errorReason))
+      return
+    }
+
+    const dialUrl = buildDeviceDialUrl(normalizedPhone.e164)
+    const newTab = window.open(dialUrl, '_self')
+
+    if (!newTab) {
+      setManualCallError('Your device could not open the phone app. Check that calling is supported on this device and try again.')
+      return
+    }
+
+    setManualCallError(null)
+    setCalled(true)
+    setCallStartedAt(new Date().toISOString())
+    setCallProviderStatus('manual_dial')
+    setCallProviderMessage('Phone app opened for this lead. Return here and save the call outcome when finished.')
   }
 
   async function finalizeDisposition(
@@ -1426,27 +1646,27 @@ useEffect(() => {
     if (!current) return false
 
     const now = options?.endedAtOverride ?? new Date().toISOString()
-    const resolvedCallId = options?.callIdOverride ?? activeCallId
+    const resolvedCallId = options?.callIdOverride ?? pendingDispositionCallId ?? activeCallId ?? session?.current_crm_call_id ?? null
     const effectiveCallStatus = options?.statusOverride ?? callProviderStatus
     const startedAt = options?.startedAtOverride ?? callStartedAt ?? now
     const defaultRetryFollowUp =
       !nextFollowUpAt && ['voicemail', 'no_answer', 'busy', 'call_back'].includes(disposition.key)
         ? new Date(Date.now() + (disposition.key === 'busy' ? 2 : disposition.key === 'call_back' ? 24 : 4) * 60 * 60 * 1000).toISOString().slice(0, 16)
         : nextFollowUpAt
+    const dispositionFollowUpAt = defaultRetryFollowUp ? new Date(defaultRetryFollowUp).toISOString() : null
+    const callbackDueAt = disposition.key === 'call_back' ? dispositionFollowUpAt : null
+    const followUpDueAt = ['follow_up', 'voicemail', 'no_answer', 'busy'].includes(disposition.key)
+      ? dispositionFollowUpAt
+      : null
+    const leadWasAlreadyHungUp =
+      Boolean(options?.skipDisconnect)
+      || (Boolean(resolvedCallId) && pendingDispositionCallId === resolvedCallId)
+      || (!activeCallId && Boolean(session?.waiting_for_disposition))
 
     // INSTANT UI FEEDBACK: Show immediate visual feedback
     setCallProviderMessage(`Saving ${disposition.label}...`)
     
-    // MARK LEAD AS DO_NOT_CALL: Only for terminal dispositions
-    // Only mark DNC and Not Interested as do_not_call to prevent re-calling
-    const shouldMarkDNC = ['dnc', 'not_interested', 'bad_number'].includes(disposition.key)
-    if (shouldMarkDNC) {
-      fetch(`/api/admin/crm/leads/${current.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ do_not_call: true }),
-      }).catch(() => {})
-    }
+    const shouldRemoveFromQueue = TERMINAL_DISPOSITION_KEYS.has(disposition.key)
 
     const durationSeconds = options?.durationOverride ?? (
       startedAt
@@ -1475,11 +1695,13 @@ useEffect(() => {
         call_status: called ? 'completed' : 'attempted',
         call_outcome: disposition.outcome,
         notes: note.trim() || null,
-        next_follow_up_at: defaultRetryFollowUp ? new Date(defaultRetryFollowUp).toISOString() : null,
+        next_follow_up_at: disposition.key === 'appointment_set' ? null : dispositionFollowUpAt,
+        appointment_at: disposition.key === 'appointment_set' ? dispositionFollowUpAt : null,
+        callback_due_at: callbackDueAt,
+        follow_up_at: followUpDueAt,
         lead_temperature: temperature,
         strategy_call_booked: strategyBooked || disposition.key === 'appointment_set',
         converted_to_client: converted,
-        create_follow_up_task: Boolean(defaultRetryFollowUp) || ['voicemail', 'no_answer', 'busy', 'call_back', 'follow_up'].includes(disposition.key),
         source: current.source,
         twilio_status: effectiveCallStatus,
         metadata: {
@@ -1495,7 +1717,7 @@ useEffect(() => {
     })
 
     // INSTANT DISCONNECT: Start disconnect immediately while logging
-    const disconnectPromise = (options?.skipDisconnect || isTerminalTwilioStatus(effectiveCallStatus))
+    const disconnectPromise = (leadWasAlreadyHungUp || isTerminalTwilioStatus(effectiveCallStatus))
       ? Promise.resolve({ ok: true, alreadyEnded: true } as const)
       : disconnectLeadLeg(resolvedCallId)
 
@@ -1514,11 +1736,28 @@ useEffect(() => {
 
     if (callSucceeded) {
       const callJson = callRes.value.data
+      lastDisposedCallRef.current = { callId: resolvedCallId, at: Date.now() }
       if (callJson.degraded) {
         setCallLoggingNotice(callJson.message || 'Call outcomes are saving without full call history until CRM call logging is configured.')
       } else {
         setCallLoggingNotice(null)
       }
+
+      setLeads((existing) => existing.map((lead) => {
+        if (shouldRemoveFromQueue) {
+          return lead
+        }
+        if (lead.id !== current.id) return lead
+        return {
+          ...lead,
+          stage: disposition.newStage ?? lead.stage,
+          last_call_outcome: disposition.outcome,
+          last_call_at: now,
+          callback_due_at: callbackDueAt,
+          follow_up_at: followUpDueAt,
+          appointment_at: disposition.key === 'appointment_set' ? dispositionFollowUpAt : lead.appointment_at,
+        }
+      }).filter((lead) => !shouldRemoveFromQueue || lead.id !== current.id))
     } else {
       const errorMsg = callRes.status === 'rejected' 
         ? 'Failed to save disposition' 
@@ -1532,6 +1771,7 @@ useEffect(() => {
 
     // Update UI state immediately
     setDone(d => d + 1)
+    setPendingDispositionCallId(null)
     
     // CRITICAL: Clear waiting_for_disposition flag immediately to prevent UI confusion
     setSession((currentSession) => currentSession ? {
@@ -1544,14 +1784,14 @@ useEffect(() => {
 
     if (autoAdvance) {
       // SMOOTH ADVANCE: Advance immediately without waiting
-      advance()
+      advance(shouldRemoveFromQueue)
     } else {
       // SINGLE LINE DIALER: Always auto-advance for single line mode
       const isSingleLine = targetParallelLines <= 1
       if (isSingleLine) {
         // For single line, always advance to next lead
         setTimeout(() => {
-          advance()
+          advance(shouldRemoveFromQueue)
           toast.success(`${disposition.label} saved - Moving to next lead`)
         }, 500)
       } else {
@@ -1590,11 +1830,12 @@ useEffect(() => {
     }
   }
 
-  function advance() {
+  function advance(removedCurrentLead = false) {
     setCalled(false)
     setNote('')
     setCallStartedAt(null)
     setActiveCallId(null)
+    setPendingDispositionCallId(null)
     setCallProviderStatus(null)
     setCallProviderMessage(null)
     setNextFollowUpAt('')
@@ -1608,7 +1849,7 @@ useEffect(() => {
       current_crm_call_id: null,
       waiting_for_disposition: false, // CRITICAL: Clear the disposition flag!
     } : currentSession)
-    setIndex(i => i + 1)
+    setIndex(i => (removedCurrentLead ? i : i + 1))
   }
 
   function skip() {
@@ -1617,27 +1858,20 @@ useEffect(() => {
   }
 
   // ── Stage picker splash ──────────────────────────────────────────────────────
-  if (!stageFilter) return (
+  if (!queueFilter) return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-6">
       <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-300 mb-10 self-start absolute top-4 left-4">
         <ChevronLeft size={16}/> CRM
       </Link>
       <Phone size={36} className="text-green-500 mb-4"/>
       <h1 className="text-2xl font-bold text-white mb-2">Dialer Mode</h1>
-      <p className="text-gray-400 text-sm mb-8 text-center">Choose a stage to dial through. Only leads in that stage will be loaded.</p>
+      <p className="text-gray-400 text-sm mb-8 text-center">Choose a stage. The dialer only loads leads in that stage.</p>
       <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
-        {[
-          { k: 'new',            l: 'New',            sub: 'Cold outreach',       color: 'border-gray-600 hover:border-gray-400' },
-          { k: 'contacted',      l: 'Contacted',      sub: 'Already reached',     color: 'border-blue-700 hover:border-blue-500' },
-          { k: 'qualified',      l: 'Qualified',      sub: 'Warm leads',          color: 'border-amber-700 hover:border-amber-500' },
-          { k: 'demo_scheduled', l: 'Demo Scheduled', sub: 'Confirm demo',        color: 'border-purple-700 hover:border-purple-500' },
-          { k: 'demo_held',      l: 'Demo Held',      sub: 'Post-demo follow-up', color: 'border-indigo-700 hover:border-indigo-500' },
-          { k: 'follow_up',      l: 'Follow Up',      sub: 'Scheduled callbacks', color: 'border-orange-700 hover:border-orange-500' },
-        ].map(s => (
-          <button key={s.k} onClick={() => setStageFilter(s.k)}
-            className={cn('flex flex-col items-start px-4 py-3 rounded-xl border bg-gray-900 transition-colors text-left', s.color)}>
-            <span className="text-white font-semibold text-sm">{s.l}</span>
-            <span className="text-gray-500 text-xs mt-0.5">{s.sub}</span>
+        {DIALER_QUEUE_OPTIONS.map((queue) => (
+          <button key={queue.key} onClick={() => setQueueFilter(queue.key)}
+            className={cn('flex flex-col items-start px-4 py-3 rounded-xl border bg-gray-900 transition-colors text-left', queue.color)}>
+            <span className="text-white font-semibold text-sm">{queue.label}</span>
+            <span className="text-gray-500 text-xs mt-0.5">{queue.sub}</span>
           </button>
         ))}
       </div>
@@ -1651,15 +1885,15 @@ useEffect(() => {
   )
 
   // Done
-  if (!current && !loading && activeAttemptCount === 0) return (
+  if (!current && !loading && activeAttemptCount === 0 && index >= leads.length) return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
       <CheckCircle2 size={52} className="text-green-500 mb-4"/>
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Queue Complete!</h2>
       <p className="text-gray-500 mb-2">{done} contacted · {skipped} skipped</p>
       <p className="text-sm text-gray-400 mb-8">You've gone through all leads in this filter.</p>
       <div className="flex gap-3">
-        <button onClick={() => { setStageFilter(null); setLeads([]); setDone(0); setSkipped(0) }} className="btn-primary px-6 py-3">Change Stage</button>
-        <button onClick={() => stageFilter && load(stageFilter)} className="btn-secondary px-6 py-3">Reload Queue</button>
+        <button onClick={() => { setQueueFilter(null); setLeads([]); setDone(0); setSkipped(0) }} className="btn-primary px-6 py-3">Change Queue</button>
+        <button onClick={() => queueFilter && load(queueFilter)} className="btn-secondary px-6 py-3">Reload Queue</button>
         <Link href="/admin/crm" className="btn-secondary px-6 py-3">Back to CRM</Link>
       </div>
     </div>
@@ -1667,49 +1901,6 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      {/* ── MANDATORY DISPOSITION OVERLAY ── */}
-      {session?.waiting_for_disposition && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start justify-center pt-20">
-          <div className="bg-gray-900 border-2 border-amber-500 rounded-2xl p-6 max-w-lg mx-4 shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center animate-pulse">
-                <Clock3 size={24} className="text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Disposition Required</h3>
-                <p className="text-sm text-gray-300">Save call outcome before continuing</p>
-              </div>
-            </div>
-            
-            <div className="mb-4">
-              <p className="text-sm text-gray-400 mb-3">Select call outcome:</p>
-              <div className="grid grid-cols-2 gap-2">
-                {DISPOSITIONS.map(d => {
-                  const Icon = d.icon
-                  return (
-                    <button
-                      key={d.key}
-                      onClick={() => logAndAdvance(d)}
-                      disabled={acting}
-                      className={cn(
-                        'flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition-all active:scale-[0.95] disabled:opacity-50',
-                        d.color,
-                      )}
-                    >
-                      <Icon size={16} /> {d.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            
-            <div className="text-xs text-gray-500 text-center">
-              {acting ? 'Saving disposition...' : 'You must save a disposition to continue dialing'}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Header ── */}
       <OfflineCRMSilentMirror />
 
@@ -1726,10 +1917,7 @@ useEffect(() => {
         <div className="text-center">
           <p className="text-xs text-gray-500 font-medium">DIALER MODE</p>
           <p className="text-xs text-gray-400">
-            {[
-              {k:'new',l:'New'},{k:'contacted',l:'Contacted'},{k:'qualified',l:'Qualified'},
-              {k:'demo_scheduled',l:'Demo Scheduled'},{k:'demo_held',l:'Demo Held'},{k:'follow_up',l:'Follow Up'},{k:'active_client',l:'Active Client'},
-            ].find(s=>s.k===stageFilter)?.l ?? stageFilter} · {remaining} left · {done} done
+            {queueLabel(queueFilter)} · {remaining} left · {done} done
           </p>
         </div>
         <button onClick={() => setShowFilters(p => !p)} className={cn('p-2 rounded-lg transition-colors', showFilters ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400')}>
@@ -1743,18 +1931,10 @@ useEffect(() => {
           <div>
             <p className="text-xs text-gray-500 font-medium mb-2">Stage</p>
             <div className="flex gap-2 flex-wrap">
-              {[
-                {k:'new',l:'New'},
-                {k:'contacted',l:'Contacted'},
-                {k:'qualified',l:'Qualified'},
-                {k:'demo_scheduled',l:'Demo Scheduled'},
-                {k:'demo_held',l:'Demo Held'},
-                {k:'follow_up',l:'Follow Up'},
-                {k:'active_client',l:'Active Client'},
-              ].map(s=>(
-                <button key={s.k} onClick={()=>{ setStageFilter(s.k); setShowFilters(false) }}
-                  className={cn('text-xs px-3 py-1.5 rounded-full font-medium transition-colors', stageFilter===s.k ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400')}>
-                  {s.l}
+              {DIALER_QUEUE_OPTIONS.map((queue)=>(
+                <button key={queue.key} onClick={()=>{ setQueueFilter(queue.key); setShowFilters(false) }}
+                  className={cn('text-xs px-3 py-1.5 rounded-full font-medium transition-colors', queueFilter===queue.key ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400')}>
+                  {queue.label}
                 </button>
               ))}
             </div>
@@ -1925,6 +2105,34 @@ useEffect(() => {
                   </div>
                 )}
 
+                <div className="mb-3 grid grid-cols-2 gap-2 rounded-2xl border border-gray-800 bg-gray-950 p-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setDialerMode('power')}
+                    className={cn(
+                      'rounded-xl px-3 py-2 text-sm font-semibold transition-colors',
+                      dialerMode === 'power'
+                        ? 'bg-green-600 text-white'
+                        : 'text-gray-400 hover:bg-gray-900 hover:text-gray-200'
+                    )}
+                  >
+                    Power Dialer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDialerMode('manual')}
+                    className={cn(
+                      'rounded-xl px-3 py-2 text-sm font-semibold transition-colors',
+                      dialerMode === 'manual'
+                        ? 'bg-green-600 text-white'
+                        : 'text-gray-400 hover:bg-gray-900 hover:text-gray-200'
+                    )}
+                  >
+                    Manual Call
+                  </button>
+                </div>
+
+                {dialerMode === 'power' ? (
                 <div className={cn('mb-3 rounded-2xl border px-3 py-3 lg:mb-4 lg:px-4', sessionStatus.tone)}>
                   <div className="flex items-center justify-between gap-3">
                     {/* Status label — always visible */}
@@ -1955,7 +2163,7 @@ useEffect(() => {
                         {(called || activeCallId) ? (
                           <button
                             type="button"
-                            onClick={hangUpCurrentCall}
+                            onClick={() => void hangUpCurrentCall()}
                             disabled={sessionBusy}
                             className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-950/40 border border-red-500/20 px-3 py-2 text-sm font-semibold text-red-200 transition-colors hover:bg-red-950/60"
                           >
@@ -1995,35 +2203,89 @@ useEffect(() => {
 
                   {/* Lines control removed for single-line only */}
                 </div>
+                ) : (
+                  <div className="mb-3 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-3 py-3 text-blue-100 lg:mb-4 lg:px-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold">Manual Call Session</p>
+                          <span className="text-[10px] opacity-70">Device Dialer</span>
+                        </div>
+                        <p className="mt-0.5 text-xs opacity-80 leading-snug">
+                          Click Call to open the current lead in your default phone app, finish the call there, then save disposition here to load the next lead.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {dialerMode === 'power' && dispositionRequired && (
+                  <div className="mb-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-amber-100">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold">Dialer Paused</p>
+                        <p className="mt-1 text-xs text-amber-100/80">
+                          Save the last call outcome when you&apos;re ready. The next call stays paused until disposition is saved.
+                        </p>
+                      </div>
+                      <div className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm font-semibold text-amber-50">
+                        <Pause size={14} />
+                        Paused
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <button
                   type="button"
-                  onClick={() => void authorizeDial()}
-                  disabled={authorizingCall || callBlocked || !canDialLead || leadAttemptActive}
+                  onClick={() => {
+                    if (dialerMode === 'manual') {
+                      startManualCall()
+                      return
+                    }
+                    void authorizeDial()
+                  }}
+                  disabled={dialerMode === 'manual' ? !current || callBlocked : authorizingCall || callBlocked || !canDialLead || leadAttemptActive}
                   className={cn(
                     'flex w-full items-center justify-center gap-3 rounded-2xl py-4 text-lg font-bold transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 lg:py-5 lg:text-xl',
-                    leadAttemptActive || called
-                      ? 'bg-gray-700 text-gray-300'
+                    dialerMode === 'manual'
+                      ? callBlocked
+                        ? 'bg-gray-800 text-gray-400'
+                        : 'bg-green-500 text-white shadow-lg shadow-green-900/40 hover:bg-green-600 active:bg-green-700'
+                      : dispositionRequired
+                        ? 'bg-amber-500/20 text-amber-100 ring-1 ring-inset ring-amber-400/40'
+                      : leadAttemptActive || called
+                        ? 'bg-gray-700 text-gray-300'
                       : callBlocked || !canDialLead
                         ? 'bg-gray-800 text-gray-400'
                         : 'bg-green-500 text-white shadow-lg shadow-green-900/40 hover:bg-green-600 active:bg-green-700'
                   )}
                 >
-                  {authorizingCall ? <Loader2 size={22} className="animate-spin"/> : <Phone size={22}/>}
-                  {authorizingCall
+                  {authorizingCall ? <Loader2 size={22} className="animate-spin"/> : dispositionRequired && dialerMode === 'power' ? <Pause size={22}/> : <Phone size={22}/>}
+                  {dialerMode === 'manual'
+                    ? callBlocked
+                      ? 'Calling blocked'
+                      : current
+                        ? 'Call'
+                        : 'Queue complete'
+                    : authorizingCall
                     ? 'Dialing lead into live session...'
                     : leadAttemptActive
                       ? 'Line already active'
                     : callBlocked
                     ? 'Calling blocked'
                     : !canDialLead
-                      ? session?.waiting_for_disposition
-                        ? 'Save disposition first'
+                      ? dispositionRequired
+                        ? 'Paused - Save Disposition'
                         : 'Click Ready first'
                       : nextQueueLead
                         ? `Dial ${nextQueueLead.phone}`
                         : 'Queue complete'}
                 </button>
+
+                {dialerMode === 'manual' && manualCallError && (
+                  <p className="mt-2 text-xs font-medium text-red-300">{manualCallError}</p>
+                )}
 
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-800 bg-gray-950 px-4 py-3">
                   <div className="min-w-0">
@@ -2080,14 +2342,14 @@ useEffect(() => {
                 </div>
 
                 {/* Mobile LiveCallFeed — shows line status right after dial controls, before SMS section */}
-                {session && session.session_status !== 'not_ready' && (
+                {dialerMode === 'power' && session && session.session_status !== 'not_ready' && (
                   <div className="mt-4 block lg:hidden">
                     <LiveCallFeed
                       attempts={attempts}
                       targetParallelLines={targetParallelLines}
                       activeCallId={activeCallId}
                       leads={leads}
-                      onHangUp={disconnectLeadLeg}
+                      onHangUp={hangUpCurrentCall}
                     />
                   </div>
                 )}
@@ -2118,6 +2380,7 @@ useEffect(() => {
                       <div className="flex flex-wrap gap-2">
                         {([
                           { key: 'portal_invite', label: 'Portal Link' },
+                          { key: 'analyzer_link', label: 'Live Analyzer' },
                           { key: 'follow_up', label: 'Follow Up' },
                           { key: 'demo_booking', label: 'Demo Prep' },
                         ] as const).map(template => (
@@ -2148,7 +2411,7 @@ useEffect(() => {
                       />
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-[11px] leading-relaxed text-gray-500">
-                          The portal link is tracked automatically for clicks and signup attribution.
+                          Portal and live analyzer links are tracked automatically for live call follow-up and signup attribution.
                         </p>
                         <button
                           type="button"
@@ -2180,7 +2443,7 @@ useEffect(() => {
                 </div>
 
                 {current?.email && (
-                  <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-950 p-4">
+                  <div className="mt-4 rounded-2xl border border-gray-800 bg-gray-950 p-4 lg:hidden">
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Invite Actions</p>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       {([
@@ -2232,12 +2495,18 @@ useEffect(() => {
                     <p className="text-sm leading-relaxed text-gray-300">{current.notes}</p>
                   </div>
                 )}
+
+                {current && (
+                  <div className="mt-4">
+                    <AnalyzerLivePanel leadId={current.id} sourceContext="dialer" compact />
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="space-y-4 lg:sticky lg:top-6">
               {/* Browser Audio Controls - Show when in browser mode */}
-              {connectionMode === 'browser' && (
+              {dialerMode === 'power' && connectionMode === 'browser' && (
                 <BrowserAudio
                   connectionMode={connectionMode}
                   deviceStatus={deviceStatus}
@@ -2258,25 +2527,24 @@ useEffect(() => {
                 />
               )}
 
-              {showDialerKeypad && (
-                <SoftphoneKeypad
-                  onDigitPress={handleDtmfPress}
-                  disabled={false}
-                  className="mt-4"
-                />
-              )}
-
-              {/* Live Call Feed - desktop only; mobile renders it inline in the left column above */}
-              {session && session.session_status !== 'not_ready' && (
+              {dialerMode === 'power' && session && session.session_status !== 'not_ready' && (
                 <div className="hidden lg:block">
                   <LiveCallFeed
                     attempts={attempts}
                     targetParallelLines={targetParallelLines}
                     activeCallId={activeCallId}
                     leads={leads}
-                    onHangUp={disconnectLeadLeg}
+                    onHangUp={hangUpCurrentCall}
                   />
                 </div>
+              )}
+
+              {showDialerKeypad && (
+                <SoftphoneKeypad
+                  onDigitPress={handleDtmfPress}
+                  disabled={false}
+                  className="mt-4"
+                />
               )}
 
               <div className="hidden rounded-3xl border border-gray-800 bg-gray-900/90 p-4 lg:block lg:p-5">
@@ -2314,6 +2582,47 @@ useEffect(() => {
                   )}
                 </div>
               </div>
+
+              {current?.email && (
+                <div className="hidden rounded-3xl border border-gray-800 bg-gray-900/90 p-4 lg:block lg:p-5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Invite Actions</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {([
+                      { key: 'portal', label: 'Send Portal Invite' },
+                      { key: 'pre_analyzer', label: 'Send Pre-Analyzer Invite' },
+                    ] as const).map(action => {
+                      const meta = inviteStatusMeta(action.key)
+                      const sending = inviteSending === action.key
+                      const success = inviteSuccess === action.key
+
+                      return (
+                        <button
+                          key={action.key}
+                          type="button"
+                          onClick={() => sendInvite(action.key)}
+                          disabled={Boolean(inviteSending)}
+                          className={cn(
+                            'rounded-2xl border px-4 py-3 text-left transition-colors disabled:opacity-60',
+                            success
+                              ? 'border-green-600 bg-green-600/10 text-green-100'
+                              : 'border-gray-800 bg-gray-950 text-gray-100 hover:border-green-700 hover:bg-gray-900/80'
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                            <span className="text-sm font-semibold">{sending ? 'Sending…' : action.label}</span>
+                          </div>
+                          <p className="mt-2 text-xs text-gray-400">
+                            {meta.sent
+                              ? `${meta.status ?? 'sent'} · ${formatInviteTimestamp(meta.sentAt) ?? 'just now'}`
+                              : 'Not sent yet'}
+                          </p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-3xl border border-gray-800 bg-gray-900/90 p-4 lg:p-5">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Call Details</p>
@@ -2367,7 +2676,7 @@ useEffect(() => {
       </div>
 
       {/* ── Sticky mobile disposition tray — always reachable without scrolling ── */}
-      {session && (
+      {(session || dialerMode === 'manual') && (
         <div className="fixed bottom-0 inset-x-0 z-50 lg:hidden bg-gray-900/97 backdrop-blur-md border-t-2 border-gray-700 px-3 pt-2.5 pb-6">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Call Outcome</p>

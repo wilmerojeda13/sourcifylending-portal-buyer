@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logPortalEvent } from '@/lib/portal-events'
 import { inferLeadPhoneIntelligence } from '@/lib/crm-call-compliance'
+import { getLatestLeadAnalyzerSession, recordAnalyzerSessionEvent } from '@/lib/crm-analyzer-sessions'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -98,6 +99,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       },
       severity: 'info',
     }).catch(() => {})
+  }
+
+  if ('converted_to_client' in body && body.converted_to_client) {
+    try {
+      const latestSession = await getLatestLeadAnalyzerSession(supabase, id)
+      if (latestSession) {
+        await recordAnalyzerSessionEvent({
+          supabase,
+          sessionId: latestSession.id,
+          eventType: 'converted',
+          metadata: {
+            lead_id: id,
+            source: 'crm_lead_patch',
+          },
+        })
+      }
+    } catch (error) {
+      console.error('[crm lead route] failed to record converted analyzer event', error)
+    }
   }
 
   return NextResponse.json({ lead: data })

@@ -3,6 +3,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { logPortalEvent } from '@/lib/portal-events'
 import { ensureSignupCrmLead } from '@/lib/signup-crm'
 import { linkCrmSmsAccount } from '@/lib/crm-sms'
+import { CRM_ANALYZER_SESSION_COOKIE, recordAnalyzerSessionEvent } from '@/lib/crm-analyzer-sessions'
 import { parseContentAttributionCookie, recordContentEvent } from '@/lib/content-engine'
 import { recordConsentRecord } from '@/lib/public-form-audit'
 import {
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
       turnstileToken?: string | null
       crm_invite_id?: string | null
       crm_text_id?: string | null
+      crm_analyzer_session_id?: string | null
       compliance?: CompliancePayload
     }
 
@@ -42,6 +44,7 @@ export async function POST(req: NextRequest) {
     const email = body.email ?? ''
     const businessName = body.business_name ?? ''
     const password = body.password ?? ''
+    const analyzerSessionId = body.crm_analyzer_session_id ?? req.cookies.get(CRM_ANALYZER_SESSION_COOKIE)?.value ?? null
     const meta = getSignupRequestMeta(req)
     const complianceValidation = validateCompliancePayload(body.compliance, 'public_signup')
 
@@ -306,6 +309,19 @@ export async function POST(req: NextRequest) {
         reasons: assessment.reasons,
         complianceSnapshot,
       })
+
+      if (analyzerSessionId) {
+        await recordAnalyzerSessionEvent({
+          supabase: serviceSupabase,
+          sessionId: analyzerSessionId,
+          eventType: 'account_created',
+          metadata: {
+            user_id: data.user.id,
+            email: assessment.normalizedEmail,
+            lead_id: crmResult.leadId,
+          },
+        }).catch(() => {})
+      }
 
       await logPortalEvent({
         userId: data.user.id,

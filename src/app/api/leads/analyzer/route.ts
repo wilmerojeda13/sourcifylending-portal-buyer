@@ -5,6 +5,7 @@ import { sendAnalyzerResultEmail } from '@/lib/email'
 import { logPortalEvent } from '@/lib/portal-events'
 import { upsertAnalyzerCrmLead } from '@/lib/analyzer-crm'
 import { markCrmInviteEvent } from '@/lib/crm-invites'
+import { recordAnalyzerSessionEvent } from '@/lib/crm-analyzer-sessions'
 import { parseContentAttributionCookie, recordContentEvent } from '@/lib/content-engine'
 import {
   assessPublicFormIdentity,
@@ -37,6 +38,7 @@ interface LeadPayload {
   business_name?: string
   answers: Record<string, string>
   crm_invite_id?: string | null
+  crm_analyzer_session_id?: string | null
   turnstileToken?: string | null
   compliance?: CompliancePayload
 }
@@ -130,7 +132,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as LeadPayload
     const contentAttribution = parseContentAttributionCookie(req.cookies.get('sl_content_attribution')?.value)
 
-    const { full_name, email, phone, business_name, answers, crm_invite_id } = body
+    const { full_name, email, phone, business_name, answers, crm_invite_id, crm_analyzer_session_id } = body
 
     if (!full_name || !email) {
       return NextResponse.json({ error: 'full_name and email are required' }, { status: 400 })
@@ -458,6 +460,33 @@ export async function POST(req: NextRequest) {
           source: 'analyzer',
           lead_id: leadId,
           email: normalizedEmail,
+        },
+      }).catch(() => {})
+    }
+
+    if (crm_analyzer_session_id) {
+      await recordAnalyzerSessionEvent({
+        supabase,
+        sessionId: crm_analyzer_session_id,
+        eventType: 'analyzer_submitted',
+        eventAt: submittedAt,
+        metadata: {
+          lead_id: leadId,
+          email: normalizedEmail,
+        },
+      }).catch(() => {})
+      await recordAnalyzerSessionEvent({
+        supabase,
+        sessionId: crm_analyzer_session_id,
+        eventType: 'readiness_score_generated',
+        eventAt: submittedAt,
+        metadata: {
+          lead_id: leadId,
+          email: normalizedEmail,
+          readiness_score: result.readiness_score,
+          readiness_status: result.readiness_status,
+          analyzer_summary: result.summary,
+          score_breakdown: scoreBreakdown,
         },
       }).catch(() => {})
     }

@@ -3,11 +3,13 @@ import { routeAnalyzer } from '@/lib/program-router'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { logPortalEvent } from '@/lib/portal-events'
+import { recordAnalyzerSessionEvent } from '@/lib/crm-analyzer-sessions'
 import type { AnalyzerInput } from '@/types'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
+    const crmAnalyzerSessionId = typeof body.crm_analyzer_session_id === 'string' ? body.crm_analyzer_session_id : null
 
     const input: AnalyzerInput = {
       business_name: body.business_name || '',
@@ -114,6 +116,32 @@ export async function POST(req: NextRequest) {
           },
           severity: 'info',
         })
+
+        if (crmAnalyzerSessionId) {
+          await recordAnalyzerSessionEvent({
+            supabase,
+            sessionId: crmAnalyzerSessionId,
+            eventType: 'analyzer_submitted',
+            metadata: { user_id: user.id, email: user.email ?? null },
+          }).catch(() => {})
+          await recordAnalyzerSessionEvent({
+            supabase,
+            sessionId: crmAnalyzerSessionId,
+            eventType: 'readiness_score_generated',
+            metadata: {
+              user_id: user.id,
+              email: user.email ?? null,
+              readiness_score: result.readiness_score,
+              readiness_status: result.readiness_status,
+              analyzer_summary: result.summary,
+              score_breakdown: {
+                top_blockers: result.top_blockers,
+                recommendation: result.recommendation,
+                recommended_next_step: result.recommended_next_step,
+              },
+            },
+          }).catch(() => {})
+        }
       }
     } catch (err) {
       // Non-fatal — continue even if save fails, but log so we can diagnose notification issues

@@ -22,13 +22,13 @@ export default function AnalyzerResultClaimer() {
         const raw = sessionStorage.getItem('pending_analyzer_result')
         if (!raw) return
 
-        const { result, lead_id, contact_name, business_name, crm_invite_id } = JSON.parse(raw)
+        const { result, lead_id, contact_name, business_name, crm_invite_id, crm_analyzer_session_id } = JSON.parse(raw)
         if (!result?.assigned_program) return
 
         const res = await fetch('/api/auth/claim-analyzer-result', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ result, lead_id, contact_name, business_name, crm_invite_id }),
+          body: JSON.stringify({ result, lead_id, contact_name, business_name, crm_invite_id, crm_analyzer_session_id }),
         })
 
         if (res.ok) {

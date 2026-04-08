@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { markCrmInviteEvent } from '@/lib/crm-invites'
 import { ensureSignupCrmLead } from '@/lib/signup-crm'
+import { CRM_ANALYZER_SESSION_COOKIE, recordAnalyzerSessionEvent } from '@/lib/crm-analyzer-sessions'
 import type { AnalyzerResult } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -19,9 +20,11 @@ export async function POST(req: NextRequest) {
       contact_name?: string | null
       business_name?: string | null
       crm_invite_id?: string | null
+      crm_analyzer_session_id?: string | null
     }
 
     const { result, lead_id, contact_name, business_name, crm_invite_id } = body
+    const analyzerSessionId = body.crm_analyzer_session_id ?? req.cookies.get(CRM_ANALYZER_SESSION_COOKIE)?.value ?? null
 
     if (!result?.assigned_program || !result?.readiness_status) {
       return NextResponse.json({ error: 'Invalid analyzer result' }, { status: 400 })
@@ -87,7 +90,7 @@ export async function POST(req: NextRequest) {
 
     if (normalizedEmail) {
       try {
-        await ensureSignupCrmLead({
+        const crmResult = await ensureSignupCrmLead({
           supabase: serviceClient,
           userId: user.id,
           fullName: contact_name || profile?.full_name || user.user_metadata?.full_name || normalizedEmail,
@@ -97,6 +100,18 @@ export async function POST(req: NextRequest) {
           suspicious: false,
           analyzerResult: result,
         })
+        if (analyzerSessionId) {
+          await recordAnalyzerSessionEvent({
+            supabase: serviceClient,
+            sessionId: analyzerSessionId,
+            eventType: 'account_created',
+            metadata: {
+              user_id: user.id,
+              email: normalizedEmail,
+              lead_id: crmResult.leadId,
+            },
+          }).catch(() => {})
+        }
       } catch (crmErr) {
         console.error('CRM lead sync during analyzer claim failed (non-fatal):', crmErr)
       }

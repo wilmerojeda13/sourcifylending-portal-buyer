@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import AnalyzerLivePanel from '@/components/admin/crm/AnalyzerLivePanel'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost' | 'active_client'
@@ -1031,6 +1032,8 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
             </div>
           )}
         </div>
+
+        <AnalyzerLivePanel leadId={lead.id} sourceContext="lead_detail" />
 
         {/* Info / Edit */}
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4">

@@ -5,6 +5,10 @@ import {
   syncAnalyzerLeadLifecycle,
   syncSignupLeadLifecycle,
 } from '@/lib/crm-lead-lifecycle'
+import {
+  createTrackedAnalyzerSession,
+  recordAnalyzerSessionEvent,
+} from '@/lib/crm-analyzer-sessions'
 
 type Row = Record<string, any>
 type Tables = Record<string, Row[]>
@@ -137,6 +141,8 @@ function createMockSupabase(initial?: Partial<Tables>) {
     crm_leads: [],
     crm_tasks: [],
     crm_activities: [],
+    crm_analyzer_sessions: [],
+    crm_analyzer_events: [],
     profiles: [],
     leads: [],
     portal_events: [],
@@ -208,7 +214,7 @@ test('analyzer submission creates a CRM lead, stores analyzer fields, creates a 
   })
 
   const originalFetch = globalThis.fetch
-  globalThis.fetch = (async () => ({ ok: true, status: 200, text: async () => '' })) as typeof fetch
+  globalThis.fetch = (async () => ({ ok: true, status: 200, text: async () => '' })) as unknown as typeof fetch
   process.env.RESEND_API_KEY = 'test-key'
 
   try {
@@ -285,7 +291,7 @@ test('signup falls back to normalized phone matching when email does not match a
   })
 
   const originalFetch = globalThis.fetch
-  globalThis.fetch = (async () => ({ ok: true, status: 200, text: async () => '' })) as typeof fetch
+  globalThis.fetch = (async () => ({ ok: true, status: 200, text: async () => '' })) as unknown as typeof fetch
   process.env.RESEND_API_KEY = 'test-key'
 
   try {
@@ -309,4 +315,74 @@ test('signup falls back to normalized phone matching when email does not match a
   } finally {
     globalThis.fetch = originalFetch
   }
+})
+
+test('live analyzer sessions persist sent/opened/submitted/account-created events for realtime CRM views', async () => {
+  const mock = createMockSupabase({
+    crm_leads: [
+      {
+        id: 'crm-live-1',
+        first_name: 'Call',
+        last_name: 'Prospect',
+        email: 'call@example.com',
+        phone: '+15553334444',
+        source: 'free_business_analyzer',
+      },
+    ],
+  })
+
+  const sessionResult = await createTrackedAnalyzerSession({
+    supabase: mock as any,
+    leadId: 'crm-live-1',
+    repUserId: 'rep-1',
+    repName: 'Rep One',
+    sourceContext: 'dialer',
+    origin: 'https://app.sourcifylending.com',
+  })
+
+  assert.equal(mock.tables.crm_analyzer_sessions.length, 1)
+  assert.equal(mock.tables.crm_analyzer_events.length, 1)
+  assert.equal(sessionResult.session.session_status, 'link_sent')
+  assert.match(sessionResult.trackedUrl, /crm_analyzer_session=/)
+
+  await recordAnalyzerSessionEvent({
+    supabase: mock as any,
+    sessionId: sessionResult.session.id,
+    eventType: 'link_opened',
+    eventAt: '2026-04-08T11:00:00.000Z',
+  })
+  await recordAnalyzerSessionEvent({
+    supabase: mock as any,
+    sessionId: sessionResult.session.id,
+    eventType: 'analyzer_started',
+    eventAt: '2026-04-08T11:01:00.000Z',
+  })
+  await recordAnalyzerSessionEvent({
+    supabase: mock as any,
+    sessionId: sessionResult.session.id,
+    eventType: 'readiness_score_generated',
+    eventAt: '2026-04-08T11:05:00.000Z',
+    metadata: {
+      readiness_score: 81,
+      readiness_status: 'Ready',
+      analyzer_summary: 'Rep can close live on the call.',
+      score_breakdown: { top_blockers: [] },
+    },
+  })
+  await recordAnalyzerSessionEvent({
+    supabase: mock as any,
+    sessionId: sessionResult.session.id,
+    eventType: 'account_created',
+    eventAt: '2026-04-08T11:08:00.000Z',
+    metadata: { user_id: 'prospect-user-1' },
+  })
+
+  assert.equal(mock.tables.crm_analyzer_events.length, 5)
+  assert.equal(mock.tables.crm_analyzer_sessions[0].latest_event_type, 'account_created')
+  assert.equal(mock.tables.crm_analyzer_sessions[0].readiness_score, 81)
+  assert.equal(mock.tables.crm_analyzer_sessions[0].account_created, true)
+  assert.equal(mock.tables.crm_leads[0].latest_analyzer_session_id, sessionResult.session.id)
+  assert.equal(mock.tables.crm_leads[0].latest_analyzer_session_status, 'account_created')
+  assert.ok(mock.tables.crm_activities.some((row) => row.metadata?.event_type === 'link_sent'))
+  assert.ok(mock.tables.crm_activities.some((row) => row.metadata?.event_type === 'account_created'))
 })

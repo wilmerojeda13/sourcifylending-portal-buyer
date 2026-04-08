@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { logPortalEvent } from '@/lib/portal-events'
 import { CRM_INVITE_COOKIE, linkCrmInviteAccount } from '@/lib/crm-invites'
 import { CRM_TEXT_COOKIE, linkCrmSmsAccount } from '@/lib/crm-sms'
+import { CRM_ANALYZER_SESSION_COOKIE, recordAnalyzerSessionEvent } from '@/lib/crm-analyzer-sessions'
 import { parseContentAttributionCookie, recordContentEvent } from '@/lib/content-engine'
 import { ensureSignupCrmLead } from '@/lib/signup-crm'
 import { logSignupSecurityEvent } from '@/lib/signup-security'
@@ -185,6 +186,7 @@ export async function GET(request: NextRequest) {
           || user.email?.split('@')[0]
           || ''
         const crmTextId = cookieStore.get(CRM_TEXT_COOKIE)?.value
+        const analyzerSessionId = cookieStore.get(CRM_ANALYZER_SESSION_COOKIE)?.value
         const contentAttribution = parseContentAttributionCookie(cookieStore.get('sl_content_attribution')?.value)
 
         if (!existing) {
@@ -348,6 +350,19 @@ export async function GET(request: NextRequest) {
               reasons: existingProfile.data?.suspicious_signup_reason ? [existingProfile.data.suspicious_signup_reason] : [],
             })
 
+            if (analyzerSessionId) {
+              await recordAnalyzerSessionEvent({
+                supabase: serviceClient,
+                sessionId: analyzerSessionId,
+                eventType: 'account_created',
+                metadata: {
+                  user_id: user.id,
+                  email: user.email ?? '',
+                  lead_id: crmResult.leadId,
+                },
+              }).catch(() => {})
+            }
+
             logPortalEvent({
               userId: user.id,
               eventType: 'signup_crm_lead_created',
@@ -437,6 +452,11 @@ export async function GET(request: NextRequest) {
           }
           cookieStore.delete(CRM_INVITE_COOKIE)
           redirectResponse.cookies.delete(CRM_INVITE_COOKIE)
+        }
+
+        if (analyzerSessionId) {
+          cookieStore.delete(CRM_ANALYZER_SESSION_COOKIE)
+          redirectResponse.cookies.delete(CRM_ANALYZER_SESSION_COOKIE)
         }
       }
 
