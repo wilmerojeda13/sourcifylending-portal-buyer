@@ -65,16 +65,16 @@ export async function GET(req: NextRequest) {
     if (search) {
       if (unifiedSearch) {
         // For unified search, we fetch broader results and rank client-side
-        // Use partial matching to get candidates
+        // Use partial matching to get candidates - includes notes for comprehensive search
         const searchNorm = normalizeText(search)
         const phoneDigits = normalizePhoneForSearch(search)
         nextQuery = nextQuery.or(
-          `first_name.ilike.%${searchNorm}%,last_name.ilike.%${searchNorm}%,email.ilike.%${searchNorm}%,business_name.ilike.%${searchNorm}%${phoneDigits ? `,phone_digits.ilike.%${phoneDigits}%` : ''}`
+          `first_name.ilike.%${searchNorm}%,last_name.ilike.%${searchNorm}%,email.ilike.%${searchNorm}%,business_name.ilike.%${searchNorm}%,notes.ilike.%${searchNorm}%${phoneDigits ? `,phone_digits.ilike.%${phoneDigits}%` : ''}`
         )
       } else {
         // Original behavior: database-side filtering
         nextQuery = nextQuery.or(
-          `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,business_name.ilike.%${search}%,phone.ilike.%${search}%`
+          `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,business_name.ilike.%${search}%,notes.ilike.%${search}%,phone.ilike.%${search}%`
         )
       }
     }

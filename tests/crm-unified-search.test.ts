@@ -8,6 +8,7 @@ import {
   scorePhoneMatch,
   scoreNameMatch,
   scoreBusinessMatch,
+  scoreNotesMatch,
   scoreFuzzyMatch,
   rankSearchResults,
   analyzeQuery,
@@ -423,4 +424,75 @@ test('full search flow: name with middle name', () => {
   if (exactMatch && partialMatch) {
     assert.ok(exactMatch.score >= partialMatch.score)
   }
+})
+
+// ─── Notes Search Tests ────────────────────────────────────────────────────────
+
+test('scoreNotesMatch finds exact notes match', () => {
+  const match = scoreNotesMatch('interested in program A', 'I am interested in program A')
+  assert.notEqual(match, null)
+  assert.equal(match!.score, 75)
+  assert.equal(match!.field, 'notes')
+})
+
+test('scoreNotesMatch finds contains match', () => {
+  const match = scoreNotesMatch('program', 'I am interested in program A')
+  assert.notEqual(match, null)
+  assert.equal(match!.field, 'notes')
+  assert.ok(match!.score >= 25)
+})
+
+test('scoreNotesMatch is case insensitive', () => {
+  const match = scoreNotesMatch('PROGRAM', 'interested in program A')
+  assert.notEqual(match, null)
+  assert.equal(match!.field, 'notes')
+})
+
+test('scoreNotesMatch returns null for short queries', () => {
+  const match = scoreNotesMatch('ab', 'Some notes with program A')
+  assert.equal(match, null)
+})
+
+test('scoreNotesMatch returns null for non-matches', () => {
+  const match = scoreNotesMatch('xyz123', 'Some notes without that text')
+  assert.equal(match, null)
+})
+
+test('full search flow: notes search', () => {
+  const leads = [
+    { id: '1', first_name: 'John', last_name: 'Smith', email: null, phone: null, business_name: null, notes: 'Interested in small business loan' },
+    { id: '2', first_name: 'Jane', last_name: 'Doe', email: null, phone: null, business_name: null, notes: 'Looking for real estate financing' },
+    { id: '3', first_name: 'Bob', last_name: 'Wilson', email: null, phone: null, business_name: null, notes: null },
+  ]
+  
+  const results = rankSearchResults(leads, 'small business')
+  assert.ok(results.length >= 1)
+  assert.equal(results[0].lead.id, '1')
+  assert.equal(results[0].primaryMatch, 'notes')
+})
+
+test('full search flow: any field match including notes', () => {
+  const leads = [
+    { id: '1', first_name: 'John', last_name: 'Smith', email: null, phone: null, business_name: null, notes: 'Follow up next week' },
+    { id: '2', first_name: 'Jane', last_name: 'Doe', email: null, phone: null, business_name: null, notes: 'Called about appointment' },
+  ]
+  
+  // Search for text that appears in notes
+  const results = rankSearchResults(leads, 'follow')
+  assert.ok(results.length >= 1)
+  assert.equal(results[0].lead.id, '1')
+  assert.equal(results[0].primaryMatch, 'notes')
+})
+
+test('full search flow: notes ranked after name matches', () => {
+  const leads = [
+    { id: '1', first_name: 'FollowUp', last_name: 'Smith', email: null, phone: null, business_name: null, notes: 'Some notes' },
+    { id: '2', first_name: 'John', last_name: 'FollowUp', email: null, phone: null, business_name: null, notes: 'More notes' },
+  ]
+  
+  const results = rankSearchResults(leads, 'followup')
+  // Exact name matches should rank higher than notes
+  assert.ok(results.length >= 1)
+  // The first result should be a name match, not notes
+  assert.notEqual(results[0].primaryMatch, 'notes')
 })

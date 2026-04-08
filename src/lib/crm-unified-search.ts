@@ -52,7 +52,7 @@ export function extractPhoneDigits(phone: string | null | undefined): string {
 
 // ─── Match Detection Utilities ────────────────────────────────────────────────
 
-export type MatchField = 'email' | 'phone' | 'full_name' | 'first_name' | 'last_name' | 'business_name' | 'fuzzy'
+export type MatchField = 'email' | 'phone' | 'full_name' | 'first_name' | 'last_name' | 'business_name' | 'notes' | 'fuzzy'
 
 export interface SearchMatch {
   field: MatchField
@@ -225,6 +225,37 @@ export function scoreNameMatch(
 }
 
 /**
+ * Score a notes field match
+ * Searches within the notes text for any occurrence of the query
+ */
+export function scoreNotesMatch(
+  query: string,
+  notes: string | null | undefined,
+  exactOnly: boolean = false
+): SearchMatch | null {
+  if (!notes) return null
+  
+  const normalizedNotes = normalizeText(notes)
+  const normalizedQuery = normalizeText(query)
+  
+  // Exact match within notes (case-insensitive)
+  if (normalizedNotes === normalizedQuery) {
+    return { field: 'notes', score: 75, matched: notes, query }
+  }
+  
+  if (exactOnly) return null
+  
+  // Contains match - notes contains the query
+  if (normalizedNotes.includes(normalizedQuery) && normalizedQuery.length >= 3) {
+    // Score based on query length - longer matches are more relevant
+    const score = normalizedQuery.length >= 5 ? 35 : 25
+    return { field: 'notes', score, matched: notes, query }
+  }
+  
+  return null
+}
+
+/**
  * Score a business name match
  */
 export function scoreBusinessMatch(
@@ -344,6 +375,7 @@ export interface LeadSearchFields {
   phone: string | null
   phone_e164?: string | null
   business_name: string | null
+  notes?: string | null
 }
 
 export interface UnifiedSearchResult<T extends LeadSearchFields> {
@@ -372,6 +404,7 @@ export function scoreLead<T extends LeadSearchFields>(
   const phoneMatch = scorePhoneMatch(trimmedQuery, lead.phone, lead.phone_e164, exactOnly)
   const nameMatches = scoreNameMatch(trimmedQuery, lead.first_name, lead.last_name, exactOnly)
   const businessMatch = scoreBusinessMatch(trimmedQuery, lead.business_name, exactOnly)
+  const notesMatch = scoreNotesMatch(trimmedQuery, lead.notes, exactOnly)
   const fuzzyMatch = (!exactOnly && enableFuzzy)
     ? scoreFuzzyMatch(trimmedQuery, lead.first_name, lead.last_name, lead.business_name)
     : null
@@ -384,6 +417,7 @@ export function scoreLead<T extends LeadSearchFields>(
     nameMatches.firstNameMatch,
     nameMatches.lastNameMatch,
     businessMatch,
+    notesMatch,
     fuzzyMatch,
   ].filter((m): m is SearchMatch => m !== null)
   
@@ -397,7 +431,8 @@ export function scoreLead<T extends LeadSearchFields>(
     first_name: 4,
     last_name: 4,
     business_name: 5,
-    fuzzy: 6,
+    notes: 7,
+    fuzzy: 8,
   }
   
   const sortedMatches = [...matches].sort((a, b) => {
@@ -449,7 +484,8 @@ export function rankSearchResults<T extends LeadSearchFields>(
     first_name: 4,
     last_name: 4,
     business_name: 5,
-    fuzzy: 6,
+    notes: 7,
+    fuzzy: 8,
   }
   
   scored.sort((a, b) => {
