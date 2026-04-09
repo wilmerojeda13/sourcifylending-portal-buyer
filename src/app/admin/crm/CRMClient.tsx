@@ -13,6 +13,7 @@ import {
 import { cn } from '@/lib/utils'
 import CRMWorkspaceNav from '@/components/crm/CRMWorkspaceNav'
 import CRMSalesOverview from '@/components/crm/CRMSalesOverview'
+import CRMParentNav from '@/components/crm/CRMParentNav'
 import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMirror'
 import toast from 'react-hot-toast'
 import TagBadge, { type CRMTagBadge } from '@/components/admin/crm/TagBadge'
@@ -1032,7 +1033,11 @@ export default function CRMClient() {
       <OfflineCRMSilentMirror />
       {/* ── Header ── */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-20">
-        <div className="max-w-screen-xl mx-auto px-4 py-2.5 sm:py-3">
+        <div className="max-w-screen-xl mx-auto px-4 py-2 sm:py-2.5">
+          {/* Parent navigation breadcrumb */}
+          <div className="mb-2">
+            <CRMParentNav crumbs={[{ label: 'Admin Hub', href: '/admin' }, { label: 'Sales CRM' }]} />
+          </div>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex items-center gap-2.5">
               <div className="min-w-0">

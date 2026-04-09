@@ -232,7 +232,7 @@ export async function POST(req: NextRequest) {
       convertedToClient: Boolean(body.converted_to_client),
       actorUserId: admin.userId,
       actorName: admin.userName,
-      createFollowUpTask: Boolean(body.callback_due_at ?? body.next_follow_up_at ?? body.follow_up_at),
+      createFollowUpTask: Boolean(body.callback_due_at ?? body.next_follow_up_at ?? body.follow_up_at ?? body.appointment_at),
     })
   } catch (error) {
     console.error('shared disposition failed after call log attempt', error)
