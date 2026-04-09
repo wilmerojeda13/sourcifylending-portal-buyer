@@ -190,7 +190,7 @@ const DIALER_QUEUE_OPTIONS: ReadonlyArray<{
   { key: 'closed_lost', label: 'Closed Lost', sub: 'Lost opportunities', color: 'border-red-600 hover:border-red-400' },
 ] as const
 
-const TERMINAL_DISPOSITION_KEYS = new Set<CallDispositionKey>(['bad_number', 'not_interested', 'dnc'])
+const TERMINAL_DISPOSITION_KEYS = new Set<CallDispositionKey>(['bad_number', 'not_interested', 'dnc', 'appointment_set'])
 
 function queueLabel(queueKey: string | null) {
   return DIALER_QUEUE_OPTIONS.find((option) => option.key === queueKey)?.label ?? 'Stage'
@@ -1715,6 +1715,11 @@ useEffect(() => {
   ) {
     if (!current) return false
 
+    if (disposition.key === 'appointment_set' && !nextFollowUpAt) {
+      toast.error('Set an appointment date/time first (use the Next Follow-Up field).')
+      return false
+    }
+
     const now = options?.endedAtOverride ?? new Date().toISOString()
     const resolvedCallId = options?.callIdOverride ?? pendingDispositionCallId ?? activeCallId ?? session?.current_crm_call_id ?? null
     const effectiveCallStatus = options?.statusOverride ?? callProviderStatus
@@ -1829,9 +1834,14 @@ useEffect(() => {
         }
       }).filter((lead) => !shouldRemoveFromQueue || lead.id !== current.id))
     } else {
-      const errorMsg = callRes.status === 'rejected' 
-        ? 'Failed to save disposition' 
-        : callRes.value?.data?.error ?? 'Failed to log call'
+      const errorMsg =
+        callRes.status === 'rejected'
+          ? 'Failed to save disposition'
+          : callRes.value?.data?.details ||
+            callRes.value?.data?.error ||
+            'Failed to log call'
+
+      console.error('[Dialer] disposition save failed', callRes.status === 'fulfilled' ? callRes.value.data : callRes.reason)
       toast.error(errorMsg)
     }
 

@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
     from_number: body.from_number || null,
     to_number_e164: body.to_number_e164 || null,
     rep_phone_number: body.rep_phone_number || null,
-    call_provider: body.call_provider || null,
+    call_provider: body.call_provider || 'manual',
     metadata: mergedMetadata,
     updated_at: new Date().toISOString(),
   }
