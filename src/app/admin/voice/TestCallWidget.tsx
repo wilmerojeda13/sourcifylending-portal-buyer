@@ -70,7 +70,7 @@ export default function TestCallWidget() {
           stopPolling()
         }
       } catch {}
-    }, 2000)
+    }, 5000)  // Reduced from 2000ms to 5000ms to lower Supabase read load
   }
 
   const stopPolling = () => {

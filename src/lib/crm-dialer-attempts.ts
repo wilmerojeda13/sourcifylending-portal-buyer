@@ -4,6 +4,21 @@ import { outcomeToLegacyStage, probabilityFromTemperature } from '@/lib/crm'
 
 type ServiceClient = Awaited<ReturnType<typeof import('@/lib/supabase/server').createServiceClient>>
 
+// Debounce map to prevent redundant session syncs within 2-second windows
+// This reduces Supabase write load from high-frequency Twilio webhooks
+const syncDebounceMap = new Map<string, number>()
+const DEBOUNCE_MS = 2000
+
+function shouldDebounce(sessionId: string): boolean {
+  const now = Date.now()
+  const lastSync = syncDebounceMap.get(sessionId)
+  if (lastSync && (now - lastSync) < DEBOUNCE_MS) {
+    return true // Skip this sync
+  }
+  syncDebounceMap.set(sessionId, now)
+  return false
+}
+
 export type DialerAttemptRow = {
   id: string
   dialer_session_id: string
@@ -61,6 +76,11 @@ export function mapRepStateToSessionStatus(repState: CRMDialerRepState) {
 }
 
 export async function syncDialerSessionState(supabase: ServiceClient, sessionId: string) {
+  // Debounce: skip redundant syncs within 2-second window to reduce Supabase writes
+  if (shouldDebounce(sessionId)) {
+    return null
+  }
+
   const [{ data: session }, attempts] = await Promise.all([
     supabase
       .from('crm_dialer_sessions')

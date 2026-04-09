@@ -235,8 +235,19 @@ export async function POST(req: NextRequest) {
       createFollowUpTask: Boolean(body.callback_due_at ?? body.next_follow_up_at ?? body.follow_up_at ?? body.appointment_at),
     })
   } catch (error) {
-    console.error('shared disposition failed after call log attempt', error)
-    return NextResponse.json({ error: 'Call outcome could not be saved to the lead.' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('shared disposition failed after call log attempt', {
+      error: errorMessage,
+      fullError: error,
+      dispositionKey,
+      leadId: body.lead_id,
+      outcome,
+    })
+    return NextResponse.json({ 
+      error: 'Call outcome could not be saved to the lead.', 
+      details: errorMessage,
+      disposition: dispositionKey,
+    }, { status: 500 })
   }
 
   const dialerSessionId =
