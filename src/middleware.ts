@@ -24,7 +24,13 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  await supabase.auth.getUser()
+  // Race against a 1 s timeout — Vercel edge middleware limit is ~1.5 s.
+  // If Supabase auth is slow the session simply won't refresh this request,
+  // but the site stays up instead of returning MIDDLEWARE_INVOCATION_TIMEOUT.
+  await Promise.race([
+    supabase.auth.getUser().catch(() => null),
+    new Promise(resolve => setTimeout(resolve, 1000)),
+  ])
 
   // Capture affiliate referral code from ?ref= query param
   const url = new URL(request.url)
