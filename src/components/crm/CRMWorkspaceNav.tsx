@@ -24,7 +24,7 @@ export default function CRMWorkspaceNav() {
 
   return (
     <div className="overflow-x-auto no-scrollbar">
-      <div className="flex items-center gap-2 min-w-max rounded-2xl border border-gray-200 bg-white/80 p-1.5 backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
+      <div className="flex min-w-max items-center gap-1 rounded-xl border border-gray-200 bg-white/90 p-0.5 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90">
         {ITEMS.map(item => {
           const focus = searchParams.get('focus')
           const view = searchParams.get('view')
@@ -41,7 +41,7 @@ export default function CRMWorkspaceNav() {
               key={`${item.href}-${item.label}`}
               onClick={() => handleNavigation(item.href)}
               className={cn(
-                'rounded-xl px-3.5 py-2 text-sm font-medium transition-colors',
+                'rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors',
                 active
                   ? 'bg-green-600 text-white shadow-sm'
                   : 'brand-chip-hover'

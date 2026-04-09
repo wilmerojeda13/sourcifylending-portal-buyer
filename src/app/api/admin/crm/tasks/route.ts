@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
   endOfToday.setDate(endOfToday.getDate() + 1)
 
   let tasks = data ?? []
+
   if (bucket === 'today') {
     tasks = tasks.filter(task => task.due_at && new Date(task.due_at) >= startOfToday && new Date(task.due_at) < endOfToday && task.status !== 'Done')
   } else if (bucket === 'overdue') {
@@ -115,6 +116,9 @@ export async function POST(req: NextRequest) {
       notes: body.notes?.trim() || null,
       created_by_user_id: admin.userId,
       completed_at: body.status === 'Done' ? new Date().toISOString() : null,
+      created_source: body.created_source || 'manual',
+      created_source_label: body.created_source_label || null,
+      source_metadata: body.source_metadata || {},
     })
     .select('*, crm_leads(id, first_name, last_name, business_name, stage, lead_temperature)')
     .single()

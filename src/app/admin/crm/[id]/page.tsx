@@ -4,6 +4,8 @@ import { isMissingRelationError } from '@/lib/supabase-schema'
 import { getLeadCompliance } from '@/lib/crm-call-compliance'
 import { buildCrmInviteSummary, getCrmInviteRows } from '@/lib/crm-invites'
 import { buildCrmSmsSummary, getCrmSmsRows } from '@/lib/crm-sms'
+import { getLeadCalendarSummary } from '@/lib/crm-calendar-events'
+import { getTagsForEntities } from '@/lib/crm-tags'
 import LeadDetailClient from './LeadDetailClient'
 
 export const metadata = { title: 'Lead Detail' }
@@ -65,6 +67,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     .eq('lead_id', id)
     .order('due_at', { ascending: true, nullsFirst: false })
 
+  const leadTagMap = await getTagsForEntities(supabase, 'lead', [id])
+
   const invites = await getCrmInviteRows(supabase, id)
   const inviteSummary = buildCrmInviteSummary(invites)
   const smsRows = await getCrmSmsRows(supabase, id)
@@ -89,6 +93,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   }
 
   const smsSummary = buildCrmSmsSummary(hydratedSmsRows)
+  const calendarSummary = await getLeadCalendarSummary(supabase, hydratedLead)
 
   return (
     <LeadDetailClient
@@ -96,6 +101,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       activities={activities ?? []}
       calls={calls ?? []}
       tasks={tasks ?? []}
+      calendarSummary={calendarSummary}
+      tags={leadTagMap.get(id) ?? []}
       invites={invites}
       smsMessages={hydratedSmsRows}
       adminEmail={profile.email ?? ''}

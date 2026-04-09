@@ -6,6 +6,7 @@ import { getLeadDialerPriority } from '@/lib/crm-dialer'
 import { getCrmInviteSummaryMap } from '@/lib/crm-invites'
 import { getCrmSmsSummaryMap } from '@/lib/crm-sms'
 import { checkDialerEligibility, matchesDialerQueueFilter, type DialerQueueFilter } from '@/lib/crm-dialer-eligibility'
+import { getTagsForEntities, matchesCrmTagFilters } from '@/lib/crm-tags'
 import { 
   rankSearchResults, 
   normalizePhoneForSearch,
@@ -41,8 +42,13 @@ export async function GET(req: NextRequest) {
   const temperature  = searchParams.get('temperature')
   const openTasks    = searchParams.get('open_tasks')
   const callability  = searchParams.get('callability')
+  const owner        = searchParams.get('owner')
+  const disposition  = searchParams.get('disposition')
   const dialerMode   = searchParams.get('dialer_mode') === 'true'
   const dialerQueue  = searchParams.get('queue') as DialerQueueFilter | null
+  const tagIds       = searchParams.getAll('tag_id')
+  const excludeTagIds = searchParams.getAll('exclude_tag_id')
+  const tagMode = searchParams.get('tag_mode') === 'all' ? 'all' : 'any'
   const archived     = searchParams.get('archived') === 'true'
   // Use unified search for client-side ranking (default: true for search queries)
   const unifiedSearch = searchParams.get('unified_search') !== 'false' && !!search
@@ -54,6 +60,12 @@ export async function GET(req: NextRequest) {
     if (source) nextQuery = nextQuery.eq('source', source)
     if (program) nextQuery = nextQuery.eq('program_interest', program)
     if (temperature) nextQuery = nextQuery.eq('lead_temperature', temperature)
+    if (owner === 'unassigned') {
+      nextQuery = nextQuery.is('assigned_to_user_id', null)
+    } else if (owner) {
+      nextQuery = nextQuery.eq('assigned_to_user_id', owner)
+    }
+    if (disposition) nextQuery = nextQuery.eq('last_call_outcome', disposition)
     if (followUpDue === 'true') {
       nextQuery = nextQuery.lte('follow_up_at', new Date().toISOString()).not('follow_up_at', 'is', null)
     }
@@ -188,8 +200,20 @@ export async function GET(req: NextRequest) {
     ? normalizedLeads.filter(lead => lead.call_window_status === callability)
     : normalizedLeads
 
+  const leadTagMap = await getTagsForEntities(supabase, 'lead', filteredLeads.map((lead) => lead.id))
+  const tagFilteredLeads = (tagIds.length > 0 || excludeTagIds.length > 0)
+    ? filteredLeads.filter((lead) => {
+      const tags = leadTagMap.get(lead.id) ?? []
+      return matchesCrmTagFilters(tags.map((tag) => tag.id), {
+        includeTagIds: tagIds,
+        excludeTagIds,
+        mode: tagMode,
+      })
+      })
+    : filteredLeads
+
   const dialerEligibleLeads = dialerMode
-    ? filteredLeads
+    ? tagFilteredLeads
       .filter((lead) => {
         const eligibility = checkDialerEligibility(lead)
 
@@ -205,7 +229,7 @@ export async function GET(req: NextRequest) {
         return true
       })
       .sort((a, b) => getLeadDialerPriority(b) - getLeadDialerPriority(a))
-    : filteredLeads
+    : tagFilteredLeads
 
   const pagedLeads = requiresPostFilter || dialerMode
     ? dialerEligibleLeads.slice(page * limit, (page + 1) * limit)
@@ -249,6 +273,7 @@ export async function GET(req: NextRequest) {
       search_match: searchMatch,
       duplicate_phone_count: duplicatePhoneCounts.get(lead.phone_e164 || lead.phone || '') ?? 0,
       phone_invalid: !lead.phone_e164,
+      tags: leadTagMap.get(lead.id) ?? [],
       ...(inviteSummaryMap.get(lead.id) ?? {}),
       ...(smsSummaryMap.get(lead.id) ?? {}),
     }

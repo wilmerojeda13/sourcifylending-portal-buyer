@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createCrmLeadActivity, getAppUrl } from '@/lib/crm-invites'
+const CRM_SMS_QUERY_CHUNK_SIZE = 200
 
 export const CRM_TEXT_COOKIE = 'crm_text'
 export const CRM_SMS_SOURCE = 'crm_dialer'
@@ -315,14 +316,18 @@ export async function getCrmSmsRows(supabase: SupabaseClient, leadId: string) {
 
 export async function getCrmSmsSummaryMap(supabase: SupabaseClient, leadIds: string[]) {
   if (leadIds.length === 0) return new Map<string, CrmLeadSmsSummary>()
+  const rows: CrmLeadSmsRow[] = []
 
-  const { data } = await supabase
-    .from('crm_lead_sms')
-    .select('*')
-    .in('lead_id', leadIds)
-    .order('created_at', { ascending: false })
+  for (let index = 0; index < leadIds.length; index += CRM_SMS_QUERY_CHUNK_SIZE) {
+    const chunk = leadIds.slice(index, index + CRM_SMS_QUERY_CHUNK_SIZE)
+    const { data } = await supabase
+      .from('crm_lead_sms')
+      .select('*')
+      .in('lead_id', chunk)
+      .order('created_at', { ascending: false })
 
-  const rows = (data ?? []) as CrmLeadSmsRow[]
+    rows.push(...((data ?? []) as CrmLeadSmsRow[]))
+  }
   const grouped = new Map<string, CrmLeadSmsRow[]>()
 
   for (const row of rows) {

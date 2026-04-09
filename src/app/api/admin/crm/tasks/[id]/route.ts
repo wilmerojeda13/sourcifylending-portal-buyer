@@ -52,6 +52,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     'notes',
     'related_call_id',
     'lead_id',
+    'created_source',
+    'created_source_label',
+    'source_metadata',
   ]
 
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() }

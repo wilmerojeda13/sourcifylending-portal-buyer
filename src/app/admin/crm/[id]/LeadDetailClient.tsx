@@ -1,21 +1,54 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft, Phone, Mail, Building2, Calendar, Edit3, Save,
-  X, Loader2, MessageSquare, PhoneCall, CheckCircle2,
-  Megaphone, Trash2, Ban, CalendarPlus, ExternalLink, Globe, MapPin,
-  Copy, MessageCircle, Send, User, Tag, Clock, TrendingUp, AlertTriangle,
-  Star, Zap, BarChart3,
+  AlertTriangle,
+  Ban,
+  Building2,
+  Calendar,
+  CalendarPlus,
+  CheckCircle2,
+  ChevronLeft,
+  Clock,
+  Copy,
+  Edit3,
+  ExternalLink,
+  Loader2,
+  Mail,
+  MapPin,
+  MessageCircle,
+  MessageSquare,
+  Phone,
+  PhoneCall,
+  Save,
+  Send,
+  Tag,
+  Trash2,
+  TrendingUp,
+  User,
+  X,
+  type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import type { LeadCalendarEvent, LeadCalendarSummary } from '@/lib/crm-calendar-events'
 import AnalyzerLivePanel from '@/components/admin/crm/AnalyzerLivePanel'
+import TagEditor from '@/components/admin/crm/TagEditor'
+import type { CRMTagBadge } from '@/components/admin/crm/TagBadge'
+import CRMDispositionForm from '@/components/admin/crm/CRMDispositionForm'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost' | 'active_client'
+type Stage =
+  | 'new'
+  | 'contacted'
+  | 'qualified'
+  | 'demo_scheduled'
+  | 'demo_held'
+  | 'follow_up'
+  | 'closed_won'
+  | 'closed_lost'
+  | 'active_client'
 
 interface CRMLead {
   id: string
@@ -38,6 +71,7 @@ interface CRMLead {
   last_call_outcome?: string | null
   last_call_at?: string | null
   callback_due_at?: string | null
+  latest_call_note?: string | null
   likely_timezone?: string | null
   timezone_confidence?: 'high' | 'medium' | 'low' | 'unknown'
   timezone_source?: string | null
@@ -68,8 +102,6 @@ interface CRMLead {
   estimated_funding_range?: string | null
   risk_flags?: string[] | null
   analyzer_summary?: string | null
-  analyzer_answers?: Record<string, unknown> | null
-  analyzer_score_breakdown?: Record<string, unknown> | null
   duplicate_review_required?: boolean
   duplicate_review_reason?: string | null
   assigned_to_name?: string | null
@@ -140,6 +172,21 @@ interface TaskRecord {
   status: string
   due_at: string | null
   notes: string | null
+  created_source?: string
+  created_source_label?: string | null
+}
+
+interface InviteRecord {
+  id: string
+  invite_type: 'portal' | 'pre_analyzer'
+  status: string
+  email: string
+  sent_at: string | null
+  opened_at: string | null
+  clicked_at: string | null
+  account_created_at: string | null
+  analyzer_started_at: string | null
+  analyzer_submitted_at: string | null
 }
 
 interface Props {
@@ -147,58 +194,49 @@ interface Props {
   activities: Activity[]
   calls: CallRecord[]
   tasks: TaskRecord[]
-  invites: Array<{
-    id: string
-    invite_type: 'portal' | 'pre_analyzer'
-    status: string
-    email: string
-    sent_at: string | null
-    opened_at: string | null
-    clicked_at: string | null
-    account_created_at: string | null
-      analyzer_started_at: string | null
-      analyzer_submitted_at: string | null
-  }>
+  calendarSummary: LeadCalendarSummary
+  tags: CRMTagBadge[]
+  invites: InviteRecord[]
   smsMessages: SmsMessage[]
   adminEmail: string
 }
 
-// ─── Constants ─────────────────────────────────────────────────────────────────
 const STAGES: { key: Stage; label: string; color: string; bgColor: string }[] = [
-  { key: 'new',            label: 'New',           color: 'text-gray-700 dark:text-gray-300', bgColor: 'bg-gray-100 dark:bg-gray-800' },
-  { key: 'contacted',      label: 'Contacted',     color: 'text-blue-700 dark:text-blue-300', bgColor: 'bg-blue-100 dark:bg-blue-900/40' },
-  { key: 'qualified',      label: 'Qualified',     color: 'text-amber-700 dark:text-amber-300', bgColor: 'bg-amber-100 dark:bg-amber-900/40' },
-  { key: 'demo_scheduled', label: 'Demo Scheduled',color: 'text-purple-700 dark:text-purple-300', bgColor: 'bg-purple-100 dark:bg-purple-900/40' },
-  { key: 'demo_held',      label: 'Demo Held',     color: 'text-indigo-700 dark:text-indigo-300', bgColor: 'bg-indigo-100 dark:bg-indigo-900/40' },
-  { key: 'follow_up',      label: 'Follow Up',     color: 'text-orange-700 dark:text-orange-300', bgColor: 'bg-orange-100 dark:bg-orange-900/40' },
-  { key: 'active_client',  label: 'Active Client', color: 'text-teal-700 dark:text-teal-300', bgColor: 'bg-teal-100 dark:bg-teal-900/40' },
-  { key: 'closed_won',     label: 'Closed Won',    color: 'text-green-700 dark:text-green-300', bgColor: 'bg-green-100 dark:bg-green-900/40' },
-  { key: 'closed_lost',    label: 'Closed Lost',   color: 'text-red-700 dark:text-red-300', bgColor: 'bg-red-100 dark:bg-red-900/40' },
+  { key: 'new', label: 'New', color: 'text-gray-700 dark:text-gray-300', bgColor: 'bg-gray-100 dark:bg-gray-800' },
+  { key: 'contacted', label: 'Contacted', color: 'text-blue-700 dark:text-blue-300', bgColor: 'bg-blue-100 dark:bg-blue-900/40' },
+  { key: 'qualified', label: 'Qualified', color: 'text-amber-700 dark:text-amber-300', bgColor: 'bg-amber-100 dark:bg-amber-900/40' },
+  { key: 'demo_scheduled', label: 'Demo Scheduled', color: 'text-purple-700 dark:text-purple-300', bgColor: 'bg-purple-100 dark:bg-purple-900/40' },
+  { key: 'demo_held', label: 'Demo Held', color: 'text-indigo-700 dark:text-indigo-300', bgColor: 'bg-indigo-100 dark:bg-indigo-900/40' },
+  { key: 'follow_up', label: 'Follow Up', color: 'text-orange-700 dark:text-orange-300', bgColor: 'bg-orange-100 dark:bg-orange-900/40' },
+  { key: 'active_client', label: 'Active Client', color: 'text-teal-700 dark:text-teal-300', bgColor: 'bg-teal-100 dark:bg-teal-900/40' },
+  { key: 'closed_won', label: 'Closed Won', color: 'text-green-700 dark:text-green-300', bgColor: 'bg-green-100 dark:bg-green-900/40' },
+  { key: 'closed_lost', label: 'Closed Lost', color: 'text-red-700 dark:text-red-300', bgColor: 'bg-red-100 dark:bg-red-900/40' },
 ]
 
-const ACTIVITY_ICONS: Record<string, React.ElementType> = {
-  note:         MessageSquare,
-  call:         PhoneCall,
+const ACTIVITY_ICONS: Record<string, LucideIcon> = {
+  note: MessageSquare,
+  call: PhoneCall,
   stage_change: CheckCircle2,
-  email:        Mail,
-  sms:          MessageCircle,
-  voicemail:    Phone,
+  email: Mail,
+  sms: MessageCircle,
+  voicemail: Phone,
   follow_up_set: Calendar,
+  disposition: PhoneCall,
 }
 
 const ACTIVITY_COLORS: Record<string, string> = {
-  note:          'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-  call:          'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
-  stage_change:  'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400',
-  email:         'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400',
-  sms:           'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400',
-  voicemail:     'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400',
+  note: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  call: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
+  stage_change: 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400',
+  email: 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400',
+  sms: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400',
+  voicemail: 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400',
   follow_up_set: 'bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400',
+  disposition: 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400',
 }
 
-// ─── Utility Functions ─────────────────────────────────────────────────────────
-
-function formatDateTime(iso: string) {
+function formatDateTime(iso: string | null | undefined) {
+  if (!iso) return '—'
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
@@ -206,41 +244,64 @@ function formatDateTimeLocal(iso: string | null) {
   if (!iso) return ''
   const d = new Date(iso)
   const pad = (n: number) => n.toString().padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function formatAnswerValue(value: unknown) {
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
-  if (Array.isArray(value)) return value.join(', ')
-  if (value == null || value === '') return '—'
-  return String(value)
+function titleize(value: string | null | undefined) {
+  if (!value) return 'Unknown'
+  return value.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
 }
 
 function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).then(() => {
-    toast.success('Copied to clipboard')
-  }).catch(() => {
-    toast.error('Failed to copy')
-  })
+  navigator.clipboard.writeText(text).then(() => toast.success('Copied to clipboard')).catch(() => toast.error('Failed to copy'))
 }
 
 function buildCallabilityLabel(lead: CRMLead) {
   if (lead.call_window_status === 'callable_now') return 'Callable Now'
-  if (lead.call_window_status === 'blocked_by_timezone') {
-    return `Blocked Until ${lead.blocked_until_label ?? ''}`.trim()
-  }
+  if (lead.call_window_status === 'blocked_by_timezone') return `Blocked Until ${lead.blocked_until_label ?? ''}`.trim()
   return lead.timezone_reason_label ? `Unknown: ${lead.timezone_reason_label}` : 'Unknown Timezone'
 }
 
-// ─── Send Email Modal ──────────────────────────────────────────────────────────
-function SendEmailModal({ lead, onClose, onSent }: { lead: CRMLead; onClose: () => void; onSent: (subject: string) => void }) {
+function eventTone(event: LeadCalendarEvent | null) {
+  if (!event) return 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
+  if (event.status === 'cancelled') return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-300'
+  if (event.type === 'demo') return 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900 dark:bg-purple-950/20 dark:text-purple-300'
+  if (event.type === 'callback') return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300'
+  return 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-300'
+}
+
+function mergeCalendarEvents(current: LeadCalendarSummary, nextEvent: LeadCalendarEvent): LeadCalendarSummary {
+  const events = [...current.events.filter((event) => event.id !== nextEvent.id), nextEvent].sort(
+    (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
+  )
+  const nextUpcoming = events.find((event) => event.status !== 'cancelled' && new Date(event.end || event.start).getTime() >= Date.now()) ?? null
+
+  return {
+    configured: true,
+    matched: true,
+    warning: null,
+    events,
+    nextEvent: nextUpcoming,
+    hasBookedDemo: events.some((event) => event.type === 'demo' && event.status !== 'cancelled'),
+  }
+}
+
+function SendEmailModal({
+  lead,
+  onClose,
+  onSent,
+}: {
+  lead: CRMLead
+  onClose: () => void
+  onSent: (subject: string) => void
+}) {
   const program = lead.program_interest
     ? { program_a: 'Program A', program_b: 'Program B', program_c: 'Program C' }[lead.program_interest]
     : null
 
-  const [subject, setSubject] = useState(`Following up — SourcifyLending`)
-  const [body, setBody]       = useState(
-    `Hi ${lead.first_name},\n\nI wanted to follow up regarding your interest in ${program ? `our ${program}` : 'our credit fulfillment program'}.\n\nWould you have 20–30 minutes this week for a quick demo?\n\nBest,\nSourcifyLending Team`
+  const [subject, setSubject] = useState('Following up — SourcifyLending')
+  const [body, setBody] = useState(
+    `Hi ${lead.first_name},\n\nI wanted to follow up regarding your interest in ${program ? `our ${program}` : 'our credit fulfillment program'}.\n\nWould you have 20–30 minutes this week for a quick demo?\n\nBest,\nSourcifyLending Team`,
   )
 
   function openGmail() {
@@ -253,34 +314,32 @@ function SendEmailModal({ lead, onClose, onSent }: { lead: CRMLead; onClose: () 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
           <div className="flex items-center gap-2">
             <Mail size={17} className="text-blue-500" />
-            <h2 className="font-bold text-gray-900">Send Email</h2>
+            <h2 className="font-bold text-gray-900 dark:text-white">Send Email</h2>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"><X size={16} /></button>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+            <X size={16} />
+          </button>
         </div>
-        <div className="p-6 space-y-4">
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-2.5 text-sm">
-            <span className="text-gray-400 text-xs font-medium">To: </span>
-            <span className="text-gray-900 font-medium">{lead.first_name} {lead.last_name}</span>
-            <span className="text-gray-400 ml-2">{'<'}{lead.email}{'>'}</span>
+        <div className="space-y-4 p-6">
+          <div className="rounded-xl bg-gray-50 px-4 py-2.5 text-sm dark:bg-gray-800">
+            <span className="text-xs font-medium text-gray-400">To: </span>
+            <span className="font-medium text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</span>
+            <span className="ml-2 text-gray-400">{'<'}{lead.email}{'>'}</span>
           </div>
           <div>
             <label className="label">Subject</label>
-            <input className="input-field" value={subject} onChange={e => setSubject(e.target.value)} />
+            <input className="input-field" value={subject} onChange={(event) => setSubject(event.target.value)} />
           </div>
           <div>
             <label className="label">Body</label>
-            <textarea className="input-field min-h-[180px] resize-y text-sm" value={body} onChange={e => setBody(e.target.value)} />
-          </div>
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 flex gap-2 text-xs text-blue-700 dark:text-blue-300">
-            <ExternalLink size={13} className="shrink-0 mt-0.5" />
-            <span>Opens Gmail in a new tab with this email pre-filled.</span>
+            <textarea className="input-field min-h-[180px] resize-y text-sm" value={body} onChange={(event) => setBody(event.target.value)} />
           </div>
           <div className="flex gap-3 pt-1">
-            <button onClick={openGmail} className="btn-primary flex-1 flex items-center justify-center gap-2">
+            <button onClick={openGmail} className="btn-primary flex flex-1 items-center justify-center gap-2">
               <Mail size={15} /> Open in Gmail
             </button>
             <button onClick={onClose} className="btn-secondary px-5">Cancel</button>
@@ -291,86 +350,108 @@ function SendEmailModal({ lead, onClose, onSent }: { lead: CRMLead; onClose: () 
   )
 }
 
-// ─── Book Demo Modal ───────────────────────────────────────────────────────────
-function BookDemoModal({ lead, onClose, onBooked }: { lead: CRMLead; onClose: () => void; onBooked: () => void }) {
+function BookDemoModal({
+  lead,
+  calendarEnabled,
+  onClose,
+  onBooked,
+}: {
+  lead: CRMLead
+  calendarEnabled: boolean
+  onClose: () => void
+  onBooked: (event: LeadCalendarEvent, updatedLead: CRMLead) => void
+}) {
   const now = new Date()
   now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15, 0, 0)
   const pad = (n: number) => n.toString().padStart(2, '0')
-  const defaultDT = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+  const defaultDateTime = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
 
-  const [dateTime, setDateTime] = useState(defaultDT)
+  const [dateTime, setDateTime] = useState(defaultDateTime)
   const [duration, setDuration] = useState(30)
-  const [notes, setNotes]       = useState('')
+  const [timezone, setTimezone] = useState(lead.likely_timezone || 'America/New_York')
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  function buildGCalUrl(startIso: string, durationMins: number): string {
-    function toGCal(iso: string) {
-      return iso.replace(/[-:]/g, '').replace(/\.\d{3}/, '').replace('Z', '')
+  async function confirm() {
+    if (!dateTime) {
+      toast.error('Pick a date and time first')
+      return
     }
-    const start = new Date(startIso)
-    const end   = new Date(start.getTime() + durationMins * 60 * 1000)
-    const program = lead.program_interest
-      ? { program_a: 'Program A', program_b: 'Program B', program_c: 'Program C' }[lead.program_interest]
-      : null
-    const details = [
-      `Lead: ${lead.first_name} ${lead.last_name}`,
-      `Phone: ${lead.phone}`,
-      lead.email        ? `Email: ${lead.email}`          : null,
-      lead.business_name? `Business: ${lead.business_name}` : null,
-      program           ? `Program Interest: ${program}`  : null,
-      notes             ? `\nNotes: ${notes}`             : null,
-    ].filter(Boolean).join('\n')
-    const params = new URLSearchParams({
-      action:  'TEMPLATE',
-      text:    `Demo: ${lead.first_name} ${lead.last_name}${lead.business_name ? ` — ${lead.business_name}` : ''} | SourcifyLending`,
-      dates:   `${toGCal(start.toISOString())}/${toGCal(end.toISOString())}`,
-      details,
-      sf:      'true',
-      ...(lead.email ? { add: lead.email } : {}),
-    })
-    return `https://calendar.google.com/calendar/render?${params}`
-  }
 
-  function confirm() {
-    if (!dateTime) { toast.error('Please pick a date and time'); return }
-    const startIso = new Date(dateTime).toISOString()
-    const url = buildGCalUrl(startIso, duration)
-    window.open(url, '_blank')
-    onBooked()
-    onClose()
+    setSaving(true)
+    try {
+      const response = await fetch(`/api/admin/crm/leads/${lead.id}/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slot_start: new Date(dateTime).toISOString(),
+          duration_minutes: duration,
+          timezone,
+          notes,
+        }),
+      })
+      const json = await response.json()
+      if (!response.ok) {
+        toast.error(json.error || 'Unable to create calendar booking')
+        return
+      }
+      onBooked(json.event, json.lead)
+      onClose()
+    } catch {
+      toast.error('Unable to create calendar booking')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
           <div className="flex items-center gap-2">
-            <CalendarPlus size={18} className="text-green-600" />
-            <h2 className="font-bold text-gray-900">Book Demo</h2>
+            <CalendarPlus size={18} className="text-purple-600" />
+            <h2 className="font-bold text-gray-900 dark:text-white">Book Demo</h2>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"><X size={16} /></button>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+            <X size={16} />
+          </button>
         </div>
-        <div className="p-6 space-y-4">
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-sm">
-            <p className="font-semibold text-gray-900">{lead.first_name} {lead.last_name}</p>
-            {lead.business_name && <p className="text-gray-500 text-xs">{lead.business_name}</p>}
-            <p className="text-gray-500 text-xs mt-0.5">{lead.phone}</p>
+        <div className="space-y-4 p-6">
+          <div className="rounded-xl bg-gray-50 p-3 text-sm dark:bg-gray-800">
+            <p className="font-semibold text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</p>
+            {lead.business_name && <p className="text-xs text-gray-500">{lead.business_name}</p>}
+            <p className="mt-0.5 text-xs text-gray-500">{lead.phone}</p>
           </div>
+          {!calendarEnabled && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300">
+              Google Calendar is not configured. Scheduling from the contact page is unavailable until CRM calendar credentials are connected.
+            </div>
+          )}
           <div>
-            <label className="label">Date & Time *</label>
-            <input className="input-field" type="datetime-local" value={dateTime} onChange={e => setDateTime(e.target.value)} />
+            <label className="label">Date & Time</label>
+            <input className="input-field" type="datetime-local" value={dateTime} onChange={(event) => setDateTime(event.target.value)} />
           </div>
           <div>
             <label className="label">Duration</label>
-            <select className="input-field" value={duration} onChange={e => setDuration(Number(e.target.value))}>
+            <select className="input-field" value={duration} onChange={(event) => setDuration(Number(event.target.value))}>
               <option value={15}>15 minutes</option>
               <option value={30}>30 minutes</option>
               <option value={45}>45 minutes</option>
               <option value={60}>1 hour</option>
             </select>
           </div>
+          <div>
+            <label className="label">Timezone</label>
+            <input className="input-field" value={timezone} onChange={(event) => setTimezone(event.target.value)} />
+          </div>
+          <div>
+            <label className="label">Notes</label>
+            <textarea className="input-field min-h-[96px] resize-y text-sm" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional prep notes for the booking." />
+          </div>
           <div className="flex gap-3 pt-1">
-            <button onClick={confirm} className="btn-primary flex-1 flex items-center justify-center gap-2">
-              <CalendarPlus size={15} /> Open Google Calendar
+            <button onClick={confirm} disabled={saving || !calendarEnabled} className="btn-primary flex flex-1 items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <CalendarPlus size={15} />}
+              Book on Calendar
             </button>
             <button onClick={onClose} className="btn-secondary px-5">Cancel</button>
           </div>
@@ -380,68 +461,113 @@ function BookDemoModal({ lead, onClose, onBooked }: { lead: CRMLead; onClose: ()
   )
 }
 
-// ─── Main Component ─────────────────────────────────────────────────────────────
-export default function LeadDetailClient({ lead: initialLead, activities: initialActivities, calls: initialCalls, tasks: initialTasks, invites, smsMessages: initialSmsMessages, adminEmail }: Props) {
+export default function LeadDetailClient({
+  lead: initialLead,
+  activities: initialActivities,
+  calls: initialCalls,
+  tasks: initialTasks,
+  calendarSummary: initialCalendarSummary,
+  tags: initialTags,
+  invites,
+  smsMessages: initialSmsMessages,
+  adminEmail,
+}: Props) {
   const router = useRouter()
-  const [lead, setLead]               = useState(initialLead)
-  const [activities, setActivities]   = useState(initialActivities)
-  const [calls, setCalls]             = useState(initialCalls)
-  const [tasks, setTasks]             = useState(initialTasks)
+  const [lead, setLead] = useState(initialLead)
+  const [activities, setActivities] = useState(initialActivities)
+  const [calls] = useState(initialCalls)
+  const [tasks, setTasks] = useState(initialTasks)
+  const [calendarSummary, setCalendarSummary] = useState(initialCalendarSummary)
+  const [tags, setTags] = useState(initialTags)
   const [smsMessages, setSmsMessages] = useState(initialSmsMessages)
-  const [editing, setEditing]         = useState(false)
-  const [saving, setSaving]           = useState(false)
-  const [noteText, setNoteText]       = useState('')
-  const [addingNote, setAddingNote]   = useState(false)
-  const [noteType, setNoteType]       = useState<'note' | 'call' | 'email' | 'sms' | 'voicemail'>('note')
-  const [showBookDemo, setShowBookDemo]   = useState(false)
-  const [showEmail, setShowEmail]         = useState(false)
-  const [taskTitle, setTaskTitle]         = useState('')
-  const [taskDueAt, setTaskDueAt]         = useState('')
-  const [taskPriority, setTaskPriority]   = useState('High')
-  const [taskSaving, setTaskSaving]       = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [noteText, setNoteText] = useState('')
+  const [addingNote, setAddingNote] = useState(false)
+  const [noteType, setNoteType] = useState<'note' | 'call' | 'email' | 'sms' | 'voicemail'>('note')
+  const [showBookDemo, setShowBookDemo] = useState(false)
+  const [showEmail, setShowEmail] = useState(false)
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDueAt, setTaskDueAt] = useState('')
+  const [taskPriority, setTaskPriority] = useState('High')
+  const [taskSaving, setTaskSaving] = useState(false)
+  const [showDisposition, setShowDisposition] = useState(false)
+  const [selectedDispositionKey, setSelectedDispositionKey] = useState<string | null>(null)
+  const [savingDisposition, setSavingDisposition] = useState(false)
+  const [dispositionError, setDispositionError] = useState<string | null>(null)
   const [authorizingCall, setAuthorizingCall] = useState(false)
   const [smsReplyBody, setSmsReplyBody] = useState('')
   const [sendingSmsReply, setSendingSmsReply] = useState(false)
-  const [duplicateLeads, setDuplicateLeads] = useState<{id: string, first_name: string, last_name: string, stage: string}[]>([])
-  const [editForm, setEditForm]         = useState({
-    first_name:       lead.first_name,
-    last_name:        lead.last_name,
-    phone:            lead.phone,
-    email:            lead.email ?? '',
-    business_name:    lead.business_name ?? '',
-    program_interest: lead.program_interest ?? '',
-    source:           lead.source,
-    notes:            lead.notes ?? '',
-    follow_up_at:     formatDateTimeLocal(lead.follow_up_at),
+  const [duplicateLeads, setDuplicateLeads] = useState<Array<{ id: string; first_name: string; last_name: string; stage: string }>>([])
+  const [editForm, setEditForm] = useState({
+    first_name: initialLead.first_name,
+    last_name: initialLead.last_name,
+    phone: initialLead.phone,
+    email: initialLead.email ?? '',
+    business_name: initialLead.business_name ?? '',
+    program_interest: initialLead.program_interest ?? '',
+    source: initialLead.source,
+    notes: initialLead.notes ?? '',
+    follow_up_at: formatDateTimeLocal(initialLead.follow_up_at),
   })
 
-  const latestPortalInvite = invites.find(invite => invite.invite_type === 'portal') ?? null
-  const latestPreAnalyzerInvite = invites.find(invite => invite.invite_type === 'pre_analyzer') ?? null
-  const stageInfo = STAGES.find(s => s.key === lead.stage) ?? STAGES[0]
-  const pastDue = lead.follow_up_at && new Date(lead.follow_up_at) < new Date()
+  const stageInfo = STAGES.find((stage) => stage.key === lead.stage) ?? STAGES[0]
+  const latestPortalInvite = invites.find((invite) => invite.invite_type === 'portal') ?? null
+  const latestPreAnalyzerInvite = invites.find((invite) => invite.invite_type === 'pre_analyzer') ?? null
 
-  function setEF<K extends keyof typeof editForm>(k: K, v: typeof editForm[K]) {
-    setEditForm(p => ({ ...p, [k]: v }))
+  const openTasks = useMemo(
+    () =>
+      [...tasks]
+        .filter((task) => task.status !== 'Done')
+        .sort((a, b) => {
+          if (!a.due_at) return 1
+          if (!b.due_at) return -1
+          return new Date(a.due_at).getTime() - new Date(b.due_at).getTime()
+        }),
+    [tasks],
+  )
+  const upcomingEvents = useMemo(
+    () =>
+      calendarSummary.events.filter((event) => event.status !== 'cancelled' && new Date(event.end || event.start).getTime() >= Date.now()),
+    [calendarSummary.events],
+  )
+  const nextCalendarEvent = calendarSummary.nextEvent ?? upcomingEvents[0] ?? null
+  const emailActivities = activities.filter((activity) => activity.type === 'email').slice(0, 4)
+  const recentCalls = calls.slice(0, 5)
+
+  function setEF<K extends keyof typeof editForm>(key: K, value: typeof editForm[K]) {
+    setEditForm((current) => ({ ...current, [key]: value }))
   }
 
-  // Check for duplicate phone leads
   useEffect(() => {
     if (!lead.phone) return
     fetch(`/api/admin/crm/leads?search=${encodeURIComponent(lead.phone)}&limit=10`)
-      .then(r => r.json())
-      .then(json => {
-        const dupes = (json.leads ?? []).filter((l: { id: string }) => l.id !== lead.id)
-        setDuplicateLeads(dupes)
+      .then((response) => response.json())
+      .then((json) => {
+        const duplicates = (json.leads ?? []).filter((item: { id: string }) => item.id !== lead.id)
+        setDuplicateLeads(duplicates)
       })
       .catch(() => {})
   }, [lead.phone, lead.id])
+
+  async function refreshActivities() {
+    const response = await fetch(`/api/admin/crm/activities?lead_id=${lead.id}`)
+    const json = await response.json()
+    setActivities(json.activities ?? [])
+  }
+
+  async function refreshTasks() {
+    const response = await fetch(`/api/admin/crm/tasks?lead_id=${lead.id}`)
+    const json = await response.json()
+    setTasks(json.tasks ?? [])
+  }
 
   async function sendSmsReply() {
     if (!smsReplyBody.trim() || sendingSmsReply) return
     setSendingSmsReply(true)
     try {
       const latestThreadMessage = smsMessages[0] ?? null
-      const res = await fetch(`/api/admin/crm/leads/${lead.id}/sms`, {
+      const response = await fetch(`/api/admin/crm/leads/${lead.id}/sms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -450,16 +576,14 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
           parent_sms_id: latestThreadMessage?.id ?? null,
         }),
       })
-      const json = await res.json()
-      if (!res.ok) {
+      const json = await response.json()
+      if (!response.ok) {
         toast.error(json.error ?? 'Failed to send text reply')
         return
       }
-      if (json.sms) setSmsMessages(current => [json.sms, ...current])
-      if (json.sms_summary) setLead(current => ({ ...current, ...json.sms_summary }))
-      const activityRes = await fetch(`/api/admin/crm/activities?lead_id=${lead.id}`)
-      const activityJson = await activityRes.json()
-      setActivities(activityJson.activities ?? [])
+      if (json.sms) setSmsMessages((current) => [json.sms, ...current])
+      if (json.sms_summary) setLead((current) => ({ ...current, ...json.sms_summary }))
+      await refreshActivities()
       setSmsReplyBody('')
       toast.success('Text reply sent')
     } catch {
@@ -472,20 +596,20 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   async function authorizeDial() {
     setAuthorizingCall(true)
     try {
-      const res = await fetch('/api/admin/crm/dial', {
+      const response = await fetch('/api/admin/crm/dial', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lead_id: lead.id }),
       })
-      const json = await res.json()
-      if (!res.ok || !json.allowed) {
+      const json = await response.json()
+      if (!response.ok || !json.allowed) {
         if (json.call_window_message) {
-          setLead(prev => ({ ...prev, ...json }))
+          setLead((current) => ({ ...current, ...json }))
         }
         toast.error(json.error ?? 'This number is blocked.')
         return
       }
-      setLead(prev => ({ ...prev, ...json }))
+      setLead((current) => ({ ...current, ...json }))
       window.open(`tel:${json.phone_e164 || lead.phone}`, '_blank')
     } catch {
       toast.error('Unable to verify the calling window.')
@@ -494,24 +618,21 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     }
   }
 
-  async function refreshTasks() {
-    const res = await fetch(`/api/admin/crm/tasks?lead_id=${lead.id}`)
-    const json = await res.json()
-    setTasks(json.tasks ?? [])
-  }
-
   async function changeStage(newStage: Stage) {
     if (newStage === lead.stage) return
-    const oldLabel = STAGES.find(s => s.key === lead.stage)?.label
-    const newLabel = STAGES.find(s => s.key === newStage)?.label
-    const res = await fetch(`/api/admin/crm/leads/${lead.id}`, {
+    const oldLabel = STAGES.find((stage) => stage.key === lead.stage)?.label
+    const newLabel = STAGES.find((stage) => stage.key === newStage)?.label
+    const response = await fetch(`/api/admin/crm/leads/${lead.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage: newStage }),
     })
-    if (!res.ok) { toast.error('Failed to update stage'); return }
-    const { lead: updated } = await res.json()
-    setLead(updated)
+    if (!response.ok) {
+      toast.error('Failed to update stage')
+      return
+    }
+    const { lead: updatedLead } = await response.json()
+    setLead(updatedLead)
     await fetch('/api/admin/crm/activities', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -522,62 +643,112 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
         created_by: adminEmail,
       }),
     })
-    const actRes = await fetch(`/api/admin/crm/activities?lead_id=${lead.id}`)
-    const actJson = await actRes.json()
-    setActivities(actJson.activities ?? [])
+    await refreshActivities()
     toast.success(`Moved to ${newLabel}`)
   }
 
+  async function saveDisposition(value: { disposition_key: string; note: string; follow_up_at: string }) {
+    setSavingDisposition(true)
+    setDispositionError(null)
+    try {
+      const response = await fetch('/api/admin/crm/dispositions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_id: lead.id,
+          disposition_key: value.disposition_key,
+          note: value.note || null,
+          follow_up_at: value.follow_up_at || null,
+          create_follow_up_task: true,
+        }),
+      })
+      const json = await response.json()
+      if (!response.ok) {
+        throw new Error(json.error || 'Failed to save disposition')
+      }
+      if (json.lead) setLead(json.lead)
+      if (json.task) setTasks((current) => [json.task, ...current])
+      await refreshActivities()
+      setShowDisposition(false)
+      setSelectedDispositionKey(null)
+      toast.success('Disposition saved')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save disposition'
+      setDispositionError(message)
+      toast.error(message)
+    } finally {
+      setSavingDisposition(false)
+    }
+  }
+
   async function createTask() {
-    if (!taskTitle.trim()) { toast.error('Task title is required'); return }
+    if (!taskTitle.trim()) {
+      toast.error('Task title is required')
+      return
+    }
     setTaskSaving(true)
-    const res = await fetch('/api/admin/crm/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lead_id: lead.id,
-        title: taskTitle,
-        task_type: 'Follow-Up',
-        priority: taskPriority,
-        due_at: taskDueAt || null,
-        pipeline_stage: lead.stage,
-      }),
-    })
-    setTaskSaving(false)
-    if (!res.ok) { toast.error('Unable to create task'); return }
-    setTaskTitle('')
-    setTaskDueAt('')
-    toast.success('Task created')
-    refreshTasks()
+    try {
+      const response = await fetch('/api/admin/crm/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_id: lead.id,
+          title: taskTitle,
+          task_type: 'Follow-Up',
+          priority: taskPriority,
+          due_at: taskDueAt || null,
+          pipeline_stage: lead.stage,
+          created_source: 'manual',
+          created_source_label: 'Manual task',
+        }),
+      })
+      if (!response.ok) {
+        toast.error('Unable to create task')
+        return
+      }
+      setTaskTitle('')
+      setTaskDueAt('')
+      toast.success('Task created')
+      await refreshTasks()
+    } finally {
+      setTaskSaving(false)
+    }
   }
 
   async function completeTask(taskId: string) {
-    const res = await fetch(`/api/admin/crm/tasks/${taskId}`, {
+    const response = await fetch(`/api/admin/crm/tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'Done' }),
     })
-    if (!res.ok) { toast.error('Unable to complete task'); return }
+    if (!response.ok) {
+      toast.error('Unable to complete task')
+      return
+    }
+    const json = await response.json()
+    setTasks((current) => current.map((task) => (task.id === taskId ? json.task : task)))
     toast.success('Task completed')
-    refreshTasks()
   }
 
   async function saveEdits() {
     setSaving(true)
     try {
-      const res = await fetch(`/api/admin/crm/leads/${lead.id}`, {
+      const response = await fetch(`/api/admin/crm/leads/${lead.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...editForm,
-          email:            editForm.email || null,
-          business_name:    editForm.business_name || null,
+          email: editForm.email || null,
+          business_name: editForm.business_name || null,
           program_interest: editForm.program_interest || null,
-          follow_up_at:     editForm.follow_up_at || null,
+          follow_up_at: editForm.follow_up_at || null,
         }),
       })
-      const json = await res.json()
-      if (!res.ok) { toast.error(json.error ?? 'Save failed'); return }
+      const json = await response.json()
+      if (!response.ok) {
+        toast.error(json.error ?? 'Save failed')
+        return
+      }
       setLead(json.lead)
       setEditing(false)
       toast.success('Lead updated')
@@ -590,14 +761,17 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     if (!noteText.trim()) return
     setAddingNote(true)
     try {
-      const res = await fetch('/api/admin/crm/activities', {
+      const response = await fetch('/api/admin/crm/activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lead_id: lead.id, type: noteType, body: noteText }),
       })
-      const json = await res.json()
-      if (!res.ok) { toast.error(json.error ?? 'Failed to log activity'); return }
-      setActivities(p => [json.activity, ...p])
+      const json = await response.json()
+      if (!response.ok) {
+        toast.error(json.error ?? 'Failed to log activity')
+        return
+      }
+      setActivities((current) => [json.activity, ...current])
       setNoteText('')
       toast.success('Activity logged')
     } finally {
@@ -606,21 +780,27 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
   }
 
   async function toggleDNC() {
-    const res = await fetch(`/api/admin/crm/leads/${lead.id}`, {
+    const response = await fetch(`/api/admin/crm/leads/${lead.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ do_not_call: !lead.do_not_call }),
     })
-    const json = await res.json()
-    if (!res.ok) { toast.error('Failed'); return }
+    const json = await response.json()
+    if (!response.ok) {
+      toast.error('Failed')
+      return
+    }
     setLead(json.lead)
     toast.success(json.lead.do_not_call ? 'Marked as Do Not Call' : 'DNC removed')
   }
 
   async function deleteLead() {
     if (!confirm(`Delete ${lead.first_name} ${lead.last_name}? This cannot be undone.`)) return
-    const res = await fetch(`/api/admin/crm/leads/${lead.id}`, { method: 'DELETE' })
-    if (!res.ok) { toast.error('Delete failed'); return }
+    const response = await fetch(`/api/admin/crm/leads/${lead.id}`, { method: 'DELETE' })
+    if (!response.ok) {
+      toast.error('Delete failed')
+      return
+    }
     toast.success('Lead deleted')
     router.push('/admin/crm')
   }
@@ -629,81 +809,71 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
     await fetch('/api/admin/crm/activities', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lead_id: lead.id, type: 'email', body: `Email sent — Subject: "${subject}"`, created_by: adminEmail }),
+      body: JSON.stringify({
+        lead_id: lead.id,
+        type: 'email',
+        body: `Email sent — Subject: "${subject}"`,
+        created_by: adminEmail,
+      }),
     })
-    const actRes = await fetch(`/api/admin/crm/activities?lead_id=${lead.id}`)
-    const actJson = await actRes.json()
-    setActivities(actJson.activities ?? [])
+    await refreshActivities()
     toast.success('Email opened in Gmail')
   }
 
-  async function handleDemoBooked() {
-    if (lead.stage !== 'demo_scheduled') {
-      const res = await fetch(`/api/admin/crm/leads/${lead.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage: 'demo_scheduled' }),
-      })
-      if (res.ok) {
-        const { lead: updated } = await res.json()
-        setLead(updated)
-      }
-    }
-    await fetch('/api/admin/crm/activities', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lead_id: lead.id, type: 'stage_change', body: 'Demo booked — Google Calendar event created', created_by: adminEmail }),
-    })
-    const actRes = await fetch(`/api/admin/crm/activities?lead_id=${lead.id}`)
-    const actJson = await actRes.json()
-    setActivities(actJson.activities ?? [])
-    toast.success('Demo booked! Check your Google Calendar.')
+  async function handleDemoBooked(event: LeadCalendarEvent, updatedLead: CRMLead) {
+    setLead(updatedLead)
+    setCalendarSummary((current) => mergeCalendarEvents(current, event))
+    await refreshActivities()
+    toast.success('Calendar demo booked')
   }
 
-  const openTasks = tasks.filter(t => t.status !== 'Done')
-  const recentCalls = calls.slice(0, 5)
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-24">
-      {/* ── Sticky Header ── */}
-      <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 px-3 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:px-4 sm:py-2">
+    <div className="min-h-screen bg-gray-50 pb-24 dark:bg-gray-950">
+      <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 px-3 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:px-4">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-500 hover:text-green-700 font-medium shrink-0">
-              <ChevronLeft size={18}/> <span className="hidden sm:inline">Leads</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button onClick={toggleDNC} className={cn('flex h-8 items-center justify-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold transition-colors', lead.do_not_call ? 'border-red-300 text-red-600 bg-red-50' : 'border-gray-200 dark:border-gray-700 text-gray-500')}>
-              <Ban size={12}/><span className="hidden sm:inline">DNC</span>
+          <Link href="/admin/crm" className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-green-700">
+            <ChevronLeft size={18} /> <span className="hidden sm:inline">Leads</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleDNC}
+              className={cn(
+                'flex h-8 items-center justify-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold transition-colors',
+                lead.do_not_call ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 text-gray-500 dark:border-gray-700',
+              )}
+            >
+              <Ban size={12} />
+              <span className="hidden sm:inline">DNC</span>
             </button>
             {!editing ? (
               <button onClick={() => setEditing(true)} className="btn-secondary flex h-8 items-center gap-1 px-2.5 text-xs sm:px-3">
-                <Edit3 size={13}/> <span className="hidden sm:inline">Edit</span>
+                <Edit3 size={13} /> <span className="hidden sm:inline">Edit</span>
               </button>
             ) : (
               <div className="flex items-center gap-1">
                 <button onClick={saveEdits} disabled={saving} className="btn-primary flex h-8 items-center gap-1 px-2.5 text-xs sm:px-3">
-                  {saving ? <Loader2 size={12} className="animate-spin"/> : <Save size={12}/>} <span className="hidden sm:inline">Save</span>
+                  {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                  <span className="hidden sm:inline">Save</span>
                 </button>
-                <button onClick={() => setEditing(false)} className="btn-secondary flex h-8 w-8 items-center justify-center px-0 text-xs"><X size={13}/></button>
+                <button onClick={() => setEditing(false)} className="btn-secondary flex h-8 w-8 items-center justify-center px-0 text-xs">
+                  <X size={13} />
+                </button>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── Duplicate Warning ── */}
       {duplicateLeads.length > 0 && (
         <div className="border-b border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-700/50 dark:bg-amber-900/20">
           <div className="mx-auto max-w-6xl">
             <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-              ⚠️ Duplicate phone — {duplicateLeads.length} other lead{duplicateLeads.length > 1 ? 's' : ''} share this number:
+              Duplicate phone detected. {duplicateLeads.length} other lead{duplicateLeads.length > 1 ? 's' : ''} share this number.
             </p>
-            <div className="mt-1.5 flex flex-wrap gap-2">
-              {duplicateLeads.map(d => (
-                <Link key={d.id} href={`/admin/crm/${d.id}`} className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200 dark:bg-amber-800/40 dark:text-amber-200">
-                  {d.first_name} {d.last_name}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {duplicateLeads.map((duplicate) => (
+                <Link key={duplicate.id} href={`/admin/crm/${duplicate.id}`} className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-200 dark:bg-amber-800/40 dark:text-amber-200">
+                  {duplicate.first_name} {duplicate.last_name}
                 </Link>
               ))}
             </div>
@@ -711,352 +881,381 @@ export default function LeadDetailClient({ lead: initialLead, activities: initia
         </div>
       )}
 
-      {/* ── Main Header Section ── */}
-      <div className="mx-auto max-w-6xl px-4 py-4">
-        {/* Header: Name, Business, Stage, Owner, Source, Last Activity */}
-        <div className="flex items-start gap-4 mb-4">
-          <div className="w-14 h-14 rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0 text-green-700 font-bold text-xl">
-            {lead.first_name[0]}{lead.last_name?.[0] ?? ''}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                {lead.first_name} {lead.last_name}
-              </h1>
-              {lead.do_not_call && <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">DNC</span>}
-            </div>
-            {lead.business_name && (
-              <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
-                <Building2 size={13}/> {lead.business_name}
-              </p>
-            )}
-            {/* Header metadata row */}
-            <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap">
-              <span className={cn('px-2 py-0.5 rounded-full font-medium', stageInfo.bgColor, stageInfo.color)}>
-                {stageInfo.label}
-              </span>
-              {lead.assigned_to_name && (
-                <span className="flex items-center gap-1"><User size={11}/> {lead.assigned_to_name}</span>
-              )}
-              <span className="flex items-center gap-1"><Tag size={11}/> {lead.source}</span>
-              <span className="flex items-center gap-1"><Clock size={11}/> Added {formatDateTime(lead.created_at)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Stage quick-switcher */}
-        <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-none mb-4">
-          {STAGES.map(s => (
-            <button key={s.key} onClick={() => changeStage(s.key)}
-              className={cn('shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all whitespace-nowrap',
-                lead.stage === s.key ? cn(s.bgColor, s.color, 'border-current') : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400')}>
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        {/* ── Primary Contact Bar ── */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 mb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            {/* Contact Info */}
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex items-center gap-3">
-                <a href={`tel:${lead.phone}`} className="text-base font-semibold text-green-600 hover:text-green-700 flex items-center gap-2">
-                  <Phone size={18}/> {lead.phone}
-                </a>
-                <button onClick={() => copyToClipboard(lead.phone)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
-                  <Copy size={14}/>
-                </button>
-              </div>
-              {lead.email && (
-                <div className="flex items-center gap-3">
-                  <a href={`mailto:${lead.email}`} className="text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 flex items-center gap-2">
-                    <Mail size={16}/> {lead.email}
-                  </a>
-                  <button onClick={() => lead.email && copyToClipboard(lead.email)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
-                    <Copy size={14}/>
-                  </button>
+      <div className="mx-auto max-w-6xl px-4 py-5">
+        <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-green-100 text-xl font-bold text-green-700 dark:bg-green-900/30 dark:text-green-200">
+                  {lead.first_name[0]}{lead.last_name?.[0] ?? ''}
                 </div>
-              )}
-              {lead.likely_timezone && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <MapPin size={14}/> {lead.likely_timezone} {lead.timezone_abbreviation && `(${lead.timezone_abbreviation})`}
-                  <span className={cn('ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
-                    lead.call_window_status === 'callable_now' ? 'bg-green-100 text-green-700' :
-                    lead.call_window_status === 'blocked_by_timezone' ? 'bg-amber-100 text-amber-700' :
-                    'bg-gray-100 text-gray-600')}>
-                    {buildCallabilityLabel(lead)}
-                  </span>
-                </div>
-              )}
-            </div>
-            {/* Quick Actions */}
-            <div className="flex items-center gap-2 shrink-0">
-              <button onClick={authorizeDial} disabled={authorizingCall || lead.call_window_status === 'blocked_by_timezone' || lead.call_window_status === 'unknown_timezone'}
-                className={cn('flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors',
-                  authorizingCall ? 'bg-gray-300 text-gray-600 cursor-not-allowed' :
-                  'bg-green-600 hover:bg-green-700 active:bg-green-800 text-white')}>
-                {authorizingCall ? <Loader2 size={16} className="animate-spin"/> : <Phone size={16}/>} Call
-              </button>
-              {lead.email && (
-                <button onClick={() => setShowEmail(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm bg-blue-600 hover:bg-blue-700 text-white transition-colors">
-                  <Mail size={16}/> Email
-                </button>
-              )}
-              <button onClick={() => setShowBookDemo(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm bg-purple-600 hover:bg-purple-700 text-white transition-colors">
-                <CalendarPlus size={16}/> Demo
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Two-Column Layout ── */}
-        <div className="grid lg:grid-cols-3 gap-4">
-          {/* Left Column: Analyzer, Notes, Activity */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Live Analyzer Panel */}
-            <AnalyzerLivePanel leadId={lead.id} sourceContext="lead_detail" />
-
-            {/* Notes Section */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-              <h2 className="font-bold text-gray-900 dark:text-white mb-3 text-sm">Notes</h2>
-              {!editing ? (
-                lead.notes ? (
-                  <p className="text-sm text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-900 rounded-xl p-3 leading-relaxed">{lead.notes}</p>
-                ) : (
-                  <p className="text-sm text-gray-400 italic">No notes yet</p>
-                )
-              ) : (
-                <textarea className="input-field min-h-[100px] resize-y text-sm" value={editForm.notes} onChange={e => setEF('notes', e.target.value)} placeholder="Add notes..." />
-              )}
-            </div>
-
-            {/* Activity Timeline */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-              <h2 className="font-bold text-gray-900 dark:text-white mb-3 text-sm">Activity</h2>
-              {/* Quick add */}
-              <div className="space-y-2 mb-4">
-                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {(['note','call','email','sms','voicemail'] as const).map(t => (
-                    <button key={t} onClick={() => setNoteType(t)}
-                      className={cn('shrink-0 text-xs px-3 py-1.5 rounded-full font-medium capitalize transition-colors',
-                        noteType === t ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400')}>{t}</button>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <textarea className="input-field flex-1 min-h-[60px] resize-none text-sm" placeholder={`Log a ${noteType}...`} value={noteText} onChange={e => setNoteText(e.target.value)}/>
-                  <button onClick={addActivity} disabled={!noteText.trim() || addingNote} className="btn-primary px-4 self-end text-sm flex items-center gap-1">
-                    {addingNote && <Loader2 size={13} className="animate-spin"/>} Log
-                  </button>
-                </div>
-              </div>
-              {/* Timeline */}
-              {activities.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">No activity yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {activities.map(act => {
-                    const Icon = ACTIVITY_ICONS[act.type] ?? MessageSquare
-                    const colorClass = ACTIVITY_COLORS[act.type] ?? ACTIVITY_COLORS.note
-                    return (
-                      <div key={act.id} className="flex gap-3">
-                        <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5', colorClass)}><Icon size={13}/></div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-semibold text-gray-700 capitalize">{act.type.replace('_',' ')}</span>
-                            <span className="text-xs text-gray-400">{formatDateTime(act.created_at)}</span>
-                          </div>
-                          {act.body && <p className="text-sm text-gray-600 mt-0.5 leading-relaxed">{act.body}</p>}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Recent Calls */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-bold text-gray-900 dark:text-white text-sm">Recent Calls</h2>
-                <Link href="/admin/crm/calls" className="text-xs font-medium text-green-600 hover:text-green-700">View all</Link>
-              </div>
-              {recentCalls.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">No calls logged yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {recentCalls.map(call => (
-                    <div key={call.id} className="flex items-start justify-between gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
-                      <div>
-                        <p className="font-semibold text-sm text-gray-900 dark:text-white">{call.call_outcome}</p>
-                        <p className="text-xs text-gray-500">{formatDateTime(call.call_started_at)}</p>
-                      </div>
-                      <div className="text-right text-xs text-gray-500">
-                        {call.duration_seconds && <p>{Math.floor(call.duration_seconds / 60)}m {call.duration_seconds % 60}s</p>}
-                        <p className="capitalize">{call.lead_temperature || 'cold'}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="space-y-4">
-            {/* Follow-up Status */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Follow-up</h3>
-              {lead.follow_up_at ? (
-                <div className="space-y-2">
-                  <div className={cn('flex items-center gap-2 text-sm', pastDue ? 'text-red-600' : 'text-gray-700 dark:text-gray-200')}>
-                    <Clock size={14}/> {formatDateTime(lead.follow_up_at)}
-                    {pastDue && <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">OVERDUE</span>}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</h1>
+                    <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', stageInfo.bgColor, stageInfo.color)}>{stageInfo.label}</span>
+                    {lead.do_not_call && <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 dark:bg-red-950/30 dark:text-red-300">Do Not Call</span>}
                   </div>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400">No follow-up scheduled</p>
-              )}
-            </div>
-
-            {/* Readiness Score */}
-            {typeof lead.readiness_score === 'number' && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Readiness</h3>
-                <div className="flex items-center gap-3">
-                  <div className="text-3xl font-bold text-gray-900 dark:text-white">{lead.readiness_score}</div>
-                  <div className="flex-1">
-                    <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div className="h-full bg-green-500 rounded-full" style={{ width: `${lead.readiness_score}%` }}/>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">{lead.readiness_status || 'No status'}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                    {lead.business_name && <span className="flex items-center gap-1"><Building2 size={14} /> {lead.business_name}</span>}
+                    {lead.assigned_to_name && <span className="flex items-center gap-1"><User size={14} /> {lead.assigned_to_name}</span>}
+                    <span className="flex items-center gap-1"><Tag size={14} /> {lead.source}</span>
+                    <span className="flex items-center gap-1"><Clock size={14} /> Added {formatDateTime(lead.created_at)}</span>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className={cn('rounded-full px-3 py-1 text-xs font-semibold', nextCalendarEvent ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/20 dark:text-purple-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300')}>
+                      {nextCalendarEvent ? 'Demo or calendar booking on file' : 'No booked demo yet'}
+                    </span>
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300">
+                      {openTasks.length} open task{openTasks.length === 1 ? '' : 's'}
+                    </span>
+                    {lead.email && <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/20 dark:text-blue-300">Email ready</span>}
+                    {(lead.unread_conversation_count ?? 0) > 0 && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">{lead.unread_conversation_count} unread text replies</span>}
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Program Status */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Program</h3>
-              {lead.assigned_program ? (
-                <div className="space-y-2">
-                  <span className={cn('badge text-sm px-3 py-1',
-                    lead.assigned_program === 'program_a' ? 'bg-green-100 text-green-700' :
-                    lead.assigned_program === 'program_b' ? 'bg-emerald-100 text-emerald-700' :
-                    'bg-blue-100 text-blue-700')}>
-                    {lead.assigned_program.replace('_', ' ').replace('program', 'Program ').toUpperCase()}
-                  </span>
-                  {lead.estimated_funding_range && <p className="text-sm text-gray-600">Est: {lead.estimated_funding_range}</p>}
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Phone size={15} className="text-green-600" /> {lead.phone}</div>
+                  <button onClick={() => copyToClipboard(lead.phone)} className="mt-2 text-xs font-medium text-gray-500 hover:text-green-700">Copy phone</button>
                 </div>
-              ) : lead.program_interest ? (
-                <span className="badge bg-gray-100 text-gray-600 text-sm px-3 py-1">
-                  Interest: {lead.program_interest.replace('_', ' ')}
-                </span>
-              ) : (
-                <p className="text-sm text-gray-400">No program assigned</p>
-              )}
-            </div>
-
-            {/* Tasks */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Tasks</h3>
-              <div className="space-y-2 mb-3">
-                <input className="input-field text-sm" placeholder="New task..." value={taskTitle} onChange={e => setTaskTitle(e.target.value)}/>
-                <div className="flex gap-2">
-                  <input className="input-field text-sm flex-1" type="datetime-local" value={taskDueAt} onChange={e => setTaskDueAt(e.target.value)} placeholder="Due"/>
-                  <button onClick={createTask} disabled={taskSaving} className="btn-primary px-3 text-sm">{taskSaving ? '...' : '+'}</button>
+                <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Mail size={15} className="text-blue-600" /> {lead.email || 'No email'}</div>
+                  {lead.email && <button onClick={() => copyToClipboard(lead.email!)} className="mt-2 text-xs font-medium text-gray-500 hover:text-blue-700">Copy email</button>}
+                </div>
+                <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><MapPin size={15} className="text-purple-600" /> {lead.likely_timezone || 'Timezone unknown'}</div>
+                  <p className="mt-2 text-xs text-gray-500">{buildCallabilityLabel(lead)}</p>
+                </div>
+                <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><TrendingUp size={15} className="text-emerald-600" /> {lead.close_probability != null ? `${lead.close_probability}% close probability` : 'Close probability not set'}</div>
+                  <p className="mt-2 text-xs text-gray-500">{lead.lead_temperature ? `Temperature: ${titleize(lead.lead_temperature)}` : 'Temperature not set'}</p>
                 </div>
               </div>
-              {openTasks.length === 0 ? (
-                <p className="text-sm text-gray-400">No open tasks</p>
-              ) : (
-                <div className="space-y-2">
-                  {openTasks.map(task => (
-                    <div key={task.id} className="flex items-center justify-between gap-2 text-sm">
-                      <span className="text-gray-700 dark:text-gray-200 truncate">{task.title}</span>
-                      <button onClick={() => completeTask(task.id)} className="text-green-600 hover:text-green-700 font-medium shrink-0">Done</button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
-            {/* Risk Flags */}
-            {(lead.risk_flags?.length ?? 0) > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-amber-200 dark:border-amber-800 p-4">
-                <h3 className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-3 flex items-center gap-1">
-                  <AlertTriangle size={12}/> Risk Flags
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {lead.risk_flags?.map(flag => (
-                    <span key={flag} className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">{flag}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Quick Facts / Tags */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Facts</h3>
-              <div className="space-y-2 text-sm">
-                {lead.lead_temperature && (
-                  <div className="flex justify-between"><span className="text-gray-500">Temperature</span><span className={cn('font-medium capitalize',
-                    lead.lead_temperature === 'hot' ? 'text-red-500' :
-                    lead.lead_temperature === 'warm' ? 'text-amber-500' : 'text-blue-500')}>{lead.lead_temperature}</span></div>
-                )}
-                {lead.close_probability != null && (
-                  <div className="flex justify-between"><span className="text-gray-500">Close Prob.</span><span className="font-medium">{lead.close_probability}%</span></div>
-                )}
-                {lead.strategy_call_booked && <div className="text-green-600 font-medium flex items-center gap-1"><CheckCircle2 size={12}/> Strategy Call Booked</div>}
-                {lead.converted_to_client && <div className="text-teal-600 font-medium flex items-center gap-1"><CheckCircle2 size={12}/> Converted to Client</div>}
-                {lead.last_contacted_at && <div className="flex justify-between"><span className="text-gray-500">Last Contact</span><span className="text-gray-700">{formatDateTime(lead.last_contacted_at)}</span></div>}
-              </div>
+            <div className="flex flex-wrap gap-2 lg:w-[320px] lg:justify-end">
+              <button
+                onClick={authorizeDial}
+                disabled={authorizingCall || lead.call_window_status === 'blocked_by_timezone' || lead.call_window_status === 'unknown_timezone'}
+                className={cn('flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60', authorizingCall ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700')}
+              >
+                {authorizingCall ? <Loader2 size={16} className="animate-spin" /> : <Phone size={16} />}
+                Call
+              </button>
+              {lead.email && <button onClick={() => setShowEmail(true)} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={16} /> Email</button>}
+              <button onClick={() => setShowBookDemo(true)} className="flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={16} /> Book Demo</button>
+              <button type="button" onClick={() => { setSelectedDispositionKey(null); setDispositionError(null); setShowDisposition(true) }} className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
+                <PhoneCall size={16} /> Set Disposition
+              </button>
             </div>
+          </div>
+
+          <div className="mt-5 flex gap-1.5 overflow-x-auto pb-1">
+            {STAGES.map((stage) => (
+              <button key={stage.key} onClick={() => changeStage(stage.key)} className={cn('shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-all', lead.stage === stage.key ? cn(stage.bgColor, stage.color, 'border-current') : 'border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400')}>
+                {stage.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Edit Form */}
         {editing && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 mt-4">
-            <h2 className="font-bold text-gray-900 dark:text-white mb-4 text-sm">Edit Contact</h2>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="label">First Name</label><input className="input-field" value={editForm.first_name} onChange={e => setEF('first_name', e.target.value)}/></div>
-              <div><label className="label">Last Name</label><input className="input-field" value={editForm.last_name} onChange={e => setEF('last_name', e.target.value)}/></div>
-              <div><label className="label">Phone</label><input className="input-field" type="tel" value={editForm.phone} onChange={e => setEF('phone', e.target.value)}/></div>
-              <div><label className="label">Email</label><input className="input-field" type="email" value={editForm.email} onChange={e => setEF('email', e.target.value)}/></div>
-              <div className="col-span-2"><label className="label">Business Name</label><input className="input-field" value={editForm.business_name} onChange={e => setEF('business_name', e.target.value)}/></div>
-              <div><label className="label">Source</label><select className="input-field" value={editForm.source} onChange={e => setEF('source', e.target.value)}>{['manual','analyzer','affiliate','facebook','purchased','referral','inbound','other'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}</select></div>
-              <div><label className="label">Program</label><select className="input-field" value={editForm.program_interest} onChange={e => setEF('program_interest', e.target.value)}><option value="">Unknown</option><option value="program_a">Program A</option><option value="program_b">Program B</option><option value="program_c">Program C</option></select></div>
-              <div className="col-span-2"><label className="label">Follow-up Date</label><input className="input-field" type="datetime-local" value={editForm.follow_up_at} onChange={e => setEF('follow_up_at', e.target.value)}/></div>
+          <div className="mt-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white">Edit Contact</h2>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div><label className="label">First Name</label><input className="input-field" value={editForm.first_name} onChange={(event) => setEF('first_name', event.target.value)} /></div>
+              <div><label className="label">Last Name</label><input className="input-field" value={editForm.last_name} onChange={(event) => setEF('last_name', event.target.value)} /></div>
+              <div><label className="label">Phone</label><input className="input-field" type="tel" value={editForm.phone} onChange={(event) => setEF('phone', event.target.value)} /></div>
+              <div><label className="label">Email</label><input className="input-field" type="email" value={editForm.email} onChange={(event) => setEF('email', event.target.value)} /></div>
+              <div className="md:col-span-2"><label className="label">Business Name</label><input className="input-field" value={editForm.business_name} onChange={(event) => setEF('business_name', event.target.value)} /></div>
+              <div><label className="label">Source</label><select className="input-field" value={editForm.source} onChange={(event) => setEF('source', event.target.value)}>{['manual', 'analyzer', 'affiliate', 'facebook', 'purchased', 'referral', 'inbound', 'other'].map((source) => <option key={source} value={source}>{source.charAt(0).toUpperCase() + source.slice(1)}</option>)}</select></div>
+              <div><label className="label">Program</label><select className="input-field" value={editForm.program_interest} onChange={(event) => setEF('program_interest', event.target.value)}><option value="">Unknown</option><option value="program_a">Program A</option><option value="program_b">Program B</option><option value="program_c">Program C</option></select></div>
+              <div className="md:col-span-2"><label className="label">Follow-up Date</label><input className="input-field" type="datetime-local" value={editForm.follow_up_at} onChange={(event) => setEF('follow_up_at', event.target.value)} /></div>
+              <div className="md:col-span-2"><label className="label">Notes</label><textarea className="input-field min-h-[110px] resize-y" value={editForm.notes} onChange={(event) => setEF('notes', event.target.value)} /></div>
             </div>
           </div>
         )}
 
-        {/* Danger Zone */}
-        <button onClick={deleteLead} className="w-full text-xs text-red-400 hover:text-red-600 py-4 mt-4 flex items-center justify-center gap-1.5 transition-colors">
-          <Trash2 size={13}/> Delete this lead
+        <div className="mt-4 grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">Demos First</p>
+                <h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Calendar & scheduled events</h2>
+                <p className="mt-1 text-sm text-gray-500">This contact’s upcoming demo, callback, and calendar status live here.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => setShowBookDemo(true)} className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={14} /> {nextCalendarEvent ? 'Book another' : 'Book demo'}</button>
+                {nextCalendarEvent?.htmlLink && <a href={nextCalendarEvent.htmlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-semibold text-gray-700 hover:border-purple-300 hover:text-purple-700 dark:border-gray-700 dark:text-gray-200"><ExternalLink size={14} /> Reschedule</a>}
+              </div>
+            </div>
+
+            {calendarSummary.warning && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300">{calendarSummary.warning}</div>}
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className={cn('rounded-2xl border px-4 py-4', eventTone(nextCalendarEvent))}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide dark:bg-gray-950/40">{nextCalendarEvent ? titleize(nextCalendarEvent.type) : 'No event'}</span>
+                  <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide dark:bg-gray-950/40">{nextCalendarEvent ? titleize(nextCalendarEvent.status) : 'Unscheduled'}</span>
+                </div>
+                <h3 className="mt-3 text-lg font-bold">{nextCalendarEvent ? nextCalendarEvent.title : 'No calendar booking on this contact yet'}</h3>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div><p className="text-xs font-semibold uppercase tracking-wide opacity-70">Next scheduled date</p><p className="mt-1 text-sm font-semibold">{nextCalendarEvent ? formatDateTime(nextCalendarEvent.start) : 'Not booked'}</p></div>
+                  <div><p className="text-xs font-semibold uppercase tracking-wide opacity-70">Timezone</p><p className="mt-1 text-sm font-semibold">{nextCalendarEvent?.timeZone || lead.likely_timezone || 'Unavailable'}</p></div>
+                </div>
+                {nextCalendarEvent?.description && <p className="mt-3 text-sm opacity-90">{nextCalendarEvent.description}</p>}
+                {!nextCalendarEvent && <p className="mt-3 text-sm opacity-90">Reps need the booking status at a glance. Schedule the next demo here so it stays visible on the record.</p>}
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">At a glance</p>
+                <div className="mt-3 space-y-3">
+                  <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Demo booked</p><p className="mt-1 text-lg font-bold text-gray-900 dark:text-white">{calendarSummary.hasBookedDemo ? 'Yes' : 'No'}</p></div>
+                  <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Callback due</p><p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{formatDateTime(lead.callback_due_at || lead.follow_up_at)}</p></div>
+                  <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Calendar source</p><p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{calendarSummary.configured ? 'Google Calendar connected' : 'Not connected'}</p></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-bold text-gray-900 dark:text-white">Upcoming bookings</p>
+                <span className="text-xs text-gray-500">{upcomingEvents.length} visible</span>
+              </div>
+              {upcomingEvents.length === 0 ? (
+                <div className="mt-3 rounded-2xl bg-gray-50 px-4 py-4 text-sm text-gray-500 dark:bg-gray-800/70">No upcoming calendar event is linked to this contact yet.</div>
+              ) : (
+                <div className="mt-3 space-y-3">
+                  {upcomingEvents.slice(0, 4).map((event) => (
+                    <div key={event.id} className="flex flex-col gap-3 rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide', eventTone(event))}>{titleize(event.type)}</span>
+                          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{titleize(event.status)}</span>
+                        </div>
+                        <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">{event.title}</p>
+                        <p className="mt-1 text-xs text-gray-500">{formatDateTime(event.start)}{event.timeZone ? ` • ${event.timeZone}` : ''}</p>
+                      </div>
+                      {event.htmlLink && <a href={event.htmlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-purple-600 hover:text-purple-700">Open event <ExternalLink size={14} /></a>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center justify-between gap-3">
+              <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600">Tasks</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Rep task queue</h2></div>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300">{openTasks.length} open</span>
+            </div>
+            <div className="mt-4 space-y-2">
+              <input className="input-field text-sm" placeholder="New task..." value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} />
+              <div className="grid gap-2 sm:grid-cols-[1fr_120px_96px]">
+                <input className="input-field text-sm" type="datetime-local" value={taskDueAt} onChange={(event) => setTaskDueAt(event.target.value)} />
+                <select className="input-field text-sm" value={taskPriority} onChange={(event) => setTaskPriority(event.target.value)}>{['Low', 'Medium', 'High', 'Urgent'].map((priority) => <option key={priority} value={priority}>{priority}</option>)}</select>
+                <button onClick={createTask} disabled={taskSaving} className="btn-primary text-sm">{taskSaving ? 'Saving…' : 'Add task'}</button>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              {openTasks.length === 0 ? (
+                <div className="rounded-2xl bg-gray-50 px-4 py-4 text-sm text-gray-500 dark:bg-gray-800/70">No open tasks for this contact.</div>
+              ) : (
+                openTasks.slice(0, 6).map((task) => (
+                  <div key={task.id} className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{task.title}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                          <span>{task.task_type}</span>
+                          <span>•</span>
+                          <span>{task.priority}</span>
+                          {task.due_at && (<><span>•</span><span>{formatDateTime(task.due_at)}</span></>)}
+                        </div>
+                        {task.created_source_label && <p className="mt-2 text-xs text-gray-500">{task.created_source_label}</p>}
+                      </div>
+                      <button onClick={() => completeTask(task.id)} className="text-sm font-semibold text-emerald-600 hover:text-emerald-700">Done</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center justify-between gap-3">
+              <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">Outreach</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Email, texts, and invite history</h2></div>
+              {lead.email && <button onClick={() => setShowEmail(true)} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={14} /> Send Email</button>}
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Emails logged</p><p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{emailActivities.length}</p></div>
+              <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Texts sent</p><p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{lead.sms_sent_count ?? 0}</p></div>
+              <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Replies</p><p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{lead.inbound_reply_count ?? 0}</p></div>
+              <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Unread texts</p><p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{lead.unread_conversation_count ?? 0}</p></div>
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
+              <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+                <p className="text-sm font-bold text-gray-900 dark:text-white">Email history</p>
+                {emailActivities.length === 0 ? <p className="mt-3 text-sm text-gray-500">No contact-level email history is logged yet.</p> : (
+                  <div className="mt-3 space-y-3">
+                    {emailActivities.map((activity) => (
+                      <div key={activity.id} className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70">
+                        <p className="text-sm text-gray-900 dark:text-white">{activity.body || 'Email activity logged'}</p>
+                        <p className="mt-1 text-xs text-gray-500">{formatDateTime(activity.created_at)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+                <p className="text-sm font-bold text-gray-900 dark:text-white">Text tracking</p>
+                {smsMessages.length === 0 ? <p className="mt-3 text-sm text-gray-500">No SMS activity for this contact yet.</p> : (
+                  <div className="mt-3 space-y-3">
+                    {smsMessages.slice(0, 4).map((message) => (
+                      <div key={message.id} className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{message.direction}</span>
+                          <span className="text-xs text-gray-500">{formatDateTime(message.sent_at || message.created_at)}</span>
+                        </div>
+                        <p className="mt-2 text-sm text-gray-900 dark:text-white">{message.message_body}</p>
+                        <p className="mt-1 text-xs text-gray-500">{titleize(message.status)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-4 space-y-2">
+                  <textarea className="input-field min-h-[90px] resize-y text-sm" value={smsReplyBody} onChange={(event) => setSmsReplyBody(event.target.value)} placeholder="Reply by text..." />
+                  <button onClick={sendSmsReply} disabled={sendingSmsReply || !smsReplyBody.trim()} className="btn-primary flex items-center gap-2 text-sm disabled:cursor-not-allowed disabled:opacity-60">
+                    {sendingSmsReply ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    Send text reply
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Portal invite</p><p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{latestPortalInvite ? titleize(latestPortalInvite.status) : 'Not sent'}</p><p className="mt-1 text-xs text-gray-500">{latestPortalInvite?.sent_at ? formatDateTime(latestPortalInvite.sent_at) : 'No portal invite logged.'}</p></div>
+              <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pre-analyzer invite</p><p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{latestPreAnalyzerInvite ? titleize(latestPreAnalyzerInvite.status) : 'Not sent'}</p><p className="mt-1 text-xs text-gray-500">{latestPreAnalyzerInvite?.sent_at ? formatDateTime(latestPreAnalyzerInvite.sent_at) : 'No analyzer invite logged.'}</p></div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Notes</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Rep notes</h2></div></div>
+              {!editing ? (
+                lead.notes ? <p className="mt-4 rounded-2xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-700 dark:bg-gray-800/70 dark:text-gray-200">{lead.notes}</p> : <p className="mt-4 text-sm text-gray-500">No notes on this contact yet.</p>
+              ) : (
+                <textarea className="input-field mt-4 min-h-[160px] resize-y text-sm" value={editForm.notes} onChange={(event) => setEF('notes', event.target.value)} />
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Lead Ops</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Disposition, tags, and facts</h2></div></div>
+              <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/50">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{lead.last_call_outcome || 'No disposition saved yet'}</p>
+                <p className="mt-1 text-xs text-gray-500">{lead.last_call_at ? formatDateTime(lead.last_call_at) : 'No recent call disposition'}</p>
+                {lead.latest_call_note && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{lead.latest_call_note}</p>}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {['interested', 'appointment_set', 'follow_up', 'call_back'].map((key) => (
+                  <button key={key} type="button" onClick={() => { setSelectedDispositionKey(key); setShowDisposition(true); setDispositionError(null) }} className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-300">
+                    {key === 'appointment_set' ? 'Appointment Set' : key.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4"><TagEditor leadId={lead.id} tags={tags} onChange={setTags} /></div>
+              <div className="mt-4 space-y-2 text-sm">
+                {lead.lead_temperature && <div className="flex justify-between gap-3"><span className="text-gray-500">Temperature</span><span className="font-medium capitalize text-gray-900 dark:text-white">{lead.lead_temperature}</span></div>}
+                {lead.readiness_score != null && <div className="flex justify-between gap-3"><span className="text-gray-500">Readiness</span><span className="font-medium text-gray-900 dark:text-white">{lead.readiness_score}/100</span></div>}
+                {lead.estimated_funding_range && <div className="flex justify-between gap-3"><span className="text-gray-500">Funding range</span><span className="font-medium text-gray-900 dark:text-white">{lead.estimated_funding_range}</span></div>}
+                {lead.last_contacted_at && <div className="flex justify-between gap-3"><span className="text-gray-500">Last contact</span><span className="font-medium text-gray-900 dark:text-white">{formatDateTime(lead.last_contacted_at)}</span></div>}
+              </div>
+              {(lead.risk_flags?.length ?? 0) > 0 && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/20"><div className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-300"><AlertTriangle size={14} /> Risk Flags</div><div className="mt-3 flex flex-wrap gap-2">{lead.risk_flags?.map((flag) => <span key={flag} className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">{flag}</span>)}</div></div>}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Activity</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Timeline</h2></div></div>
+            <div className="mt-4 space-y-2">
+              <div className="flex gap-1.5 overflow-x-auto pb-1">{(['note', 'call', 'email', 'sms', 'voicemail'] as const).map((type) => <button key={type} onClick={() => setNoteType(type)} className={cn('shrink-0 rounded-full px-3 py-1.5 text-xs font-medium capitalize transition-colors', noteType === type ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300')}>{type}</button>)}</div>
+              <div className="flex gap-2">
+                <textarea className="input-field min-h-[70px] flex-1 resize-none text-sm" placeholder={`Log a ${noteType}...`} value={noteText} onChange={(event) => setNoteText(event.target.value)} />
+                <button onClick={addActivity} disabled={!noteText.trim() || addingNote} className="btn-primary self-end px-4 text-sm">{addingNote ? 'Saving…' : 'Log'}</button>
+              </div>
+            </div>
+            {activities.length === 0 ? <p className="mt-4 text-sm text-gray-500">No activity logged yet.</p> : (
+              <div className="mt-4 space-y-3">
+                {activities.map((activity) => {
+                  const Icon = ACTIVITY_ICONS[activity.type] ?? MessageSquare
+                  const color = ACTIVITY_COLORS[activity.type] ?? ACTIVITY_COLORS.note
+                  return (
+                    <div key={activity.id} className="flex gap-3">
+                      <div className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full', color)}><Icon size={14} /></div>
+                      <div className="min-w-0 flex-1 rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+                        <div className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{titleize(activity.type)}</span><span className="text-xs text-gray-400">{formatDateTime(activity.created_at)}</span></div>
+                        {activity.body && <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">{activity.body}</p>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Calls</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Recent call history</h2></div><Link href="/admin/crm/calls" className="text-sm font-semibold text-green-600 hover:text-green-700">View all</Link></div>
+            {recentCalls.length === 0 ? <p className="mt-4 text-sm text-gray-500">No calls logged yet.</p> : (
+              <div className="mt-4 space-y-3">
+                {recentCalls.map((call) => (
+                  <div key={call.id} className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+                    <div className="flex items-start justify-between gap-3">
+                      <div><p className="text-sm font-semibold text-gray-900 dark:text-white">{call.call_outcome}</p><p className="mt-1 text-xs text-gray-500">{formatDateTime(call.call_started_at)}</p></div>
+                      <div className="text-right text-xs text-gray-500">{call.duration_seconds != null && <p>{Math.floor(call.duration_seconds / 60)}m {call.duration_seconds % 60}s</p>}<p className="capitalize">{call.lead_temperature || 'cold'}</p></div>
+                    </div>
+                    {call.notes && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{call.notes}</p>}
+                    {call.next_follow_up_at && <p className="mt-2 text-xs font-semibold text-blue-600 dark:text-blue-300">Next follow-up: {formatDateTime(call.next_follow_up_at)}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <AnalyzerLivePanel leadId={lead.id} sourceContext="lead_detail" />
+        </div>
+
+        <button onClick={deleteLead} className="mt-6 flex w-full items-center justify-center gap-1.5 py-4 text-xs text-red-400 transition-colors hover:text-red-600">
+          <Trash2 size={13} /> Delete this lead
         </button>
       </div>
 
-      {/* ── Sticky Bottom Actions (Mobile) ── */}
       <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white/95 px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:hidden">
         <div className="flex gap-2">
-          <button onClick={authorizeDial} disabled={authorizingCall} className={cn('flex-1 h-10 rounded-xl flex items-center justify-center gap-1.5 font-semibold text-sm', authorizingCall ? 'bg-gray-300' : 'bg-green-600 text-white')}>
-            {authorizingCall ? <Loader2 size={16} className="animate-spin"/> : <Phone size={16}/>} Call
+          <button onClick={authorizeDial} disabled={authorizingCall} className={cn('flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold', authorizingCall ? 'bg-gray-300' : 'bg-green-600 text-white')}>
+            {authorizingCall ? <Loader2 size={16} className="animate-spin" /> : <Phone size={16} />} Call
           </button>
-          {lead.email && (
-            <button onClick={() => setShowEmail(true)} className="flex-1 h-10 btn-secondary flex items-center justify-center gap-1.5 font-semibold text-sm">
-              <Mail size={16}/> Email
-            </button>
-          )}
-          <button onClick={() => setShowBookDemo(true)} className="flex-1 h-10 btn-secondary flex items-center justify-center gap-1.5 font-semibold text-sm">
-            <CalendarPlus size={16}/> Demo
-          </button>
+          {lead.email && <button onClick={() => setShowEmail(true)} className="btn-secondary flex h-10 flex-1 items-center justify-center gap-1.5 text-sm font-semibold"><Mail size={16} /> Email</button>}
+          <button onClick={() => setShowBookDemo(true)} className="btn-secondary flex h-10 flex-1 items-center justify-center gap-1.5 text-sm font-semibold"><CalendarPlus size={16} /> Demo</button>
         </div>
       </div>
 
-      {showBookDemo && <BookDemoModal lead={lead} onClose={() => setShowBookDemo(false)} onBooked={handleDemoBooked}/>}
-      {showEmail && <SendEmailModal lead={lead} onClose={() => setShowEmail(false)} onSent={handleEmailSent}/>}
+      {showDisposition && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => { setShowDisposition(false); setSelectedDispositionKey(null) }}>
+          <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-gray-900" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div><h2 className="text-lg font-bold text-gray-900 dark:text-white">Set Disposition</h2><p className="text-sm text-gray-500">Updates status, stage, follow-up, and activity history in one save.</p></div>
+              <button type="button" onClick={() => { setShowDisposition(false); setSelectedDispositionKey(null) }} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">Close</button>
+            </div>
+            <CRMDispositionForm initialDispositionKey={selectedDispositionKey} onSubmit={saveDisposition} submitting={savingDisposition} error={dispositionError} lastDisposition={{ label: lead.last_call_outcome || 'No disposition yet', by: adminEmail || null, at: lead.last_call_at ? formatDateTime(lead.last_call_at) : null, note: lead.latest_call_note || null, followUpAt: lead.follow_up_at ? formatDateTime(lead.follow_up_at) : null }} />
+          </div>
+        </div>
+      )}
+      {showBookDemo && <BookDemoModal lead={lead} calendarEnabled={calendarSummary.configured} onClose={() => setShowBookDemo(false)} onBooked={handleDemoBooked} />}
+      {showEmail && <SendEmailModal lead={lead} onClose={() => setShowEmail(false)} onSent={handleEmailSent} />}
     </div>
   )
 }

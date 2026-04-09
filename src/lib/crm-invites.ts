@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+const CRM_INVITE_QUERY_CHUNK_SIZE = 200
 
 export const CRM_INVITE_COOKIE = 'crm_invite'
 export const CRM_INVITE_SOURCE = 'crm_dialer'
@@ -311,14 +312,18 @@ export function buildCrmInviteSummary(invites: CrmLeadInviteRow[]): CrmLeadInvit
 
 export async function getCrmInviteSummaryMap(supabase: SupabaseClient, leadIds: string[]) {
   if (leadIds.length === 0) return new Map<string, CrmLeadInviteSummary>()
+  const rows: CrmLeadInviteRow[] = []
 
-  const { data } = await supabase
-    .from('crm_lead_invites')
-    .select('*')
-    .in('lead_id', leadIds)
-    .order('created_at', { ascending: false })
+  for (let index = 0; index < leadIds.length; index += CRM_INVITE_QUERY_CHUNK_SIZE) {
+    const chunk = leadIds.slice(index, index + CRM_INVITE_QUERY_CHUNK_SIZE)
+    const { data } = await supabase
+      .from('crm_lead_invites')
+      .select('*')
+      .in('lead_id', chunk)
+      .order('created_at', { ascending: false })
 
-  const rows = (data ?? []) as CrmLeadInviteRow[]
+    rows.push(...((data ?? []) as CrmLeadInviteRow[]))
+  }
   const grouped = new Map<string, CrmLeadInviteRow[]>()
 
   for (const row of rows) {

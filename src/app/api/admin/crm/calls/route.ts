@@ -4,11 +4,10 @@ import {
   CRM_CALL_OUTCOMES,
   CRM_CALL_STATUSES,
   CRM_LEAD_TEMPERATURES,
-  probabilityFromTemperature,
 } from '@/lib/crm'
 import { syncDialerSessionState } from '@/lib/crm-dialer-attempts'
-import { getRelationUnavailableMessage, isMissingRelationError, isSchemaDriftError } from '@/lib/supabase-schema'
-import { applyDispositionEligibilityUpdates } from '@/lib/crm-dialer-eligibility'
+import { isMissingRelationError } from '@/lib/supabase-schema'
+import { applyCrmDisposition, getDispositionKeyForOutcome } from '@/lib/crm-dispositions'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -28,38 +27,6 @@ async function assertAdmin() {
     supabase,
     userId: user.id,
     userName: profile.full_name || profile.email || 'Admin',
-  }
-}
-
-async function updateLeadWithFallback(
-  supabase: Awaited<ReturnType<typeof createServiceClient>>,
-  leadId: string,
-  primaryUpdate: Record<string, unknown>,
-  fallbackUpdate: Record<string, unknown>
-) {
-  const primaryResult = await supabase
-    .from('crm_leads')
-    .update(primaryUpdate)
-    .eq('id', leadId)
-
-  if (!primaryResult.error) {
-    return { degraded: false, error: null as null | { message?: string | null; code?: string | null; details?: string | null } }
-  }
-
-  if (!isSchemaDriftError(primaryResult.error, 'crm_leads')) {
-    return { degraded: false, error: primaryResult.error }
-  }
-
-  console.error('crm_leads schema drift detected, retrying with fallback update', primaryResult.error)
-
-  const fallbackResult = await supabase
-    .from('crm_leads')
-    .update(fallbackUpdate)
-    .eq('id', leadId)
-
-  return {
-    degraded: true,
-    error: fallbackResult.error,
   }
 }
 
@@ -247,63 +214,29 @@ export async function POST(req: NextRequest) {
     console.error('crm_calls unavailable in POST /api/admin/crm/calls', callError)
   }
 
-  // Apply dialer eligibility updates based on disposition
-  const eligibilityUpdates = applyDispositionEligibilityUpdates(
-    outcome || 'Follow Up',
-    body.follow_up_at,
-    body.callback_due_at ?? body.next_follow_up_at,
-    body.appointment_at ?? null,
-  )
-  const resolvedOutcomeAt = endedAt || startedAt
-
-  const leadUpdate: Record<string, unknown> = {
-    last_contacted_at: startedAt,
-    last_call_at: resolvedOutcomeAt,
-    last_call_outcome: outcome || 'Follow Up',
-    latest_call_note: body.notes?.trim() || null,
-    lead_temperature: temperature || 'cold',
-    strategy_call_booked: Boolean(body.strategy_call_booked),
-    converted_to_client: Boolean(body.converted_to_client),
-    close_probability: probabilityFromTemperature((temperature || 'cold') as 'cold' | 'warm' | 'hot'),
-    updated_at: new Date().toISOString(),
-    ...eligibilityUpdates,
+  const dispositionKey = getDispositionKeyForOutcome(outcome || 'Follow Up')
+  if (!dispositionKey) {
+    return NextResponse.json({ error: `Unsupported disposition outcome: ${outcome}` }, { status: 400 })
   }
 
-  const fallbackLeadUpdate: Record<string, unknown> = {
-    last_contacted_at: startedAt,
-    last_call_at: resolvedOutcomeAt,
-    last_call_outcome: outcome || 'Follow Up',
-    updated_at: new Date().toISOString(),
-    ...eligibilityUpdates,
-  }
-
-  const leadResult = await updateLeadWithFallback(admin.supabase, body.lead_id, leadUpdate, fallbackLeadUpdate)
-  const leadError = leadResult.error
-  if (leadError) {
-    console.error('crm_leads update failed after call log attempt', leadError)
-    return NextResponse.json({ error: 'Call outcome could not be saved to the lead.' }, { status: 500 })
-  }
-
-  const { error: activityError } = await admin.supabase
-    .from('crm_activities')
-    .insert({
-      lead_id: body.lead_id,
-      type: 'call',
-      body: [outcome || 'Call logged', body.notes?.trim()].filter(Boolean).join(' — '),
-      metadata: {
-        call_id: inserted?.id ?? null,
-        call_status: status || 'completed',
-        call_outcome: outcome || 'Follow Up',
-        duration_seconds: durationSeconds,
-        next_follow_up_at: body.next_follow_up_at || null,
-        lead_temperature: temperature || 'cold',
-        call_logging_unavailable: callLoggingUnavailable,
-        lead_update_degraded: leadResult.degraded,
-      },
-      created_by: admin.userName,
+  let dispositionResult: Awaited<ReturnType<typeof applyCrmDisposition>> | null = null
+  try {
+    dispositionResult = await applyCrmDisposition(admin.supabase, {
+      leadId: body.lead_id,
+      dispositionKey,
+      note: body.notes?.trim() || null,
+      followUpAt: body.callback_due_at ?? body.next_follow_up_at ?? body.follow_up_at ?? body.appointment_at ?? null,
+      callId: inserted?.id ?? null,
+      leadTemperature: (temperature || 'cold') as 'cold' | 'warm' | 'hot',
+      strategyCallBooked: Boolean(body.strategy_call_booked),
+      convertedToClient: Boolean(body.converted_to_client),
+      actorUserId: admin.userId,
+      actorName: admin.userName,
+      createFollowUpTask: Boolean(body.callback_due_at ?? body.next_follow_up_at ?? body.follow_up_at),
     })
-  if (activityError) {
-    console.error('crm_activities insert failed after call log attempt', activityError)
+  } catch (error) {
+    console.error('shared disposition failed after call log attempt', error)
+    return NextResponse.json({ error: 'Call outcome could not be saved to the lead.' }, { status: 500 })
   }
 
   const dialerSessionId =
@@ -338,15 +271,29 @@ export async function POST(req: NextRequest) {
     await syncDialerSessionState(admin.supabase, dialerSessionId)
   }
 
-  if (callLoggingUnavailable || leadResult.degraded) {
+  if (callLoggingUnavailable) {
     return NextResponse.json({
-      call: null,
+      call: inserted ?? null,
+      lead: dispositionResult?.lead ?? null,
       degraded: true,
-      message: callLoggingUnavailable
-        ? 'Call outcome was saved to the lead, but detailed call logging is still being set up.'
-        : 'Call outcome was saved with limited CRM fields while the sales workspace schema finishes updating.',
+      message: 'Call outcome was saved to the lead, but detailed call logging is still being set up.',
     }, { status: 202 })
   }
 
-  return NextResponse.json({ call: inserted }, { status: 201 })
+  if ((dispositionResult?.warnings?.length ?? 0) > 0) {
+    return NextResponse.json({
+      call: inserted,
+      lead: dispositionResult?.lead ?? null,
+      task: dispositionResult?.task ?? null,
+      degraded: true,
+      warnings: dispositionResult?.warnings ?? [],
+      message: 'Call outcome was saved to the lead, but some CRM workflow tracking tables are not available yet.',
+    }, { status: 202 })
+  }
+
+  return NextResponse.json({
+    call: inserted,
+    lead: dispositionResult?.lead ?? null,
+    task: dispositionResult?.task ?? null,
+  }, { status: 201 })
 }

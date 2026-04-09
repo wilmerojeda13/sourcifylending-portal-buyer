@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
-  Plus, Search, Phone, Building2, Calendar, ChevronLeft, ChevronRight,
+  Plus, Search, Phone, Building2, Calendar, ChevronRight,
   X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
   CheckCircle2, XCircle, Upload, Zap, Filter,
-  LayoutList, Columns, Trash2, Bot, CheckSquare, Square, MinusSquare,
+  Trash2, Bot, CheckSquare, Square, MinusSquare,
   Archive,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -15,12 +15,21 @@ import CRMWorkspaceNav from '@/components/crm/CRMWorkspaceNav'
 import CRMSalesOverview from '@/components/crm/CRMSalesOverview'
 import OfflineCRMSilentMirror from '@/components/offline-crm/OfflineCRMSilentMirror'
 import toast from 'react-hot-toast'
+import TagBadge, { type CRMTagBadge } from '@/components/admin/crm/TagBadge'
+import BulkSelectionBar from '@/components/admin/crm/BulkSelectionBar'
+import CRMDispositionForm from '@/components/admin/crm/CRMDispositionForm'
+import { useBulkSelection } from '@/hooks/useBulkSelection'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SearchMatch {
   primaryMatch: string
   score: number
   matchedField: string | null
+}
+
+interface OwnerOption {
+  id: string
+  name: string
 }
 
 interface CRMLead {
@@ -43,7 +52,10 @@ interface CRMLead {
   assigned_partner_name?: string | null
   partner_onboarding_status?: string | null
   callback_due_at?: string | null
+  last_call_outcome?: string | null
   latest_call_note?: string | null
+  assigned_to_user_id?: string | null
+  assigned_to_name?: string | null
   strategy_call_booked?: boolean
   converted_to_client?: boolean
   close_probability?: number | null
@@ -74,9 +86,14 @@ interface CRMLead {
   analyzer_submitted?: boolean
   analyzer_submitted_at?: string | null
   created_at: string
+  tags?: CRMTagBadge[]
   // Search match metadata from unified search
   search_match?: SearchMatch | null
 }
+
+type DispositionTarget =
+  | { mode: 'single'; lead: CRMLead }
+  | { mode: 'bulk' }
 
 type Stage = 'new' | 'contacted' | 'qualified' | 'demo_scheduled' | 'demo_held' | 'follow_up' | 'closed_won' | 'closed_lost' | 'active_client'
 
@@ -99,6 +116,25 @@ const PROGRAM_BADGE: Record<string, string> = {
   program_c: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
 }
 const PROGRAM_LABEL: Record<string, string> = { program_a: 'Prog A', program_b: 'Prog B', program_c: 'Prog C' }
+
+const DISPOSITION_FILTER_OPTIONS = [
+  { value: '', label: 'Any disposition' },
+  { value: 'Interested', label: 'Interested' },
+  { value: 'Appointment Set', label: 'Appointment Set' },
+  { value: 'Booked Call', label: 'Booked Call' },
+  { value: 'Follow Up', label: 'Follow Up' },
+  { value: 'Call Back', label: 'Call Back' },
+  { value: 'Call Back Later', label: 'Call Back Later' },
+  { value: 'Voicemail', label: 'Voicemail' },
+  { value: 'Left Voicemail', label: 'Left Voicemail' },
+  { value: 'No Answer', label: 'No Answer' },
+  { value: 'Busy', label: 'Busy' },
+  { value: 'Bad Number', label: 'Bad Number' },
+  { value: 'Not Interested', label: 'Not Interested' },
+  { value: 'Do Not Call', label: 'DNC / Remove' },
+  { value: 'Closed Won', label: 'Closed Won' },
+  { value: 'Closed Lost', label: 'Closed Lost' },
+] as const
 
 const BOARD_PAGE_SIZE = 20
 
@@ -301,7 +337,19 @@ function CleanupModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
 }
 
 // ─── Lead Row (compact) ───────────────────────────────────────────────────────
-function LeadCard({ lead, selected, onToggle }: { lead: CRMLead; selected?: boolean; onToggle?: (id: string) => void }) {
+function LeadCard({
+  lead,
+  selected,
+  onToggle,
+  onDisposition,
+  onTagFilter,
+}: {
+  lead: CRMLead
+  selected?: boolean
+  onToggle?: (id: string) => void
+  onDisposition?: (lead: CRMLead) => void
+  onTagFilter?: (tag: CRMTagBadge) => void
+}) {
   const stage = stageInfo(lead.stage)
   const pastDue = isPastDue(lead.follow_up_at)
   const callabilityLabel = buildCallabilityLabel(lead)
@@ -425,6 +473,23 @@ function LeadCard({ lead, selected, onToggle }: { lead: CRMLead; selected?: bool
         </div>
         <ChevronRight size={14} className="text-gray-300 group-hover:text-green-500 shrink-0 transition-colors"/>
       </Link>
+      <button
+        type="button"
+        onClick={() => onDisposition?.(lead)}
+        className="shrink-0 rounded-xl border border-gray-200 px-2.5 py-2 text-xs font-semibold text-gray-500 hover:border-green-300 hover:text-green-700"
+      >
+        Disposition
+      </button>
+      {(lead.tags?.length ?? 0) > 0 && (
+        <div className="hidden xl:flex flex-wrap gap-1 max-w-[220px]">
+          {lead.tags?.slice(0, 2).map((tag) => (
+            <TagBadge key={tag.id} tag={tag} onClick={() => onTagFilter?.(tag)} />
+          ))}
+          {(lead.tags?.length ?? 0) > 2 && (
+            <span className="text-[10px] font-semibold text-gray-400">+{(lead.tags?.length ?? 0) - 2}</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -496,44 +561,97 @@ export default function CRMClient() {
   const [stageFilter, setStageFilter] = useState(searchParams.get('stage') ?? '')
   const [temperatureFilter, setTemperatureFilter] = useState(searchParams.get('temperature') ?? '')
   const [callabilityFilter, setCallabilityFilter] = useState(searchParams.get('callability') ?? '')
+  const [tagFilters, setTagFilters] = useState<string[]>(searchParams.getAll('tag_id'))
+  const [excludeTagFilters, setExcludeTagFilters] = useState<string[]>(searchParams.getAll('exclude_tag_id'))
+  const [tagMode, setTagMode] = useState<'any' | 'all'>(searchParams.get('tag_mode') === 'all' ? 'all' : 'any')
+  const [availableTags, setAvailableTags] = useState<CRMTagBadge[]>([])
+  const [owners, setOwners] = useState<OwnerOption[]>([])
+  const [ownerFilter, setOwnerFilter] = useState(searchParams.get('owner') ?? '')
+  const [dispositionFilter, setDispositionFilter] = useState(searchParams.get('disposition') ?? '')
   const [openTasksOnly, setOpenTasksOnly] = useState(searchParams.get('open_tasks') === 'true')
+  const [followUpDueOnly, setFollowUpDueOnly] = useState(searchParams.get('follow_up_due') === 'true')
+  const [callbackDueOnly, setCallbackDueOnly] = useState(searchParams.get('callback_due') === 'true')
   const [showNew, setShowNew]       = useState(false)
   const [showCleanup, setShowCleanup] = useState(false)
   const [view, setView]             = useState<'list' | 'board'>(searchParams.get('view') === 'board' ? 'board' : 'list')
   const [listPage, setListPage]     = useState(1)
   const [boardPages, setBoardPages] = useState<Record<string, number>>({})
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkStageOpen, setBulkStageOpen] = useState(false)
+  const [bulkTagIds, setBulkTagIds] = useState<string[]>([])
+  const [bulkOwnerId, setBulkOwnerId] = useState('')
+  const [dispositionTarget, setDispositionTarget] = useState<DispositionTarget | null>(null)
+  const [dispositionSubmitting, setDispositionSubmitting] = useState(false)
+  const [dispositionError, setDispositionError] = useState<string | null>(null)
 
   useEffect(() => {
     setView(searchParams.get('view') === 'board' ? 'board' : 'list')
     setStageFilter(searchParams.get('stage') ?? '')
     setTemperatureFilter(searchParams.get('temperature') ?? '')
     setCallabilityFilter(searchParams.get('callability') ?? '')
+    setTagFilters(searchParams.getAll('tag_id'))
+    setExcludeTagFilters(searchParams.getAll('exclude_tag_id'))
+    setTagMode(searchParams.get('tag_mode') === 'all' ? 'all' : 'any')
+    setOwnerFilter(searchParams.get('owner') ?? '')
+    setDispositionFilter(searchParams.get('disposition') ?? '')
     setOpenTasksOnly(searchParams.get('open_tasks') === 'true')
+    setFollowUpDueOnly(searchParams.get('follow_up_due') === 'true')
+    setCallbackDueOnly(searchParams.get('callback_due') === 'true')
   }, [searchParams])
 
   useEffect(() => {
     setListPage(1)
     setBoardPages({})
-  }, [search, stageFilter, temperatureFilter, callabilityFilter, openTasksOnly, view])
+  }, [search, stageFilter, temperatureFilter, callabilityFilter, tagFilters, excludeTagFilters, tagMode, ownerFilter, dispositionFilter, openTasksOnly, followUpDueOnly, callbackDueOnly, view])
 
   // Version counter — cancels stale in-flight loads when a newer one starts
   const loadVersion = useRef(0)
 
   const [showFilters, setShowFilters] = useState(false)
 
+  useEffect(() => {
+    let active = true
+    fetch('/api/admin/crm/tags', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((json) => {
+        if (active) setAvailableTags(json.tags ?? [])
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/admin/crm/owners', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((json) => {
+        if (active) setOwners(json.owners ?? [])
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
+
   const load = useCallback(async () => {
     const version = ++loadVersion.current
     setLoading(true)
     try {
       const p = new URLSearchParams({ limit: '1000' })
-      if (stageFilter && view !== 'board') p.set('stage', stageFilter)
+      if (stageFilter) p.set('stage', stageFilter)
       if (search) p.set('search', search)
       if (temperatureFilter) p.set('temperature', temperatureFilter)
       if (callabilityFilter) p.set('callability', callabilityFilter)
+      tagFilters.forEach((tagId) => p.append('tag_id', tagId))
+      excludeTagFilters.forEach((tagId) => p.append('exclude_tag_id', tagId))
+      if (tagFilters.length > 0) p.set('tag_mode', tagMode)
+      if (ownerFilter) p.set('owner', ownerFilter)
+      if (dispositionFilter) p.set('disposition', dispositionFilter)
       if (openTasksOnly) p.set('open_tasks', 'true')
+      if (followUpDueOnly) p.set('follow_up_due', 'true')
+      if (callbackDueOnly) p.set('callback_due', 'true')
 
       let allLeads: CRMLead[] = []
       let page = 0
@@ -555,7 +673,7 @@ export default function CRMClient() {
       setLeads(allLeads)
     } catch { if (version === loadVersion.current) toast.error('Failed to load leads') }
     finally { if (version === loadVersion.current) setLoading(false) }
-  }, [stageFilter, search, view, temperatureFilter, callabilityFilter, openTasksOnly])
+  }, [stageFilter, search, temperatureFilter, callabilityFilter, tagFilters, excludeTagFilters, tagMode, ownerFilter, dispositionFilter, openTasksOnly, followUpDueOnly, callbackDueOnly])
 
   useEffect(() => {
     const t = setTimeout(load, search ? 300 : 0)
@@ -572,8 +690,17 @@ export default function CRMClient() {
   const hasMore = safeListPage * PAGE_SIZE < leads.length
   const hasPrev = safeListPage > 1
   const visibleLeadIds = visibleLeads.map(lead => lead.id)
-  const visibleSelectedCount = visibleLeadIds.filter(id => selectedIds.has(id)).length
-  const allVisibleSelected = visibleLeads.length > 0 && visibleSelectedCount === visibleLeads.length
+  const {
+    selectedIds,
+    selectedCount,
+    visibleSelectedCount,
+    allVisibleSelected,
+    toggleOne,
+    toggleVisible,
+    selectAllFiltered,
+    clearSelection,
+    removeIds,
+  } = useBulkSelection(leads.map((lead) => lead.id), visibleLeadIds)
   const someVisibleSelected = visibleSelectedCount > 0 && !allVisibleSelected
   const isPipelineView = view === 'board'
   const isLeadsView = !isPipelineView && focus === 'leads'
@@ -585,43 +712,10 @@ export default function CRMClient() {
     }
   }, [listPage, safeListPage])
 
-  // ── Selection helpers ──
-  function toggleSelect(id: string) {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }
-
-  function toggleSelectAll() {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (allVisibleSelected) {
-        visibleLeadIds.forEach(id => next.delete(id))
-      } else {
-        visibleLeadIds.forEach(id => next.add(id))
-      }
-      return next
-    })
-  }
-
-  function selectAllLeads() {
-    setSelectedIds(new Set(leads.map(l => l.id)))
-  }
-
-  function removeSelectedIds(idsToRemove: string[]) {
-    if (idsToRemove.length === 0) return
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      idsToRemove.forEach(id => next.delete(id))
-      return next
-    })
-  }
-
-  function clearSelection() {
-    setSelectedIds(new Set())
+  function clearBulkSelection() {
+    clearSelection()
     setBulkStageOpen(false)
+    setBulkOwnerId('')
   }
 
   // ── Bulk actions ──
@@ -635,14 +729,14 @@ export default function CRMClient() {
       const res = await fetch('/api/admin/crm/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete_ids', ids }),
+        body: JSON.stringify({ module: 'leads', action: 'delete', ids }),
       })
       const json = await res.json()
       if (res.ok) {
         toast.success(json.message)
         const processedIds = Array.isArray(json.processedIds) ? json.processedIds : ids
         setLeads(prev => prev.filter(l => !processedIds.includes(l.id)))
-        removeSelectedIds(processedIds)
+        removeIds(processedIds)
         if (json.partial) toast.error(`${json.failedCount ?? 0} lead(s) could not be deleted.`)
       } else {
         toast.error(json.error ?? 'Failed')
@@ -659,14 +753,14 @@ export default function CRMClient() {
       const res = await fetch('/api/admin/crm/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'archive_ids', ids }),
+        body: JSON.stringify({ module: 'leads', action: 'archive', ids }),
       })
       const json = await res.json()
       if (res.ok) {
         toast.success(json.message)
         const processedIds = Array.isArray(json.processedIds) ? json.processedIds : ids
         setLeads(prev => prev.filter(l => !processedIds.includes(l.id)))
-        removeSelectedIds(processedIds)
+        removeIds(processedIds)
         if (json.partial) toast.error(`${json.failedCount ?? 0} lead(s) could not be archived.`)
       } else {
         toast.error(json.error ?? 'Failed')
@@ -683,14 +777,14 @@ export default function CRMClient() {
       const res = await fetch('/api/admin/crm/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update_stage', ids, stage: newStage }),
+        body: JSON.stringify({ module: 'leads', action: 'update_stage', ids, stage: newStage }),
       })
       const json = await res.json()
       if (res.ok) {
         toast.success(json.message)
         const processedIds = new Set<string>(Array.isArray(json.processedIds) ? (json.processedIds as string[]) : ids)
         setLeads(prev => prev.map(l => processedIds.has(l.id) ? { ...l, stage: newStage } : l))
-        removeSelectedIds(Array.from(processedIds))
+        removeIds(Array.from(processedIds))
         if (json.partial) toast.error(`${json.failedCount ?? 0} lead(s) could not be updated.`)
       } else {
         toast.error(json.error ?? 'Failed')
@@ -699,145 +793,332 @@ export default function CRMClient() {
     finally { setBulkLoading(false); setBulkStageOpen(false) }
   }
 
+  async function bulkUpdateTags(mode: 'add_tags' | 'remove_tags') {
+    if (selectedIds.size === 0 || bulkTagIds.length === 0) {
+      toast.error('Select leads and at least one tag first.')
+      return
+    }
+
+    const ids = Array.from(selectedIds)
+    setBulkLoading(true)
+    try {
+      const res = await fetch('/api/admin/crm/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ module: 'leads', action: mode, ids, tag_ids: bulkTagIds }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? 'Failed to update tags')
+        return
+      }
+
+      const tagMap = new Map(availableTags.map((tag) => [tag.id, tag]))
+      const tagRecords = bulkTagIds.map((tagId) => tagMap.get(tagId)).filter(Boolean) as CRMTagBadge[]
+
+      setLeads((current) => current.map((lead) => {
+        if (!ids.includes(lead.id)) return lead
+        const currentTags = lead.tags ?? []
+        const currentTagIds = new Set(currentTags.map((tag) => tag.id))
+        const nextTags = mode === 'add_tags'
+          ? [...currentTags, ...tagRecords.filter((tag) => !currentTagIds.has(tag.id))]
+          : currentTags.filter((tag) => !bulkTagIds.includes(tag.id))
+        return { ...lead, tags: nextTags.sort((left, right) => left.name.localeCompare(right.name)) }
+      }))
+      toast.success(json.message)
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  async function bulkAssignOwner() {
+    if (selectedIds.size === 0 || !bulkOwnerId) {
+      toast.error('Select contacts and an owner first.')
+      return
+    }
+
+    const ids = Array.from(selectedIds)
+    const owner = owners.find((item) => item.id === bulkOwnerId)
+    setBulkLoading(true)
+    try {
+      const res = await fetch('/api/admin/crm/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          module: 'leads',
+          action: 'assign_owner',
+          ids,
+          owner_user_id: bulkOwnerId,
+          owner_name: owner?.name ?? null,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? 'Failed to assign owner')
+        return
+      }
+
+      setLeads((current) => current.map((lead) => ids.includes(lead.id)
+        ? { ...lead, assigned_to_user_id: bulkOwnerId, assigned_to_name: owner?.name ?? null }
+        : lead))
+      toast.success(json.message)
+      removeIds(ids)
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  async function bulkDisposition(value: { disposition_key: string; note: string; follow_up_at: string }) {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    setDispositionSubmitting(true)
+    setDispositionError(null)
+    try {
+      const res = await fetch('/api/admin/crm/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          module: 'leads',
+          action: 'disposition',
+          ids,
+          disposition_key: value.disposition_key,
+          note: value.note || null,
+          follow_up_at: value.follow_up_at || null,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to save disposition')
+      toast.success(json.message)
+      setDispositionTarget(null)
+      clearBulkSelection()
+      load()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save disposition'
+      setDispositionError(message)
+      toast.error(message)
+    } finally {
+      setDispositionSubmitting(false)
+    }
+  }
+
+  async function saveSingleDisposition(value: { disposition_key: string; note: string; follow_up_at: string }) {
+    if (!dispositionTarget || dispositionTarget.mode !== 'single') return
+    setDispositionSubmitting(true)
+    setDispositionError(null)
+    try {
+      const res = await fetch('/api/admin/crm/dispositions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_id: dispositionTarget.lead.id,
+          disposition_key: value.disposition_key,
+          note: value.note || null,
+          follow_up_at: value.follow_up_at || null,
+          create_follow_up_task: true,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to save disposition')
+      setLeads((current) => current.map((lead) => lead.id === dispositionTarget.lead.id ? { ...lead, ...json.lead } : lead))
+      setDispositionTarget(null)
+      toast.success('Disposition saved')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save disposition'
+      setDispositionError(message)
+      toast.error(message)
+    } finally {
+      setDispositionSubmitting(false)
+    }
+  }
+
   const total     = leads.length
-  const followDue = leads.filter(l => isPastDue(l.follow_up_at)).length
-  const wonCount  = leads.filter(l => l.stage === 'closed_won').length
-  const activeCount = leads.filter(l => l.stage === 'active_client').length
-  const inPipeline = leads.filter(l => !['closed_won','closed_lost','active_client'].includes(l.stage)).length
+  const tagMap = new Map(availableTags.map((tag) => [tag.id, tag]))
+  const ownerMap = new Map(owners.map((owner) => [owner.id, owner.name]))
+  const leadCountLabel = isPipelineView ? 'pipeline leads' : 'leads'
+  const activeFilterCount = [
+    stageFilter,
+    temperatureFilter,
+    callabilityFilter,
+    ownerFilter,
+    dispositionFilter,
+    openTasksOnly ? 'open_tasks' : '',
+    followUpDueOnly ? 'follow_up_due' : '',
+    callbackDueOnly ? 'callback_due' : '',
+    ...tagFilters,
+    ...excludeTagFilters,
+  ].filter(Boolean).length
+
+  function clearAllFilters() {
+    setStageFilter('')
+    setTemperatureFilter('')
+    setCallabilityFilter('')
+    setOwnerFilter('')
+    setDispositionFilter('')
+    setOpenTasksOnly(false)
+    setFollowUpDueOnly(false)
+    setCallbackDueOnly(false)
+    setTagFilters([])
+    setExcludeTagFilters([])
+    setTagMode('any')
+  }
+
+  const activeFilterChips = [
+    ...(stageFilter ? [{
+      key: `stage-${stageFilter}`,
+      label: `Stage: ${stageInfo(stageFilter as Stage).label}`,
+      onRemove: () => setStageFilter(''),
+    }] : []),
+    ...(temperatureFilter ? [{
+      key: `temperature-${temperatureFilter}`,
+      label: `Temperature: ${temperatureFilter[0].toUpperCase()}${temperatureFilter.slice(1)}`,
+      onRemove: () => setTemperatureFilter(''),
+    }] : []),
+    ...(callabilityFilter ? [{
+      key: `callability-${callabilityFilter}`,
+      label: callabilityFilter === 'callable_now'
+        ? 'Callable now'
+        : callabilityFilter === 'blocked_by_timezone'
+          ? 'Blocked by timezone'
+          : 'Unknown timezone',
+      onRemove: () => setCallabilityFilter(''),
+    }] : []),
+    ...(ownerFilter ? [{
+      key: `owner-${ownerFilter}`,
+      label: ownerFilter === 'unassigned' ? 'Owner: Unassigned' : `Owner: ${ownerMap.get(ownerFilter) ?? 'Unknown'}`,
+      onRemove: () => setOwnerFilter(''),
+    }] : []),
+    ...(dispositionFilter ? [{
+      key: `disposition-${dispositionFilter}`,
+      label: `Disposition: ${DISPOSITION_FILTER_OPTIONS.find((option) => option.value === dispositionFilter)?.label ?? dispositionFilter}`,
+      onRemove: () => setDispositionFilter(''),
+    }] : []),
+    ...(openTasksOnly ? [{
+      key: 'open-tasks',
+      label: 'Open tasks',
+      onRemove: () => setOpenTasksOnly(false),
+    }] : []),
+    ...(followUpDueOnly ? [{
+      key: 'follow-up-due',
+      label: 'Follow-up due',
+      onRemove: () => setFollowUpDueOnly(false),
+    }] : []),
+    ...(callbackDueOnly ? [{
+      key: 'callback-due',
+      label: 'Callback due',
+      onRemove: () => setCallbackDueOnly(false),
+    }] : []),
+    ...tagFilters.map((tagId) => ({
+      key: `tag-${tagId}`,
+      label: `Tag: ${tagMap.get(tagId)?.name ?? 'Unknown'}`,
+      onRemove: () => setTagFilters((current) => current.filter((id) => id !== tagId)),
+    })),
+    ...excludeTagFilters.map((tagId) => ({
+      key: `exclude-tag-${tagId}`,
+      label: `Exclude: ${tagMap.get(tagId)?.name ?? 'Unknown'}`,
+      onRemove: () => setExcludeTagFilters((current) => current.filter((id) => id !== tagId)),
+    })),
+  ]
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <OfflineCRMSilentMirror />
       {/* ── Header ── */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-20">
-        <div className="max-w-screen-xl mx-auto px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <Link href="/admin" className="text-xs text-gray-400 hover:text-green-600 font-medium mb-0.5 inline-flex items-center gap-1">
-                <ChevronLeft size={13}/> Admin Portal
-              </Link>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Sales CRM</h1>
-              <p className="text-xs text-gray-500">{total.toLocaleString()} leads</p>
+        <div className="max-w-screen-xl mx-auto px-4 py-2.5 sm:py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex items-center gap-2.5">
+              <div className="min-w-0">
+                <h1 className="text-lg font-bold leading-tight text-gray-900 dark:text-white sm:text-xl">Sales CRM</h1>
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                  {total.toLocaleString()} {leadCountLabel}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              {/* Desktop-only action buttons */}
               <Link
-                href="/admin/crm/campaign"
+                href="/admin/crm/dialer"
                 target="_blank"
-                className="btn-secondary text-xs px-3 py-2 hidden sm:flex items-center gap-1.5"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-500 transition-colors h-8.5"
               >
-                <Bot size={13}/> AI Campaign
+                <PhoneCall size={15}/>
+                <span>Dialer</span>
               </Link>
-              <button
-                onClick={() => setShowCleanup(true)}
-                className="btn-secondary text-xs px-3 py-2 hidden sm:flex items-center gap-1.5"
-              >
-                <Trash2 size={13}/> Cleanup
-              </button>
-              <Link href="/admin/crm/import" className="btn-secondary text-xs px-3 py-2 hidden sm:flex items-center gap-1.5">
-                <Upload size={13}/> Import
-              </Link>
-              <button onClick={()=>setShowNew(true)} className="btn-primary h-9 px-3 sm:px-4 flex items-center gap-1.5 text-sm">
+              <button onClick={()=>setShowNew(true)} className="btn-primary h-8.5 px-3 sm:px-4 flex items-center gap-1.5 text-sm shrink-0">
                 <Plus size={15}/> <span>Add Lead</span>
               </button>
             </div>
           </div>
 
-          <div className="mb-3">
+          <div className="mt-2">
             <CRMWorkspaceNav />
           </div>
 
           {(isLeadsView || isPipelineView) && (
             <>
-              {/* Search + filter row */}
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="mt-2.5 flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
                   <input
-                    className="input-field pl-8 h-10 text-sm"
-                    placeholder="Search leads..."
+                    className="input-field h-9 pl-8 text-sm"
+                    placeholder={isPipelineView ? 'Search pipeline...' : 'Search leads...'}
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                   />
                 </div>
-                {/* View toggle */}
-                <div className="hidden sm:flex items-center rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shrink-0">
-                  <button
-                    onClick={() => setView('list')}
-                    className={cn('h-10 px-3 flex items-center gap-1.5 text-xs font-medium transition-colors',
-                    view === 'list' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-green-700 dark:hover:text-green-300'
-                    )}
-                  ><LayoutList size={14}/> List</button>
-                  <button
-                    onClick={() => { setView('board'); setStageFilter('') }}
-                    className={cn('h-10 px-3 flex items-center gap-1.5 text-xs font-medium transition-colors border-l border-gray-200 dark:border-gray-700',
-                    view === 'board' ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 hover:text-green-700 dark:hover:text-green-300'
-                    )}
-                  ><Columns size={14}/> Board</button>
-                </div>
-                {/* Filter toggle — mobile only */}
                 <button
-                  onClick={() => setShowFilters(p => !p)}
-                  aria-label={showFilters ? 'Hide filters' : 'Show filters'}
-                  title={showFilters ? 'Hide filters' : 'Show filters'}
-                  className={cn('h-10 w-10 flex items-center justify-center rounded-xl border transition-colors shrink-0 sm:hidden',
-                    showFilters || stageFilter
-                      ? 'bg-green-600 border-green-600 text-white'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500'
+                  type="button"
+                  onClick={() => setShowFilters(true)}
+                  className={cn(
+                    'h-9 shrink-0 rounded-xl border px-3 text-sm font-semibold transition-colors inline-flex items-center gap-2',
+                    activeFilterCount > 0
+                      ? 'border-green-600 bg-green-600 text-white'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
                   )}
                 >
                   <Filter size={15}/>
-                </button>
-                <select
-                  value={temperatureFilter}
-                  onChange={e => setTemperatureFilter(e.target.value)}
-                  className="input-field h-10 w-[110px] text-sm shrink-0"
-                >
-                  <option value="">All temps</option>
-                  <option value="hot">Hot</option>
-                  <option value="warm">Warm</option>
-                  <option value="cold">Cold</option>
-                </select>
-                <select
-                  value={callabilityFilter}
-                  onChange={e => setCallabilityFilter(e.target.value)}
-                  className="input-field h-10 w-[140px] text-sm shrink-0"
-                >
-                  <option value="">Call window</option>
-                  <option value="callable_now">Callable now</option>
-                  <option value="blocked_by_timezone">Blocked</option>
-                  <option value="unknown_timezone">Unknown TZ</option>
-                </select>
-                <button
-                  onClick={() => setOpenTasksOnly(value => !value)}
-                  className={cn(
-                    'h-10 shrink-0 whitespace-nowrap rounded-xl border px-3 text-sm font-medium transition-colors',
-                    openTasksOnly
-                      ? 'border-green-600 bg-green-600 text-white'
-                      : 'border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                  <span>Filter</span>
+                  {activeFilterCount > 0 && (
+                    <span className={cn(
+                      'rounded-full px-1.5 py-0.5 text-[11px] font-bold',
+                      activeFilterCount > 0 ? 'bg-white/20 text-current' : 'bg-gray-100 text-gray-600'
+                    )}>
+                      {activeFilterCount}
+                    </span>
                   )}
-                >
-                  Open Tasks
                 </button>
               </div>
 
-              {/* Stage filter tabs — always on desktop, collapsible on mobile */}
-              <div className={cn('flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-none', view === 'board' ? 'hidden' : showFilters ? 'flex' : 'hidden sm:flex')}>
-                {[{key:'',label:'All'},...STAGES.map(s=>({key:s.key,label:s.label}))].map(s=>(
+              {activeFilterChips.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {activeFilterChips.map((chip) => (
+                    <div
+                      key={chip.key}
+                      className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                    >
+                      <span>{chip.label}</span>
+                      <button
+                        type="button"
+                        onClick={chip.onRemove}
+                        className="rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
                   <button
-                    key={s.key}
-                    onClick={() => { setStageFilter(s.key); setShowFilters(false) }}
-                    className={cn(
-                      'shrink-0 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap',
-                      stageFilter === s.key
-                        ? 'bg-green-600 border-green-600 text-white'
-                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
-                    )}
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   >
-                    {s.label}
+                    Clear all
                   </button>
-                ))}
-              </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -852,55 +1133,40 @@ export default function CRMClient() {
       {/* ── Body ── */}
       {(isLeadsView || isPipelineView) && (
         <div className={cn(
-          'pt-4 pb-24',
-          view === 'list' ? 'max-w-screen-xl mx-auto px-4 lg:flex lg:gap-6 lg:items-start' : 'px-4'
+          'max-w-screen-xl mx-auto px-4 pt-2.5 pb-24'
         )}>
 
         {/* ── Lead list (main column) ── */}
-        <div className="flex-1 min-w-0 overflow-hidden">
-          {/* Stats strip */}
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3 mb-4">
-            {[
-              { label: 'Total',    value: total,       color: 'text-gray-900 dark:text-white' },
-              { label: 'Due',      value: followDue,   color: followDue > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white' },
-              { label: 'Active',   value: activeCount, color: 'text-teal-500' },
-              { label: 'Won',      value: wonCount,    color: 'text-green-600' },
-              { label: 'Pipeline', value: inPipeline,  color: 'text-amber-500' },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl px-2 py-2.5 text-center">
-                <p className={cn('text-lg font-bold', color)}>{value.toLocaleString()}</p>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-0.5">{label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Dialer CTA — mobile only (desktop shows in sidebar) */}
-          <div className="mb-4 lg:hidden">
-            <Link
-              href="/admin/crm/dialer"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-2xl px-4 py-3.5 text-white transition-colors"
-            >
-              <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-                <Zap size={18}/>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm">Dialer Mode</p>
-                <p className="text-green-200 text-xs">Dial through {inPipeline.toLocaleString()} pipeline leads fast</p>
-              </div>
-              <ChevronRight size={18} className="text-green-300"/>
-            </Link>
-          </div>
-
+        <div className="min-w-0 overflow-hidden">
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-gray-400">
-              <Loader2 size={22} className="animate-spin mr-2"/> Loading...
+            <div className="space-y-2">
+              {/* Skeleton batch controls */}
+              <div className="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-white/90 px-3 py-3 dark:border-gray-800 dark:bg-gray-900/90 sm:flex-row sm:items-center sm:justify-between animate-pulse">
+                <div className="h-5 w-32 rounded bg-gray-200 dark:bg-gray-700"/>
+                <div className="flex gap-2">
+                  <div className="h-9 w-24 rounded-xl border border-gray-200 dark:border-gray-700"/>
+                  <div className="h-9 w-24 rounded-xl border border-gray-200 dark:border-gray-700"/>
+                </div>
+              </div>
+              {/* Skeleton lead cards */}
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-3 py-3 dark:border-gray-800 dark:bg-gray-900 animate-pulse">
+                  <div className="h-5 w-5 rounded bg-gray-200 dark:bg-gray-700"/>
+                  <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700"/>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700"/>
+                    <div className="h-3 w-24 rounded bg-gray-200 dark:bg-gray-700"/>
+                  </div>
+                  <div className="h-6 w-20 rounded-full bg-gray-200 dark:bg-gray-700"/>
+                  <div className="h-6 w-16 rounded-full bg-gray-200 dark:bg-gray-700"/>
+                  <div className="h-6 w-20 rounded border border-gray-200 dark:border-gray-700"/>
+                </div>
+              ))}
             </div>
           ) : leads.length === 0 ? (
             <div className="text-center py-16 text-gray-400">
               <Users size={36} className="mx-auto mb-3 opacity-30"/>
-              <p className="text-sm">{search || stageFilter ? 'No leads match your filters.' : 'No leads yet. Click + Add Lead to get started.'}</p>
+              <p className="text-sm">{search || activeFilterCount > 0 ? 'No leads match your filters.' : 'No leads yet. Click + Add Lead to get started.'}</p>
             </div>
           ) : view === 'list' ? (
             <div className="space-y-1">
@@ -910,7 +1176,7 @@ export default function CRMClient() {
                 pageSize={PAGE_SIZE}
                 page={safeListPage}
                 total={leads.length}
-                selectedCount={selectedIds.size}
+                selectedCount={selectedCount}
                 visibleSelectedCount={visibleSelectedCount}
                 onPrev={() => setListPage(p => p - 1)}
                 onNext={() => setListPage(p => p + 1)}
@@ -918,7 +1184,7 @@ export default function CRMClient() {
               {/* Select-all row */}
               <div className="flex items-center gap-2 px-1 py-1.5">
                 <button
-                  onClick={toggleSelectAll}
+                  onClick={toggleVisible}
                   className="shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   {allVisibleSelected ? (
@@ -930,20 +1196,20 @@ export default function CRMClient() {
                   )}
                 </button>
                 <span className="text-xs text-gray-400">
-                  {selectedIds.size > 0 ? (
+                  {selectedCount > 0 ? (
                     <>
-                      {selectedIds.size} selected
+                      {selectedCount} selected
                       {visibleSelectedCount > 0 && (
                         <span className="ml-2 text-gray-500 dark:text-gray-400">
                           {visibleSelectedCount} on this page
                         </span>
                       )}
-                      {selectedIds.size < leads.length && (
-                        <button onClick={selectAllLeads} className="ml-2 text-green-600 dark:text-green-400 hover:underline font-medium">
+                      {selectedCount < leads.length && (
+                        <button onClick={selectAllFiltered} className="ml-2 text-green-600 dark:text-green-400 hover:underline font-medium">
                           Select all {leads.length}
                         </button>
                       )}
-                      <button onClick={clearSelection} className="ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:underline">
+                      <button onClick={clearBulkSelection} className="ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:underline">
                         Clear
                       </button>
                     </>
@@ -952,14 +1218,23 @@ export default function CRMClient() {
                   )}
                 </span>
               </div>
-              {visibleLeads.map(lead => <LeadCard key={lead.id} lead={lead} selected={selectedIds.has(lead.id)} onToggle={toggleSelect}/>)}
+              {visibleLeads.map(lead => (
+                <LeadCard
+                  key={lead.id}
+                  lead={lead}
+                  selected={selectedIds.has(lead.id)}
+                  onToggle={toggleOne}
+                  onDisposition={(lead) => setDispositionTarget({ mode: 'single', lead })}
+                  onTagFilter={(tag) => setTagFilters((current) => current.includes(tag.id) ? current : [...current, tag.id])}
+                />
+              ))}
               <ListBatchControls
                 hasPrev={hasPrev}
                 hasMore={hasMore}
                 pageSize={PAGE_SIZE}
                 page={safeListPage}
                 total={leads.length}
-                selectedCount={selectedIds.size}
+                selectedCount={selectedCount}
                 visibleSelectedCount={visibleSelectedCount}
                 onPrev={() => setListPage(p => p - 1)}
                 onNext={() => setListPage(p => p + 1)}
@@ -969,7 +1244,7 @@ export default function CRMClient() {
             /* ── Board view ── */
             <div
               className="flex gap-3 overflow-x-auto pb-2 scroll-smooth"
-              style={{ WebkitOverflowScrolling: 'touch', height: 'calc(100vh - 260px)' }}
+              style={{ WebkitOverflowScrolling: 'touch', height: 'calc(100vh - 168px)' }}
             >
               {STAGES.map(stage => {
                 const stageLeads = leads.filter(l => l.stage === stage.key)
@@ -996,37 +1271,73 @@ export default function CRMClient() {
                           No leads
                         </div>
                       ) : visibleStageLeads.map(lead => (
-                        <Link
+                        <div
                           key={lead.id}
-                          href={`/admin/crm/${lead.id}`}
-                          className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 hover:shadow-md hover:border-green-200 dark:hover:border-green-700 transition-all group block"
+                          className={cn(
+                            'rounded-xl border p-3 transition-all',
+                            selectedIds.has(lead.id)
+                              ? 'border-green-400 bg-green-50/60 dark:border-green-700 dark:bg-green-950/20'
+                              : 'border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800',
+                          )}
                         >
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">
-                              {lead.first_name} {lead.last_name}
-                            </p>
-                            {lead.program_interest && (
-                              <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0', PROGRAM_BADGE[lead.program_interest])}>
-                                {PROGRAM_LABEL[lead.program_interest]}
-                              </span>
-                            )}
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleOne(lead.id)}
+                              className="rounded-lg p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                              {selectedIds.has(lead.id) ? (
+                                <CheckSquare size={16} className="text-green-600" />
+                              ) : (
+                                <Square size={16} className="text-gray-400" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDispositionTarget({ mode: 'single', lead })}
+                              className="text-[10px] font-semibold text-green-700 hover:underline"
+                            >
+                              Disposition
+                            </button>
                           </div>
-                          {lead.business_name && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mb-1 truncate">
-                              <Building2 size={10}/> {lead.business_name}
+                          <Link
+                            href={`/admin/crm/${lead.id}`}
+                            className="hover:shadow-md hover:border-green-200 dark:hover:border-green-700 transition-all group block"
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">
+                                {lead.first_name} {lead.last_name}
+                              </p>
+                              {lead.program_interest && (
+                                <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0', PROGRAM_BADGE[lead.program_interest])}>
+                                  {PROGRAM_LABEL[lead.program_interest]}
+                                </span>
+                              )}
+                            </div>
+                            {lead.business_name && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mb-1 truncate">
+                                <Building2 size={10}/> {lead.business_name}
+                              </p>
+                            )}
+                            <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                              <Phone size={10}/> {lead.phone}
                             </p>
-                          )}
-                          <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                            <Phone size={10}/> {lead.phone}
-                          </p>
-                          {lead.follow_up_at && (
-                            <p className={cn('text-[10px] flex items-center gap-1 mt-1.5',
-                              isPastDue(lead.follow_up_at) ? 'text-red-500' : 'text-gray-400'
-                            )}>
-                              <Calendar size={9}/> {formatDate(lead.follow_up_at)}
-                            </p>
-                          )}
-                        </Link>
+                            {(lead.tags?.length ?? 0) > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                {lead.tags?.slice(0, 2).map((tag) => (
+                                  <TagBadge key={tag.id} tag={tag} onClick={() => setTagFilters((current) => current.includes(tag.id) ? current : [...current, tag.id])} />
+                                ))}
+                              </div>
+                            )}
+                            {lead.follow_up_at && (
+                              <p className={cn('text-[10px] flex items-center gap-1 mt-1.5',
+                                isPastDue(lead.follow_up_at) ? 'text-red-500' : 'text-gray-400'
+                              )}>
+                                <Calendar size={9}/> {formatDate(lead.follow_up_at)}
+                              </p>
+                            )}
+                          </Link>
+                        </div>
                       ))}
                       {/* Per-column pagination */}
                       {stageLeads.length > BOARD_PAGE_SIZE && (
@@ -1058,109 +1369,410 @@ export default function CRMClient() {
           )}
         </div>
 
-        {/* ── Sidebar — desktop only, list view only ── */}
-        <div className={cn('lg:flex lg:flex-col gap-4 w-72 shrink-0', view === 'board' ? 'hidden' : 'hidden lg:flex')}>
-          {/* Dialer Mode card */}
-          <Link
-            href="/admin/crm/dialer"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 bg-green-600 hover:bg-green-700 rounded-2xl px-4 py-4 text-white transition-colors"
-          >
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-              <Zap size={20}/>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold">Dialer Mode</p>
-              <p className="text-green-200 text-xs mt-0.5">Dial {inPipeline.toLocaleString()} pipeline leads</p>
-            </div>
-            <ChevronRight size={18} className="text-green-300"/>
-          </Link>
-
-          {/* Quick actions */}
-          <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 space-y-2">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Actions</p>
-            <Link href="/admin/crm/import" className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 py-1.5 transition-colors">
-              <Upload size={15} className="text-gray-400"/> Import CSV
-            </Link>
-            <button onClick={()=>setShowNew(true)} className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 py-1.5 transition-colors w-full text-left">
-              <Plus size={15} className="text-gray-400"/> Add Lead Manually
-            </button>
-            <button onClick={()=>setShowCleanup(true)} className="flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 py-1.5 transition-colors w-full text-left">
-              <Trash2 size={15} className="text-gray-400"/> Cleanup Leads
-            </button>
-          </div>
-        </div>
         </div>
       )}
 
-      {/* ── Mobile bottom bar ── */}
-      {(isLeadsView || isPipelineView) && (
-        <div className="fixed bottom-0 left-0 right-0 sm:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-3 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] flex gap-2 z-20">
-          <Link href="/admin/crm/import" className="btn-secondary h-11 flex-1 flex items-center justify-center gap-1.5 text-sm">
-            <Upload size={14}/> Import
-          </Link>
-          <button onClick={()=>setShowNew(true)} className="btn-primary h-11 flex-1 flex items-center justify-center gap-1.5 text-sm">
-            <Plus size={15}/> Add Lead
-          </button>
+      {showFilters && (isLeadsView || isPipelineView) && (
+        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowFilters(false)}>
+          <div className="flex h-full items-end justify-end md:items-stretch">
+            <div
+              className="flex h-[88vh] w-full max-w-none flex-col rounded-t-3xl bg-white shadow-2xl dark:bg-gray-900 md:h-full md:max-w-md md:rounded-none"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4 dark:border-gray-800">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 dark:text-white">Filters</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Keep the main view focused. Apply secondary filters here.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(false)}
+                  className="rounded-xl border border-gray-200 p-2 text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
+                <section className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Stage</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Keep stage filtering inside the drawer instead of in the top bar.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[{ key: '', label: 'All stages' }, ...STAGES.map((stage) => ({ key: stage.key, label: stage.label }))].map((stage) => (
+                      <button
+                        key={stage.key || 'all-stages'}
+                        type="button"
+                        onClick={() => setStageFilter(stage.key)}
+                        className={cn(
+                          'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                          stageFilter === stage.key
+                            ? 'border-green-600 bg-green-600 text-white'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                        )}
+                      >
+                        {stage.label}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Temperature</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Kept as an advanced filter only.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: '', label: 'All temperatures' },
+                      { value: 'hot', label: 'Hot' },
+                      { value: 'warm', label: 'Warm' },
+                      { value: 'cold', label: 'Cold' },
+                    ].map((option) => (
+                      <button
+                        key={option.label}
+                        type="button"
+                        onClick={() => setTemperatureFilter(option.value)}
+                        className={cn(
+                          'rounded-xl border px-3 py-2 text-sm font-medium text-left transition-colors',
+                          temperatureFilter === option.value
+                            ? 'border-green-600 bg-green-600 text-white'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Call window</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Filter by calling eligibility.</p>
+                  </div>
+                  <div className="space-y-2">
+                    {[
+                      { value: '', label: 'Any call window' },
+                      { value: 'callable_now', label: 'Callable now' },
+                      { value: 'blocked_by_timezone', label: 'Blocked by timezone' },
+                      { value: 'unknown_timezone', label: 'Unknown timezone' },
+                    ].map((option) => (
+                      <button
+                        key={option.label}
+                        type="button"
+                        onClick={() => setCallabilityFilter(option.value)}
+                        className={cn(
+                          'flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-medium transition-colors',
+                          callabilityFilter === option.value
+                            ? 'border-green-600 bg-green-600 text-white'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                        )}
+                      >
+                        <span>{option.label}</span>
+                        {callabilityFilter === option.value && <CheckCircle2 size={14} />}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Owner</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Keep assignment filters off the main surface.</p>
+                  </div>
+                  <select
+                    value={ownerFilter}
+                    onChange={(event) => setOwnerFilter(event.target.value)}
+                    className="input-field h-10 text-sm"
+                  >
+                    <option value="">Any owner</option>
+                    <option value="unassigned">Unassigned</option>
+                    {owners.map((owner) => (
+                      <option key={owner.id} value={owner.id}>{owner.name}</option>
+                    ))}
+                  </select>
+                </section>
+
+                <section className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Disposition</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Filter by the latest call outcome when you need deeper triage.</p>
+                  </div>
+                  <select
+                    value={dispositionFilter}
+                    onChange={(event) => setDispositionFilter(event.target.value)}
+                    className="input-field h-10 text-sm"
+                  >
+                    {DISPOSITION_FILTER_OPTIONS.map((option) => (
+                      <option key={option.value || 'any-disposition'} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </section>
+
+                <section className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Date-based filters</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Only surface due work when it matters.</p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setFollowUpDueOnly((value) => !value)}
+                      className={cn(
+                        'flex items-center justify-between rounded-xl border px-3 py-2 text-sm font-medium transition-colors',
+                        followUpDueOnly
+                          ? 'border-green-600 bg-green-600 text-white'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                      )}
+                    >
+                      <span>Follow-up due</span>
+                      {followUpDueOnly && <CheckCircle2 size={14} />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCallbackDueOnly((value) => !value)}
+                      className={cn(
+                        'flex items-center justify-between rounded-xl border px-3 py-2 text-sm font-medium transition-colors',
+                        callbackDueOnly
+                          ? 'border-green-600 bg-green-600 text-white'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                      )}
+                    >
+                      <span>Callback due</span>
+                      {callbackDueOnly && <CheckCircle2 size={14} />}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Task state</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Only show leads with open follow-up work.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOpenTasksOnly((value) => !value)}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-medium transition-colors',
+                      openTasksOnly
+                        ? 'border-green-600 bg-green-600 text-white'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                    )}
+                  >
+                    <span>Open tasks only</span>
+                    {openTasksOnly && <CheckCircle2 size={14} />}
+                  </button>
+                </section>
+
+                {availableTags.length > 0 && (
+                  <section className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Tags</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Use include and exclude lists instead of always-visible tag controls.</p>
+                    </div>
+                    <div>
+                      <label className="label">Included tags match</label>
+                      <select
+                        value={tagMode}
+                        onChange={(event) => setTagMode(event.target.value as 'any' | 'all')}
+                        className="input-field h-10 text-sm"
+                      >
+                        <option value="any">Match any selected tag</option>
+                        <option value="all">Match all selected tags</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Include tags</p>
+                      <div className="flex flex-wrap gap-2">
+                        {availableTags.map((tag) => {
+                          const selected = tagFilters.includes(tag.id)
+                          return (
+                            <button
+                              key={`include-${tag.id}`}
+                              type="button"
+                              onClick={() => setTagFilters((current) => current.includes(tag.id) ? current.filter((id) => id !== tag.id) : [...current, tag.id])}
+                              className={cn(
+                                'rounded-full border px-2 py-1 transition-colors',
+                                selected
+                                  ? 'border-green-600 bg-green-50 dark:bg-green-950/30'
+                                  : 'border-transparent bg-transparent'
+                              )}
+                            >
+                              <TagBadge tag={tag} />
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Exclude tags</p>
+                      <div className="flex flex-wrap gap-2">
+                        {availableTags.map((tag) => {
+                          const selected = excludeTagFilters.includes(tag.id)
+                          return (
+                            <button
+                              key={`exclude-${tag.id}`}
+                              type="button"
+                              onClick={() => setExcludeTagFilters((current) => current.includes(tag.id) ? current.filter((id) => id !== tag.id) : [...current, tag.id])}
+                              className={cn(
+                                'rounded-full border px-2 py-1 transition-colors',
+                                selected
+                                  ? 'border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/30'
+                                  : 'border-transparent bg-transparent'
+                              )}
+                            >
+                              <TagBadge tag={tag} className={selected ? 'opacity-80' : ''} />
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                <section className="space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Other actions</h3>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Link href="/admin/crm/import" className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
+                      <Upload size={14} />
+                      Import
+                    </Link>
+                    <Link href="/admin/crm/campaign" target="_blank" className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
+                      <Bot size={14} />
+                      AI Campaign
+                    </Link>
+                    <button type="button" onClick={() => { setShowCleanup(true); setShowFilters(false) }} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
+                      <Trash2 size={14} />
+                      Cleanup
+                    </button>
+                  </div>
+                </section>
+              </div>
+
+              <div className="border-t border-gray-100 px-4 py-3 dark:border-gray-800">
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900 dark:border-gray-700 dark:text-gray-200"
+                  >
+                    Clear all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="btn-primary h-10 px-4 text-sm"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* ── Bulk Action Bar ── */}
-      {selectedIds.size > 0 && isLeadsView && (
-        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 bg-gray-900 dark:bg-gray-800 text-white rounded-2xl shadow-2xl border border-gray-700 px-5 py-3 flex items-center gap-3 max-w-lg w-[calc(100%-2rem)]">
-          <span className="text-sm font-semibold shrink-0">
-            {selectedIds.size} selected
-          </span>
-          <div className="flex-1" />
-          {/* Move to stage */}
-          <div className="relative">
+      {selectedCount > 0 && (isLeadsView || isPipelineView) && (
+        <div className="fixed bottom-16 sm:bottom-6 left-1/2 z-30 w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2">
+          <BulkSelectionBar selectedCount={selectedCount} onSelectAll={selectAllFiltered} onClear={clearBulkSelection}>
+            <div className="relative">
+              <button
+                onClick={() => setBulkStageOpen((current) => !current)}
+                disabled={bulkLoading}
+                className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Move stage
+              </button>
+              {bulkStageOpen && (
+                <div className="absolute bottom-full left-0 mb-2 w-44 rounded-xl border border-gray-200 bg-white py-1 shadow-xl">
+                  {STAGES.map((stage) => (
+                    <button
+                      key={stage.key}
+                      type="button"
+                      onClick={() => bulkUpdateStage(stage.key)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <span className={cn('h-2 w-2 rounded-full', stage.dot)} />
+                      {stage.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
-              onClick={() => setBulkStageOpen(p => !p)}
-              disabled={bulkLoading}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
+              type="button"
+              onClick={() => setDispositionTarget({ mode: 'bulk' })}
+              className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
             >
-              <TrendingUp size={13}/> Move Stage
+              Disposition
             </button>
-            {bulkStageOpen && (
-              <div className="absolute bottom-full mb-2 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl py-1 w-44 max-h-60 overflow-y-auto z-40">
-                {STAGES.map(s => (
-                  <button
-                    key={s.key}
-                    onClick={() => bulkUpdateStage(s.key)}
-                    className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
-                  >
-                    <span className={cn('w-2 h-2 rounded-full', s.dot)} />
-                    {s.label}
-                  </button>
-                ))}
+            <select
+              value={bulkOwnerId}
+              onChange={(event) => setBulkOwnerId(event.target.value)}
+              className="rounded-xl border border-green-300 bg-white px-3 py-2 text-sm text-gray-700"
+            >
+              <option value="">Select owner</option>
+              {owners.map((owner) => (
+                <option key={owner.id} value={owner.id}>{owner.name}</option>
+              ))}
+            </select>
+            <button type="button" onClick={bulkAssignOwner} className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+              Assign owner
+            </button>
+            <select
+              value={bulkTagIds[0] ?? ''}
+              onChange={(event) => setBulkTagIds(event.target.value ? [event.target.value] : [])}
+              className="rounded-xl border border-green-300 bg-white px-3 py-2 text-sm text-gray-700"
+            >
+              <option value="">Select tag</option>
+              {availableTags.map((tag) => (
+                <option key={tag.id} value={tag.id}>{tag.name}</option>
+              ))}
+            </select>
+            <button type="button" onClick={() => bulkUpdateTags('add_tags')} className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+              Add tag
+            </button>
+            <button type="button" onClick={() => bulkUpdateTags('remove_tags')} className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+              Remove tag
+            </button>
+            <button type="button" onClick={bulkArchive} className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+              Archive
+            </button>
+            <button type="button" onClick={bulkDelete} className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700">
+              Delete
+            </button>
+          </BulkSelectionBar>
+        </div>
+      )}
+
+      {dispositionTarget && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4" onClick={() => setDispositionTarget(null)}>
+          <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  {dispositionTarget.mode === 'bulk' ? `Bulk disposition (${selectedCount})` : `Disposition: ${dispositionTarget.lead.first_name} ${dispositionTarget.lead.last_name}`}
+                </h2>
+                <p className="text-sm text-gray-500">Uses the same shared disposition workflow as the dialer and contact page.</p>
               </div>
-            )}
+              <button type="button" onClick={() => setDispositionTarget(null)} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                Close
+              </button>
+            </div>
+            <CRMDispositionForm
+              onSubmit={dispositionTarget.mode === 'bulk' ? bulkDisposition : saveSingleDisposition}
+              submitting={dispositionSubmitting}
+              error={dispositionError}
+              lastDisposition={dispositionTarget.mode === 'bulk' ? null : {
+                label: dispositionTarget.lead.last_call_outcome || dispositionTarget.lead.stage,
+                at: dispositionTarget.lead.last_contacted_at ? formatDate(dispositionTarget.lead.last_contacted_at) : null,
+                note: dispositionTarget.lead.latest_call_note || null,
+              }}
+            />
           </div>
-          {/* Archive */}
-          <button
-            onClick={bulkArchive}
-            disabled={bulkLoading}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
-          >
-            <Archive size={13}/> Archive
-          </button>
-          {/* Delete */}
-          <button
-            onClick={bulkDelete}
-            disabled={bulkLoading}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            {bulkLoading ? <Loader2 size={13} className="animate-spin"/> : <Trash2 size={13}/>} Delete
-          </button>
-          {/* Close */}
-          <button
-            onClick={clearSelection}
-            aria-label="Close bulk actions"
-            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-          >
-            <X size={15}/>
-          </button>
         </div>
       )}
 

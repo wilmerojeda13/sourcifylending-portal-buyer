@@ -33,6 +33,7 @@ export interface CalendarEventItem {
   end: string
   status?: string | null
   htmlLink?: string | null
+  timeZone?: string | null
   source: 'google'
 }
 
@@ -212,6 +213,12 @@ export async function listCalendarEvents(
         end: end.dateTime || end.date || '',
         status: typeof item.status === 'string' ? item.status : null,
         htmlLink: typeof item.htmlLink === 'string' ? item.htmlLink : null,
+        timeZone:
+          typeof start.timeZone === 'string'
+            ? start.timeZone
+            : typeof end.timeZone === 'string'
+              ? end.timeZone
+              : null,
         source: 'google' as const,
       }
     })

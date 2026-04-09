@@ -1,0 +1,20 @@
+
+> sourcifylending-portal@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 5.4s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 1879ms (122 modules)
+ ○ Compiling /admin/crm ...
+ ✓ Compiled /admin/crm in 9.4s (865 modules)
+ GET /admin/crm?view=board 307 in 10440ms
+ ✓ Compiled in 1012ms (407 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 7.9s (876 modules)
+ GET /login 200 in 8278ms
+[?25h

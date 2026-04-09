@@ -18,6 +18,7 @@ import AnalyzerLivePanel from '@/components/admin/crm/AnalyzerLivePanel'
 import toast from 'react-hot-toast'
 import { type CRMDialerRepState } from '@/lib/crm-dialer'
 import { normalizePhone } from '@/modules/voice-agent/utils/phone'
+import { checkDialerEligibility } from '@/lib/crm-dialer-eligibility'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Stage = 'new' | 'contacted' | 'interested' | 'callback' | 'follow_up' | 'qualified' | 'demo_held' | 'active_client' | 'closed_lost'
@@ -75,6 +76,7 @@ interface CRMLead {
   sms_account_created?: boolean
   sms_account_created_at?: string | null
   appointment_at?: string | null
+  tags?: Array<{ id: string; name: string; slug: string; color: string }>
 }
 
 interface CRMDialerSession {
@@ -352,6 +354,8 @@ export default function DialerClient() {
   const [showFilters, setShowFilters] = useState(false)
   const [queueFilter, setQueueFilter] = useState<DialerQueueKey | null>(null)
   const [programFilter, setProgramFilter] = useState('')
+  const [tagFilters, setTagFilters] = useState<string[]>([])
+  const [availableTags, setAvailableTags] = useState<Array<{ id: string; name: string }>>([])
   const [skipped, setSkipped]     = useState(0)
   const [done, setDone]           = useState(0)
   const [callLoggingNotice, setCallLoggingNotice] = useState<string | null>(null)
@@ -376,6 +380,7 @@ export default function DialerClient() {
   const [deviceStatus, setDeviceStatus] = useState<'offline' | 'connecting' | 'connected' | 'error'>('offline')
   const [dialerMode, setDialerMode] = useState<'power' | 'manual'>('manual')
   const [connectionMode, setConnectionMode] = useState<'browser' | 'phone'>('browser')
+  const [powerDialStarted, setPowerDialStarted] = useState(false)
   const [profileActionHref, setProfileActionHref] = useState<string | null>(null)
   const [repPhoneConfigured, setRepPhoneConfigured] = useState(false)
   const autoDialLeadIdsRef = useRef<Set<string>>(new Set())
@@ -397,7 +402,6 @@ export default function DialerClient() {
   }, [session?.id])
 
   const connectBrowserAgentCall = useCallback(async (
-    device: any,
     rawSessionId: string | null | undefined,
     source: 'setReady' | 'reconnect',
   ) => {
@@ -412,10 +416,18 @@ export default function DialerClient() {
       throw new Error('Missing dialer session id for browser connect.')
     }
 
-    const connectParams = { params: { sessionId } }
-    console.log('[dialer] device.connect params:', connectParams)
-    console.log('[dialer] device.connect started')
-    return await device.connect(connectParams)
+    const res = await fetch('/api/admin/crm/dialer/connect-browser', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId }),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      console.error('[dialer] connect-browser error:', { source, sessionId, json })
+      throw new Error(typeof json?.error === 'string' ? json.error : 'Failed to trigger browser conference connect.')
+    }
+    console.log('[dialer] connect-browser triggered:', json)
+    return json
   }, [])
 
   const wireAgentBrowserCall = useCallback((agentCall: any) => {
@@ -446,23 +458,10 @@ export default function DialerClient() {
         if (agentAudioRejoinRef.current) return
         agentAudioRejoinRef.current = true
         setCallProviderMessage('Restoring browser audio for the next call...')
-        deviceRef.current
-          .connect((() => {
-            const reconnectSessionId = sessionIdRef.current?.trim() ?? ''
-            console.log('[dialer] session id for connect:', reconnectSessionId || '(empty)')
-            if (!reconnectSessionId) {
-              throw new Error('Missing dialer session id for browser reconnect.')
-            }
-            const connectParams = { params: { sessionId: reconnectSessionId } }
-            console.log('[dialer] device.connect params:', connectParams)
-            console.log('[dialer] device.connect started')
-            return connectParams
-          })())
-          .then((next: any) => {
-            agentCallRef.current = next
-            wireAgentBrowserCall(next)
-            setDeviceStatus('connected')
-            setCallProviderMessage('Browser audio live. Dial leads when ready.')
+        connectBrowserAgentCall(sessionIdRef.current, 'reconnect')
+          .then(() => {
+            setDeviceStatus('connecting')
+            setCallProviderMessage('Reconnecting browser audio...')
           })
           .catch((err: unknown) => {
             console.error('[dialer] agent call error:', err)
@@ -551,14 +550,42 @@ export default function DialerClient() {
     try {
       const p = new URLSearchParams()
       p.set('dialer_mode', 'true')
-      p.set('stage', queue)
+      // Use 'queue' parameter for backend dialer filtering (not 'stage')
+      // Backend uses queue to match leads against stage via matchesDialerQueueFilter()
+      p.set('queue', queue)
       if (programFilter) p.set('program', programFilter)
+      tagFilters.forEach((tagId) => p.append('tag_id', tagId))
       const res  = await fetch(`/api/admin/crm/leads?${p}`)
       const json = await res.json()
-      setLeads((json.leads ?? []).filter((l: CRMLead & { do_not_call: boolean }) => !l.do_not_call))
+      
+      // Client-side filtering as additional safeguard to prevent re-serving dispositioned contacts
+      const filteredLeads = (json.leads ?? []).filter((l: CRMLead & { do_not_call: boolean }) => {
+        // First filter: do_not_call flag
+        if (l.do_not_call) return false
+        
+        // Second filter: use eligibility check to ensure dispositioned contacts don't reappear
+        const eligibility = checkDialerEligibility({
+          do_not_call: l.do_not_call,
+          is_archived: false,
+          last_call_outcome: l.last_call_outcome,
+          last_call_at: l.last_call_at,
+          callback_due_at: l.callback_due_at,
+          follow_up_at: l.follow_up_at,
+          stage: l.stage,
+        })
+        
+        if (!eligibility.is_eligible) {
+          console.log(`[Dialer] Client-filter: ${l.id} (${l.first_name} ${l.last_name}) excluded: ${eligibility.exclusion_reason}`)
+          return false
+        }
+        
+        return true
+      })
+      
+      setLeads(filteredLeads)
     } catch { toast.error('Failed to load leads') }
     finally { setLoading(false) }
-  }, [programFilter])
+  }, [programFilter, tagFilters])
 
   const loadSession = useCallback(async () => {
     setSessionLoading(true)
@@ -655,6 +682,21 @@ export default function DialerClient() {
   useEffect(() => {
     if (queueFilter) load(queueFilter)
   }, [queueFilter, load])
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/admin/crm/tags', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((json) => {
+        if (active) {
+          setAvailableTags((json.tags ?? []).map((tag: { id: string; name: string }) => ({ id: tag.id, name: tag.name })))
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     loadSession()
@@ -938,10 +980,14 @@ export default function DialerClient() {
 
   useEffect(() => {
     if (!session) {
+      setPowerDialStarted(false)
       setCalled(false)
       setActiveCallId(null)
       setPendingDispositionCallId(null)
       return
+    }
+    if (activeAttemptCount > 0 || Boolean(session.current_crm_call_id) || Boolean(session.waiting_for_disposition)) {
+      setPowerDialStarted(true)
     }
     if (wasRecentlyDisposed(lastDisposedCallRef.current, session.current_crm_call_id)) {
       setCalled(false)
@@ -950,7 +996,7 @@ export default function DialerClient() {
     }
     setCalled(Boolean(session.current_crm_call_id))
     setActiveCallId(session.current_crm_call_id ?? null)
-  }, [session])
+  }, [activeAttemptCount, session])
 
   useEffect(() => {
     if (!activeCallId || session?.waiting_for_disposition) return
@@ -1043,6 +1089,7 @@ export default function DialerClient() {
 useEffect(() => {
   async function refillLogic() {
     if (!autoAdvance || !session || pacingBusy || authorizingCall || sessionBusy) return
+    if (!powerDialStarted) return
     if (session.waiting_for_disposition || !nextQueueLead || callBlocked || !canDialLead) return
     // Allow refill when waiting for disposition to enable continuous single-line dialing
     if (activeAttemptCount >= targetParallelLines) return
@@ -1106,7 +1153,7 @@ useEffect(() => {
   }
 
   refillLogic()
-}, [autoAdvance, session, pacingBusy, authorizingCall, sessionBusy, nextQueueLead, callBlocked, canDialLead, activeAttemptCount, targetParallelLines])
+}, [autoAdvance, session, pacingBusy, authorizingCall, sessionBusy, nextQueueLead, callBlocked, canDialLead, activeAttemptCount, targetParallelLines, powerDialStarted])
 
   function inviteStatusMeta(type: InviteType) {
     if (type === 'portal') {
@@ -1212,6 +1259,7 @@ useEffect(() => {
 
       setSession(json.session ?? null)
       setAttempts(json.attempts ?? [])
+      setPowerDialStarted(false)
       const sessionIdForConnect = typeof json?.session?.id === 'string' ? json.session.id.trim() : ''
       sessionIdRef.current = sessionIdForConnect || null
 
@@ -1258,6 +1306,21 @@ useEffect(() => {
         console.error('[Dialer] Error details:', JSON.stringify(error, null, 2))
         setDeviceStatus('error')
         setCallProviderMessage('Browser audio error. Click Not Ready then Ready to reconnect.')
+      })
+
+      device.on('incoming', (incomingCall: any) => {
+        console.log('[Dialer] Incoming browser agent call received')
+        agentCallRef.current = incomingCall
+        wireAgentBrowserCall(incomingCall)
+        setDeviceStatus('connecting')
+        setCallProviderMessage('Browser audio incoming...')
+        try {
+          incomingCall.accept()
+        } catch (incomingError) {
+          console.error('[Dialer] Failed to accept incoming browser agent call:', incomingError)
+          setDeviceStatus('error')
+          setCallProviderMessage('Failed to accept browser audio connection.')
+        }
       })
 
       // CRITICAL: Handle token expiry with automatic refresh
@@ -1333,15 +1396,14 @@ useEffect(() => {
         }
       }, 30000) // Check every 30 seconds
 
-      // Connect browser into the conference immediately after device setup
-      console.log('[Dialer] Starting device.connect() with sessionId:', json.session.id)
+      console.log('[Dialer] Registering device for incoming browser audio')
       try {
-        const agentCall = await connectBrowserAgentCall(device, sessionIdForConnect, 'setReady')
-        console.log('[Dialer] device.connect() succeeded, agentCall created')
-        agentCallRef.current = agentCall
-        wireAgentBrowserCall(agentCall)
+        await device.register()
+        console.log('[Dialer] Device registered, requesting browser conference connect for sessionId:', json.session.id)
+        await connectBrowserAgentCall(sessionIdForConnect, 'setReady')
+        setCallProviderMessage('Waiting for browser audio connection...')
       } catch (connectError) {
-        console.error('[Dialer] device.connect() threw error:', connectError)
+        console.error('[Dialer] Browser conference connect failed:', connectError)
         console.error('[Dialer] Connect error type:', typeof connectError)
         console.error('[Dialer] Connect error details:', JSON.stringify(connectError, null, 2))
         setDeviceStatus('error')
@@ -1427,6 +1489,7 @@ useEffect(() => {
       }
       setSession(null)
       setAttempts([])
+      setPowerDialStarted(false)
       setCalled(false)
       setActiveCallId(null)
       setCallProviderStatus(null)
@@ -1954,6 +2017,25 @@ useEffect(() => {
               ))}
             </div>
           </div>
+          <div>
+            <p className="text-xs text-gray-500 font-medium mb-2">Tags</p>
+            <div className="flex gap-2 flex-wrap">
+              {availableTags.map((tag) => (
+                <button
+                  key={tag.id}
+                  onClick={() => setTagFilters((current) => current.includes(tag.id) ? current.filter((id) => id !== tag.id) : [...current, tag.id])}
+                  className={cn(
+                    'text-xs px-3 py-1.5 rounded-full font-medium transition-colors',
+                    tagFilters.includes(tag.id)
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-800 text-gray-400',
+                  )}
+                >
+                  {tag.name}
+                </button>
+              ))}
+            </div>
+          </div>
           <button onClick={()=>setShowFilters(false)} className="w-full btn-primary text-sm py-2">Apply</button>
         </div>
       )}
@@ -2247,6 +2329,7 @@ useEffect(() => {
                       startManualCall()
                       return
                     }
+                    setPowerDialStarted(true)
                     void authorizeDial()
                   }}
                   disabled={dialerMode === 'manual' ? !current || callBlocked : authorizingCall || callBlocked || !canDialLead || leadAttemptActive}
@@ -2274,6 +2357,8 @@ useEffect(() => {
                         : 'Queue complete'
                     : authorizingCall
                     ? 'Dialing lead into live session...'
+                    : !powerDialStarted
+                      ? 'Start Connecting Calls'
                     : leadAttemptActive
                       ? 'Line already active'
                     : callBlocked

@@ -2,10 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Loader2, Plus, CalendarClock, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Loader2, Plus, CalendarClock, AlertTriangle, CheckSquare, Square, CheckCircle2 } from 'lucide-react'
 import CRMWorkspaceNav from '@/components/crm/CRMWorkspaceNav'
 import { CRM_TASK_PRIORITIES, CRM_TASK_STATUSES, CRM_TASK_TYPES } from '@/lib/crm'
 import toast from 'react-hot-toast'
+import BulkSelectionBar from '@/components/admin/crm/BulkSelectionBar'
+import { useBulkSelection } from '@/hooks/useBulkSelection'
+
+interface OwnerOption {
+  id: string
+  name: string
+}
 
 interface TaskRecord {
   id: string
@@ -16,8 +23,11 @@ interface TaskRecord {
   priority: string
   status: string
   due_at: string | null
+  owner_user_id?: string | null
   owner_name: string | null
   pipeline_stage: string | null
+  created_source?: string
+  created_source_label?: string | null
   crm_leads?: { id: string; first_name: string; last_name: string; business_name: string | null; stage: string }
 }
 
@@ -43,12 +53,16 @@ export default function TasksClient() {
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [bucket, setBucket] = useState('today')
+  const [owners, setOwners] = useState<OwnerOption[]>([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [bulkDueAt, setBulkDueAt] = useState('')
+  const [bulkOwnerId, setBulkOwnerId] = useState('')
 
   async function load(selectedBucket = bucket) {
     setLoading(true)
-    const res = await fetch(`/api/admin/crm/tasks?bucket=${selectedBucket}&owner=me`, { cache: 'no-store' })
+    const params = new URLSearchParams({ bucket: selectedBucket, owner: 'me' })
+    const res = await fetch(`/api/admin/crm/tasks?${params.toString()}`, { cache: 'no-store' })
     const json = await res.json()
     setTasks(json.tasks ?? [])
     setLoading(false)
@@ -57,6 +71,19 @@ export default function TasksClient() {
   useEffect(() => {
     load(bucket)
   }, [bucket])
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/admin/crm/owners', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((json) => {
+        if (active) setOwners(json.owners ?? [])
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   const grouped = useMemo(() => {
     return tasks.reduce<Record<string, TaskRecord[]>>((acc, task) => {
@@ -68,6 +95,18 @@ export default function TasksClient() {
       return acc
     }, {})
   }, [tasks])
+
+  const visibleTaskIds = tasks.map((task) => task.id)
+  const {
+    selectedIds,
+    selectedCount,
+    allVisibleSelected,
+    toggleOne,
+    toggleVisible,
+    clearSelection,
+    selectAllFiltered,
+    removeIds,
+  } = useBulkSelection(visibleTaskIds, visibleTaskIds)
 
   async function createTask(e: React.FormEvent) {
     e.preventDefault()
@@ -82,6 +121,8 @@ export default function TasksClient() {
       body: JSON.stringify({
         ...form,
         due_at: form.due_at || null,
+        created_source: 'manual',
+        created_source_label: 'Manual task',
       }),
     })
     const json = await res.json()
@@ -109,6 +150,44 @@ export default function TasksClient() {
     load(bucket)
   }
 
+  async function runBulkAction(action: string, extra: Record<string, unknown> = {}) {
+    if (selectedCount === 0) return
+    const ids = Array.from(selectedIds)
+    const res = await fetch('/api/admin/crm/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        module: 'tasks',
+        action,
+        ids,
+        ...extra,
+      }),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      toast.error(json.error || 'Bulk action failed')
+      return false
+    }
+    if (action === 'complete') {
+      setTasks((current) => current.map((task) => ids.includes(task.id) ? { ...task, status: 'Done' } : task))
+    }
+    if (action === 'delete') {
+      setTasks((current) => current.filter((task) => !ids.includes(task.id)))
+    }
+    if (action === 'change_due_date') {
+      setTasks((current) => current.map((task) => ids.includes(task.id) ? { ...task, due_at: bulkDueAt || null } : task))
+    }
+    if (action === 'assign_owner') {
+      const nextOwner = owners.find((owner) => owner.id === bulkOwnerId) ?? null
+      setTasks((current) => current.map((task) => ids.includes(task.id)
+        ? { ...task, owner_user_id: nextOwner?.id ?? null, owner_name: nextOwner?.name ?? null }
+        : task))
+    }
+    toast.success(json.message || 'Bulk action complete')
+    removeIds(ids)
+    return true
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 dark:bg-gray-950">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6">
@@ -118,11 +197,11 @@ export default function TasksClient() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-green-600">Tasks</p>
               <h1 className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">Follow-up manager</h1>
-              <p className="mt-1 text-sm text-gray-500">Stay on callbacks, docs, emails, and closes without leaving the CRM.</p>
+              <p className="mt-1 text-sm text-gray-500">Tasks stay operational: status, due date, owner, and related contact. No task tags.</p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {BUCKETS.map(item => (
+              {BUCKETS.map((item) => (
                 <button
                   key={item.value}
                   onClick={() => setBucket(item.value)}
@@ -144,15 +223,61 @@ export default function TasksClient() {
               </div>
               <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                 <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500"><CalendarClock size={14} /> Due today</p>
-                <p className="mt-2 text-2xl font-bold text-blue-600">{tasks.filter(task => task.due_at && new Date(task.due_at).toDateString() === new Date().toDateString() && task.status !== 'Done').length}</p>
+                <p className="mt-2 text-2xl font-bold text-blue-600">{tasks.filter((task) => task.due_at && new Date(task.due_at).toDateString() === new Date().toDateString() && task.status !== 'Done').length}</p>
               </div>
               <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                 <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500"><AlertTriangle size={14} /> High priority</p>
-                <p className="mt-2 text-2xl font-bold text-red-600">{tasks.filter(task => ['High', 'Urgent'].includes(task.priority) && task.status !== 'Done').length}</p>
+                <p className="mt-2 text-2xl font-bold text-red-600">{tasks.filter((task) => ['High', 'Urgent'].includes(task.priority) && task.status !== 'Done').length}</p>
               </div>
             </div>
 
+            <BulkSelectionBar selectedCount={selectedCount} onSelectAll={selectAllFiltered} onClear={clearSelection}>
+              <select value={bulkOwnerId} onChange={(event) => setBulkOwnerId(event.target.value)} className="rounded-xl border border-green-300 bg-white px-3 py-2 text-sm text-gray-700">
+                <option value="">Select owner</option>
+                {owners.map((owner) => (
+                  <option key={owner.id} value={owner.id}>{owner.name}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => void runBulkAction('complete')} className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                Complete
+              </button>
+              <button
+                type="button"
+                onClick={() => bulkOwnerId ? void runBulkAction('assign_owner', {
+                  owner_user_id: bulkOwnerId,
+                  owner_name: owners.find((owner) => owner.id === bulkOwnerId)?.name ?? null,
+                }) : toast.error('Select an owner first')}
+                className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Reassign
+              </button>
+              <input
+                type="datetime-local"
+                value={bulkDueAt}
+                onChange={(event) => setBulkDueAt(event.target.value)}
+                className="rounded-xl border border-green-300 bg-white px-3 py-2 text-sm text-gray-700"
+              />
+              <button
+                type="button"
+                onClick={() => bulkDueAt ? void runBulkAction('change_due_date', { due_at: bulkDueAt }) : toast.error('Select a due date first')}
+                className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Change due
+              </button>
+              <button type="button" onClick={() => void runBulkAction('delete')} className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700">
+                Delete
+              </button>
+            </BulkSelectionBar>
+
             <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="border-b border-gray-100 px-5 py-3 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={toggleVisible}>
+                    {allVisibleSelected ? <CheckSquare size={16} className="text-green-600" /> : <Square size={16} className="text-gray-400" />}
+                  </button>
+                  <span className="text-xs text-gray-500">{selectedCount > 0 ? `${selectedCount} selected` : 'Select tasks for bulk cleanup'}</span>
+                </div>
+              </div>
               {loading && (
                 <div className="flex items-center justify-center px-5 py-20">
                   <Loader2 size={22} className="animate-spin text-gray-400" />
@@ -161,17 +286,26 @@ export default function TasksClient() {
               {!loading && tasks.length === 0 && (
                 <div className="px-5 py-20 text-center text-sm text-gray-500">No tasks in this view yet.</div>
               )}
-              {!loading && tasks.map(task => (
+              {!loading && tasks.map((task) => (
                 <div key={task.id} className="border-b border-gray-100 px-5 py-4 last:border-b-0 dark:border-gray-800">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 dark:text-white">{task.title}</p>
-                      {task.description && <p className="mt-1 text-sm text-gray-500">{task.description}</p>}
+                      <div className="flex items-start gap-2">
+                        <button type="button" onClick={() => toggleOne(task.id)} className="mt-0.5 text-gray-400 hover:text-green-600">
+                          {selectedIds.has(task.id) ? <CheckSquare size={15} className="text-green-600" /> : <Square size={15} />}
+                        </button>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900 dark:text-white">{task.title}</p>
+                          {task.description && <p className="mt-1 text-sm text-gray-500">{task.description}</p>}
+                        </div>
+                      </div>
                       <div className="mt-2 flex flex-wrap gap-2 text-xs">
                         <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{task.task_type}</span>
                         <span className="rounded-full bg-red-50 px-2.5 py-1 font-semibold text-red-600 dark:bg-red-950/30 dark:text-red-300">{task.priority}</span>
                         <span className="rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-600 dark:bg-blue-950/30 dark:text-blue-300">{task.status}</span>
                         {task.pipeline_stage && <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-300">{task.pipeline_stage}</span>}
+                        {task.created_source_label && <span className="rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-700">{task.created_source_label}</span>}
+                        {task.owner_name && <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{task.owner_name}</span>}
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 text-sm text-gray-500 lg:items-end">
@@ -202,7 +336,7 @@ export default function TasksClient() {
                       <span className="text-sm text-gray-500">{items.length} task{items.length === 1 ? '' : 's'}</span>
                     </div>
                     <div className="mt-3 space-y-2">
-                      {items.map(item => (
+                      {items.map((item) => (
                         <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
                           <span className="text-gray-700 dark:text-gray-300">{item.title}</span>
                           <span className="text-gray-500">{item.status}</span>
@@ -221,23 +355,23 @@ export default function TasksClient() {
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">Quick add task</h2>
             </div>
             <form onSubmit={createTask} className="mt-4 space-y-3">
-              <input className="input-field" placeholder="Task title" value={form.title} onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))} />
-              <textarea className="input-field min-h-[110px]" placeholder="Description" value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} />
+              <input className="input-field" placeholder="Task title" value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} />
+              <textarea className="input-field min-h-[110px]" placeholder="Description" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
               <div className="grid gap-3 md:grid-cols-2">
-                <select className="input-field" value={form.task_type} onChange={e => setForm(prev => ({ ...prev, task_type: e.target.value }))}>
-                  {CRM_TASK_TYPES.map(item => <option key={item} value={item}>{item}</option>)}
+                <select className="input-field" value={form.task_type} onChange={(e) => setForm((prev) => ({ ...prev, task_type: e.target.value }))}>
+                  {CRM_TASK_TYPES.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
-                <select className="input-field" value={form.priority} onChange={e => setForm(prev => ({ ...prev, priority: e.target.value }))}>
-                  {CRM_TASK_PRIORITIES.map(item => <option key={item} value={item}>{item}</option>)}
+                <select className="input-field" value={form.priority} onChange={(e) => setForm((prev) => ({ ...prev, priority: e.target.value }))}>
+                  {CRM_TASK_PRIORITIES.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
-                <select className="input-field" value={form.status} onChange={e => setForm(prev => ({ ...prev, status: e.target.value }))}>
-                  {CRM_TASK_STATUSES.map(item => <option key={item} value={item}>{item}</option>)}
+                <select className="input-field" value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>
+                  {CRM_TASK_STATUSES.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
-                <input className="input-field" type="datetime-local" value={form.due_at} onChange={e => setForm(prev => ({ ...prev, due_at: e.target.value }))} />
+                <input className="input-field" type="datetime-local" value={form.due_at} onChange={(e) => setForm((prev) => ({ ...prev, due_at: e.target.value }))} />
               </div>
-              <textarea className="input-field min-h-[90px]" placeholder="Internal notes" value={form.notes} onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))} />
+              <textarea className="input-field min-h-[90px]" placeholder="Internal notes" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} />
               <button type="submit" disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60">
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                 Create task

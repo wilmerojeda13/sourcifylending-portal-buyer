@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getRelationUnavailableMessage, isMissingRelationError, isSchemaDriftError } from '@/lib/supabase-schema'
+import {
+  getCrmAnalyticsTimeZone,
+  getThisMonthRangeInCrmTimeZone,
+  getThisWeekRangeInCrmTimeZone,
+  getTodayRangeInCrmTimeZone,
+} from '@/lib/crm-overview-range'
 
 // 60s browser cache reduces repeated aggregation queries significantly.
 // Admin dashboard polls every 30s — with this header the browser serves from cache
@@ -29,12 +35,6 @@ async function assertAdmin() {
   return profile?.is_admin ? supabase : null
 }
 
-function startOfDay(date: Date) {
-  const value = new Date(date)
-  value.setHours(0, 0, 0, 0)
-  return value
-}
-
 export async function GET(req: NextRequest) {
   const supabase = await assertAdmin()
   if (!supabase) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -45,24 +45,26 @@ export async function GET(req: NextRequest) {
   const to = searchParams.get('to')
 
   const now = new Date()
-  let rangeStart = startOfDay(now)
+  const crmTimeZone = getCrmAnalyticsTimeZone()
+  let rangeStart = getTodayRangeInCrmTimeZone(now, crmTimeZone).from
   let rangeEnd = new Date(now)
 
   if (range === 'today') {
-    rangeEnd = new Date(rangeStart)
-    rangeEnd.setDate(rangeEnd.getDate() + 1)
+    const todayRange = getTodayRangeInCrmTimeZone(now, crmTimeZone)
+    rangeStart = todayRange.from
+    rangeEnd = todayRange.to
   } else if (range === 'this_week') {
-    const day = rangeStart.getDay() || 7
-    rangeStart.setDate(rangeStart.getDate() - day + 1)
-    rangeEnd = new Date(rangeStart)
-    rangeEnd.setDate(rangeEnd.getDate() + 7)
+    const weekRange = getThisWeekRangeInCrmTimeZone(now, crmTimeZone)
+    rangeStart = weekRange.from
+    rangeEnd = weekRange.to
   } else if (range === 'custom' && from && to) {
     rangeStart = new Date(from)
     rangeEnd = new Date(to)
     rangeEnd.setDate(rangeEnd.getDate() + 1)
   } else {
-    rangeStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    const monthRange = getThisMonthRangeInCrmTimeZone(now, crmTimeZone)
+    rangeStart = monthRange.from
+    rangeEnd = monthRange.to
   }
 
   const [callsRes, tasksRes, hotLeadsRes, textsRes] = await Promise.all([
@@ -129,12 +131,9 @@ export async function GET(req: NextRequest) {
   const hotLeads = hotLeadsRes.error ? [] : (hotLeadsRes.data ?? [])
   const texts = textsRes.error ? [] : (textsRes.data ?? [])
 
-  const todayStart = startOfDay(now)
-  const tomorrowStart = new Date(todayStart)
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
-  const weekStart = new Date(todayStart)
-  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() || 7) - 1))
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const { from: todayStart, to: tomorrowStart } = getTodayRangeInCrmTimeZone(now, crmTimeZone)
+  const { from: weekStart } = getThisWeekRangeInCrmTimeZone(now, crmTimeZone)
+  const { from: monthStart } = getThisMonthRangeInCrmTimeZone(now, crmTimeZone)
 
   const connects = calls.filter(call => ['Interested', 'Appointment Set', 'Booked Call', 'Closed Won'].includes(call.call_outcome)).length
   const bookedCalls = calls.filter(call => call.strategy_call_booked || ['Appointment Set', 'Booked Call'].includes(call.call_outcome)).length
