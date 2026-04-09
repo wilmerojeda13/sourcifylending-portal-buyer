@@ -83,6 +83,22 @@ export default function CRMDispositionForm({
     setFollowUpAt(initialFollowUpAt)
   }, [initialFollowUpAt])
 
+  // Clear follow-up date when switching to a disposition that doesn't need it
+  // This prevents stale form state from breaking saves
+  const handleDispositionSelect = (key: UIDisposition['key']) => {
+    const disposition = UI_DISPOSITIONS.find((d) => d.key === key)
+    // If switching TO a disposition that needs follow-up, keep the current value
+    // If switching AWAY from a disposition that needs follow-up, clear it
+    // Otherwise (non-follow-up dispositions), clear the follow-up field
+    if (disposition?.needsFollowUp) {
+      // Keep existing follow-up if there is one, otherwise don't change
+    } else {
+      // Clear follow-up for non-follow-up dispositions
+      setFollowUpAt('')
+    }
+    setSelectedKey(key)
+  }
+
   const selectedDisposition = useMemo(
     () => UI_DISPOSITIONS.find((item) => item.key === selectedKey) ?? null,
     [selectedKey],
@@ -116,10 +132,10 @@ export default function CRMDispositionForm({
         {UI_DISPOSITIONS.map((disposition) => {
           const Icon = disposition.icon
           return (
-            <button
+              <button
               key={disposition.key}
               type="button"
-              onClick={() => setSelectedKey(disposition.key)}
+              onClick={() => handleDispositionSelect(disposition.key)}
               className={cn(
                 'rounded-2xl px-3 py-3 text-sm font-semibold transition-all',
                 disposition.color,

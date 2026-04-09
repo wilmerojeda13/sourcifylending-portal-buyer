@@ -256,7 +256,29 @@ export async function applyCrmDisposition(
   }
 
   let followUpTask: Record<string, unknown> | null = null
-  if (input.followUpAt && (definition.requiresFollowUpAt || input.createFollowUpTask !== false)) {
+  
+  // Determine if we should create a follow-up task:
+  // - Only create task if createFollowUpTask is explicitly true (not just defaulted)
+  // - And disposition should have a follow-up (requiresFollowUpAt or appointment with follow-up)
+  const shouldCreateTask = input.createFollowUpTask === true && 
+    (definition.requiresFollowUpAt || definition.appointment)
+  
+  console.log('[Disposition] Task creation decision:', {
+    disposition: definition.key,
+    hasFollowUpAt: Boolean(input.followUpAt),
+    createFollowUpTask: input.createFollowUpTask,
+    requiresFollowUpAt: definition.requiresFollowUpAt,
+    isAppointment: definition.appointment,
+    shouldCreateTask,
+  })
+  
+  if (input.followUpAt && shouldCreateTask) {
+    console.log('[Disposition] Creating follow-up task for:', {
+      leadId: input.leadId,
+      disposition: definition.key,
+      followUpAt: input.followUpAt,
+    })
+    
     const { data: task, error: taskError } = await supabase
       .from('crm_tasks')
       .insert({
@@ -284,13 +306,27 @@ export async function applyCrmDisposition(
       .single()
 
     if (taskError) {
+      console.error('[Disposition] Task creation failed:', {
+        error: taskError.message,
+        code: taskError.code,
+        details: taskError.details,
+      })
       if (isMissingRelationError(taskError, 'crm_tasks')) {
         warnings.push('crm_tasks_unavailable')
       } else {
         throw taskError
       }
+    } else {
+      console.log('[Disposition] Task created successfully:', { taskId: task?.id })
     }
     followUpTask = task ?? null
+  } else {
+    console.log('[Disposition] Skipping task creation:', {
+      disposition: definition.key,
+      reason: !input.followUpAt 
+        ? 'no follow_up_at provided' 
+        : 'createFollowUpTask not explicitly true or disposition does not require task',
+    })
   }
 
   // appendCrmActivity now returns { success: boolean; warning?: string }

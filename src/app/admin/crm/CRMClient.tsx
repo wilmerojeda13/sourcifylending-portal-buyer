@@ -921,7 +921,8 @@ export default function CRMClient() {
           disposition_key: value.disposition_key,
           note: value.note || null,
           follow_up_at: value.follow_up_at || null,
-          create_follow_up_task: true,
+          // Only create task for dispositions that require follow-up
+          create_follow_up_task: ['follow_up', 'call_back', 'call_back_later', 'appointment_set', 'booked_call'].includes(value.disposition_key) && value.follow_up_at ? true : false,
         }),
       })
       const json = await res.json()
