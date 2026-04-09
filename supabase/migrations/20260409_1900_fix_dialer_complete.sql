@@ -86,5 +86,35 @@ ALTER TABLE public.crm_dialer_sessions
   ADD COLUMN IF NOT EXISTS rep_state                text,
   ADD COLUMN IF NOT EXISTS settings                 jsonb    NOT NULL DEFAULT '{}'::jsonb;
 
--- ── 4. Notify PostgREST to reload schema cache ────────────────────────────────
+-- ── 4. crm_tasks: columns inserted by applyCrmDisposition but absent from ──────
+--    the original backfill migration (20260330_crm_calls_backfill.sql).
+--    Without these the task INSERT returns PGRST204, which isMissingRelationError
+--    catches and turns into the degraded-202 "CRM workflow tracking tables are not
+--    available yet" warning visible in the dialer after Appointment Set / Call Back.
+
+ALTER TABLE public.crm_tasks
+  ADD COLUMN IF NOT EXISTS description         text,
+  ADD COLUMN IF NOT EXISTS priority            text  NOT NULL DEFAULT 'Medium',
+  ADD COLUMN IF NOT EXISTS pipeline_stage      text,
+  ADD COLUMN IF NOT EXISTS created_by_user_id  uuid,
+  ADD COLUMN IF NOT EXISTS created_source      text  NOT NULL DEFAULT 'manual',
+  ADD COLUMN IF NOT EXISTS created_source_label text,
+  ADD COLUMN IF NOT EXISTS source_metadata     jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS deleted_at          timestamptz;
+
+ALTER TABLE public.crm_tasks
+  DROP CONSTRAINT IF EXISTS crm_tasks_created_source_check;
+
+ALTER TABLE public.crm_tasks
+  ADD CONSTRAINT crm_tasks_created_source_check
+  CHECK (created_source IN ('manual', 'disposition', 'automation', 'system', 'calendar'));
+
+CREATE INDEX IF NOT EXISTS crm_tasks_created_source_idx
+  ON public.crm_tasks (created_source, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS crm_tasks_due_at_idx
+  ON public.crm_tasks (due_at)
+  WHERE due_at IS NOT NULL AND deleted_at IS NULL;
+
+-- ── 5. Notify PostgREST to reload schema cache ────────────────────────────────
 NOTIFY pgrst, 'reload schema';
