@@ -43,14 +43,18 @@ export default function TasksClient() {
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [bucket, setBucket] = useState('today')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const canBulkDeleteCompleted = bucket === 'completed'
 
   async function load(selectedBucket = bucket) {
     setLoading(true)
     const res = await fetch(`/api/admin/crm/tasks?bucket=${selectedBucket}&owner=me`, { cache: 'no-store' })
     const json = await res.json()
     setTasks(json.tasks ?? [])
+    setSelectedIds(new Set())
     setLoading(false)
   }
 
@@ -109,6 +113,57 @@ export default function TasksClient() {
     load(bucket)
   }
 
+  function toggleSelect(id: string) {
+    if (!canBulkDeleteCompleted) return
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function selectAllFiltered() {
+    if (!canBulkDeleteCompleted) return
+    setSelectedIds(new Set(tasks.map(task => task.id)))
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+  }
+
+  async function deleteSelectedTasks() {
+    if (!canBulkDeleteCompleted) return
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+
+    const ok = window.confirm(`Delete ${ids.length} selected task(s)? This cannot be undone.`)
+    if (!ok) return
+
+    setBulkDeleting(true)
+    const res = await fetch('/api/admin/crm/tasks', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    })
+    const json = await res.json().catch(() => null)
+    setBulkDeleting(false)
+
+    if (!res.ok) {
+      toast.error(json?.error || 'Failed to delete selected tasks')
+      return
+    }
+
+    const deletedCount = Number(json?.deleted ?? 0)
+    if (deletedCount <= 0) {
+      toast.error('Only completed tasks can be deleted in bulk.')
+      return
+    }
+
+    toast.success(`Deleted ${deletedCount} task${deletedCount === 1 ? '' : 's'}`)
+    load(bucket)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 dark:bg-gray-950">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6">
@@ -153,6 +208,38 @@ export default function TasksClient() {
             </div>
 
             <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              {canBulkDeleteCompleted && selectedIds.size > 0 && !loading && (
+                <div className="border-b border-green-200 bg-green-50/60 px-5 py-3 dark:border-green-900/70 dark:bg-green-950/20">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-green-700 dark:text-green-300">{selectedIds.size} selected</p>
+                    {selectedIds.size < tasks.length && (
+                      <button
+                        type="button"
+                        onClick={selectAllFiltered}
+                        className="rounded-lg border border-green-400/80 px-2.5 py-1 text-xs font-semibold text-green-700 hover:bg-green-100 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/40"
+                      >
+                        Select all filtered
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={deleteSelectedTasks}
+                      disabled={bulkDeleting}
+                      className="rounded-lg bg-red-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                    >
+                      {bulkDeleting ? 'Deleting…' : 'Delete'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      disabled={bulkDeleting}
+                      className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
               {loading && (
                 <div className="flex items-center justify-center px-5 py-20">
                   <Loader2 size={22} className="animate-spin text-gray-400" />
@@ -165,6 +252,17 @@ export default function TasksClient() {
                 <div key={task.id} className="border-b border-gray-100 px-5 py-4 last:border-b-0 dark:border-gray-800">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
+                      {canBulkDeleteCompleted && (
+                        <label className="mb-2 inline-flex items-center gap-2 text-xs font-medium text-gray-500">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(task.id)}
+                            onChange={() => toggleSelect(task.id)}
+                            className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          />
+                          Select
+                        </label>
+                      )}
                       <p className="font-semibold text-gray-900 dark:text-white">{task.title}</p>
                       {task.description && <p className="mt-1 text-sm text-gray-500">{task.description}</p>}
                       <div className="mt-2 flex flex-wrap gap-2 text-xs">

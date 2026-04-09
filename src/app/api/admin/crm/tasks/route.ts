@@ -140,3 +140,28 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ task: data }, { status: 201 })
 }
+
+export async function DELETE(req: NextRequest) {
+  const admin = await assertAdmin()
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await req.json().catch(() => null)
+  const ids = Array.isArray(body?.ids)
+    ? body.ids.filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
+    : []
+
+  if (ids.length === 0) {
+    return NextResponse.json({ error: 'Task ids are required' }, { status: 400 })
+  }
+
+  const { data: deletedRows, error } = await admin.supabase
+    .from('crm_tasks')
+    .delete()
+    .eq('status', 'Done')
+    .in('id', ids)
+    .select('id')
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ deleted: deletedRows?.length ?? 0 })
+}
