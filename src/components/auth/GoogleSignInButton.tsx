@@ -19,7 +19,7 @@ export default function GoogleSignInButton({
     setLoading(true)
     setError(null)
     const supabase = createClient()
-    const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '')
+    const appOrigin = window.location.origin.replace(/\/$/, '')
     const nextPath = redirectTo.startsWith('/') ? redirectTo : '/dashboard'
 
     // Timeout guard — if Supabase doesn't redirect within 8 s, reset so user can retry
