@@ -117,6 +117,9 @@ const PROGRAM_BADGE: Record<string, string> = {
 }
 const PROGRAM_LABEL: Record<string, string> = { program_a: 'Prog A', program_b: 'Prog B', program_c: 'Prog C' }
 
+// Disposition filter options - values MUST match crm_leads.last_call_outcome field
+// which is set by applyCrmDisposition() from CRM_DISPOSITIONS.outcome
+// See lib/crm-dispositions.ts for the canonical disposition definitions
 const DISPOSITION_FILTER_OPTIONS = [
   { value: '', label: 'Any disposition' },
   { value: 'Interested', label: 'Interested' },

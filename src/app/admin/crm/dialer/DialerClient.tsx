@@ -150,6 +150,9 @@ type DialerQueueKey =
   | 'closed_lost'
 
 // ─── Dispositions ─────────────────────────────────────────────────────────────
+// NOTE: outcome values MUST match CRM_DISPOSITIONS in lib/crm-dispositions.ts
+// The filter in Leads/Pipeline reads from crm_leads.last_call_outcome
+// which is set from definition.outcome in applyCrmDisposition()
 const DISPOSITIONS = [
   { key: 'interested', label: 'Interested', icon: ThumbsUp, color: 'bg-green-500 hover:bg-green-600 text-white', outcome: 'Interested', newStage: 'interested' as Stage },
   { key: 'appointment_set', label: 'Appointment Set', icon: CalendarPlus, color: 'bg-purple-500 hover:bg-purple-600 text-white', outcome: 'Appointment Set', newStage: 'qualified' as Stage },

@@ -24,6 +24,9 @@ interface DispositionPanelProps {
 }
 
 // Disposition options
+// NOTE: outcome values MUST match CRM_DISPOSITIONS in lib/crm-dispositions.ts
+// The filter in Leads/Pipeline reads from crm_leads.last_call_outcome
+// which is set from definition.outcome in applyCrmDisposition()
 const DISPOSITION_OPTIONS: DispositionOption[] = [
   { 
     key: 'interested', 
@@ -35,11 +38,11 @@ const DISPOSITION_OPTIONS: DispositionOption[] = [
     temperature: 'warm'
   },
   { 
-    key: 'book_demo', 
-    label: 'Book Demo', 
+    key: 'appointment_set',  // Changed from 'book_demo' to match CRM_DISPOSITIONS
+    label: 'Appointment Set', 
     icon: CalendarPlus, 
     color: 'bg-purple-600 hover:bg-purple-700 text-white', 
-    outcome: 'Booked Call', 
+    outcome: 'Appointment Set',  // Changed from 'Booked Call' to match CRM_DISPOSITIONS
     newStage: 'demo_scheduled',
     temperature: 'hot'
   },
@@ -48,7 +51,7 @@ const DISPOSITION_OPTIONS: DispositionOption[] = [
     label: 'Voicemail', 
     icon: Voicemail, 
     color: 'bg-amber-600 hover:bg-amber-700 text-white', 
-    outcome: 'Left Voicemail', 
+    outcome: 'Voicemail',  // Changed from 'Left Voicemail' to match CRM_DISPOSITIONS
     newStage: 'contacted',
     temperature: 'cold'
   },
@@ -73,10 +76,10 @@ const DISPOSITION_OPTIONS: DispositionOption[] = [
   },
   { 
     key: 'dnc', 
-    label: 'DNC', 
+    label: 'DNC / Remove',  // Changed from 'DNC' to match CRM_DISPOSITIONS label
     icon: Ban, 
     color: 'bg-red-800 hover:bg-red-900 text-white', 
-    outcome: 'Do Not Call',
+    outcome: 'Do Not Call',  // Changed from 'DNC' to match CRM_DISPOSITIONS outcome
     isTerminal: true
   },
 ]

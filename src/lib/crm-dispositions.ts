@@ -222,6 +222,16 @@ export async function applyCrmDisposition(
 
   if (updateError) throw updateError
 
+  // DEBUGGING: Verify the disposition was actually saved
+  // This prevents silent drift where the update appears to succeed but data is wrong
+  if (updatedLead && updatedLead.last_call_outcome !== definition.outcome) {
+    console.error('[Disposition] CRITICAL: Disposition mismatch!')
+    console.error('[Disposition] Expected:', definition.outcome)
+    console.error('[Disposition] Got:', updatedLead.last_call_outcome)
+    console.error('[Disposition] Full updated record:', updatedLead)
+    throw new Error(`Disposition sync verification failed: expected '${definition.outcome}' but got '${updatedLead.last_call_outcome}'`)
+  }
+
   let updatedCall: Record<string, unknown> | null = null
   if (input.callId) {
     const { data: call, error: callError } = await supabase
