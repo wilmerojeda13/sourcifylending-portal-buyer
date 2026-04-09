@@ -190,14 +190,14 @@ export default function TasksClient() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 dark:bg-gray-950">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 md:px-6">
         <CRMWorkspaceNav />
-        <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
           <section className="space-y-5">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-green-600">Tasks</p>
-              <h1 className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">Follow-up manager</h1>
-              <p className="mt-1 text-sm text-gray-500">Tasks stay operational: status, due date, owner, and related contact. No task tags.</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-green-600">Tasks</p>
+              <h1 className="mt-0.5 text-xl font-bold text-gray-900 dark:text-white">CRM task queue</h1>
+              <p className="mt-0.5 text-sm text-gray-500">Callbacks, demos, follow-ups, and priorities all in one place.</p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -205,10 +205,10 @@ export default function TasksClient() {
                 <button
                   key={item.value}
                   onClick={() => setBucket(item.value)}
-                  className={`rounded-xl px-3.5 py-2 text-sm font-medium transition-colors ${
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                     bucket === item.value
-                      ? 'bg-green-600 text-white'
-                      : 'border border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-green-700 dark:hover:text-green-300'
+                      ? 'border-green-600 bg-green-600 text-white'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:text-green-300'
                   }`}
                 >
                   {item.label}
@@ -216,23 +216,17 @@ export default function TasksClient() {
               ))}
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">My Tasks</p>
-                <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{tasks.length}</p>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500"><CalendarClock size={14} /> Due today</p>
-                <p className="mt-2 text-2xl font-bold text-blue-600">{tasks.filter((task) => task.due_at && new Date(task.due_at).toDateString() === new Date().toDateString() && task.status !== 'Done').length}</p>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500"><AlertTriangle size={14} /> High priority</p>
-                <p className="mt-2 text-2xl font-bold text-red-600">{tasks.filter((task) => ['High', 'Urgent'].includes(task.priority) && task.status !== 'Done').length}</p>
-              </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {BUCKETS.map((item) => (
+                <div key={item.value} className="rounded-xl border border-gray-200 bg-white p-3 text-center shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">{tasks.filter((task) => task.status === item.value).length}</p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-gray-500">{item.label}</p>
+                </div>
+              ))}
             </div>
 
             <BulkSelectionBar selectedCount={selectedCount} onSelectAll={selectAllFiltered} onClear={clearSelection}>
-              <select value={bulkOwnerId} onChange={(event) => setBulkOwnerId(event.target.value)} className="rounded-xl border border-green-300 bg-white px-3 py-2 text-sm text-gray-700">
+              <select value={bulkOwnerId} onChange={(event) => setBulkOwnerId(event.target.value)} className="input-field">
                 <option value="">Select owner</option>
                 {owners.map((owner) => (
                   <option key={owner.id} value={owner.id}>{owner.name}</option>
@@ -255,7 +249,7 @@ export default function TasksClient() {
                 type="datetime-local"
                 value={bulkDueAt}
                 onChange={(event) => setBulkDueAt(event.target.value)}
-                className="rounded-xl border border-green-300 bg-white px-3 py-2 text-sm text-gray-700"
+                className="input-field"
               />
               <button
                 type="button"
@@ -269,8 +263,8 @@ export default function TasksClient() {
               </button>
             </BulkSelectionBar>
 
-            <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-              <div className="border-b border-gray-100 px-5 py-3 dark:border-gray-800">
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={toggleVisible}>
                     {allVisibleSelected ? <CheckSquare size={16} className="text-green-600" /> : <Square size={16} className="text-gray-400" />}
@@ -284,10 +278,12 @@ export default function TasksClient() {
                 </div>
               )}
               {!loading && tasks.length === 0 && (
-                <div className="px-5 py-20 text-center text-sm text-gray-500">No tasks in this view yet.</div>
+                <div className="px-5 py-10 text-center text-sm text-gray-500">
+                  No tasks match this filter.
+                </div>
               )}
               {!loading && tasks.map((task) => (
-                <div key={task.id} className="border-b border-gray-100 px-5 py-4 last:border-b-0 dark:border-gray-800">
+                <div key={task.id} className="border-b border-gray-100 px-4 py-2.5 last:border-b-0 dark:border-gray-800">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="flex items-start gap-2">
@@ -295,7 +291,7 @@ export default function TasksClient() {
                           {selectedIds.has(task.id) ? <CheckSquare size={15} className="text-green-600" /> : <Square size={15} />}
                         </button>
                         <div className="min-w-0">
-                          <p className="font-semibold text-gray-900 dark:text-white">{task.title}</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">{task.title}</p>
                           {task.description && <p className="mt-1 text-sm text-gray-500">{task.description}</p>}
                         </div>
                       </div>
@@ -316,8 +312,8 @@ export default function TasksClient() {
                         </Link>
                       )}
                       {task.status !== 'Done' && (
-                        <button onClick={() => completeTask(task.id)} className="inline-flex items-center gap-1 rounded-xl bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700">
-                          <CheckCircle2 size={14} /> Mark complete
+                        <button onClick={() => completeTask(task.id)} className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-300">
+                          Complete
                         </button>
                       )}
                     </div>
@@ -326,25 +322,32 @@ export default function TasksClient() {
               ))}
             </div>
 
-            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Tasks by lead</h2>
-              <div className="mt-4 space-y-4">
-                {Object.entries(grouped).map(([leadName, items]) => (
-                  <div key={leadName} className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-semibold text-gray-900 dark:text-white">{leadName}</p>
-                      <span className="text-sm text-gray-500">{items.length} task{items.length === 1 ? '' : 's'}</span>
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      {items.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
-                          <span className="text-gray-700 dark:text-gray-300">{item.title}</span>
-                          <span className="text-gray-500">{item.status}</span>
-                        </div>
-                      ))}
-                    </div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">Quick add task</h2>
+              <div className="mt-3 space-y-2.5">
+                <form onSubmit={createTask}>
+                  <input className="input-field" placeholder="Task title" value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} />
+                  <textarea className="input-field min-h-[80px] resize-y text-sm" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Optional description..." />
+                  <div className="grid gap-2.5 md:grid-cols-2">
+                    <select className="input-field" value={form.task_type} onChange={(e) => setForm((prev) => ({ ...prev, task_type: e.target.value }))}>
+                      {CRM_TASK_TYPES.map((item) => <option key={item} value={item}>{item}</option>)}
+                    </select>
+                    <select className="input-field" value={form.priority} onChange={(e) => setForm((prev) => ({ ...prev, priority: e.target.value }))}>
+                      {CRM_TASK_PRIORITIES.map((item) => <option key={item} value={item}>{item}</option>)}
+                    </select>
                   </div>
-                ))}
+                  <div className="grid gap-2.5 md:grid-cols-2">
+                    <select className="input-field" value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>
+                      {CRM_TASK_STATUSES.map((item) => <option key={item} value={item}>{item}</option>)}
+                    </select>
+                    <input className="input-field" type="datetime-local" value={form.due_at} onChange={(e) => setForm((prev) => ({ ...prev, due_at: e.target.value }))} />
+                  </div>
+                  <textarea className="input-field min-h-[80px] resize-y text-sm" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Optional notes..." />
+                  <button type="submit" disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60">
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                    Create task
+                  </button>
+                </form>
               </div>
             </div>
           </section>
@@ -352,31 +355,26 @@ export default function TasksClient() {
           <aside className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-center gap-2">
               <Plus size={18} className="text-green-600" />
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Quick add task</h2>
+              <h2 className="text-base font-bold text-gray-900 dark:text-white">Tasks by lead</h2>
             </div>
-            <form onSubmit={createTask} className="mt-4 space-y-3">
-              <input className="input-field" placeholder="Task title" value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} />
-              <textarea className="input-field min-h-[110px]" placeholder="Description" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
-              <div className="grid gap-3 md:grid-cols-2">
-                <select className="input-field" value={form.task_type} onChange={(e) => setForm((prev) => ({ ...prev, task_type: e.target.value }))}>
-                  {CRM_TASK_TYPES.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-                <select className="input-field" value={form.priority} onChange={(e) => setForm((prev) => ({ ...prev, priority: e.target.value }))}>
-                  {CRM_TASK_PRIORITIES.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <select className="input-field" value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>
-                  {CRM_TASK_STATUSES.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-                <input className="input-field" type="datetime-local" value={form.due_at} onChange={(e) => setForm((prev) => ({ ...prev, due_at: e.target.value }))} />
-              </div>
-              <textarea className="input-field min-h-[90px]" placeholder="Internal notes" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} />
-              <button type="submit" disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60">
-                {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                Create task
-              </button>
-            </form>
+            <div className="mt-3 space-y-2.5">
+              {Object.entries(grouped).map(([leadName, items]) => (
+                <div key={leadName} className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{leadName}</p>
+                    <span className="text-sm text-gray-500">{items.length} task{items.length === 1 ? '' : 's'}</span>
+                  </div>
+                  <div className="mt-1.5 space-y-1.5">
+                    {items.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 px-3 py-1.5 dark:border-gray-800">
+                        <span className="text-gray-700 dark:text-gray-300">{item.title}</span>
+                        <span className="text-gray-500">{item.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </aside>
         </div>
       </div>

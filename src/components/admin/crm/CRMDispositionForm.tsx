@@ -116,7 +116,7 @@ export default function CRMDispositionForm({
   return (
     <div className="space-y-4">
       {lastDisposition && (
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm dark:border-gray-800 dark:bg-gray-900/60">
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm dark:border-gray-800 dark:bg-gray-900/60">
           <div className="font-semibold text-gray-900 dark:text-white">{lastDisposition.label}</div>
           <div className="mt-1 text-xs text-gray-500">
             {[lastDisposition.by, lastDisposition.at].filter(Boolean).join(' • ')}
@@ -128,7 +128,7 @@ export default function CRMDispositionForm({
         </div>
       )}
 
-      <div className={cn('grid gap-2', compact ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-5')}>
+      <div className={cn('grid gap-1.5', compact ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-5')}>
         {UI_DISPOSITIONS.map((disposition) => {
           const Icon = disposition.icon
           return (
@@ -137,13 +137,13 @@ export default function CRMDispositionForm({
               type="button"
               onClick={() => handleDispositionSelect(disposition.key)}
               className={cn(
-                'rounded-2xl px-3 py-3 text-sm font-semibold transition-all',
+                'rounded-xl px-2.5 py-2 text-xs font-semibold transition-all',
                 disposition.color,
-                selectedKey === disposition.key ? 'ring-2 ring-offset-2 ring-green-400' : '',
+                selectedKey === disposition.key ? 'ring-2 ring-offset-1 ring-green-400' : '',
               )}
             >
-              <div className="flex items-center justify-center gap-2">
-                <Icon size={15} />
+              <div className="flex items-center justify-center gap-1.5">
+                <Icon size={13} />
                 <span>{disposition.label}</span>
               </div>
             </button>
@@ -156,7 +156,7 @@ export default function CRMDispositionForm({
         <textarea
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          className="input-field min-h-[88px] text-sm"
+          className="input-field min-h-[72px] text-sm"
           placeholder="Add context for the timeline and follow-up."
         />
       </div>
@@ -187,7 +187,7 @@ export default function CRMDispositionForm({
         type="button"
         onClick={handleSubmit}
         disabled={!selectedDisposition || submitting}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
         Set disposition

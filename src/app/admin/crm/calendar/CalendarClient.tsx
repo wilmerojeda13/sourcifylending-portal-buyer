@@ -75,20 +75,20 @@ export default function CalendarClient() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 dark:bg-gray-950">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 md:px-6">
         <CRMWorkspaceNav />
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-green-600">Calendar</p>
-            <h1 className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">CRM calendar workspace</h1>
-            <p className="mt-1 text-sm text-gray-500">Google events, callback reminders, and task due dates in one schedule.</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-green-600">Calendar</p>
+            <h1 className="mt-0.5 text-xl font-bold text-gray-900 dark:text-white">CRM calendar workspace</h1>
+            <p className="mt-0.5 text-sm text-gray-500">Google events, callback reminders, and task due dates in one schedule.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {['day', 'week', 'month', 'agenda'].map(item => (
               <button
                 key={item}
                 onClick={() => setView(item)}
-                className={`rounded-xl px-3.5 py-2 text-sm font-medium transition-colors ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   view === item
                     ? 'bg-green-600 text-white'
                     : 'border border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-green-700 dark:hover:text-green-300'
@@ -100,7 +100,7 @@ export default function CalendarClient() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center gap-2">
             <button onClick={() => shift(-1)} className="rounded-xl border border-gray-200 p-2 hover:border-green-300 dark:border-gray-800 dark:hover:border-green-700"><ChevronLeft size={16} /></button>
             <button onClick={() => shift(1)} className="rounded-xl border border-gray-200 p-2 hover:border-green-300 dark:border-gray-800 dark:hover:border-green-700"><ChevronRight size={16} /></button>
@@ -109,7 +109,7 @@ export default function CalendarClient() {
               <p className="text-xs text-gray-500">Viewing {view} calendar</p>
             </div>
           </div>
-          <div className="rounded-2xl bg-gray-50 px-4 py-3 text-sm dark:bg-gray-800/60">
+          <div className="rounded-xl bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800/60">
             <p className="font-semibold text-gray-900 dark:text-white">Google Calendar</p>
             <p className="text-gray-500">
               {googleInfo?.configured ? `Configured (${googleInfo.timezone})` : 'Not connected yet'}
@@ -126,21 +126,21 @@ export default function CalendarClient() {
           </div>
         )}
 
-        <div className="rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
           {loading && (
-            <div className="flex items-center justify-center px-5 py-24">
+            <div className="flex items-center justify-center px-5 py-12">
               <Loader2 size={22} className="animate-spin text-gray-400" />
             </div>
           )}
           {!loading && events.length === 0 && (
-            <div className="px-5 py-24 text-center text-sm text-gray-500">Nothing is scheduled in this window yet.</div>
+            <div className="px-5 py-12 text-center text-sm text-gray-500">Nothing is scheduled in this window yet.</div>
           )}
           {!loading && events.map(event => (
-            <div key={event.id} className="border-b border-gray-100 px-5 py-4 last:border-b-0 dark:border-gray-800">
+            <div key={event.id} className="border-b border-gray-100 px-4 py-3 last:border-b-0 dark:border-gray-800">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       event.source === 'google'
                         ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300'
                         : event.source === 'crm_callback'
@@ -149,10 +149,10 @@ export default function CalendarClient() {
                     }`}>
                       {event.source === 'google' ? 'Google Event' : event.source === 'crm_callback' ? 'Callback' : 'CRM Task'}
                     </span>
-                    {event.temperature && <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 dark:bg-red-950/30 dark:text-red-300">{event.temperature}</span>}
-                    {event.priority && <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{event.priority}</span>}
+                    {event.temperature && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-950/30 dark:text-red-300">{event.temperature}</span>}
+                    {event.priority && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{event.priority}</span>}
                   </div>
-                  <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{event.title}</p>
+                  <p className="mt-1.5 text-base font-semibold text-gray-900 dark:text-white">{event.title}</p>
                   <p className="mt-1 text-sm text-gray-500">
                     {new Date(event.start).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                   </p>
@@ -160,16 +160,16 @@ export default function CalendarClient() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {event.detail_url && (
-                    <Link href={event.detail_url} className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-800 dark:text-gray-300 dark:hover:border-green-700 dark:hover:text-green-300">
-                      <CalendarDays size={14} /> Open details
+                    <Link href={event.detail_url} className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-800 dark:text-gray-300 dark:hover:border-green-700 dark:hover:text-green-300">
+                      <CalendarDays size={13} /> Open details
                     </Link>
                   )}
                   {event.htmlLink && (
-                    <Link href={event.htmlLink} target="_blank" className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-800 dark:text-gray-300 dark:hover:border-green-700 dark:hover:text-green-300">
-                      <Link2 size={14} /> Open Google
+                    <Link href={event.htmlLink} target="_blank" className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-800 dark:text-gray-300 dark:hover:border-green-700 dark:hover:text-green-300">
+                      <Link2 size={13} /> Open Google
                     </Link>
                   )}
-                  <button onClick={() => quickTaskFromEvent(event)} className="inline-flex items-center gap-2 rounded-2xl bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700">
+                  <button onClick={() => quickTaskFromEvent(event)} className="inline-flex items-center gap-1.5 rounded-xl bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-green-700">
                     Create follow-up
                   </button>
                 </div>

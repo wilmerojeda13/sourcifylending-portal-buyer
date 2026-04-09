@@ -201,11 +201,11 @@ function NewLeadModal({ onClose, onCreated }: { onClose:()=>void; onCreated:(l:C
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4" onClick={onClose}>
       <div className="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900 z-10">
-          <h2 className="font-bold text-gray-900">Add New Lead</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"><X size={16}/></button>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900 z-10">
+          <h2 className="font-bold text-gray-900 text-sm">Add New Lead</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"><X size={15}/></button>
         </div>
-        <form onSubmit={submit} className="p-5 space-y-3.5">
+        <form onSubmit={submit} className="p-4 space-y-2.5">
           <div className="grid grid-cols-2 gap-3">
             <div><label className="label">First Name *</label><input className="input-field" value={form.first_name} onChange={e=>set('first_name',e.target.value)} placeholder="John"/></div>
             <div><label className="label">Last Name</label><input className="input-field" value={form.last_name} onChange={e=>set('last_name',e.target.value)} placeholder="Smith"/></div>
@@ -222,11 +222,11 @@ function NewLeadModal({ onClose, onCreated }: { onClose:()=>void; onCreated:(l:C
             <div><label className="label">Follow-up</label><input className="input-field" type="datetime-local" value={form.follow_up_at} onChange={e=>set('follow_up_at',e.target.value)}/></div>
           </div>
           <div><label className="label">Notes</label><textarea className="input-field min-h-[72px] resize-none" value={form.notes} onChange={e=>set('notes',e.target.value)} placeholder="Any notes..."/></div>
-          <div className="flex gap-3 pt-1 pb-2">
-            <button type="submit" disabled={saving} className="btn-primary flex-1 h-12 flex items-center justify-center gap-2 text-base">
-              {saving && <Loader2 size={15} className="animate-spin"/>}{saving ? 'Saving...' : 'Create Lead'}
+          <div className="flex gap-2 pt-0.5 pb-1">
+            <button type="submit" disabled={saving} className="btn-primary flex-1 h-9 flex items-center justify-center gap-2 text-sm">
+              {saving && <Loader2 size={14} className="animate-spin"/>}{saving ? 'Saving...' : 'Create Lead'}
             </button>
-            <button type="button" onClick={onClose} className="btn-secondary px-5 h-12">Cancel</button>
+            <button type="button" onClick={onClose} className="btn-secondary px-4 h-9 text-sm">Cancel</button>
           </div>
         </form>
       </div>
@@ -299,16 +299,16 @@ function CleanupModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
         className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
           <div>
-            <h2 className="font-bold text-gray-900 dark:text-white">Quick Lead Cleanup</h2>
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white">Quick Lead Cleanup</h2>
             <p className="text-xs text-gray-500 mt-0.5">Archive leads you no longer need to contact</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
-            <X size={16}/>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
+            <X size={15}/>
           </button>
         </div>
-        <div className="p-5 space-y-3">
+        <div className="p-4 space-y-2">
           {actions.map(a => {
             const isRunning = running === a.action + (a.filter ?? '')
             return (
@@ -317,7 +317,7 @@ function CleanupModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
                 onClick={() => runAction(a.action, a.filter)}
                 disabled={!!running}
                 className={cn(
-                  'w-full flex items-center justify-between px-4 py-3.5 rounded-xl border transition-colors text-left disabled:opacity-60',
+                  'w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border transition-colors text-left disabled:opacity-60',
                   a.red
                     ? 'border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950 text-red-600 dark:text-red-400'
                     : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-200'
@@ -332,7 +332,7 @@ function CleanupModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
             )
           })}
         </div>
-        <div className="px-5 pb-5">
+        <div className="px-4 pb-4">
           <p className="text-xs text-gray-400 text-center">Archived leads are hidden from the CRM but not deleted unless you choose Delete Archived.</p>
         </div>
       </div>
@@ -480,9 +480,9 @@ function LeadCard({
       <button
         type="button"
         onClick={() => onDisposition?.(lead)}
-        className="shrink-0 rounded-xl border border-gray-200 px-2.5 py-2 text-xs font-semibold text-gray-500 hover:border-green-300 hover:text-green-700"
+        className="shrink-0 rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] font-semibold text-gray-500 hover:border-green-300 hover:text-green-700"
       >
-        Disposition
+        Dispo
       </button>
       {(lead.tags?.length ?? 0) > 0 && (
         <div className="hidden xl:flex flex-wrap gap-1 max-w-[220px]">
@@ -1388,21 +1388,21 @@ export default function CRMClient() {
               className="flex h-[88vh] w-full max-w-none flex-col rounded-t-3xl bg-white shadow-2xl dark:bg-gray-900 md:h-full md:max-w-md md:rounded-none"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4 dark:border-gray-800">
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
                 <div>
-                  <h2 className="text-base font-bold text-gray-900 dark:text-white">Filters</h2>
+                  <h2 className="text-sm font-bold text-gray-900 dark:text-white">Filters</h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Keep the main view focused. Apply secondary filters here.</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowFilters(false)}
-                  className="rounded-xl border border-gray-200 p-2 text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-white"
+                  className="rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-white"
                 >
-                  <X size={16} />
+                  <X size={15} />
                 </button>
               </div>
 
-              <div className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
+              <div className="flex-1 space-y-4 overflow-y-auto px-4 py-3">
                 <section className="space-y-3">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Stage</h3>
@@ -1660,19 +1660,19 @@ export default function CRMClient() {
                 </section>
               </div>
 
-              <div className="border-t border-gray-100 px-4 py-3 dark:border-gray-800">
+              <div className="border-t border-gray-100 px-4 py-2.5 dark:border-gray-800">
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
                     onClick={clearAllFilters}
-                    className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900 dark:border-gray-700 dark:text-gray-200"
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-gray-300 hover:text-gray-900 dark:border-gray-700 dark:text-gray-200"
                   >
                     Clear all
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowFilters(false)}
-                    className="btn-primary h-10 px-4 text-sm"
+                    className="btn-primary h-9 px-4 text-sm"
                   >
                     Done
                   </button>
@@ -1759,10 +1759,10 @@ export default function CRMClient() {
 
       {dispositionTarget && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4" onClick={() => setDispositionTarget(null)}>
-          <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between">
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">
+                <h2 className="text-base font-bold text-gray-900">
                   {dispositionTarget.mode === 'bulk' ? `Bulk disposition (${selectedCount})` : `Disposition: ${dispositionTarget.lead.first_name} ${dispositionTarget.lead.last_name}`}
                 </h2>
                 <p className="text-sm text-gray-500">Uses the same shared disposition workflow as the dialer and contact page.</p>

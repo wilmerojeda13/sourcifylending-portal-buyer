@@ -41,7 +41,7 @@ export default function CRMWorkspaceNav() {
               key={`${item.href}-${item.label}`}
               onClick={() => handleNavigation(item.href)}
               className={cn(
-                'rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors',
+                'rounded-lg px-2 py-1 text-xs font-medium transition-colors',
                 active
                   ? 'bg-green-600 text-white shadow-sm'
                   : 'brand-chip-hover'

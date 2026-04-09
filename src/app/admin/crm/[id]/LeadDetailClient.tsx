@@ -829,8 +829,8 @@ export default function LeadDetailClient({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 dark:bg-gray-950">
-      <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 px-3 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:px-4">
+    <div className="min-h-screen bg-gray-50 pb-20 dark:bg-gray-950">
+      <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 px-3 py-1.5 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:px-4">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
           <Link href="/admin/crm" className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-green-700">
             <ChevronLeft size={18} /> <span className="hidden sm:inline">Leads</span>
@@ -882,78 +882,78 @@ export default function LeadDetailClient({
         </div>
       )}
 
-      <div className="mx-auto max-w-6xl px-4 py-5">
-        <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="mx-auto max-w-6xl px-4 py-4">
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0 flex-1">
               <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-green-100 text-xl font-bold text-green-700 dark:bg-green-900/30 dark:text-green-200">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-green-100 text-lg font-bold text-green-700 dark:bg-green-900/30 dark:text-green-200">
                   {lead.first_name[0]}{lead.last_name?.[0] ?? ''}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</h1>
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</h1>
                     <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', stageInfo.bgColor, stageInfo.color)}>{stageInfo.label}</span>
                     {lead.do_not_call && <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 dark:bg-red-950/30 dark:text-red-300">Do Not Call</span>}
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                     {lead.business_name && <span className="flex items-center gap-1"><Building2 size={14} /> {lead.business_name}</span>}
                     {lead.assigned_to_name && <span className="flex items-center gap-1"><User size={14} /> {lead.assigned_to_name}</span>}
                     <span className="flex items-center gap-1"><Tag size={14} /> {lead.source}</span>
                     <span className="flex items-center gap-1"><Clock size={14} /> Added {formatDateTime(lead.created_at)}</span>
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span className={cn('rounded-full px-3 py-1 text-xs font-semibold', nextCalendarEvent ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/20 dark:text-purple-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300')}>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', nextCalendarEvent ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/20 dark:text-purple-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300')}>
                       {nextCalendarEvent ? 'Demo or calendar booking on file' : 'No booked demo yet'}
                     </span>
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300">
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300">
                       {openTasks.length} open task{openTasks.length === 1 ? '' : 's'}
                     </span>
-                    {lead.email && <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/20 dark:text-blue-300">Email ready</span>}
-                    {(lead.unread_conversation_count ?? 0) > 0 && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">{lead.unread_conversation_count} unread text replies</span>}
+                    {lead.email && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/20 dark:text-blue-300">Email ready</span>}
+                    {(lead.unread_conversation_count ?? 0) > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">{lead.unread_conversation_count} unread text replies</span>}
                   </div>
                 </div>
               </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Phone size={15} className="text-green-600" /> {lead.phone}</div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Phone size={14} className="text-green-600" /> {lead.phone}</div>
                   <button onClick={() => copyToClipboard(lead.phone)} className="mt-2 text-xs font-medium text-gray-500 hover:text-green-700">Copy phone</button>
                 </div>
-                <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Mail size={15} className="text-blue-600" /> {lead.email || 'No email'}</div>
+                <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Mail size={14} className="text-blue-600" /> {lead.email || 'No email'}</div>
                   {lead.email && <button onClick={() => copyToClipboard(lead.email!)} className="mt-2 text-xs font-medium text-gray-500 hover:text-blue-700">Copy email</button>}
                 </div>
-                <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><MapPin size={15} className="text-purple-600" /> {lead.likely_timezone || 'Timezone unknown'}</div>
+                <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><MapPin size={14} className="text-purple-600" /> {lead.likely_timezone || 'Timezone unknown'}</div>
                   <p className="mt-2 text-xs text-gray-500">{buildCallabilityLabel(lead)}</p>
                 </div>
-                <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><TrendingUp size={15} className="text-emerald-600" /> {lead.close_probability != null ? `${lead.close_probability}% close probability` : 'Close probability not set'}</div>
+                <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><TrendingUp size={14} className="text-emerald-600" /> {lead.close_probability != null ? `${lead.close_probability}% close probability` : 'Close probability not set'}</div>
                   <p className="mt-2 text-xs text-gray-500">{lead.lead_temperature ? `Temperature: ${titleize(lead.lead_temperature)}` : 'Temperature not set'}</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 lg:w-[320px] lg:justify-end">
+            <div className="flex flex-wrap gap-1.5 lg:w-[280px] lg:justify-end">
               <button
                 onClick={authorizeDial}
                 disabled={authorizingCall || lead.call_window_status === 'blocked_by_timezone' || lead.call_window_status === 'unknown_timezone'}
-                className={cn('flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60', authorizingCall ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700')}
+                className={cn('flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60', authorizingCall ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700')}
               >
-                {authorizingCall ? <Loader2 size={16} className="animate-spin" /> : <Phone size={16} />}
+                {authorizingCall ? <Loader2 size={15} className="animate-spin" /> : <Phone size={15} />}
                 Call
               </button>
-              {lead.email && <button onClick={() => setShowEmail(true)} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={16} /> Email</button>}
-              <button onClick={() => setShowBookDemo(true)} className="flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={16} /> Book Demo</button>
-              <button type="button" onClick={() => { setSelectedDispositionKey(null); setDispositionError(null); setShowDisposition(true) }} className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
-                <PhoneCall size={16} /> Set Disposition
+              {lead.email && <button onClick={() => setShowEmail(true)} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={15} /> Email</button>}
+              <button onClick={() => setShowBookDemo(true)} className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={15} /> Book Demo</button>
+              <button type="button" onClick={() => { setSelectedDispositionKey(null); setDispositionError(null); setShowDisposition(true) }} className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
+                <PhoneCall size={15} /> Disposition
               </button>
             </div>
           </div>
 
-          <div className="mt-5 flex gap-1.5 overflow-x-auto pb-1">
+          <div className="mt-3 flex gap-1 overflow-x-auto pb-1">
             {STAGES.map((stage) => (
-              <button key={stage.key} onClick={() => changeStage(stage.key)} className={cn('shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-all', lead.stage === stage.key ? cn(stage.bgColor, stage.color, 'border-current') : 'border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400')}>
+              <button key={stage.key} onClick={() => changeStage(stage.key)} className={cn('shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all', lead.stage === stage.key ? cn(stage.bgColor, stage.color, 'border-current') : 'border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400')}>
                 {stage.label}
               </button>
             ))}
@@ -961,7 +961,7 @@ export default function LeadDetailClient({
         </div>
 
         {editing && (
-          <div className="mt-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <h2 className="text-sm font-bold text-gray-900 dark:text-white">Edit Contact</h2>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <div><label className="label">First Name</label><input className="input-field" value={editForm.first_name} onChange={(event) => setEF('first_name', event.target.value)} /></div>
@@ -977,12 +977,12 @@ export default function LeadDetailClient({
           </div>
         )}
 
-        <div className="mt-4 grid gap-4 xl:grid-cols-[1.5fr_1fr]">
-          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="mt-3 grid gap-3 xl:grid-cols-[1.5fr_1fr]">
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-purple-600">Demos First</p>
-                <h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Calendar & scheduled events</h2>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-purple-600">Demos First</p>
+                <h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Calendar & scheduled events</h2>
                 <p className="mt-1 text-sm text-gray-500">This contact’s upcoming demo, callback, and calendar status live here.</p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -994,10 +994,10 @@ export default function LeadDetailClient({
             {calendarSummary.warning && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300">{calendarSummary.warning}</div>}
 
             <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-              <div className={cn('rounded-2xl border px-4 py-4', eventTone(nextCalendarEvent))}>
+              <div className={cn('rounded-xl border px-3 py-2', eventTone(nextCalendarEvent))}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide dark:bg-gray-950/40">{nextCalendarEvent ? titleize(nextCalendarEvent.type) : 'No event'}</span>
-                  <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide dark:bg-gray-950/40">{nextCalendarEvent ? titleize(nextCalendarEvent.status) : 'Unscheduled'}</span>
+                  <span className="rounded-full bg-white/80 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide dark:bg-gray-950/40">{nextCalendarEvent ? titleize(nextCalendarEvent.type) : 'No event'}</span>
+                  <span className="rounded-full bg-white/80 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide dark:bg-gray-950/40">{nextCalendarEvent ? titleize(nextCalendarEvent.status) : 'Unscheduled'}</span>
                 </div>
                 <h3 className="mt-3 text-lg font-bold">{nextCalendarEvent ? nextCalendarEvent.title : 'No calendar booking on this contact yet'}</h3>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -1008,17 +1008,17 @@ export default function LeadDetailClient({
                 {!nextCalendarEvent && <p className="mt-3 text-sm opacity-90">Reps need the booking status at a glance. Schedule the next demo here so it stays visible on the record.</p>}
               </div>
 
-              <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">At a glance</p>
-                <div className="mt-3 space-y-3">
-                  <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Demo booked</p><p className="mt-1 text-lg font-bold text-gray-900 dark:text-white">{calendarSummary.hasBookedDemo ? 'Yes' : 'No'}</p></div>
-                  <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Callback due</p><p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{formatDateTime(lead.callback_due_at || lead.follow_up_at)}</p></div>
-                  <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Calendar source</p><p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{calendarSummary.configured ? 'Google Calendar connected' : 'Not connected'}</p></div>
+              <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">At a glance</p>
+                <div className="mt-2 space-y-2">
+                  <div className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Demo booked</p><p className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">{calendarSummary.hasBookedDemo ? 'Yes' : 'No'}</p></div>
+                  <div className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Callback due</p><p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">{formatDateTime(lead.callback_due_at || lead.follow_up_at)}</p></div>
+                  <div className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Calendar source</p><p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">{calendarSummary.configured ? 'Google Calendar connected' : 'Not connected'}</p></div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+            <div className="mt-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-bold text-gray-900 dark:text-white">Upcoming bookings</p>
                 <span className="text-xs text-gray-500">{upcomingEvents.length} visible</span>
@@ -1026,9 +1026,9 @@ export default function LeadDetailClient({
               {upcomingEvents.length === 0 ? (
                 <div className="mt-3 rounded-2xl bg-gray-50 px-4 py-4 text-sm text-gray-500 dark:bg-gray-800/70">No upcoming calendar event is linked to this contact yet.</div>
               ) : (
-                <div className="mt-3 space-y-3">
+                <div className="mt-2 space-y-2">
                   {upcomingEvents.slice(0, 4).map((event) => (
-                    <div key={event.id} className="flex flex-col gap-3 rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between">
+                    <div key={event.id} className="flex flex-col gap-2 rounded-xl border border-gray-200 px-3 py-2.5 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide', eventTone(event))}>{titleize(event.type)}</span>
@@ -1045,9 +1045,9 @@ export default function LeadDetailClient({
             </div>
           </div>
 
-          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-center justify-between gap-3">
-              <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600">Tasks</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Rep task queue</h2></div>
+              <div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-emerald-600">Tasks</p><h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Rep task queue</h2></div>
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300">{openTasks.length} open</span>
             </div>
             <div className="mt-4 space-y-2">
@@ -1058,16 +1058,16 @@ export default function LeadDetailClient({
                 <button onClick={createTask} disabled={taskSaving} className="btn-primary text-sm">{taskSaving ? 'Saving…' : 'Add task'}</button>
               </div>
             </div>
-            <div className="mt-4 space-y-3">
+            <div className="mt-3 space-y-2">
               {openTasks.length === 0 ? (
-                <div className="rounded-2xl bg-gray-50 px-4 py-4 text-sm text-gray-500 dark:bg-gray-800/70">No open tasks for this contact.</div>
+                <div className="rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:bg-gray-800/70">No open tasks for this contact.</div>
               ) : (
                 openTasks.slice(0, 6).map((task) => (
-                  <div key={task.id} className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+                  <div key={task.id} className="rounded-xl border border-gray-200 px-3 py-2.5 dark:border-gray-800">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-gray-900 dark:text-white">{task.title}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-gray-500">
                           <span>{task.task_type}</span>
                           <span>•</span>
                           <span>{task.priority}</span>
@@ -1084,25 +1084,25 @@ export default function LeadDetailClient({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="mt-3 grid gap-3 xl:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-center justify-between gap-3">
-              <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">Outreach</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Email, texts, and invite history</h2></div>
+              <div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-blue-600">Outreach</p><h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Email, texts, and invite history</h2></div>
               {lead.email && <button onClick={() => setShowEmail(true)} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={14} /> Send Email</button>}
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Emails logged</p><p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{emailActivities.length}</p></div>
-              <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Texts sent</p><p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{lead.sms_sent_count ?? 0}</p></div>
-              <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Replies</p><p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{lead.inbound_reply_count ?? 0}</p></div>
-              <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Unread texts</p><p className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{lead.unread_conversation_count ?? 0}</p></div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Emails logged</p><p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">{emailActivities.length}</p></div>
+              <div className="rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Texts sent</p><p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">{lead.sms_sent_count ?? 0}</p></div>
+              <div className="rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Replies</p><p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">{lead.inbound_reply_count ?? 0}</p></div>
+              <div className="rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Unread texts</p><p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">{lead.unread_conversation_count ?? 0}</p></div>
             </div>
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
-              <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+            <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1fr]">
+              <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
                 <p className="text-sm font-bold text-gray-900 dark:text-white">Email history</p>
                 {emailActivities.length === 0 ? <p className="mt-3 text-sm text-gray-500">No contact-level email history is logged yet.</p> : (
-                  <div className="mt-3 space-y-3">
+                  <div className="mt-2 space-y-2">
                     {emailActivities.map((activity) => (
-                      <div key={activity.id} className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70">
+                      <div key={activity.id} className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70">
                         <p className="text-sm text-gray-900 dark:text-white">{activity.body || 'Email activity logged'}</p>
                         <p className="mt-1 text-xs text-gray-500">{formatDateTime(activity.created_at)}</p>
                       </div>
@@ -1110,12 +1110,12 @@ export default function LeadDetailClient({
                   </div>
                 )}
               </div>
-              <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+              <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
                 <p className="text-sm font-bold text-gray-900 dark:text-white">Text tracking</p>
                 {smsMessages.length === 0 ? <p className="mt-3 text-sm text-gray-500">No SMS activity for this contact yet.</p> : (
-                  <div className="mt-3 space-y-3">
+                  <div className="mt-2 space-y-2">
                     {smsMessages.slice(0, 4).map((message) => (
-                      <div key={message.id} className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-gray-800/70">
+                      <div key={message.id} className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70">
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{message.direction}</span>
                           <span className="text-xs text-gray-500">{formatDateTime(message.sent_at || message.created_at)}</span>
@@ -1141,26 +1141,26 @@ export default function LeadDetailClient({
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-              <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Notes</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Rep notes</h2></div></div>
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500">Notes</p><h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Rep notes</h2></div></div>
               {!editing ? (
-                lead.notes ? <p className="mt-4 rounded-2xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-700 dark:bg-gray-800/70 dark:text-gray-200">{lead.notes}</p> : <p className="mt-4 text-sm text-gray-500">No notes on this contact yet.</p>
+                lead.notes ? <p className="mt-3 rounded-xl bg-gray-50 p-3 text-sm leading-relaxed text-gray-700 dark:bg-gray-800/70 dark:text-gray-200">{lead.notes}</p> : <p className="mt-3 text-sm text-gray-500">No notes on this contact yet.</p>
               ) : (
                 <textarea className="input-field mt-4 min-h-[160px] resize-y text-sm" value={editForm.notes} onChange={(event) => setEF('notes', event.target.value)} />
               )}
             </div>
 
-            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-              <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Lead Ops</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Disposition, tags, and facts</h2></div></div>
-              <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/50">
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500">Lead Ops</p><h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Disposition, tags, and facts</h2></div></div>
+              <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-800 dark:bg-gray-800/50">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">{lead.last_call_outcome || 'No disposition saved yet'}</p>
                 <p className="mt-1 text-xs text-gray-500">{lead.last_call_at ? formatDateTime(lead.last_call_at) : 'No recent call disposition'}</p>
                 {lead.latest_call_note && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{lead.latest_call_note}</p>}
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-1.5">
                 {['interested', 'appointment_set', 'follow_up', 'call_back'].map((key) => (
-                  <button key={key} type="button" onClick={() => { setSelectedDispositionKey(key); setShowDisposition(true); setDispositionError(null) }} className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-300">
+                  <button key={key} type="button" onClick={() => { setSelectedDispositionKey(key); setShowDisposition(true); setDispositionError(null) }} className="rounded-full border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-300">
                     {key === 'appointment_set' ? 'Appointment Set' : key.replace('_', ' ')}
                   </button>
                 ))}
@@ -1177,25 +1177,25 @@ export default function LeadDetailClient({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Activity</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Timeline</h2></div></div>
+        <div className="mt-3 grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500">Activity</p><h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Timeline</h2></div></div>
             <div className="mt-4 space-y-2">
               <div className="flex gap-1.5 overflow-x-auto pb-1">{(['note', 'call', 'email', 'sms', 'voicemail'] as const).map((type) => <button key={type} onClick={() => setNoteType(type)} className={cn('shrink-0 rounded-full px-3 py-1.5 text-xs font-medium capitalize transition-colors', noteType === type ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300')}>{type}</button>)}</div>
               <div className="flex gap-2">
-                <textarea className="input-field min-h-[70px] flex-1 resize-none text-sm" placeholder={`Log a ${noteType}...`} value={noteText} onChange={(event) => setNoteText(event.target.value)} />
+                <textarea className="input-field min-h-[56px] flex-1 resize-none text-sm" placeholder={`Log a ${noteType}...`} value={noteText} onChange={(event) => setNoteText(event.target.value)} />
                 <button onClick={addActivity} disabled={!noteText.trim() || addingNote} className="btn-primary self-end px-4 text-sm">{addingNote ? 'Saving…' : 'Log'}</button>
               </div>
             </div>
-            {activities.length === 0 ? <p className="mt-4 text-sm text-gray-500">No activity logged yet.</p> : (
-              <div className="mt-4 space-y-3">
+            {activities.length === 0 ? <p className="mt-3 text-sm text-gray-500">No activity logged yet.</p> : (
+              <div className="mt-3 space-y-2">
                 {activities.map((activity) => {
                   const Icon = ACTIVITY_ICONS[activity.type] ?? MessageSquare
                   const color = ACTIVITY_COLORS[activity.type] ?? ACTIVITY_COLORS.note
                   return (
-                    <div key={activity.id} className="flex gap-3">
-                      <div className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full', color)}><Icon size={14} /></div>
-                      <div className="min-w-0 flex-1 rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+                    <div key={activity.id} className="flex gap-2.5">
+                      <div className={cn('mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full', color)}><Icon size={12} /></div>
+                      <div className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2.5 dark:border-gray-800">
                         <div className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{titleize(activity.type)}</span><span className="text-xs text-gray-400">{formatDateTime(activity.created_at)}</span></div>
                         {activity.body && <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">{activity.body}</p>}
                       </div>
@@ -1206,12 +1206,12 @@ export default function LeadDetailClient({
             )}
           </div>
 
-          <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Calls</p><h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Recent call history</h2></div><Link href="/admin/crm/calls" className="text-sm font-semibold text-green-600 hover:text-green-700">View all</Link></div>
-            {recentCalls.length === 0 ? <p className="mt-4 text-sm text-gray-500">No calls logged yet.</p> : (
-              <div className="mt-4 space-y-3">
+          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500">Calls</p><h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Recent call history</h2></div><Link href="/admin/crm/calls" className="text-sm font-semibold text-green-600 hover:text-green-700">View all</Link></div>
+            {recentCalls.length === 0 ? <p className="mt-3 text-sm text-gray-500">No calls logged yet.</p> : (
+              <div className="mt-3 space-y-2">
                 {recentCalls.map((call) => (
-                  <div key={call.id} className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+                  <div key={call.id} className="rounded-xl border border-gray-200 px-3 py-2.5 dark:border-gray-800">
                     <div className="flex items-start justify-between gap-3">
                       <div><p className="text-sm font-semibold text-gray-900 dark:text-white">{call.call_outcome}</p><p className="mt-1 text-xs text-gray-500">{formatDateTime(call.call_started_at)}</p></div>
                       <div className="text-right text-xs text-gray-500">{call.duration_seconds != null && <p>{Math.floor(call.duration_seconds / 60)}m {call.duration_seconds % 60}s</p>}<p className="capitalize">{call.lead_temperature || 'cold'}</p></div>
@@ -1225,11 +1225,11 @@ export default function LeadDetailClient({
           </div>
         </div>
 
-        <div className="mt-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <AnalyzerLivePanel leadId={lead.id} sourceContext="lead_detail" />
         </div>
 
-        <button onClick={deleteLead} className="mt-6 flex w-full items-center justify-center gap-1.5 py-4 text-xs text-red-400 transition-colors hover:text-red-600">
+        <button onClick={deleteLead} className="mt-4 flex w-full items-center justify-center gap-1.5 py-3 text-xs text-red-400 transition-colors hover:text-red-600">
           <Trash2 size={13} /> Delete this lead
         </button>
       </div>
@@ -1246,9 +1246,9 @@ export default function LeadDetailClient({
 
       {showDisposition && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => { setShowDisposition(false); setSelectedDispositionKey(null) }}>
-          <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-gray-900" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div><h2 className="text-lg font-bold text-gray-900 dark:text-white">Set Disposition</h2><p className="text-sm text-gray-500">Updates status, stage, follow-up, and activity history in one save.</p></div>
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-5 shadow-2xl dark:bg-gray-900" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div><h2 className="text-base font-bold text-gray-900 dark:text-white">Set Disposition</h2><p className="text-sm text-gray-500">Updates status, stage, follow-up, and activity history in one save.</p></div>
               <button type="button" onClick={() => { setShowDisposition(false); setSelectedDispositionKey(null) }} className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">Close</button>
             </div>
             <CRMDispositionForm initialDispositionKey={selectedDispositionKey} onSubmit={saveDisposition} submitting={savingDisposition} error={dispositionError} lastDisposition={{ label: lead.last_call_outcome || 'No disposition yet', by: adminEmail || null, at: lead.last_call_at ? formatDateTime(lead.last_call_at) : null, note: lead.latest_call_note || null, followUpAt: lead.follow_up_at ? formatDateTime(lead.follow_up_at) : null }} />

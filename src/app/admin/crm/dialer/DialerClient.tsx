@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient as createSupabaseBrowserClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import {
-  Phone, ChevronLeft, ChevronRight, Building2, Mail,
+  Phone, ChevronLeft, ChevronRight, ChevronDown, Building2, Mail,
   ThumbsUp, ThumbsDown, Voicemail, PhoneMissed, CalendarPlus,
   Ban, Loader2, Users, CheckCircle2, Filter, X, Flame, Send, PhoneOff, Clock3,
   PhoneCall, Clock, Power, Pause,
@@ -386,6 +386,7 @@ export default function DialerClient() {
   const [powerDialStarted, setPowerDialStarted] = useState(false)
   const [profileActionHref, setProfileActionHref] = useState<string | null>(null)
   const [repPhoneConfigured, setRepPhoneConfigured] = useState(false)
+  const [mobileDispoExpanded, setMobileDispoExpanded] = useState(false)
   const autoDialLeadIdsRef = useRef<Set<string>>(new Set())
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deviceRef = useRef<any>(null)
@@ -2106,8 +2107,8 @@ useEffect(() => {
       )}
 
       {/* ── Lead card ── */}
-      {/* pb-56 on mobile reserves space above the sticky disposition tray */}
-      <div className="flex-1 px-4 pb-56 pt-4 lg:px-6 lg:pb-6 lg:pt-6">
+      {/* pb-16 on mobile reserves space above the collapsed disposition bar */}
+      <div className="flex-1 px-4 pb-16 pt-4 lg:px-6 lg:pb-6 lg:pt-6">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 lg:gap-5">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)] lg:items-start">
             <div className="space-y-4">
@@ -2777,50 +2778,74 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* ── Sticky mobile disposition tray — always reachable without scrolling ── */}
+      {/* ── Mobile disposition bottom sheet — collapsed by default ── */}
       {(session || dialerMode === 'manual') && (
-        <div className="fixed bottom-0 inset-x-0 z-50 lg:hidden bg-gray-900/97 backdrop-blur-md border-t-2 border-gray-700 px-3 pt-2.5 pb-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Call Outcome</p>
-            {acting && <Loader2 size={13} className="animate-spin text-gray-500" />}
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {DISPOSITIONS.map(d => {
-              const Icon = d.icon
-              return (
-                <button
-                  key={d.key}
-                  onClick={() => logAndAdvance(d)}
-                  disabled={acting}
-                  className={cn(
-                    'flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition-all active:scale-[0.95] disabled:opacity-50',
-                    d.color,
-                  )}
-                >
-                  <Icon size={15} /> {d.label}
-                </button>
-              )
-            })}
-          </div>
-          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+        <div className="fixed bottom-0 inset-x-0 z-50 lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className="bg-gray-900/97 backdrop-blur-md border-t border-gray-700">
+            {/* Collapsed header — always visible, tap to toggle */}
             <button
-              onClick={skip}
-              disabled={!current}
-              className="flex items-center justify-center gap-2 rounded-xl bg-gray-800 py-2.5 text-sm font-medium text-gray-400 active:scale-[0.97] hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              type="button"
+              onClick={() => setMobileDispoExpanded(v => !v)}
+              className="flex w-full items-center justify-between px-4 py-2.5"
             >
-              <ChevronRight size={14} /> Skip
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Call Outcome</span>
+                {current && (
+                  <span className="max-w-[140px] truncate text-xs font-medium text-gray-400">
+                    · {current.first_name} {current.last_name}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {acting && <Loader2 size={12} className="animate-spin text-gray-500" />}
+                <ChevronDown size={14} className={cn('text-gray-500 transition-transform duration-200', mobileDispoExpanded && 'rotate-180')} />
+              </div>
             </button>
-            {current ? (
-              <Link
-                href={`/admin/crm/${current.id}`}
-                className="flex items-center justify-center gap-2 rounded-xl bg-gray-800 py-2.5 text-sm font-medium text-gray-400 active:scale-[0.97] hover:bg-gray-700"
-              >
-                <Users size={14} /> Full Profile
-              </Link>
-            ) : (
-              <span className="flex items-center justify-center gap-2 rounded-xl bg-gray-800 py-2.5 text-sm font-medium text-gray-600 cursor-not-allowed opacity-40">
-                <Users size={14} /> Full Profile
-              </span>
+
+            {/* Expanded content */}
+            {mobileDispoExpanded && (
+              <div className="px-3 pb-3">
+                <div className="grid grid-cols-2 gap-1">
+                  {DISPOSITIONS.map(d => {
+                    const Icon = d.icon
+                    return (
+                      <button
+                        key={d.key}
+                        onClick={() => { logAndAdvance(d); setMobileDispoExpanded(false) }}
+                        disabled={acting}
+                        className={cn(
+                          'flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-all active:scale-[0.95] disabled:opacity-50',
+                          d.color,
+                        )}
+                      >
+                        <Icon size={13} /> {d.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="mt-1 grid grid-cols-2 gap-1">
+                  <button
+                    onClick={() => { skip(); setMobileDispoExpanded(false) }}
+                    disabled={!current}
+                    className="flex items-center justify-center gap-1.5 rounded-lg bg-gray-800 py-2 text-xs font-medium text-gray-400 active:scale-[0.97] hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight size={12} /> Skip
+                  </button>
+                  {current ? (
+                    <Link
+                      href={`/admin/crm/${current.id}`}
+                      onClick={() => setMobileDispoExpanded(false)}
+                      className="flex items-center justify-center gap-1.5 rounded-lg bg-gray-800 py-2 text-xs font-medium text-gray-400 active:scale-[0.97] hover:bg-gray-700"
+                    >
+                      <Users size={12} /> Full Profile
+                    </Link>
+                  ) : (
+                    <span className="flex items-center justify-center gap-1.5 rounded-lg bg-gray-800 py-2 text-xs font-medium text-gray-600 cursor-not-allowed opacity-40">
+                      <Users size={12} /> Full Profile
+                    </span>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
