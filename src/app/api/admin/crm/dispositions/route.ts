@@ -32,6 +32,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'lead_id and disposition_key are required.' }, { status: 400 })
   }
 
+  console.log('[Disposition API] Saving disposition:', {
+    lead_id: body.lead_id,
+    disposition_key: body.disposition_key,
+    has_note: Boolean(body.note),
+    has_follow_up: Boolean(body.follow_up_at),
+    has_call_id: Boolean(body.call_id),
+  })
+
   try {
     const result = await applyCrmDisposition(admin.supabase, {
       leadId: body.lead_id,
@@ -47,10 +55,32 @@ export async function POST(req: NextRequest) {
       createFollowUpTask: body.create_follow_up_task !== false,
     })
 
+    console.log('[Disposition API] Disposition saved successfully:', {
+      lead_id: body.lead_id,
+      disposition: result.disposition.label,
+      warnings: result.warnings,
+    })
+
+    // If there are warnings, include them in the response
+    if (result.warnings.length > 0) {
+      return NextResponse.json({
+        ...result,
+        degraded: true,
+        message: 'Disposition saved, but some tracking features are not available yet.',
+      }, { status: 202 })
+    }
+
     return NextResponse.json(result)
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to save disposition.'
+    console.error('[Disposition API] Failed to save disposition:', {
+      lead_id: body.lead_id,
+      disposition_key: body.disposition_key,
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    })
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to save disposition.' },
+      { error: errorMessage },
       { status: 400 },
     )
   }

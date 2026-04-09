@@ -293,51 +293,43 @@ export async function applyCrmDisposition(
     followUpTask = task ?? null
   }
 
-  try {
-    await appendCrmActivity(supabase, {
-      leadId: input.leadId,
-      type: 'disposition',
-      body: `${definition.label}${trimmedNote ? ` — ${trimmedNote}` : ''}`,
-      metadata: {
-        disposition: definition.outcome,
-        disposition_key: definition.key,
-        note: trimmedNote,
-        follow_up_at: input.followUpAt || null,
-        call_id: input.callId || null,
-        task_id: followUpTask?.id ?? null,
-      },
-      createdBy: input.actorName,
-    })
-  } catch (error) {
-    if (isMissingRelationError(error as { code?: string | null; message?: string | null; details?: string | null }, 'crm_activities')) {
-      warnings.push('crm_activities_unavailable')
-    } else {
-      throw error
-    }
+  // appendCrmActivity now returns { success: boolean; warning?: string }
+  const activityResult = await appendCrmActivity(supabase, {
+    leadId: input.leadId,
+    type: 'disposition',
+    body: `${definition.label}${trimmedNote ? ` — ${trimmedNote}` : ''}`,
+    metadata: {
+      disposition: definition.outcome,
+      disposition_key: definition.key,
+      note: trimmedNote,
+      follow_up_at: input.followUpAt || null,
+      call_id: input.callId || null,
+      task_id: followUpTask?.id ?? null,
+    },
+    createdBy: input.actorName,
+  })
+  if (!activityResult.success && activityResult.warning) {
+    warnings.push(activityResult.warning)
   }
 
-  try {
-    await createCrmAuditLog(supabase, {
-      actionType: 'disposition_changed',
-      entityType: 'lead',
-      entityIds: [input.leadId],
-      summary: `${definition.label} set for ${leadName}`,
-      details: {
-        disposition: definition.outcome,
-        note: trimmedNote,
-        follow_up_at: input.followUpAt || null,
-        call_id: input.callId || null,
-        task_id: followUpTask?.id ?? null,
-      },
-      performedByUserId: input.actorUserId || null,
-      performedByName: input.actorName,
-    })
-  } catch (error) {
-    if (isMissingRelationError(error as { code?: string | null; message?: string | null; details?: string | null }, 'crm_audit_logs')) {
-      warnings.push('crm_audit_logs_unavailable')
-    } else {
-      throw error
-    }
+  // createCrmAuditLog now returns { success: boolean; warning?: string }
+  const auditResult = await createCrmAuditLog(supabase, {
+    actionType: 'disposition_changed',
+    entityType: 'lead',
+    entityIds: [input.leadId],
+    summary: `${definition.label} set for ${leadName}`,
+    details: {
+      disposition: definition.outcome,
+      note: trimmedNote,
+      follow_up_at: input.followUpAt || null,
+      call_id: input.callId || null,
+      task_id: followUpTask?.id ?? null,
+    },
+    performedByUserId: input.actorUserId || null,
+    performedByName: input.actorName,
+  })
+  if (!auditResult.success && auditResult.warning) {
+    warnings.push(auditResult.warning)
   }
 
   if (isDNCDisposition(definition.outcome)) {
