@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import DialerKpiStrip from '@/components/dialer/DialerKpiStrip'
 
 type CampaignStatus  = 'active' | 'paused' | 'completed' | 'archived'
 type CampaignLeadStatus =
@@ -465,6 +466,9 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
             )}
           </div>
         </div>
+
+        {/* KPI strip — scoped to this campaign */}
+        <DialerKpiStrip campaignId={campaign.id} className="mb-5" />
 
         {/* Tabs */}
         <div className="flex gap-1 mb-4">

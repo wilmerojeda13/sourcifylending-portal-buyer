@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Megaphone, Plus, Play, Pause, CheckCircle2, Archive, ChevronRight, Loader2, Users, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import DialerKpiStrip from '@/components/dialer/DialerKpiStrip'
 
 type CampaignStatus = 'active' | 'paused' | 'completed' | 'archived'
 
@@ -125,6 +126,9 @@ export default function CampaignListClient() {
             <Plus size={16} /> New Campaign
           </button>
         </div>
+
+        {/* KPI strip */}
+        <DialerKpiStrip />
 
         {/* Create form */}
         {showNew && (
