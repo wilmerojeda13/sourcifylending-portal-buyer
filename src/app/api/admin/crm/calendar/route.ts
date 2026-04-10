@@ -121,8 +121,12 @@ export async function GET(req: NextRequest) {
     }
   })
 
+  const crmGoogleEvents = googleEvents.filter(event =>
+    typeof event.summary === 'string' && event.summary.toLowerCase().includes('sourcifylending')
+  )
+
   const merged = [
-    ...googleEvents.map(event => ({
+    ...crmGoogleEvents.map(event => ({
       id: event.id,
       source: 'google',
       type: 'event',

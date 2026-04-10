@@ -18,6 +18,7 @@ interface OverviewResponse {
     follow_ups_pending: number
     callbacks_due_today: number
     hot_leads_count: number
+    total_leads: number
     calls_today: number
     calls_this_week: number
     calls_this_month: number
@@ -202,7 +203,7 @@ export default function CRMSalesOverview({ compact = false }: { compact?: boolea
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total Leads" value={data.kpis.hot_leads_count + data.kpis.closed_deals} detail={`${data.kpis.closed_deals} closed in range`} icon={Users} />
+        <StatCard label="Total Leads" value={data.kpis.total_leads ?? 0} detail={`${data.kpis.closed_deals} closed in range`} icon={Users} />
         <StatCard label="Hot Leads" value={data.kpis.hot_leads_count} detail="Ready for attention" icon={Flame} />
         <StatCard label="Callbacks Due" value={data.kpis.callbacks_due_today} detail={`${data.kpis.follow_ups_pending} follow-ups open`} icon={CalendarClock} />
         <StatCard label="Close Rate" value={`${data.kpis.close_rate}%`} detail={`${data.kpis.closed_deals} won / ${data.kpis.total_connects} total`} icon={CheckCircle2} />

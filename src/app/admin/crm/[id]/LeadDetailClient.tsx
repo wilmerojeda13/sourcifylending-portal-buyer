@@ -979,70 +979,49 @@ export default function LeadDetailClient({
 
         <div className="mt-3 grid gap-3 xl:grid-cols-[1.5fr_1fr]">
           <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-purple-600">Demos First</p>
-                <h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Calendar & scheduled events</h2>
-                <p className="mt-1 text-sm text-gray-500">This contact’s upcoming demo, callback, and calendar status live here.</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-purple-600">Schedule</p>
+                <h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Calendar & next actions</h2>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => setShowBookDemo(true)} className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={14} /> {nextCalendarEvent ? 'Book another' : 'Book demo'}</button>
-                {nextCalendarEvent?.htmlLink && <a href={nextCalendarEvent.htmlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3.5 py-2 text-sm font-semibold text-gray-700 hover:border-purple-300 hover:text-purple-700 dark:border-gray-700 dark:text-gray-200"><ExternalLink size={14} /> Reschedule</a>}
+                <button onClick={() => setShowBookDemo(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={13} /> {nextCalendarEvent ? 'Book another' : 'Book demo'}</button>
+                {nextCalendarEvent?.htmlLink && <a href={nextCalendarEvent.htmlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:border-purple-300 hover:text-purple-700 dark:border-gray-700 dark:text-gray-200"><ExternalLink size={13} /> Reschedule</a>}
               </div>
             </div>
 
-            {calendarSummary.warning && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300">{calendarSummary.warning}</div>}
+            {calendarSummary.warning && <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300">{calendarSummary.warning}</div>}
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
               <div className={cn('rounded-xl border px-3 py-2', eventTone(nextCalendarEvent))}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-white/80 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide dark:bg-gray-950/40">{nextCalendarEvent ? titleize(nextCalendarEvent.type) : 'No event'}</span>
-                  <span className="rounded-full bg-white/80 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide dark:bg-gray-950/40">{nextCalendarEvent ? titleize(nextCalendarEvent.status) : 'Unscheduled'}</span>
-                </div>
-                <h3 className="mt-3 text-lg font-bold">{nextCalendarEvent ? nextCalendarEvent.title : 'No calendar booking on this contact yet'}</h3>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div><p className="text-xs font-semibold uppercase tracking-wide opacity-70">Next scheduled date</p><p className="mt-1 text-sm font-semibold">{nextCalendarEvent ? formatDateTime(nextCalendarEvent.start) : 'Not booked'}</p></div>
-                  <div><p className="text-xs font-semibold uppercase tracking-wide opacity-70">Timezone</p><p className="mt-1 text-sm font-semibold">{nextCalendarEvent?.timeZone || lead.likely_timezone || 'Unavailable'}</p></div>
-                </div>
-                {nextCalendarEvent?.description && <p className="mt-3 text-sm opacity-90">{nextCalendarEvent.description}</p>}
-                {!nextCalendarEvent && <p className="mt-3 text-sm opacity-90">Reps need the booking status at a glance. Schedule the next demo here so it stays visible on the record.</p>}
+                <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">Next demo</p>
+                <p className="mt-1 text-sm font-semibold">{nextCalendarEvent ? nextCalendarEvent.title : 'Not booked'}</p>
+                {nextCalendarEvent && <p className="mt-0.5 text-xs opacity-80">{formatDateTime(nextCalendarEvent.start)}</p>}
               </div>
-
-              <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">At a glance</p>
-                <div className="mt-2 space-y-2">
-                  <div className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Demo booked</p><p className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">{calendarSummary.hasBookedDemo ? 'Yes' : 'No'}</p></div>
-                  <div className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Callback due</p><p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">{formatDateTime(lead.callback_due_at || lead.follow_up_at)}</p></div>
-                  <div className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Calendar source</p><p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">{calendarSummary.configured ? 'Google Calendar connected' : 'Not connected'}</p></div>
-                </div>
+              <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Callback due</p>
+                <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{formatDateTime(lead.callback_due_at)}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Follow-up</p>
+                <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{formatDateTime(lead.follow_up_at)}</p>
               </div>
             </div>
 
-            <div className="mt-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-bold text-gray-900 dark:text-white">Upcoming bookings</p>
-                <span className="text-xs text-gray-500">{upcomingEvents.length} visible</span>
-              </div>
-              {upcomingEvents.length === 0 ? (
-                <div className="mt-3 rounded-2xl bg-gray-50 px-4 py-4 text-sm text-gray-500 dark:bg-gray-800/70">No upcoming calendar event is linked to this contact yet.</div>
-              ) : (
-                <div className="mt-2 space-y-2">
-                  {upcomingEvents.slice(0, 4).map((event) => (
-                    <div key={event.id} className="flex flex-col gap-2 rounded-xl border border-gray-200 px-3 py-2.5 dark:border-gray-800 lg:flex-row lg:items-center lg:justify-between">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide', eventTone(event))}>{titleize(event.type)}</span>
-                          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{titleize(event.status)}</span>
-                        </div>
-                        <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">{event.title}</p>
-                        <p className="mt-1 text-xs text-gray-500">{formatDateTime(event.start)}{event.timeZone ? ` • ${event.timeZone}` : ''}</p>
-                      </div>
-                      {event.htmlLink && <a href={event.htmlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-purple-600 hover:text-purple-700">Open event <ExternalLink size={14} /></a>}
+            {upcomingEvents.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                {upcomingEvents.slice(0, 3).map((event) => (
+                  <div key={event.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', eventTone(event))}>{titleize(event.type)}</span>
+                      <span className="truncate text-sm text-gray-900 dark:text-white">{event.title}</span>
+                      <span className="shrink-0 text-xs text-gray-500">{formatDateTime(event.start)}</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    {event.htmlLink && <a href={event.htmlLink} target="_blank" rel="noreferrer" className="shrink-0 text-purple-600 hover:text-purple-700"><ExternalLink size={12} /></a>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -1087,57 +1066,37 @@ export default function LeadDetailClient({
         <div className="mt-3 grid gap-3 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-center justify-between gap-3">
-              <div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-blue-600">Outreach</p><h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Email, texts, and invite history</h2></div>
-              {lead.email && <button onClick={() => setShowEmail(true)} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={14} /> Send Email</button>}
+              <div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-blue-600">Outreach</p><h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Texts & outreach</h2></div>
+              {lead.email && <button onClick={() => setShowEmail(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={13} /> Email</button>}
             </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Emails logged</p><p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">{emailActivities.length}</p></div>
-              <div className="rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Texts sent</p><p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">{lead.sms_sent_count ?? 0}</p></div>
-              <div className="rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Replies</p><p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">{lead.inbound_reply_count ?? 0}</p></div>
-              <div className="rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Unread texts</p><p className="mt-0.5 text-lg font-bold text-gray-900 dark:text-white">{lead.unread_conversation_count ?? 0}</p></div>
+            <div className="mt-3 grid gap-2 grid-cols-4">
+              <div className="rounded-xl bg-gray-50 px-2 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Emails</p><p className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">{emailActivities.length}</p></div>
+              <div className="rounded-xl bg-gray-50 px-2 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Texts</p><p className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">{lead.sms_sent_count ?? 0}</p></div>
+              <div className="rounded-xl bg-gray-50 px-2 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Replies</p><p className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">{lead.inbound_reply_count ?? 0}</p></div>
+              <div className="rounded-xl bg-gray-50 px-2 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Unread</p><p className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">{lead.unread_conversation_count ?? 0}</p></div>
             </div>
-            <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1fr]">
-              <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
-                <p className="text-sm font-bold text-gray-900 dark:text-white">Email history</p>
-                {emailActivities.length === 0 ? <p className="mt-3 text-sm text-gray-500">No contact-level email history is logged yet.</p> : (
-                  <div className="mt-2 space-y-2">
-                    {emailActivities.map((activity) => (
-                      <div key={activity.id} className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70">
-                        <p className="text-sm text-gray-900 dark:text-white">{activity.body || 'Email activity logged'}</p>
-                        <p className="mt-1 text-xs text-gray-500">{formatDateTime(activity.created_at)}</p>
-                      </div>
-                    ))}
+            {smsMessages.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                {smsMessages.slice(0, 3).map((message) => (
+                  <div key={message.id} className="flex items-start justify-between gap-2 rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70">
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-900 dark:text-white">{message.message_body}</p>
+                      <p className="mt-0.5 text-xs text-gray-500">{message.direction} · {titleize(message.status)} · {formatDateTime(message.sent_at || message.created_at)}</p>
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
-              <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
-                <p className="text-sm font-bold text-gray-900 dark:text-white">Text tracking</p>
-                {smsMessages.length === 0 ? <p className="mt-3 text-sm text-gray-500">No SMS activity for this contact yet.</p> : (
-                  <div className="mt-2 space-y-2">
-                    {smsMessages.slice(0, 4).map((message) => (
-                      <div key={message.id} className="rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{message.direction}</span>
-                          <span className="text-xs text-gray-500">{formatDateTime(message.sent_at || message.created_at)}</span>
-                        </div>
-                        <p className="mt-2 text-sm text-gray-900 dark:text-white">{message.message_body}</p>
-                        <p className="mt-1 text-xs text-gray-500">{titleize(message.status)}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="mt-4 space-y-2">
-                  <textarea className="input-field min-h-[90px] resize-y text-sm" value={smsReplyBody} onChange={(event) => setSmsReplyBody(event.target.value)} placeholder="Reply by text..." />
-                  <button onClick={sendSmsReply} disabled={sendingSmsReply || !smsReplyBody.trim()} className="btn-primary flex items-center gap-2 text-sm disabled:cursor-not-allowed disabled:opacity-60">
-                    {sendingSmsReply ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                    Send text reply
-                  </button>
-                </div>
-              </div>
+            )}
+            <div className="mt-3 space-y-2">
+              <textarea className="input-field min-h-[72px] resize-y text-sm" value={smsReplyBody} onChange={(event) => setSmsReplyBody(event.target.value)} placeholder="Reply by text..." />
+              <button onClick={sendSmsReply} disabled={sendingSmsReply || !smsReplyBody.trim()} className="btn-primary flex items-center gap-2 text-sm disabled:cursor-not-allowed disabled:opacity-60">
+                {sendingSmsReply ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                Send text reply
+              </button>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Portal invite</p><p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{latestPortalInvite ? titleize(latestPortalInvite.status) : 'Not sent'}</p><p className="mt-1 text-xs text-gray-500">{latestPortalInvite?.sent_at ? formatDateTime(latestPortalInvite.sent_at) : 'No portal invite logged.'}</p></div>
-              <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800"><p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Pre-analyzer invite</p><p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{latestPreAnalyzerInvite ? titleize(latestPreAnalyzerInvite.status) : 'Not sent'}</p><p className="mt-1 text-xs text-gray-500">{latestPreAnalyzerInvite?.sent_at ? formatDateTime(latestPreAnalyzerInvite.sent_at) : 'No analyzer invite logged.'}</p></div>
+            <div className="mt-3 grid gap-2 grid-cols-2">
+              <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Portal invite</p><p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">{latestPortalInvite ? titleize(latestPortalInvite.status) : 'Not sent'}</p><p className="text-xs text-gray-500">{latestPortalInvite?.sent_at ? formatDateTime(latestPortalInvite.sent_at) : '—'}</p></div>
+              <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Analyzer invite</p><p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">{latestPreAnalyzerInvite ? titleize(latestPreAnalyzerInvite.status) : 'Not sent'}</p><p className="text-xs text-gray-500">{latestPreAnalyzerInvite?.sent_at ? formatDateTime(latestPreAnalyzerInvite.sent_at) : '—'}</p></div>
             </div>
           </div>
 
