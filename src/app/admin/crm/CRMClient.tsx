@@ -353,7 +353,7 @@ function LeadCard({
   onTagFilter?: (tag: CRMTagBadge) => void
 }) {
   const stage = stageInfo(lead.stage)
-  const pastDue = isPastDue(lead.follow_up_at) || isPastDue(lead.callback_due_at)
+  const pastDue = isPastDue(lead.follow_up_at ?? null) || isPastDue(lead.callback_due_at ?? null)
 
   return (
     <div className="flex items-center gap-2 group">
@@ -428,7 +428,7 @@ function LeadCard({
               pastDue ? 'text-red-500 font-medium' : 'text-gray-400'
             )}>
               <Calendar size={12}/> 
-              {formatDate(lead.follow_up_at || lead.callback_due_at)}
+              {formatDate((lead.follow_up_at || lead.callback_due_at) ?? null)}
             </span>
           )}
           
@@ -1170,7 +1170,6 @@ export default function CRMClient() {
                   lead={lead}
                   selected={selectedIds.has(lead.id)}
                   onToggle={toggleOne}
-                  onDisposition={(lead) => setDispositionTarget({ mode: 'single', lead })}
                   onTagFilter={(tag) => setTagFilters((current) => current.includes(tag.id) ? current : [...current, tag.id])}
                 />
               ))}
@@ -1272,10 +1271,10 @@ export default function CRMClient() {
                             
                             {(lead.follow_up_at || lead.callback_due_at) && (
                               <p className={cn('text-[10px] flex items-center gap-1',
-                                isPastDue(lead.follow_up_at || lead.callback_due_at) ? 'text-red-500 font-medium' : 'text-gray-400'
+                                isPastDue((lead.follow_up_at || lead.callback_due_at) ?? null) ? 'text-red-500 font-medium' : 'text-gray-400'
                               )}>
                                 <Calendar size={9}/> 
-                                {formatDate(lead.follow_up_at || lead.callback_due_at)}
+                                {formatDate((lead.follow_up_at || lead.callback_due_at) ?? null)}
                               </p>
                             )}
                           </div>
