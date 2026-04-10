@@ -66,9 +66,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const admin = await assertAdmin()
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Hard delete — dialer_campaign_leads cascade-deletes automatically.
+  // dialer_raw_leads are NOT deleted (they are the backend data layer).
   const { error } = await admin.supabase
     .from('dialer_campaigns')
-    .update({ status: 'archived', updated_at: new Date().toISOString() })
+    .delete()
     .eq('id', params.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

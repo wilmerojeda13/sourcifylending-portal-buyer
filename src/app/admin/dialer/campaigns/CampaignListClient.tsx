@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Megaphone, Plus, Play, Pause, CheckCircle2, Archive, ChevronRight, Loader2, Users } from 'lucide-react'
+import { Megaphone, Plus, Play, Pause, CheckCircle2, Archive, ChevronRight, Loader2, Users, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -69,6 +69,18 @@ export default function CampaignListClient() {
       toast.error(e instanceof Error ? e.message : 'Failed to create')
     } finally {
       setCreating(false)
+    }
+  }
+
+  async function deleteCampaign(id: string, name: string) {
+    if (!confirm(`Permanently delete "${name}"? This removes the campaign and all its lead assignments. Raw lead data is preserved.`)) return
+    try {
+      const res = await fetch(`/api/admin/dialer/campaigns/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error((await res.json()).error)
+      toast.success('Campaign deleted')
+      setCampaigns(cs => cs.filter(c => c.id !== id))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Delete failed')
     }
   }
 
@@ -281,9 +293,17 @@ export default function CampaignListClient() {
             </summary>
             <div className="mt-3 space-y-2">
               {archivedCampaigns.map(c => (
-                <div key={c.id} className="bg-gray-900 rounded-xl border border-gray-800 px-4 py-3 flex items-center justify-between opacity-60">
-                  <p className="text-sm font-medium text-gray-400">{c.name}</p>
-                  <span className="text-xs text-gray-500">{c.lead_count} leads</span>
+                <div key={c.id} className="bg-gray-900 rounded-xl border border-gray-800 px-4 py-3 flex items-center justify-between opacity-60 hover:opacity-80 transition-opacity">
+                  <div>
+                    <p className="text-sm font-medium text-gray-400">{c.name}</p>
+                    <p className="text-xs text-gray-600">{c.lead_count} leads</p>
+                  </div>
+                  <button
+                    onClick={() => deleteCampaign(c.id, c.name)}
+                    title="Permanently delete"
+                    className="p-2 text-gray-600 hover:text-red-400 hover:bg-red-900/30 rounded-lg transition-colors">
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               ))}
             </div>
