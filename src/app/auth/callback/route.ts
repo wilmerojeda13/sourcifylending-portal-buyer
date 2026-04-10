@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const nextParam = searchParams.get('next') ?? '/dashboard'
-  const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || origin).replace(/\/$/, '')
+  const appOrigin = origin.replace(/\/$/, '')
   const next = nextParam.startsWith('/') && !nextParam.startsWith('/login') && !nextParam.startsWith('/signin')
     ? nextParam
     : '/dashboard'

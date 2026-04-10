@@ -7,10 +7,8 @@ const ITEMS = [
   { href: '/admin/crm?focus=overview', label: 'Overview', mode: 'overview' },
   { href: '/admin/crm?focus=leads', label: 'Leads', mode: 'leads' },
   { href: '/admin/crm?view=board', label: 'Pipeline', mode: 'pipeline' },
-  { href: '/admin/crm/calls', label: 'Calls' },
   { href: '/admin/crm/tasks', label: 'Tasks' },
   { href: '/admin/crm/calendar', label: 'Calendar' },
-  { href: '/admin/crm/analytics', label: 'Analytics' },
 ]
 
 export default function CRMWorkspaceNav() {

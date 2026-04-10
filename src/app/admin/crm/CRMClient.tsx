@@ -345,22 +345,18 @@ function LeadCard({
   lead,
   selected,
   onToggle,
-  onDisposition,
   onTagFilter,
 }: {
   lead: CRMLead
   selected?: boolean
   onToggle?: (id: string) => void
-  onDisposition?: (lead: CRMLead) => void
   onTagFilter?: (tag: CRMTagBadge) => void
 }) {
   const stage = stageInfo(lead.stage)
-  const pastDue = isPastDue(lead.follow_up_at)
-  const callabilityLabel = buildCallabilityLabel(lead)
-  const timezoneMetaLabel = buildTimezoneMetaLabel(lead)
+  const pastDue = isPastDue(lead.follow_up_at) || isPastDue(lead.callback_due_at)
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 group">
       {onToggle && (
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggle(lead.id) }}
@@ -376,124 +372,74 @@ function LeadCard({
       <Link
         href={`/admin/crm/${lead.id}`}
         className={cn(
-          "flex items-center gap-3 px-3 py-2 bg-white dark:bg-gray-800 border rounded-xl hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/30 dark:hover:bg-green-950/20 transition-colors group flex-1 min-w-0",
-          selected ? 'border-green-300 dark:border-green-700 bg-green-50/40 dark:bg-green-950/20' : 'border-gray-100 dark:border-gray-700'
+          "flex items-center gap-3 px-3 py-2.5 bg-white dark:bg-gray-800 border rounded-xl hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/30 dark:hover:bg-green-950/20 transition-all flex-1 min-w-0",
+          selected ? 'border-green-300 dark:border-green-700 bg-green-50/40 dark:bg-green-950/20 shadow-sm' : 'border-gray-200 dark:border-gray-700'
         )}
       >
+        {/* Stage dot */}
         <span className={cn('w-2 h-2 rounded-full shrink-0', stage.dot)}/>
-        <div className="min-w-0 flex-1 flex items-center gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
+        
+        {/* Main info */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-semibold text-sm text-gray-900 dark:text-white">
               {lead.first_name} {lead.last_name}
             </p>
-            {/* Search match indicator */}
-            {lead.search_match && (
-              <span className={cn(
-                'text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0',
-                lead.search_match.score >= 90 
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                  : lead.search_match.score >= 60
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                    : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-              )}>
-                {lead.search_match.matchedField?.replace('_', ' ')}
-              </span>
+            {lead.business_name && (
+              <span className="text-xs text-gray-400">• {lead.business_name}</span>
             )}
           </div>
-          {lead.business_name && (
-            <p className="text-xs text-gray-400 truncate hidden lg:block flex-1">{lead.business_name}</p>
+          
+          {/* Tags row - prominent */}
+          {(lead.tags?.length ?? 0) > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {lead.tags?.slice(0, 4).map((tag) => (
+                <button
+                  key={tag.id}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTagFilter?.(tag) }}
+                  className="text-[10px] px-2 py-0.5 rounded-md font-medium transition-colors hover:opacity-80"
+                  style={{ backgroundColor: tag.color ? `${tag.color}20` : '#e5e7eb', color: tag.color || '#374151' }}
+                >
+                  {tag.name}
+                </button>
+              ))}
+              {(lead.tags?.length ?? 0) > 4 && (
+                <span className="text-[10px] text-gray-400 py-0.5">+{lead.tags!.length - 4}</span>
+              )}
+            </div>
           )}
         </div>
-        <a
-          href={`tel:${lead.phone}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={e => e.stopPropagation()}
-          className="text-xs text-green-600 dark:text-green-400 shrink-0 hidden lg:block hover:underline"
-        >
-          {lead.phone}
-        </a>
-        <div className="flex items-center gap-1 shrink-0">
-          <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap', stage.color)}>{stage.label}</span>
-          {lead.program_interest && (
-            <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium hidden sm:inline', PROGRAM_BADGE[lead.program_interest])}>
-              {PROGRAM_LABEL[lead.program_interest]}
+        
+        {/* Right side info */}
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Owner */}
+          <div className="flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-[9px] font-medium text-gray-600 dark:text-gray-300">
+              {(lead.assigned_to_name || 'U').charAt(0).toUpperCase()}
+            </div>
+            <span className="text-xs text-gray-500 hidden lg:block">
+              {lead.assigned_to_name?.split(' ')[0] || 'Unassigned'}
+            </span>
+          </div>
+          
+          {/* Due date */}
+          {(lead.follow_up_at || lead.callback_due_at) && (
+            <span className={cn('text-xs flex items-center gap-1',
+              pastDue ? 'text-red-500 font-medium' : 'text-gray-400'
+            )}>
+              <Calendar size={12}/> 
+              {formatDate(lead.follow_up_at || lead.callback_due_at)}
             </span>
           )}
-          {(lead.source === 'free_analyzer' || lead.source === 'analyzer') && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 hidden sm:inline">
-              Analyzer
-            </span>
-          )}
-          {lead.acquisition_path === 'partner_assisted' && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hidden sm:inline">
-              Partner Client
-            </span>
-          )}
-          {pastDue && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium hidden sm:inline">Due</span>
-          )}
-          {lead.do_not_call && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">DNC</span>}
-          {lead.call_window_status === 'callable_now' && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium hidden sm:inline">
-              Callable Now
-            </span>
-          )}
-          {lead.call_window_status === 'blocked_by_timezone' && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium hidden sm:inline">
-              Blocked
-            </span>
-          )}
-          {lead.call_window_status === 'unknown_timezone' && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-700 font-medium hidden sm:inline">
-              Unknown TZ
-            </span>
-          )}
-          {lead.portal_invite_sent && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium hidden sm:inline">
-              Portal Invite
-            </span>
-          )}
-          {lead.pre_analyzer_invite_sent && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium hidden sm:inline">
-              Analyzer Invite
-            </span>
-          )}
-          {lead.account_created && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium hidden sm:inline">
-              Account Created
-            </span>
-          )}
-          {lead.analyzer_submitted && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium hidden sm:inline">
-              Analyzer Submitted
-            </span>
-          )}
+          
+          {/* Stage badge */}
+          <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap hidden sm:block', stage.color)}>
+            {stage.label}
+          </span>
+          
+          <ChevronRight size={14} className="text-gray-300 group-hover:text-green-500 shrink-0 transition-colors"/>
         </div>
-        <div className="hidden min-w-[150px] text-right text-[11px] leading-tight text-gray-500 xl:block">
-          <div className="font-medium text-gray-600 dark:text-gray-300">{callabilityLabel}</div>
-          {lead.recipient_local_time && <div>{lead.recipient_local_time}</div>}
-          {timezoneMetaLabel && <div className="truncate">{timezoneMetaLabel}</div>}
-        </div>
-        <ChevronRight size={14} className="text-gray-300 group-hover:text-green-500 shrink-0 transition-colors"/>
       </Link>
-      <button
-        type="button"
-        onClick={() => onDisposition?.(lead)}
-        className="shrink-0 rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] font-semibold text-gray-500 hover:border-green-300 hover:text-green-700"
-      >
-        Dispo
-      </button>
-      {(lead.tags?.length ?? 0) > 0 && (
-        <div className="hidden xl:flex flex-wrap gap-1 max-w-[220px]">
-          {lead.tags?.slice(0, 2).map((tag) => (
-            <TagBadge key={tag.id} tag={tag} onClick={() => onTagFilter?.(tag)} />
-          ))}
-          {(lead.tags?.length ?? 0) > 2 && (
-            <span className="text-[10px] font-semibold text-gray-400">+{(lead.tags?.length ?? 0) - 2}</span>
-          )}
-        </div>
-      )}
     </div>
   )
 }
@@ -1048,15 +994,6 @@ export default function CRMClient() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Link
-                href="/admin/crm/dialer"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-500 transition-colors h-8.5"
-              >
-                <PhoneCall size={15}/>
-                <span>Dialer</span>
-              </Link>
               <button onClick={()=>setShowNew(true)} className="btn-primary h-8.5 px-3 sm:px-4 flex items-center gap-1.5 text-sm shrink-0">
                 <Plus size={15}/> <span>Add Lead</span>
               </button>
@@ -1250,10 +1187,10 @@ export default function CRMClient() {
               />
             </div>
           ) : (
-            /* ── Board view ── */
+            /* ── Board view (Asana-style Kanban) ── */
             <div
-              className="flex gap-3 overflow-x-auto pb-2 scroll-smooth"
-              style={{ WebkitOverflowScrolling: 'touch', height: 'calc(100vh - 168px)' }}
+              className="flex gap-4 overflow-x-auto pb-4 scroll-smooth"
+              style={{ WebkitOverflowScrolling: 'touch', height: 'calc(100vh - 140px)' }}
             >
               {STAGES.map(stage => {
                 const stageLeads = leads.filter(l => l.stage === stage.key)
@@ -1266,87 +1203,83 @@ export default function CRMClient() {
                   setBoardPages(p => ({ ...p, [stage.key]: n }))
                 }
                 return (
-                  <div key={stage.key} className="flex-shrink-0 w-64 flex flex-col h-full">
+                  <div key={stage.key} className="flex-shrink-0 w-72 flex flex-col h-full">
                     {/* Column header */}
-                    <div className={cn('flex items-center gap-2 px-3 py-2 rounded-xl mb-2 shrink-0', stage.color)}>
-                      <Icon size={13}/>
-                      <span className="text-xs font-semibold">{stage.label}</span>
-                      <span className="ml-auto text-xs font-bold opacity-70">{stageLeads.length}</span>
+                    <div className={cn('flex items-center gap-2 px-3 py-2.5 rounded-xl mb-3 shrink-0 shadow-sm', stage.color)}>
+                      <Icon size={14}/>
+                      <span className="text-sm font-semibold">{stage.label}</span>
+                      <span className="ml-auto text-xs font-bold opacity-70 px-2 py-0.5 bg-white/30 rounded-full">{stageLeads.length}</span>
                     </div>
                     {/* Cards — each column scrolls independently */}
-                    <div className="flex flex-col gap-2 overflow-y-auto flex-1 pr-0.5 min-h-[80px]">
+                    <div className="flex flex-col gap-2.5 overflow-y-auto flex-1 pr-1 min-h-[80px]">
                       {stageLeads.length === 0 ? (
-                        <div className="text-center py-6 text-gray-400 text-xs border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
-                          No leads
+                        <div className="text-center py-8 text-gray-400 text-xs border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-800/30">
+                          Drop leads here
                         </div>
                       ) : visibleStageLeads.map(lead => (
-                        <div
+                        <Link
                           key={lead.id}
+                          href={`/admin/crm/${lead.id}`}
                           className={cn(
-                            'rounded-xl border p-3 transition-all',
+                            'block rounded-xl border p-3 transition-all hover:shadow-md cursor-pointer group',
                             selectedIds.has(lead.id)
-                              ? 'border-green-400 bg-green-50/60 dark:border-green-700 dark:bg-green-950/20'
-                              : 'border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800',
+                              ? 'border-green-400 bg-green-50/60 dark:border-green-700 dark:bg-green-950/20 shadow-sm'
+                              : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 hover:border-green-300',
                           )}
                         >
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={() => toggleOne(lead.id)}
-                              className="rounded-lg p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-                            >
-                              {selectedIds.has(lead.id) ? (
-                                <CheckSquare size={16} className="text-green-600" />
-                              ) : (
-                                <Square size={16} className="text-gray-400" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDispositionTarget({ mode: 'single', lead })}
-                              className="text-[10px] font-semibold text-green-700 hover:underline"
-                            >
-                              Disposition
-                            </button>
+                          {/* Card Header: Name + Tags */}
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <p className="font-semibold text-sm text-gray-900 dark:text-white leading-tight">
+                              {lead.first_name} {lead.last_name}
+                            </p>
                           </div>
-                          <Link
-                            href={`/admin/crm/${lead.id}`}
-                            className="hover:shadow-md hover:border-green-200 dark:hover:border-green-700 transition-all group block"
-                          >
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                              <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">
-                                {lead.first_name} {lead.last_name}
-                              </p>
-                              {lead.program_interest && (
-                                <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0', PROGRAM_BADGE[lead.program_interest])}>
-                                  {PROGRAM_LABEL[lead.program_interest]}
+                          
+                          {/* Company */}
+                          {lead.business_name && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mb-2">
+                              <Building2 size={10}/> {lead.business_name}
+                            </p>
+                          )}
+                          
+                          {/* Tags - prominently displayed */}
+                          {(lead.tags?.length ?? 0) > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {lead.tags?.slice(0, 3).map((tag) => (
+                                <span 
+                                  key={tag.id} 
+                                  className="text-[10px] px-1.5 py-0.5 rounded-md font-medium"
+                                  style={{ backgroundColor: tag.color ? `${tag.color}20` : '#e5e7eb', color: tag.color || '#374151' }}
+                                >
+                                  {tag.name}
                                 </span>
+                              ))}
+                              {(lead.tags?.length ?? 0) > 3 && (
+                                <span className="text-[10px] text-gray-400">+{lead.tags!.length - 3}</span>
                               )}
                             </div>
-                            {lead.business_name && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mb-1 truncate">
-                                <Building2 size={10}/> {lead.business_name}
-                              </p>
-                            )}
-                            <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                              <Phone size={10}/> {lead.phone}
-                            </p>
-                            {(lead.tags?.length ?? 0) > 0 && (
-                              <div className="mt-2 flex flex-wrap gap-1">
-                                {lead.tags?.slice(0, 2).map((tag) => (
-                                  <TagBadge key={tag.id} tag={tag} onClick={() => setTagFilters((current) => current.includes(tag.id) ? current : [...current, tag.id])} />
-                                ))}
+                          )}
+                          
+                          {/* Footer: Owner + Due Date */}
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-[9px] font-medium text-gray-600 dark:text-gray-300">
+                                {(lead.assigned_to_name || 'U').charAt(0).toUpperCase()}
                               </div>
-                            )}
-                            {lead.follow_up_at && (
-                              <p className={cn('text-[10px] flex items-center gap-1 mt-1.5',
-                                isPastDue(lead.follow_up_at) ? 'text-red-500' : 'text-gray-400'
+                              <span className="text-[10px] text-gray-500 truncate max-w-[80px]">
+                                {lead.assigned_to_name?.split(' ')[0] || 'Unassigned'}
+                              </span>
+                            </div>
+                            
+                            {(lead.follow_up_at || lead.callback_due_at) && (
+                              <p className={cn('text-[10px] flex items-center gap-1',
+                                isPastDue(lead.follow_up_at || lead.callback_due_at) ? 'text-red-500 font-medium' : 'text-gray-400'
                               )}>
-                                <Calendar size={9}/> {formatDate(lead.follow_up_at)}
+                                <Calendar size={9}/> 
+                                {formatDate(lead.follow_up_at || lead.callback_due_at)}
                               </p>
                             )}
-                          </Link>
-                        </div>
+                          </div>
+                        </Link>
                       ))}
                       {/* Per-column pagination */}
                       {stageLeads.length > BOARD_PAGE_SIZE && (

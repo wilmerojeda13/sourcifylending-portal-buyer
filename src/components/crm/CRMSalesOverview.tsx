@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Loader2, Phone, CalendarClock, Flame, CheckCircle2, AlertTriangle, BarChart3, MessageSquare } from 'lucide-react'
+import { Loader2, CalendarClock, Flame, CheckCircle2, AlertTriangle, BarChart3, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface OverviewResponse {
@@ -175,9 +175,9 @@ export default function CRMSalesOverview({ compact = false }: { compact?: boolea
       )}
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-green-600">Sales Workspace</p>
-          <h2 className="mt-0.5 text-xl font-bold text-gray-900 dark:text-white">Calls, callbacks, and follow-up at a glance</h2>
-          <p className="mt-0.5 text-sm text-gray-500">Track volume, focus the hot deals, and keep today's pipeline moving.</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-green-600">Sales CRM</p>
+          <h2 className="mt-0.5 text-xl font-bold text-gray-900 dark:text-white">Pipeline and promoted leads</h2>
+          <p className="mt-0.5 text-sm text-gray-500">Track deals, tasks, and appointments. Call activity is in Dialer.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {[
@@ -202,41 +202,10 @@ export default function CRMSalesOverview({ compact = false }: { compact?: boolea
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total Calls" value={data.kpis.total_calls_made} detail={`${data.kpis.calls_today} today`} icon={Phone} />
-        <StatCard label="Contact Rate" value={`${data.kpis.contact_rate}%`} detail={`${data.kpis.total_connects} connects`} icon={BarChart3} />
+        <StatCard label="Total Leads" value={data.kpis.hot_leads_count + data.kpis.closed_deals} detail={`${data.kpis.closed_deals} closed in range`} icon={Users} />
+        <StatCard label="Hot Leads" value={data.kpis.hot_leads_count} detail="Ready for attention" icon={Flame} />
         <StatCard label="Callbacks Due" value={data.kpis.callbacks_due_today} detail={`${data.kpis.follow_ups_pending} follow-ups open`} icon={CalendarClock} />
-        <StatCard label="Hot Leads" value={data.kpis.hot_leads_count} detail={`${data.kpis.closed_deals} closed in range`} icon={Flame} />
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Texts Sent" value={data.kpis.texts_sent} detail={`${data.kpis.leads_texted} unique leads`} icon={MessageSquare} />
-        <StatCard label="Texts Delivered" value={data.kpis.texts_delivered} detail={`${data.kpis.text_click_rate}% click rate`} icon={CheckCircle2} />
-        <StatCard label="Replies" value={data.kpis.inbound_replies} detail={`${data.kpis.text_reply_rate}% reply rate`} icon={BarChart3} />
-        <StatCard label="Unread Texts" value={data.kpis.unread_text_conversations} detail={`${data.kpis.text_to_signup_conversion}% to signup`} icon={Flame} />
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">
-        <StatCard label="Text → Signup" value={`${data.kpis.text_to_signup_conversion}%`} detail={`${data.kpis.text_to_booked_demo_conversion}% to booked demo`} icon={BarChart3} />
-        <StatCard label="Text → Paid" value={`${data.kpis.text_to_paid_client_conversion}%`} detail="Attributed to leads that received texts" icon={Flame} />
-      </div>
-
-      <div className={cn('grid gap-4', compact ? 'xl:grid-cols-2' : 'xl:grid-cols-[1.4fr_1fr]')}>
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">Call volume over time</h3>
-              <p className="text-sm text-gray-500">Average {data.kpis.average_calls_per_day} calls per day, talk time {secondsToLabel(data.kpis.average_talk_time_seconds)}</p>
-            </div>
-            {!compact && <Link href="/admin/crm/analytics" className="text-sm font-medium text-green-600 hover:text-green-700">Open analytics</Link>}
-          </div>
-          <SimpleBars items={data.charts.call_volume_over_time} />
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <h3 className="text-base font-bold text-gray-900 dark:text-white">Outcome breakdown</h3>
-          <p className="mb-3 text-sm text-gray-500">Booked rate {data.kpis.booked_call_rate}% and close rate {data.kpis.close_rate}%</p>
-          <SimpleBars items={data.charts.outcomes_breakdown} color="bg-emerald-500" />
-        </div>
+        <StatCard label="Close Rate" value={`${data.kpis.close_rate}%`} detail={`${data.kpis.closed_deals} won / ${data.kpis.total_connects} total`} icon={CheckCircle2} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
