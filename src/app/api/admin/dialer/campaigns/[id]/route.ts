@@ -27,6 +27,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     .from('dialer_campaign_leads')
     .select('status')
     .eq('campaign_id', params.id)
+    .range(0, 999999)
 
   const status_counts: Record<string, number> = {}
   for (const r of statusRows ?? []) {

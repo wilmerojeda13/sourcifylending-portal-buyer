@@ -133,9 +133,15 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
   const [rawSearch, setRawSearch]       = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
+  // Pagination
+  const PAGE_SIZE = 100
+  const [page, setPage]   = useState(0)
+  const [total, setTotal] = useState(0)
+
   // Bulk select (leads tab)
-  const [bulkSel, setBulkSel]   = useState<Set<string>>(new Set())
-  const [bulkActing, setBulkActing] = useState(false)
+  const [bulkSel, setBulkSel]         = useState<Set<string>>(new Set())
+  const [bulkActing, setBulkActing]   = useState(false)
+  const [selectingAll, setSelectingAll] = useState(false)
 
   // Create-from-outcomes modal
   const [showModal, setShowModal]           = useState(false)
@@ -149,16 +155,20 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
   const [importing, setImporting]           = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const load = useCallback(async () => {
+  const loadPage = useCallback(async (pg: number, filter: string) => {
     try {
+      const p = new URLSearchParams({ page: String(pg), limit: String(PAGE_SIZE) })
+      if (filter !== 'all') p.set('status', filter)
       const [camRes, leadsRes] = await Promise.all([
         fetch(`/api/admin/dialer/campaigns/${campaignId}`),
-        fetch(`/api/admin/dialer/campaigns/${campaignId}/leads`),
+        fetch(`/api/admin/dialer/campaigns/${campaignId}/leads?${p}`),
       ])
       const [camJson, leadsJson] = await Promise.all([camRes.json(), leadsRes.json()])
       if (!camRes.ok) throw new Error(camJson.error)
       setCampaign(camJson.campaign)
       setLeads(leadsJson.leads ?? [])
+      setTotal(leadsJson.total ?? 0)
+      setPage(pg)
     } catch {
       toast.error('Failed to load campaign')
     } finally {
@@ -166,7 +176,18 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
     }
   }, [campaignId])
 
-  useEffect(() => { load() }, [load])
+  const load = useCallback(() => loadPage(0, statusFilter), [loadPage, statusFilter])
+
+  useEffect(() => { loadPage(0, 'all') }, [loadPage])
+
+  async function loadAllFilteredIds(): Promise<string[]> {
+    const p = new URLSearchParams({ ids_only: '1' })
+    if (statusFilter !== 'all') p.set('status', statusFilter)
+    const res  = await fetch(`/api/admin/dialer/campaigns/${campaignId}/leads?${p}`)
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.error)
+    return json.ids ?? []
+  }
 
   // Load raw leads when Add tab opens
   const loadRawLeads = useCallback(async () => {
@@ -205,7 +226,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
       toast.success(`Added ${json.added} leads`)
       setAddSelected(new Set())
       setTab('leads')
-      await load()
+      await loadPage(0, 'all')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to add')
     } finally {
@@ -228,7 +249,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
       setImportText('')
       setImportParsed([])
       setTab('leads')
-      await load()
+      await loadPage(0, 'all')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Import failed')
     } finally {
@@ -249,7 +270,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
       if (!res.ok) throw new Error(json.error)
       toast.success(`${action === 'remove' ? 'Removed' : 'Reset'} ${json.updated} leads`)
       setBulkSel(new Set())
-      await load()
+      await loadPage(page, statusFilter)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Bulk action failed')
     } finally {
@@ -327,20 +348,38 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
     </div>
   )
 
-  const filteredLeads = statusFilter === 'all'
-    ? leads
-    : leads.filter(l => l.status === statusFilter)
+  // leads is now already filtered by the server — no client-side filter needed
+  const filteredLeads = leads
 
-  const dialableCount = leads.filter(l =>
-    ['new', 'attempted', 'callback', 'follow_up'].includes(l.status)
-  ).length
+  // Dialable count comes from accurate server-side status_counts (not capped leads array)
+  const dialableCount = campaign
+    ? (['new', 'attempted', 'callback', 'follow_up'] as const)
+        .reduce((sum, s) => sum + (campaign.status_counts[s] ?? 0), 0)
+    : 0
 
-  const allBulkSelected = filteredLeads.length > 0 && bulkSel.size === filteredLeads.length
+  const totalPages = Math.ceil(total / PAGE_SIZE)
+  const rangeStart = page * PAGE_SIZE + 1
+  const rangeEnd   = Math.min((page + 1) * PAGE_SIZE, total)
+
+  const allPageSelected = leads.length > 0 && leads.every(l => bulkSel.has(l.id))
+  const allBulkSelected = bulkSel.size === total && total > 0
+
   function toggleBulk(id: string) {
     setBulkSel(s => { const ns = new Set(s); ns.has(id) ? ns.delete(id) : ns.add(id); return ns })
   }
   function toggleAllBulk() {
-    setBulkSel(allBulkSelected ? new Set() : new Set(filteredLeads.map(l => l.id)))
+    setBulkSel(allPageSelected ? new Set() : new Set(leads.map(l => l.id)))
+  }
+  async function selectAllFiltered() {
+    setSelectingAll(true)
+    try {
+      const ids = await loadAllFilteredIds()
+      setBulkSel(new Set(ids))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to select all')
+    } finally {
+      setSelectingAll(false)
+    }
   }
 
   return (
@@ -446,23 +485,24 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
             {/* Status filter */}
             <div className="px-4 py-3 border-b border-gray-800 flex gap-1.5 overflow-x-auto">
               {['all', 'new', 'attempted', 'contacted', 'interested', 'callback', 'follow_up', 'qualified', 'promoted', 'dnc'].map(s => (
-                <button key={s} onClick={() => { setStatusFilter(s); setBulkSel(new Set()) }}
+                <button key={s}
+                  onClick={() => { setStatusFilter(s); setBulkSel(new Set()); loadPage(0, s) }}
                   className={cn(
                     'px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors',
                     statusFilter === s ? 'bg-gray-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
                   )}>
-                  {s === 'all' ? `All (${leads.length})` : `${s.replace('_',' ')} (${campaign.status_counts[s] ?? 0})`}
+                  {s === 'all'
+                    ? `All (${campaign.lead_count})`
+                    : `${s.replace('_', ' ')} (${campaign.status_counts[s] ?? 0})`}
                 </button>
               ))}
             </div>
-
-            {/* Bulk action bar */}
             {bulkSel.size > 0 && (
               <div className="px-4 py-2.5 bg-blue-950/40 border-b border-blue-900/60 flex items-center gap-3 flex-wrap">
                 <span className="text-sm font-medium text-blue-300">{bulkSel.size} selected</span>
-                {!allBulkSelected && (
-                  <button onClick={toggleAllBulk} className="text-xs text-blue-400 underline">
-                    Select all {filteredLeads.length}
+                {!allBulkSelected && total > leads.length && (
+                  <button onClick={selectAllFiltered} disabled={selectingAll} className="text-xs text-blue-400 underline disabled:opacity-50">
+                    {selectingAll ? 'Selecting…' : `Select all ${total.toLocaleString()}`}
                   </button>
                 )}
                 <div className="flex items-center gap-2 ml-auto">
@@ -518,7 +558,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800">
-                  {filteredLeads.map(l => (
+                  {leads.map(l => (
                     <tr key={l.id} className={cn('hover:bg-gray-800/40', bulkSel.has(l.id) && 'bg-blue-950/30')}>
                       <td className="px-4 py-3">
                         <button onClick={() => toggleBulk(l.id)} className="text-gray-500 hover:text-gray-300">
@@ -554,6 +594,26 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                   ))}
                 </tbody>
               </table>
+            )}
+
+            {/* Pagination controls */}
+            {totalPages > 1 && (
+              <div className="px-4 py-3 border-t border-gray-800 flex items-center justify-between gap-3">
+                <span className="text-xs text-gray-500">
+                  Showing {rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of {total.toLocaleString()}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => loadPage(page - 1, statusFilter)} disabled={page === 0}
+                    className="px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 disabled:opacity-40">
+                    Previous
+                  </button>
+                  <span className="text-xs text-gray-500">{page + 1} / {totalPages}</span>
+                  <button onClick={() => loadPage(page + 1, statusFilter)} disabled={page >= totalPages - 1}
+                    className="px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 disabled:opacity-40">
+                    Next
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}

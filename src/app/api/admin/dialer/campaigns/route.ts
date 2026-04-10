@@ -26,6 +26,7 @@ export async function GET() {
   const { data: statusData } = await admin.supabase
     .from('dialer_campaign_leads')
     .select('campaign_id, status')
+    .range(0, 999999)
 
   const counts: Record<string, Record<string, number>> = {}
   for (const row of statusData ?? []) {
@@ -70,6 +71,7 @@ export async function POST(req: NextRequest) {
       .select('raw_lead_id')
       .eq('campaign_id', body.from_campaign_id)
       .in('status', body.outcome_statuses)
+      .range(0, 999999)
     if (sourceLeads?.length) {
       await admin.supabase.from('dialer_campaign_leads').insert(
         sourceLeads.map((l, i) => ({
