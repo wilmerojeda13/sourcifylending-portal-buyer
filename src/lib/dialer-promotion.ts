@@ -20,6 +20,16 @@ type PromotionResult = {
   alreadyPromoted: boolean
 }
 
+export type WorkflowState = {
+  follow_up_at?:      string | null
+  callback_due_at?:   string | null
+  last_call_outcome?: string | null
+  last_call_at?:      string | null
+  lead_temperature?:  'cold' | 'warm' | 'hot' | null
+  last_call_note?:    string | null
+  crm_stage?:         string | null
+}
+
 /**
  * Promote a raw dialer lead to CRM.
  * One-way operation: raw lead -> CRM lead.
@@ -32,6 +42,7 @@ export async function promoteToCrm(
     rawLeadId: string
     trigger: string
     userId: string
+    workflowState?: WorkflowState
   }
 ): Promise<PromotionResult> {
   // 1. Load raw lead
@@ -83,18 +94,64 @@ export async function promoteToCrm(
     p_source: rawLead.source || 'dialer_import',
   })
 
+  let promotionResult: PromotionResult
   if (rpcError) {
     // Fallback: manual promotion if RPC fails
-    return await manualPromotionFallback(supabase, rawLead, input)
+    promotionResult = await manualPromotionFallback(supabase, rawLead, input)
+  } else {
+    // RPC returns tuple: (crm_lead_id, merged, already_promoted)
+    const [crmLeadId, merged, alreadyPromoted] = result as [string, boolean, boolean]
+    promotionResult = { crmLeadId, merged, alreadyPromoted }
   }
 
-  // RPC returns tuple: (crm_lead_id, merged, already_promoted)
-  const [crmLeadId, merged, alreadyPromoted] = result as [string, boolean, boolean]
+  // Apply workflow state: patch CRM lead fields + create follow-up/callback task
+  if (!promotionResult.alreadyPromoted && input.workflowState) {
+    await applyWorkflowState(supabase, promotionResult.crmLeadId, input.workflowState, input.userId)
+  }
 
-  return {
-    crmLeadId,
-    merged,
-    alreadyPromoted,
+  return promotionResult
+}
+
+/**
+ * After promotion, patch the CRM lead with Dialer workflow state and
+ * create a CRM task if a callback or follow-up was scheduled.
+ */
+async function applyWorkflowState(
+  supabase: ServiceClient,
+  crmLeadId: string,
+  state: WorkflowState,
+  userId: string
+) {
+  const patch: Record<string, unknown> = {}
+  if (state.follow_up_at     != null) patch.follow_up_at     = state.follow_up_at
+  if (state.callback_due_at  != null) patch.callback_due_at  = state.callback_due_at
+  if (state.last_call_outcome != null) patch.last_call_outcome = state.last_call_outcome
+  if (state.last_call_at     != null) patch.last_call_at     = state.last_call_at
+  if (state.lead_temperature != null) patch.lead_temperature  = state.lead_temperature
+  if (state.last_call_note   != null) patch.latest_call_note  = state.last_call_note
+  if (state.crm_stage        != null) patch.stage             = state.crm_stage
+
+  if (Object.keys(patch).length > 0) {
+    patch.updated_at = new Date().toISOString()
+    await supabase.from('crm_leads').update(patch).eq('id', crmLeadId)
+  }
+
+  // Create a CRM task for any scheduled callback or follow-up
+  const dueAt = state.callback_due_at ?? state.follow_up_at
+  if (dueAt) {
+    const isCallback = !!state.callback_due_at
+    await supabase.from('crm_tasks').insert({
+      lead_id: crmLeadId,
+      title: isCallback ? 'Callback from Dialer' : 'Follow-up from Dialer',
+      task_type: isCallback ? 'Call' : 'Follow-up',
+      priority: 'High',
+      status: 'To Do',
+      due_at: dueAt,
+      notes: state.last_call_note ?? null,
+      owner_user_id: userId,
+      created_source: 'dialer_promotion',
+      created_source_label: 'Dialer',
+    })
   }
 }
 

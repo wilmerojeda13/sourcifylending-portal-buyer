@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { promoteToCrm } from '@/lib/dialer-promotion'
+
+const CAMPAIGN_OUTCOME_TO_CRM_STAGE: Record<string, string> = {
+  qualified:       'qualified',
+  appointment_set: 'demo_scheduled',
+  booked_call:     'demo_scheduled',
+}
 
 type CampaignLeadStatus =
   | 'new' | 'attempted' | 'contacted' | 'interested'
@@ -92,27 +99,29 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .single()
 
     if (rawLead && !rawLead.promoted_to_crm_lead_id) {
-      const { data: promoResult } = await admin.supabase.rpc('promote_raw_lead_to_crm', {
-        p_raw_lead_id:   raw_lead_id,
-        p_trigger:       promote ? 'manual' : outcome,
-        p_user_id:       admin.userId,
-        p_first_name:    rawLead.first_name,
-        p_last_name:     rawLead.last_name,
-        p_phone:         rawLead.phone,
-        p_phone_e164:    rawLead.phone_e164,
-        p_email:         rawLead.email,
-        p_business_name: rawLead.business_name,
-        p_notes:         rawLead.notes,
-        p_source:        rawLead.source,
-      })
-
-      if (promoResult?.[0]) {
-        promotion = { crm_lead_id: promoResult[0].crm_lead_id, merged: promoResult[0].merged }
-        // Mark campaign lead promoted
-        await admin.supabase
-          .from('dialer_campaign_leads')
-          .update({ status: 'promoted', updated_at: now })
-          .eq('id', campaign_lead_id)
+      try {
+        const result = await promoteToCrm(admin.supabase, {
+          rawLeadId: raw_lead_id,
+          trigger:   promote ? 'manual' : outcome,
+          userId:    admin.userId,
+          workflowState: {
+            callback_due_at:   callback_due_at ?? null,
+            follow_up_at:      follow_up_at    ?? null,
+            last_call_outcome: outcome,
+            last_call_at:      now,
+            last_call_note:    note ?? null,
+            crm_stage:         CAMPAIGN_OUTCOME_TO_CRM_STAGE[outcome] ?? null,
+          },
+        })
+        if (!result.alreadyPromoted) {
+          promotion = { crm_lead_id: result.crmLeadId, merged: result.merged }
+          await admin.supabase
+            .from('dialer_campaign_leads')
+            .update({ status: 'promoted', updated_at: now })
+            .eq('id', campaign_lead_id)
+        }
+      } catch (err) {
+        console.error('[Campaign Disposition] Promotion failed:', err)
       }
     }
   }

@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { promoteToCrm } from '@/lib/dialer-promotion'
+
+const DISPOSITION_TO_CRM_STAGE: Record<string, string> = {
+  appointment_set:     'demo_scheduled',
+  booked_call:         'demo_scheduled',
+  qualified:           'qualified',
+  application_started: 'qualified',
+  closed_won:          'closed_won',
+}
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -109,25 +118,31 @@ export async function POST(req: NextRequest) {
 
   let promotionResult = null
   if (AUTO_PROMOTE.has(body.disposition_key) && !updatedLead.promoted_to_crm_lead_id) {
-    const { data: promoted } = await admin.supabase.rpc('promote_raw_lead_to_crm', {
-      p_raw_lead_id:    body.raw_lead_id,
-      p_trigger:        body.disposition_key,
-      p_user_id:        admin.userId,
-      p_first_name:     updatedLead.first_name,
-      p_last_name:      updatedLead.last_name ?? '',
-      p_phone:          updatedLead.phone,
-      p_phone_e164:     updatedLead.phone_e164 ?? null,
-      p_email:          updatedLead.email ?? null,
-      p_business_name:  updatedLead.business_name ?? null,
-      p_notes:          updatedLead.notes ?? null,
-      p_source:         updatedLead.source ?? 'dialer_promoted',
-    })
-    promotionResult = promoted?.[0] ?? null
-    if (promotionResult) {
-      await admin.supabase
-        .from('dialer_raw_leads')
-        .update({ stage: 'promoted', updated_at: now })
-        .eq('id', body.raw_lead_id)
+    const isCallback = ['callback', 'call_back', 'call_back_later'].includes(body.disposition_key)
+    try {
+      const result = await promoteToCrm(admin.supabase, {
+        rawLeadId: body.raw_lead_id,
+        trigger:   body.disposition_key,
+        userId:    admin.userId,
+        workflowState: {
+          follow_up_at:      !isCallback ? (body.follow_up_at ?? null) : null,
+          callback_due_at:   isCallback  ? (body.follow_up_at ?? null) : null,
+          last_call_outcome: body.disposition_key,
+          last_call_at:      now,
+          lead_temperature:  body.lead_temperature ?? null,
+          last_call_note:    body.note ?? null,
+          crm_stage:         DISPOSITION_TO_CRM_STAGE[body.disposition_key] ?? null,
+        },
+      })
+      promotionResult = result
+      if (!result.alreadyPromoted) {
+        await admin.supabase
+          .from('dialer_raw_leads')
+          .update({ stage: 'promoted', updated_at: now })
+          .eq('id', body.raw_lead_id)
+      }
+    } catch (err) {
+      console.error('[Disposition] Auto-promotion failed:', err)
     }
   }
 
