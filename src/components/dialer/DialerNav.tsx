@@ -2,15 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronLeft, ArrowUpRight, Megaphone, Users, Clock, CheckCircle2, BarChart3 } from 'lucide-react'
+import { ChevronLeft, ArrowUpRight, Megaphone, Clock, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
-  { href: '/admin/dialer/campaigns', label: 'Campaigns',       icon: Megaphone },
-  { href: '/admin/dialer/leads',     label: 'Raw Leads',       icon: Users },
-  { href: '/admin/dialer/callbacks', label: 'Callbacks',       icon: Clock },
-  { href: '/admin/dialer/qualified', label: 'Ready to Promote',icon: CheckCircle2 },
-  { href: '/admin/dialer/analytics', label: 'Analytics',       icon: BarChart3 },
+  { href: '/admin/dialer/campaigns', label: 'Campaigns', icon: Megaphone },
+  { href: '/admin/dialer/callbacks', label: 'Callbacks', icon: Clock },
+  { href: '/admin/dialer/qualified', label: 'Qualified', icon: CheckCircle2 },
 ]
 
 export default function DialerNav() {

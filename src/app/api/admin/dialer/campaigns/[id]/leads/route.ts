@@ -79,6 +79,39 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ ok: true, added: rows.length })
 }
 
+// PATCH: bulk action on campaign leads (body: { action, lead_ids })
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await assertAdmin()
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await req.json() as { action: 'remove' | 'reset'; lead_ids: string[] }
+  if (!Array.isArray(body.lead_ids) || !body.lead_ids.length) {
+    return NextResponse.json({ error: 'lead_ids required' }, { status: 400 })
+  }
+
+  const ids = body.lead_ids
+
+  if (body.action === 'remove') {
+    const { error } = await admin.supabase
+      .from('dialer_campaign_leads')
+      .delete()
+      .in('id', ids)
+      .eq('campaign_id', params.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  } else if (body.action === 'reset') {
+    const { error } = await admin.supabase
+      .from('dialer_campaign_leads')
+      .update({ status: 'new', last_call_outcome: null, last_called_at: null })
+      .in('id', ids)
+      .eq('campaign_id', params.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  } else {
+    return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  }
+
+  return NextResponse.json({ ok: true, updated: ids.length })
+}
+
 // DELETE: remove a raw lead from campaign (body: { raw_lead_id })
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const admin = await assertAdmin()

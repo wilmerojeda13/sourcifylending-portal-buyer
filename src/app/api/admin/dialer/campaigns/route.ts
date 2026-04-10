@@ -47,7 +47,12 @@ export async function POST(req: NextRequest) {
   const admin = await assertAdmin()
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json() as { name: string; description?: string }
+  const body = await req.json() as {
+    name: string
+    description?: string
+    from_campaign_id?: string
+    outcome_statuses?: string[]
+  }
   if (!body.name?.trim()) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
 
   const { data, error } = await admin.supabase
@@ -57,5 +62,26 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ campaign: data }, { status: 201 })
+
+  let lead_count = 0
+  if (body.from_campaign_id && body.outcome_statuses?.length) {
+    const { data: sourceLeads } = await admin.supabase
+      .from('dialer_campaign_leads')
+      .select('raw_lead_id')
+      .eq('campaign_id', body.from_campaign_id)
+      .in('status', body.outcome_statuses)
+    if (sourceLeads?.length) {
+      await admin.supabase.from('dialer_campaign_leads').insert(
+        sourceLeads.map((l, i) => ({
+          campaign_id: data.id,
+          raw_lead_id: l.raw_lead_id,
+          status: 'new',
+          sort_order: i,
+        }))
+      )
+      lead_count = sourceLeads.length
+    }
+  }
+
+  return NextResponse.json({ campaign: data, lead_count }, { status: 201 })
 }
