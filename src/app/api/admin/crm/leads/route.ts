@@ -13,6 +13,7 @@ import {
   normalizeText,
   type UnifiedSearchResult 
 } from '@/lib/crm-unified-search'
+import { applyVisibleCrmLeadsFilter } from '@/lib/crm-visibility'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
 
   const requiresPostFilter = callability === 'callable_now' || callability === 'blocked_by_timezone' || callability === 'unknown_timezone'
   const applyLeadFilters = (query: any) => {
-    let nextQuery: any = query.eq('is_archived', archived)
+    let nextQuery: any = archived ? query.eq('is_archived', true) : applyVisibleCrmLeadsFilter(query)
     if (stage) nextQuery = nextQuery.eq('stage', stage)
     if (source) nextQuery = nextQuery.eq('source', source)
     if (program) nextQuery = nextQuery.eq('program_interest', program)

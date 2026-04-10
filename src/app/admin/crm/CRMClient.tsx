@@ -8,8 +8,9 @@ import {
   X, Loader2, AlertCircle, Users, PhoneCall, TrendingUp,
   CheckCircle2, XCircle, Upload, Zap, Filter,
   Trash2, Bot, CheckSquare, Square, MinusSquare,
-  Archive,
+  Archive, GripVertical,
 } from 'lucide-react'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable, type DragEndEvent } from '@dnd-kit/core'
 import { cn } from '@/lib/utils'
 import CRMWorkspaceNav from '@/components/crm/CRMWorkspaceNav'
 import CRMSalesOverview from '@/components/crm/CRMSalesOverview'
@@ -164,6 +165,120 @@ function buildTimezoneMetaLabel(lead: CRMLead) {
     return `${source} • ${lead.timezone_reason_label}`
   }
   return source
+}
+
+// ─── Kanban Board Sub-components ─────────────────────────────────────────────
+function DraggableKanbanCard({
+  lead,
+  selectedIds,
+  ghostId,
+}: {
+  lead: CRMLead
+  selectedIds: Set<string>
+  ghostId: string | null
+}) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: lead.id })
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50, position: 'relative' as const }
+    : undefined
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className={cn(
+        'rounded-xl border bg-white dark:bg-gray-800 transition-shadow',
+        ghostId === lead.id ? 'opacity-30 shadow-none' : 'hover:shadow-md',
+        selectedIds.has(lead.id)
+          ? 'border-green-400 bg-green-50/60 dark:border-green-700 dark:bg-green-950/20'
+          : 'border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-600',
+      )}
+    >
+      <div className="flex items-start gap-1 p-3">
+        <button
+          {...listeners}
+          className="mt-0.5 flex-shrink-0 cursor-grab touch-none text-gray-200 hover:text-gray-400 dark:text-gray-600 dark:hover:text-gray-400 transition-colors"
+          title="Drag to move"
+          aria-label="Drag handle"
+        >
+          <GripVertical size={13} />
+        </button>
+        <Link href={`/admin/crm/${lead.id}`} className="flex-1 min-w-0 block">
+          <p className="font-semibold text-sm text-gray-900 dark:text-white leading-tight truncate">
+            {lead.first_name} {lead.last_name}
+          </p>
+          {lead.business_name && (
+            <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate">
+              <Building2 size={9} className="flex-shrink-0" /> {lead.business_name}
+            </p>
+          )}
+          {(lead.tags?.length ?? 0) > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {lead.tags?.slice(0, 2).map(tag => (
+                <span
+                  key={tag.id}
+                  className="text-[10px] px-1.5 py-0.5 rounded-md font-medium"
+                  style={{ backgroundColor: tag.color ? `${tag.color}20` : '#e5e7eb', color: tag.color || '#374151' }}
+                >
+                  {tag.name}
+                </span>
+              ))}
+              {(lead.tags?.length ?? 0) > 2 && (
+                <span className="text-[10px] text-gray-400">+{lead.tags!.length - 2}</span>
+              )}
+            </div>
+          )}
+          <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-gray-100 dark:border-gray-700">
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[80px]">
+              {lead.assigned_to_name?.split(' ')[0] || 'Unassigned'}
+            </span>
+            {(lead.follow_up_at || lead.callback_due_at) && (
+              <span className={cn(
+                'text-[10px] flex items-center gap-0.5',
+                isPastDue((lead.follow_up_at || lead.callback_due_at) ?? null)
+                  ? 'font-semibold text-red-500'
+                  : 'text-gray-400',
+              )}>
+                <Calendar size={9} />
+                {formatDate((lead.follow_up_at || lead.callback_due_at) ?? null)}
+              </span>
+            )}
+          </div>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function DroppableKanbanColumn({
+  stageId,
+  isEmpty,
+  children,
+}: {
+  stageId: string
+  isEmpty: boolean
+  children: React.ReactNode
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: stageId })
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'flex flex-col gap-2 overflow-y-auto flex-1 pb-2 rounded-xl transition-colors',
+        isOver
+          ? 'bg-green-50/60 ring-2 ring-inset ring-green-300 dark:bg-green-950/20 dark:ring-green-700'
+          : '',
+      )}
+      style={{ maxHeight: 'calc(100vh - 260px)' }}
+    >
+      {isEmpty && !isOver && (
+        <div className="flex items-center justify-center min-h-[80px] border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-400">
+          Drop here
+        </div>
+      )}
+      {children}
+    </div>
+  )
 }
 
 // ─── New Lead Modal ───────────────────────────────────────────────────────────
@@ -533,6 +648,8 @@ export default function CRMClient() {
   const [dispositionTarget, setDispositionTarget] = useState<DispositionTarget | null>(null)
   const [dispositionSubmitting, setDispositionSubmitting] = useState(false)
   const [dispositionError, setDispositionError] = useState<string | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   useEffect(() => {
     setView(searchParams.get('view') === 'board' ? 'board' : 'list')
@@ -666,6 +783,30 @@ export default function CRMClient() {
     clearSelection()
     setBulkStageOpen(false)
     setBulkOwnerId('')
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    setDraggingId(null)
+    if (!over) return
+    const leadId = active.id as string
+    const newStage = over.id as Stage
+    const lead = leads.find(l => l.id === leadId)
+    if (!lead || lead.stage === newStage) return
+    const prevStage = lead.stage
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: newStage } : l))
+    try {
+      const res = await fetch(`/api/admin/crm/leads/${leadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: newStage }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success(`Moved to ${stageInfo(newStage).label}`)
+    } catch {
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: prevStage } : l))
+      toast.error('Stage update failed')
+    }
   }
 
   // ── Bulk actions ──
@@ -1079,11 +1220,11 @@ export default function CRMClient() {
       {/* ── Body ── */}
       {(isLeadsView || isPipelineView) && (
         <div className={cn(
-          'max-w-screen-xl mx-auto px-4 pt-2.5 pb-24'
+          isPipelineView ? 'px-2 sm:px-4 pt-2.5 pb-24' : 'max-w-screen-xl mx-auto px-4 pt-2.5 pb-24'
         )}>
 
-        {/* ── Lead list (main column) ── */}
-        <div className="min-w-0 overflow-hidden">
+        {/* ── Lead list / board (main column) ── */}
+        <div className={cn('min-w-0', !isPipelineView && 'overflow-hidden')}>
           {loading ? (
             <div className="space-y-2">
               {/* Skeleton batch controls */}
@@ -1186,107 +1327,53 @@ export default function CRMClient() {
               />
             </div>
           ) : (
-            /* ── Board view (Asana-style Kanban) ── */
-            <div
-              className="flex gap-4 overflow-x-auto pb-4 scroll-smooth"
-              style={{ WebkitOverflowScrolling: 'touch', height: 'calc(100vh - 140px)' }}
+            /* ── Board view — real kanban with drag-and-drop ── */
+            <DndContext
+              sensors={sensors}
+              onDragStart={e => setDraggingId(e.active.id as string)}
+              onDragEnd={handleDragEnd}
+              onDragCancel={() => setDraggingId(null)}
             >
-              {STAGES.map(stage => {
-                const stageLeads = leads.filter(l => l.stage === stage.key)
-                const colPage = boardPages[stage.key] ?? 1
-                const colHasPrev = colPage > 1
-                const colHasNext = colPage * BOARD_PAGE_SIZE < stageLeads.length
-                const visibleStageLeads = stageLeads.slice((colPage - 1) * BOARD_PAGE_SIZE, colPage * BOARD_PAGE_SIZE)
-                const Icon = stage.icon
-                function setColPage(n: number) {
-                  setBoardPages(p => ({ ...p, [stage.key]: n }))
-                }
-                return (
-                  <div key={stage.key} className="flex-shrink-0 w-72 flex flex-col h-full">
-                    {/* Column header */}
-                    <div className={cn('flex items-center gap-2 px-3 py-2.5 rounded-xl mb-3 shrink-0 shadow-sm', stage.color)}>
-                      <Icon size={14}/>
-                      <span className="text-sm font-semibold">{stage.label}</span>
-                      <span className="ml-auto text-xs font-bold opacity-70 px-2 py-0.5 bg-white/30 rounded-full">{stageLeads.length}</span>
-                    </div>
-                    {/* Cards — each column scrolls independently */}
-                    <div className="flex flex-col gap-2.5 overflow-y-auto flex-1 pr-1 min-h-[80px]">
-                      {stageLeads.length === 0 ? (
-                        <div className="text-center py-8 text-gray-400 text-xs border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-800/30">
-                          Drop leads here
-                        </div>
-                      ) : visibleStageLeads.map(lead => (
-                        <Link
-                          key={lead.id}
-                          href={`/admin/crm/${lead.id}`}
-                          className={cn(
-                            'block rounded-xl border p-3 transition-all hover:shadow-md cursor-pointer group',
-                            selectedIds.has(lead.id)
-                              ? 'border-green-400 bg-green-50/60 dark:border-green-700 dark:bg-green-950/20 shadow-sm'
-                              : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 hover:border-green-300',
-                          )}
-                        >
-                          {/* Card Header: Name + Tags */}
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <p className="font-semibold text-sm text-gray-900 dark:text-white leading-tight">
-                              {lead.first_name} {lead.last_name}
-                            </p>
-                          </div>
-                          
-                          {/* Company */}
-                          {lead.business_name && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mb-2">
-                              <Building2 size={10}/> {lead.business_name}
-                            </p>
-                          )}
-                          
-                          {/* Tags - prominently displayed */}
-                          {(lead.tags?.length ?? 0) > 0 && (
-                            <div className="flex flex-wrap gap-1 mb-2">
-                              {lead.tags?.slice(0, 3).map((tag) => (
-                                <span 
-                                  key={tag.id} 
-                                  className="text-[10px] px-1.5 py-0.5 rounded-md font-medium"
-                                  style={{ backgroundColor: tag.color ? `${tag.color}20` : '#e5e7eb', color: tag.color || '#374151' }}
-                                >
-                                  {tag.name}
-                                </span>
-                              ))}
-                              {(lead.tags?.length ?? 0) > 3 && (
-                                <span className="text-[10px] text-gray-400">+{lead.tags!.length - 3}</span>
-                              )}
-                            </div>
-                          )}
-                          
-                          {/* Footer: Owner + Due Date */}
-                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-[9px] font-medium text-gray-600 dark:text-gray-300">
-                                {(lead.assigned_to_name || 'U').charAt(0).toUpperCase()}
-                              </div>
-                              <span className="text-[10px] text-gray-500 truncate max-w-[80px]">
-                                {lead.assigned_to_name?.split(' ')[0] || 'Unassigned'}
-                              </span>
-                            </div>
-                            
-                            {(lead.follow_up_at || lead.callback_due_at) && (
-                              <p className={cn('text-[10px] flex items-center gap-1',
-                                isPastDue((lead.follow_up_at || lead.callback_due_at) ?? null) ? 'text-red-500 font-medium' : 'text-gray-400'
-                              )}>
-                                <Calendar size={9}/> 
-                                {formatDate((lead.follow_up_at || lead.callback_due_at) ?? null)}
-                              </p>
-                            )}
-                          </div>
-                        </Link>
-                      ))}
+              <div
+                className="flex gap-3 overflow-x-auto pb-6 scroll-smooth"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                {STAGES.map(stage => {
+                  const stageLeads = leads.filter(l => l.stage === stage.key)
+                  const colPage = boardPages[stage.key] ?? 1
+                  const colHasPrev = colPage > 1
+                  const colHasNext = colPage * BOARD_PAGE_SIZE < stageLeads.length
+                  const visibleStageLeads = stageLeads.slice((colPage - 1) * BOARD_PAGE_SIZE, colPage * BOARD_PAGE_SIZE)
+                  const Icon = stage.icon
+                  function setColPage(n: number) {
+                    setBoardPages(p => ({ ...p, [stage.key]: n }))
+                  }
+                  return (
+                    <div key={stage.key} className="flex-shrink-0 w-[240px] flex flex-col">
+                      {/* Column header */}
+                      <div className={cn('flex items-center gap-2 px-3 py-2 rounded-xl mb-2 shrink-0 shadow-sm', stage.color)}>
+                        <Icon size={13} />
+                        <span className="text-xs font-semibold">{stage.label}</span>
+                        <span className="ml-auto text-[10px] font-bold opacity-75 px-1.5 py-0.5 bg-white/30 rounded-full">{stageLeads.length}</span>
+                      </div>
+                      {/* Droppable column — cards scroll independently */}
+                      <DroppableKanbanColumn stageId={stage.key} isEmpty={stageLeads.length === 0}>
+                        {visibleStageLeads.map(lead => (
+                          <DraggableKanbanCard
+                            key={lead.id}
+                            lead={lead}
+                            selectedIds={selectedIds}
+                            ghostId={draggingId}
+                          />
+                        ))}
+                      </DroppableKanbanColumn>
                       {/* Per-column pagination */}
                       {stageLeads.length > BOARD_PAGE_SIZE && (
-                        <div className="flex items-center justify-between gap-1 pt-1 pb-0.5 shrink-0">
+                        <div className="flex items-center justify-between gap-1 pt-1 shrink-0">
                           <button
                             onClick={() => setColPage(colPage - 1)}
                             disabled={!colHasPrev}
-                            className="flex-1 py-1.5 text-[11px] font-medium border border-gray-200 dark:border-gray-700 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-green-600 hover:border-green-300 dark:hover:border-green-700"
+                            className="flex-1 py-1 text-[11px] font-medium border border-gray-200 dark:border-gray-700 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-green-600 hover:border-green-300"
                           >
                             ← Prev
                           </button>
@@ -1296,17 +1383,36 @@ export default function CRMClient() {
                           <button
                             onClick={() => setColPage(colPage + 1)}
                             disabled={!colHasNext}
-                            className="flex-1 py-1.5 text-[11px] font-medium border border-gray-200 dark:border-gray-700 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-green-600 hover:border-green-300 dark:hover:border-green-700"
+                            className="flex-1 py-1 text-[11px] font-medium border border-gray-200 dark:border-gray-700 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-gray-500 hover:text-green-600 hover:border-green-300"
                           >
                             Next →
                           </button>
                         </div>
                       )}
                     </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+              {/* Floating drag overlay — professional drag UX */}
+              <DragOverlay>
+                {draggingId ? (() => {
+                  const lead = leads.find(l => l.id === draggingId)
+                  if (!lead) return null
+                  return (
+                    <div className="w-[232px] rounded-xl border-2 border-green-400 bg-white dark:bg-gray-800 shadow-2xl p-3 rotate-1 opacity-95">
+                      <p className="font-semibold text-sm text-gray-900 dark:text-white leading-tight">
+                        {lead.first_name} {lead.last_name}
+                      </p>
+                      {lead.business_name && (
+                        <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                          <Building2 size={9} /> {lead.business_name}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })() : null}
+              </DragOverlay>
+            </DndContext>
           )}
         </div>
 

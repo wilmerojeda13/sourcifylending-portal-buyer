@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Loader2, Plus, CalendarClock, AlertTriangle, CheckSquare, Square, CheckCircle2 } from 'lucide-react'
+import { Loader2, Plus, CheckSquare, Square, CheckCircle2, MinusSquare } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import CRMWorkspaceNav from '@/components/crm/CRMWorkspaceNav'
 import { CRM_TASK_PRIORITIES, CRM_TASK_STATUSES, CRM_TASK_TYPES } from '@/lib/crm'
 import toast from 'react-hot-toast'
@@ -53,6 +54,7 @@ export default function TasksClient() {
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [bucket, setBucket] = useState('today')
+  const [counts, setCounts] = useState<Record<string, number>>({})
   const [owners, setOwners] = useState<OwnerOption[]>([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -65,6 +67,7 @@ export default function TasksClient() {
     const res = await fetch(`/api/admin/crm/tasks?${params.toString()}`, { cache: 'no-store' })
     const json = await res.json()
     setTasks(json.tasks ?? [])
+    setCounts(json.counts ?? {})
     setLoading(false)
   }
 
@@ -205,23 +208,42 @@ export default function TasksClient() {
                 <button
                   key={item.value}
                   onClick={() => setBucket(item.value)}
-                  className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                  className={cn(
+                    'shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors',
                     bucket === item.value
                       ? 'border-green-600 bg-green-600 text-white'
                       : 'border-gray-200 bg-white text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:text-green-300'
-                  }`}
+                  )}
                 >
                   {item.label}
+                  {counts[item.value] != null && counts[item.value]! > 0 && (
+                    <span className={cn(
+                      'ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold',
+                      bucket === item.value ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                    )}>{counts[item.value]}</span>
+                  )}
                 </button>
               ))}
             </div>
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               {BUCKETS.map((item) => (
-                <div key={item.value} className="rounded-xl border border-gray-200 bg-white p-3 text-center shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">{tasks.filter((task) => task.status === item.value).length}</p>
+                <button
+                  key={item.value}
+                  onClick={() => setBucket(item.value)}
+                  className={cn(
+                    'rounded-xl border p-3 text-center shadow-sm transition-colors',
+                    bucket === item.value
+                      ? 'border-green-400 bg-green-50 dark:border-green-700 dark:bg-green-950/20'
+                      : 'border-gray-200 bg-white hover:border-green-200 dark:border-gray-800 dark:bg-gray-900'
+                  )}
+                >
+                  <p className={cn(
+                    'text-xl font-bold',
+                    bucket === item.value ? 'text-green-700 dark:text-green-300' : 'text-gray-900 dark:text-white'
+                  )}>{counts[item.value] ?? 0}</p>
                   <p className="mt-0.5 text-[10px] font-semibold text-gray-500">{item.label}</p>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -264,62 +286,117 @@ export default function TasksClient() {
             </BulkSelectionBar>
 
             <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-              <div className="border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={toggleVisible}>
-                    {allVisibleSelected ? <CheckSquare size={16} className="text-green-600" /> : <Square size={16} className="text-gray-400" />}
-                  </button>
-                  <span className="text-xs text-gray-500">{selectedCount > 0 ? `${selectedCount} selected` : 'Select tasks for bulk cleanup'}</span>
-                </div>
+              {/* Table header */}
+              <div className="flex items-center gap-3 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
+                <button
+                  type="button"
+                  onClick={toggleVisible}
+                  className="flex-shrink-0 text-gray-300 hover:text-green-600 transition-colors"
+                  title={allVisibleSelected ? 'Deselect all' : 'Select all'}
+                >
+                  {allVisibleSelected
+                    ? <CheckSquare size={15} className="text-green-600" />
+                    : selectedCount > 0
+                      ? <MinusSquare size={15} className="text-green-400" />
+                      : <Square size={15} />}
+                </button>
+                <span className="flex-1 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                  {selectedCount > 0 ? `${selectedCount} selected` : 'Task'}
+                </span>
+                <span className="hidden sm:block w-20 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">Owner</span>
+                <span className="w-20 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">Due</span>
+                <span className="w-[18px]"/>
               </div>
               {loading && (
-                <div className="flex items-center justify-center px-5 py-20">
+                <div className="flex items-center justify-center px-5 py-16">
                   <Loader2 size={22} className="animate-spin text-gray-400" />
                 </div>
               )}
               {!loading && tasks.length === 0 && (
                 <div className="px-5 py-10 text-center text-sm text-gray-500">
-                  No tasks match this filter.
+                  No tasks in this bucket.
                 </div>
               )}
-              {!loading && tasks.map((task) => (
-                <div key={task.id} className="border-b border-gray-100 px-4 py-2.5 last:border-b-0 dark:border-gray-800">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex items-start gap-2">
-                        <button type="button" onClick={() => toggleOne(task.id)} className="mt-0.5 text-gray-400 hover:text-green-600">
-                          {selectedIds.has(task.id) ? <CheckSquare size={15} className="text-green-600" /> : <Square size={15} />}
-                        </button>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white">{task.title}</p>
-                          {task.description && <p className="mt-1 text-sm text-gray-500">{task.description}</p>}
-                        </div>
+              {!loading && tasks.map((task) => {
+                const isOverdue = task.due_at && new Date(task.due_at) < new Date() && task.status !== 'Done'
+                return (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0 dark:border-gray-800 hover:bg-gray-50/40 dark:hover:bg-gray-800/20 transition-colors"
+                  >
+                    {/* Checkbox */}
+                    <button
+                      type="button"
+                      onClick={() => toggleOne(task.id)}
+                      className="flex-shrink-0 text-gray-300 hover:text-green-600 transition-colors"
+                    >
+                      {selectedIds.has(task.id)
+                        ? <CheckSquare size={15} className="text-green-600" />
+                        : <Square size={15} />}
+                    </button>
+
+                    {/* Main content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={cn(
+                          'text-sm font-semibold text-gray-900 dark:text-white',
+                          task.status === 'Done' && 'line-through text-gray-400 dark:text-gray-600'
+                        )}>
+                          {task.title}
+                        </span>
+                        <span className={cn(
+                          'flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                          task.priority === 'Urgent' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                          task.priority === 'High'   ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
+                          'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                        )}>{task.priority}</span>
+                        <span className="flex-shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
+                          {task.task_type}
+                        </span>
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                        <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{task.task_type}</span>
-                        <span className="rounded-full bg-red-50 px-2.5 py-1 font-semibold text-red-600 dark:bg-red-950/30 dark:text-red-300">{task.priority}</span>
-                        <span className="rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-600 dark:bg-blue-950/30 dark:text-blue-300">{task.status}</span>
-                        {task.pipeline_stage && <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-300">{task.pipeline_stage}</span>}
-                        {task.created_source_label && <span className="rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-700">{task.created_source_label}</span>}
-                        {task.owner_name && <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{task.owner_name}</span>}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2 text-sm text-gray-500 lg:items-end">
-                      <span>{task.due_at ? new Date(task.due_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'No due date'}</span>
                       {task.crm_leads && (
-                        <Link href={`/admin/crm/${task.crm_leads.id}`} className="font-medium text-green-600 hover:text-green-700">
+                        <Link
+                          href={`/admin/crm/${task.crm_leads.id}`}
+                          className="mt-0.5 flex items-center gap-1 text-xs text-green-600 hover:underline"
+                        >
                           {[task.crm_leads.first_name, task.crm_leads.last_name].filter(Boolean).join(' ')}
+                          <span className="text-gray-400">· {task.crm_leads.stage}</span>
                         </Link>
                       )}
-                      {task.status !== 'Done' && (
-                        <button onClick={() => completeTask(task.id)} className="rounded-lg border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-600 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-300">
-                          Complete
-                        </button>
-                      )}
                     </div>
+
+                    {/* Owner */}
+                    <span className="hidden sm:block flex-shrink-0 w-20 truncate text-right text-xs text-gray-400">
+                      {task.owner_name?.split(' ')[0] ?? '—'}
+                    </span>
+
+                    {/* Due date */}
+                    <div className="flex-shrink-0 w-20 text-right">
+                      <span className={cn(
+                        'text-xs whitespace-nowrap',
+                        isOverdue ? 'font-semibold text-red-500' : 'text-gray-400'
+                      )}>
+                        {task.due_at
+                          ? new Date(task.due_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                          : '—'}
+                      </span>
+                    </div>
+
+                    {/* Complete toggle */}
+                    {task.status !== 'Done' ? (
+                      <button
+                        onClick={() => completeTask(task.id)}
+                        title="Mark complete"
+                        className="flex-shrink-0 text-gray-200 hover:text-green-600 transition-colors"
+                      >
+                        <CheckCircle2 size={18} />
+                      </button>
+                    ) : (
+                      <CheckCircle2 size={18} className="flex-shrink-0 text-green-400" />
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">

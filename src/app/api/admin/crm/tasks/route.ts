@@ -63,12 +63,22 @@ export async function GET(req: NextRequest) {
   const endOfToday = new Date(startOfToday)
   endOfToday.setDate(endOfToday.getDate() + 1)
 
-  let tasks = data ?? []
+  const allTasks = data ?? []
+
+  const counts = {
+    today:     allTasks.filter(t => t.due_at && new Date(t.due_at) >= startOfToday && new Date(t.due_at) < endOfToday && t.status !== 'Done').length,
+    overdue:   allTasks.filter(t => t.due_at && new Date(t.due_at) < startOfToday && t.status !== 'Done').length,
+    upcoming:  allTasks.filter(t => t.due_at && new Date(t.due_at) >= endOfToday && t.status !== 'Done').length,
+    priority:  allTasks.filter(t => ['High', 'Urgent'].includes(t.priority) && t.status !== 'Done').length,
+    completed: allTasks.filter(t => t.status === 'Done').length,
+  }
+
+  let tasks = allTasks
 
   if (bucket === 'today') {
     tasks = tasks.filter(task => task.due_at && new Date(task.due_at) >= startOfToday && new Date(task.due_at) < endOfToday && task.status !== 'Done')
   } else if (bucket === 'overdue') {
-    tasks = tasks.filter(task => task.due_at && new Date(task.due_at) < now && task.status !== 'Done')
+    tasks = tasks.filter(task => task.due_at && new Date(task.due_at) < startOfToday && task.status !== 'Done')
   } else if (bucket === 'upcoming') {
     tasks = tasks.filter(task => task.due_at && new Date(task.due_at) >= endOfToday && task.status !== 'Done')
   } else if (bucket === 'priority') {
@@ -77,7 +87,7 @@ export async function GET(req: NextRequest) {
     tasks = tasks.filter(task => task.status === 'Done')
   }
 
-  return NextResponse.json({ tasks }, { headers: NO_STORE_HEADERS })
+  return NextResponse.json({ tasks, counts }, { headers: NO_STORE_HEADERS })
 }
 
 export async function POST(req: NextRequest) {

@@ -7,6 +7,7 @@ import {
   getThisWeekRangeInCrmTimeZone,
   getTodayRangeInCrmTimeZone,
 } from '@/lib/crm-overview-range'
+import { applyVisibleCrmLeadsFilter } from '@/lib/crm-visibility'
 
 // 60s browser cache reduces repeated aggregation queries significantly.
 // Admin dashboard polls every 30s — with this header the browser serves from cache
@@ -67,7 +68,7 @@ export async function GET(req: NextRequest) {
     rangeEnd = monthRange.to
   }
 
-  const [callsRes, tasksRes, hotLeadsRes, textsRes] = await Promise.all([
+  const [callsRes, tasksRes, hotLeadsRes, textsRes, visibleLeadsRes] = await Promise.all([
     supabase
       .from('crm_calls')
       .select('*')
@@ -76,14 +77,16 @@ export async function GET(req: NextRequest) {
       .order('call_started_at', { ascending: true }),
     supabase
       .from('crm_tasks')
-      .select('*, crm_leads(id, first_name, last_name, business_name, stage, lead_temperature)')
+      .select('*, crm_leads(id, first_name, last_name, business_name, stage, lead_temperature, is_archived)')
       .neq('status', 'Done')
       .order('due_at', { ascending: true, nullsFirst: false })
       .limit(200),
-    supabase
-      .from('crm_leads')
-      .select('*')
-      .eq('lead_temperature', 'hot')
+    applyVisibleCrmLeadsFilter(
+      supabase
+        .from('crm_leads')
+        .select('*')
+        .eq('lead_temperature', 'hot')
+    )
       .order('callback_due_at', { ascending: true, nullsFirst: false })
       .limit(10),
     supabase
@@ -92,6 +95,11 @@ export async function GET(req: NextRequest) {
       .gte('created_at', rangeStart.toISOString())
       .lt('created_at', rangeEnd.toISOString())
       .order('created_at', { ascending: true }),
+    applyVisibleCrmLeadsFilter(
+      supabase
+        .from('crm_leads')
+        .select('stage', { count: 'exact' })
+    ),
   ])
 
   const warnings: string[] = []
@@ -102,6 +110,10 @@ export async function GET(req: NextRequest) {
   if (tasksRes.error && !isMissingRelationError(tasksRes.error, 'crm_tasks')) {
     return NextResponse.json({ error: 'Unable to load CRM analytics right now.' }, { status: 500, headers: NO_STORE_HEADERS })
   }
+  if (visibleLeadsRes.error) {
+    console.error('crm_leads visibility count unavailable in GET /api/admin/crm/overview', visibleLeadsRes.error)
+  }
+
   if (hotLeadsRes.error && !isSchemaDriftError(hotLeadsRes.error, 'crm_leads')) {
     return NextResponse.json({ error: 'Unable to load CRM analytics right now.' }, { status: 500, headers: NO_STORE_HEADERS })
   }
@@ -127,9 +139,19 @@ export async function GET(req: NextRequest) {
   }
 
   const calls = callsRes.error ? [] : (callsRes.data ?? [])
-  const tasks = tasksRes.error ? [] : (tasksRes.data ?? [])
+  const allTasks = tasksRes.error ? [] : (tasksRes.data ?? [])
+  const tasks = allTasks.filter(task => {
+    const lead = task.crm_leads as { is_archived?: boolean } | null
+    return lead !== null && lead?.is_archived !== true
+  })
   const hotLeads = hotLeadsRes.error ? [] : (hotLeadsRes.data ?? [])
   const texts = textsRes.error ? [] : (textsRes.data ?? [])
+  const totalLeadsCount = visibleLeadsRes.error ? 0 : (visibleLeadsRes.count ?? 0)
+  const stageCounts = (visibleLeadsRes.error ? [] : (visibleLeadsRes.data ?? [])).reduce<Record<string, number>>((acc, lead) => {
+    const s = (lead as { stage?: string }).stage || 'Unknown'
+    acc[s] = (acc[s] || 0) + 1
+    return acc
+  }, {})
 
   const { from: todayStart, to: tomorrowStart } = getTodayRangeInCrmTimeZone(now, crmTimeZone)
   const { from: weekStart } = getThisWeekRangeInCrmTimeZone(now, crmTimeZone)
@@ -257,6 +279,7 @@ export async function GET(req: NextRequest) {
       close_rate: calls.length ? Number(((closedDeals / calls.length) * 100).toFixed(1)) : 0,
       follow_ups_pending: followUpsPending,
       callbacks_due_today: callbacksDueToday.length,
+      total_leads: totalLeadsCount,
       hot_leads_count: hotLeads.length,
       calls_today: callsToday,
       calls_this_week: callsThisWeek,
@@ -281,6 +304,7 @@ export async function GET(req: NextRequest) {
       conversion_by_source: conversionBySource,
       conversion_by_agent: conversionByAgent,
     },
+    stage_counts: stageCounts,
     lists: {
       top_hot_leads: topHotLeads,
       scheduled_callbacks: scheduledCallbacks,
