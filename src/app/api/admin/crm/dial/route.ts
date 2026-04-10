@@ -113,8 +113,9 @@ export async function POST(req: NextRequest) {
     }, { status: 409 })
   }
 
+  // Use dialer_raw_leads for dialer operations
   const { data: lead, error } = await admin.supabase
-    .from('crm_leads')
+    .from('dialer_raw_leads')
     .select('*')
     .eq('id', lead_id)
     .single()
@@ -127,23 +128,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Lead is on DNC' }, { status: 400 })
   }
 
+  if (lead.promoted_to_crm_lead_id) {
+    return NextResponse.json({ error: 'Lead already promoted to CRM' }, { status: 400 })
+  }
+
   const compliance = await getLeadCompliance(lead)
 
-  const needsPersist =
-    lead.phone_e164 !== compliance.phone_e164 ||
-    (lead.likely_timezone ?? null) !== (compliance.likely_timezone ?? null) ||
-    (lead.timezone_confidence ?? 'unknown') !== compliance.timezone_confidence ||
-    (lead.timezone_source ?? null) !== (compliance.timezone_source ?? null)
+  const needsPersist = lead.phone_e164 !== compliance.phone_e164
 
   if (needsPersist) {
     await admin.supabase
-      .from('crm_leads')
+      .from('dialer_raw_leads')
       .update({
         phone_e164: compliance.phone_e164,
-        likely_timezone: compliance.likely_timezone,
-        timezone_confidence: compliance.timezone_confidence,
-        timezone_source: compliance.timezone_source,
-        last_timezone_checked_at: compliance.last_timezone_checked_at,
+        updated_at: new Date().toISOString(),
       })
       .eq('id', lead_id)
   }
@@ -208,7 +206,7 @@ export async function POST(req: NextRequest) {
   const { data: createdCall, error: createError } = await admin.supabase
     .from('crm_calls')
     .insert({
-      lead_id,
+      lead_id: null, // Raw leads don't have CRM lead_id yet
       agent_user_id: admin.userId,
       agent_name: admin.userName,
       lead_name: `${lead.first_name ?? ''} ${lead.last_name ?? ''}`.trim(),
@@ -217,7 +215,7 @@ export async function POST(req: NextRequest) {
       call_started_at: startedAt,
       call_status: 'attempted',
       call_outcome: 'Follow Up',
-      lead_temperature: lead.lead_temperature || 'cold',
+      lead_temperature: 'cold', // Raw leads default to cold
       source: lead.source || null,
       call_provider: 'twilio',
       twilio_status: 'queued',
@@ -233,6 +231,7 @@ export async function POST(req: NextRequest) {
         auto_advance: Boolean(auto_advance),
         dialer_source: 'crm_dialer',
         session_status: activeSession.session_status,
+        raw_lead_id: lead_id, // Store raw lead reference
       },
     })
     .select('*')
@@ -255,11 +254,6 @@ export async function POST(req: NextRequest) {
     queueSlot,
     priorityScore: getLeadDialerPriority({
       call_window_status: compliance.call_window_status,
-      callback_due_at: lead.callback_due_at,
-      follow_up_at: lead.follow_up_at,
-      lead_temperature: lead.lead_temperature,
-      last_call_outcome: lead.last_call_outcome,
-      last_call_at: lead.last_call_at,
     }),
   })
 
@@ -329,7 +323,7 @@ export async function POST(req: NextRequest) {
     })
 
     await admin.supabase.from('crm_activities').insert({
-      lead_id,
+      lead_id: null, // No CRM lead yet for raw leads
       type: 'call',
       body: `Lead leg started inside persistent Twilio rep session from ${callerId} to ${compliance.phone_e164}`,
       metadata: {
@@ -342,6 +336,7 @@ export async function POST(req: NextRequest) {
         session_mode: 'persistent',
         dialer_attempt_id: attempt.id,
         queue_slot: queueSlot,
+        raw_lead_id: lead_id, // Store raw lead reference
       },
       created_by: admin.userName,
     })

@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import ImportClient from './ImportClient'
 
-export const metadata = { title: 'Import Leads — CRM' }
+export const metadata = { title: 'Import to Dialer — Raw Leads' }
 
 export default async function ImportPage() {
   const authClient = await createClient()

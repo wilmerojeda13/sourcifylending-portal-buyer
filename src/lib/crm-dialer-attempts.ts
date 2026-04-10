@@ -1,6 +1,7 @@
 import twilio from 'twilio'
 import { getRetryFollowUpAt, isActiveAttemptStatus, mapTwilioStatusToCrmCallStatus, type CRMDialerRepState } from '@/lib/crm-dialer'
 import { outcomeToLegacyStage, probabilityFromTemperature } from '@/lib/crm'
+import { promoteToCrm, shouldAutoPromote } from '@/lib/dialer-promotion'
 
 type ServiceClient = Awaited<ReturnType<typeof import('@/lib/supabase/server').createServiceClient>>
 
@@ -224,11 +225,15 @@ export async function applyAutoDisposition(
 
   const { data: call } = await supabase
     .from('crm_calls')
-    .select('id, lead_id, call_started_at, lead_temperature')
+    .select('id, lead_id, call_started_at, lead_temperature, metadata')
     .eq('id', input.attempt.crm_call_id)
-    .maybeSingle<{ id: string; lead_id: string; call_started_at: string | null; lead_temperature: 'cold' | 'warm' | 'hot' | null }>()
+    .maybeSingle<{ id: string; lead_id: string | null; call_started_at: string | null; lead_temperature: 'cold' | 'warm' | 'hot' | null; metadata: Record<string, unknown> | null }>()
 
   if (!call) return
+
+  // Check if this is a raw lead call
+  const rawLeadId = call.metadata?.raw_lead_id as string | undefined
+  const isRawLead = !call.lead_id && rawLeadId
 
   const nextFollowUpAt = getRetryFollowUpAt(input.outcome, timestamp)
 
@@ -282,34 +287,79 @@ export async function applyAutoDisposition(
 
   const mappedStage = outcomeToLegacyStage(input.outcome as never)
   const temperature = (call.lead_temperature ?? 'cold') as 'cold' | 'warm' | 'hot'
-  const leadUpdate: Record<string, unknown> = {
-    last_call_at: timestamp,
-    last_call_outcome: input.outcome,
-    callback_due_at: nextFollowUpAt,
-    close_probability: probabilityFromTemperature(temperature),
-    updated_at: timestamp,
+
+  if (isRawLead && rawLeadId) {
+    // Handle raw lead auto-disposition
+    if (shouldAutoPromoteOutcome(input.outcome)) {
+      // Positive outcome: promote to CRM
+      try {
+        await promoteToCrm(supabase, {
+          rawLeadId: rawLeadId,
+          trigger: `auto_${input.outcome}`,
+          userId: 'dialer_auto',
+        })
+      } catch (promoError) {
+        console.warn('[AutoDisposition] Raw lead promotion failed:', promoError)
+      }
+    } else if (isDNCOutcome(input.outcome)) {
+      // Negative outcome: mark as DNC
+      await supabase
+        .from('dialer_raw_leads')
+        .update({
+          do_not_call: true,
+          is_archived: true,
+          updated_at: timestamp,
+        })
+        .eq('id', rawLeadId)
+    }
+  } else if (call.lead_id) {
+    // Regular CRM lead update
+    const leadUpdate: Record<string, unknown> = {
+      last_call_at: timestamp,
+      last_call_outcome: input.outcome,
+      callback_due_at: nextFollowUpAt,
+      close_probability: probabilityFromTemperature(temperature),
+      updated_at: timestamp,
+    }
+    if (mappedStage) leadUpdate.stage = mappedStage
+
+    await supabase
+      .from('crm_leads')
+      .update(leadUpdate)
+      .eq('id', call.lead_id)
   }
-  if (mappedStage) leadUpdate.stage = mappedStage
 
-  await supabase
-    .from('crm_leads')
-    .update(leadUpdate)
-    .eq('id', call.lead_id)
+  // Activity logging (use CRM lead_id if available, otherwise skip)
+  if (call.lead_id) {
+    await supabase
+      .from('crm_activities')
+      .insert({
+        lead_id: call.lead_id,
+        type: 'call',
+        body: `Auto disposition: ${input.outcome}`,
+        metadata: {
+          call_id: call.id,
+          dialer_attempt_id: input.attempt.id,
+          auto_dispositioned: true,
+          resolution_type: input.resolutionType,
+          raw_lead_id: rawLeadId || null,
+        },
+        created_by: 'Dialer Automation',
+      })
+  }
+}
 
-  await supabase
-    .from('crm_activities')
-    .insert({
-      lead_id: call.lead_id,
-      type: 'call',
-      body: `Auto disposition: ${input.outcome}`,
-      metadata: {
-        call_id: call.id,
-        dialer_attempt_id: input.attempt.id,
-        auto_dispositioned: true,
-        resolution_type: input.resolutionType,
-      },
-      created_by: 'Dialer Automation',
-    })
+// Helper to check if auto-disposition outcome should trigger promotion.
+// Only strong outcomes auto-promote. "Interested" requires manual promotion.
+function shouldAutoPromoteOutcome(outcome: string): boolean {
+  const positiveOutcomes = new Set(['Appointment Set', 'Booked Call', 'Qualified', 'Application Started', 'Closed Won'])
+  return positiveOutcomes.has(outcome)
+}
+
+// Helper to check if outcome is DNC/negative
+function isDNCOutcome(outcome: string): boolean {
+  const dncOutcomes = new Set(['Do Not Call', 'Not Interested', 'Bad Number', 'Wrong Number'])
+  return dncOutcomes.has(outcome)
 }
 
 export async function cancelOtherActiveAttempts(

@@ -7,6 +7,17 @@ import { probabilityFromTemperature } from '@/lib/crm'
 import { appendCrmActivity, createCrmAuditLog } from '@/lib/crm-audit'
 import { assignCrmTags } from '@/lib/crm-tags'
 import { isMissingRelationError } from '@/lib/supabase-schema'
+import { promoteToCrm, shouldAutoPromote } from '@/lib/dialer-promotion'
+
+/**
+ * Check if disposition should conditionally promote (e.g., 'interested' only if follow-up scheduled)
+ */
+function shouldConditionalPromote(dispositionKey: string, followUpAt?: string | null): boolean {
+  if (dispositionKey === 'interested' && followUpAt) {
+    return true
+  }
+  return false
+}
 
 type ServiceClient = Awaited<ReturnType<typeof createServiceClient>>
 
@@ -159,6 +170,7 @@ export async function applyCrmDisposition(
     actorUserId?: string | null
     actorName: string
     createFollowUpTask?: boolean
+    fromRawLeadId?: string | null
   },
 ) {
   const definition = getCrmDispositionDefinition(input.dispositionKey)
@@ -170,10 +182,48 @@ export async function applyCrmDisposition(
     throw new Error(`${definition.label} requires a follow-up date and time.`)
   }
 
+  // Handle raw lead promotion if needed
+  let effectiveLeadId = input.leadId
+  let promotionResult: { crmLeadId: string; merged: boolean; alreadyPromoted: boolean } | null = null
+
+  if (input.fromRawLeadId) {
+    // Check if already promoted
+    const { data: rawLead } = await supabase
+      .from('dialer_raw_leads')
+      .select('promoted_to_crm_lead_id')
+      .eq('id', input.fromRawLeadId)
+      .single<{ promoted_to_crm_lead_id: string | null }>()
+
+    if (rawLead?.promoted_to_crm_lead_id) {
+      // Already promoted, use the CRM lead
+      effectiveLeadId = rawLead.promoted_to_crm_lead_id
+      promotionResult = { crmLeadId: rawLead.promoted_to_crm_lead_id, merged: false, alreadyPromoted: true }
+    } else if (shouldAutoPromote(input.dispositionKey) || shouldConditionalPromote(input.dispositionKey, input.followUpAt)) {
+      // Promote now (strong outcomes always promote; 'interested' only promotes if follow-up scheduled)
+      promotionResult = await promoteToCrm(supabase, {
+        rawLeadId: input.fromRawLeadId,
+        trigger: input.dispositionKey,
+        userId: input.actorUserId || input.actorName,
+      })
+      effectiveLeadId = promotionResult.crmLeadId
+    } else {
+      // Not promoting - update raw lead state only
+      await applyRawLeadDisposition(supabase, input.fromRawLeadId, definition.outcome)
+      return {
+        lead: null,
+        call: null,
+        task: null,
+        disposition: definition,
+        warnings: ['raw_lead_updated_not_promoted'],
+        promotion: null,
+      }
+    }
+  }
+
   const { data: lead, error: leadError } = await supabase
     .from('crm_leads')
     .select('id, first_name, last_name, business_name, lead_temperature, assigned_to_user_id, assigned_to_name')
-    .eq('id', input.leadId)
+    .eq('id', effectiveLeadId)
     .single<{
       id: string
       first_name: string
@@ -234,19 +284,26 @@ export async function applyCrmDisposition(
 
   let updatedCall: Record<string, unknown> | null = null
   if (input.callId) {
+    const callUpdates: Record<string, unknown> = {
+      call_outcome: definition.outcome,
+      call_status: 'completed',
+      notes: trimmedNote,
+      next_follow_up_at: input.followUpAt || null,
+      lead_temperature: temperature,
+      strategy_call_booked: Boolean(input.strategyCallBooked || definition.appointment),
+      converted_to_client: Boolean(input.convertedToClient),
+      call_ended_at: nowIso,
+      updated_at: nowIso,
+    }
+    
+    // Link call to CRM lead if this was a raw lead promotion
+    if (input.fromRawLeadId && promotionResult) {
+      callUpdates.lead_id = promotionResult.crmLeadId
+    }
+    
     const { data: call, error: callError } = await supabase
       .from('crm_calls')
-      .update({
-        call_outcome: definition.outcome,
-        call_status: 'completed',
-        notes: trimmedNote,
-        next_follow_up_at: input.followUpAt || null,
-        lead_temperature: temperature,
-        strategy_call_booked: Boolean(input.strategyCallBooked || definition.appointment),
-        converted_to_client: Boolean(input.convertedToClient),
-        call_ended_at: nowIso,
-        updated_at: nowIso,
-      })
+      .update(callUpdates)
       .eq('id', input.callId)
       .select('*')
       .maybeSingle()
@@ -274,7 +331,7 @@ export async function applyCrmDisposition(
   
   if (input.followUpAt && shouldCreateTask) {
     console.log('[Disposition] Creating follow-up task for:', {
-      leadId: input.leadId,
+      leadId: effectiveLeadId,
       disposition: definition.key,
       followUpAt: input.followUpAt,
     })
@@ -282,7 +339,7 @@ export async function applyCrmDisposition(
     const { data: task, error: taskError } = await supabase
       .from('crm_tasks')
       .insert({
-        lead_id: input.leadId,
+        lead_id: effectiveLeadId,
         related_call_id: input.callId || null,
         title: buildDispositionTaskTitle(definition, leadName),
         description: trimmedNote,
@@ -300,6 +357,7 @@ export async function applyCrmDisposition(
         source_metadata: {
           disposition: definition.outcome,
           disposition_key: definition.key,
+          raw_lead_id: input.fromRawLeadId || null,
         },
       })
       .select('*')
@@ -331,7 +389,7 @@ export async function applyCrmDisposition(
 
   // appendCrmActivity now returns { success: boolean; warning?: string }
   const activityResult = await appendCrmActivity(supabase, {
-    leadId: input.leadId,
+    leadId: effectiveLeadId,
     type: 'disposition',
     body: `${definition.label}${trimmedNote ? ` — ${trimmedNote}` : ''}`,
     metadata: {
@@ -340,6 +398,7 @@ export async function applyCrmDisposition(
       note: trimmedNote,
       follow_up_at: input.followUpAt || null,
       call_id: input.callId || null,
+      raw_lead_id: input.fromRawLeadId || null,
       task_id: followUpTask?.id ?? null,
     },
     createdBy: input.actorName,
@@ -352,7 +411,7 @@ export async function applyCrmDisposition(
   const auditResult = await createCrmAuditLog(supabase, {
     actionType: 'disposition_changed',
     entityType: 'lead',
-    entityIds: [input.leadId],
+    entityIds: [effectiveLeadId],
     summary: `${definition.label} set for ${leadName}`,
     details: {
       disposition: definition.outcome,
@@ -360,6 +419,8 @@ export async function applyCrmDisposition(
       follow_up_at: input.followUpAt || null,
       call_id: input.callId || null,
       task_id: followUpTask?.id ?? null,
+      raw_lead_id: input.fromRawLeadId || null,
+      promotion: promotionResult,
     },
     performedByUserId: input.actorUserId || null,
     performedByName: input.actorName,
@@ -404,5 +465,32 @@ export async function applyCrmDisposition(
     task: followUpTask,
     disposition: definition,
     warnings,
+    promotion: promotionResult,
   }
+}
+
+/**
+ * Apply negative dispositions to raw leads without promoting to CRM.
+ * Updates DNC or archived status based on disposition outcome.
+ */
+async function applyRawLeadDisposition(
+  supabase: ServiceClient,
+  rawLeadId: string,
+  outcome: string,
+) {
+  const updates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  }
+
+  if (isDNCDisposition(outcome)) {
+    updates.do_not_call = true
+    updates.is_archived = true
+  } else if (outcome === 'Closed Lost' || outcome === 'Unqualified' || outcome === 'Wrong Number' || outcome === 'Business Closed') {
+    updates.is_archived = true
+  }
+
+  await supabase
+    .from('dialer_raw_leads')
+    .update(updates)
+    .eq('id', rawLeadId)
 }

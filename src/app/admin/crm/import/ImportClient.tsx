@@ -234,14 +234,14 @@ export default function ImportClient() {
     <div className="p-6 max-w-4xl space-y-6">
       {/* Header */}
       <div>
-        <Link href="/admin/crm" className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-2">
-          <ChevronLeft size={14} /> Back to CRM
+        <Link href="/admin/dialer" className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-2">
+          <ChevronLeft size={14} /> Back to Dialer
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <FileSpreadsheet size={22} className="text-teal-600" /> Import Leads from CSV
+          <FileSpreadsheet size={22} className="text-orange-600" /> Import to Dialer (Raw Leads)
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Upload a CSV from your CRM, spreadsheet, or lead source and map the columns. Duplicates are skipped automatically.
+          Imports go to Dialer raw leads only. Promote qualified leads to CRM after calling. Duplicates are skipped automatically.
         </p>
       </div>
 
@@ -253,8 +253,8 @@ export default function ImportClient() {
           <ol className="list-decimal list-inside space-y-0.5 text-blue-600 dark:text-blue-400">
             <li>Export your leads as a standard CSV file from your current source</li>
             <li>Make sure name and phone columns are included</li>
-            <li>Upload the CSV file below</li>
-            <li>Map the columns before importing</li>
+            <li>Imports go to Dialer raw leads (not CRM directly)</li>
+            <li>Promote qualified leads to CRM after disposition</li>
           </ol>
         </div>
       </div>
@@ -296,7 +296,7 @@ export default function ImportClient() {
           {/* Column mapping table */}
           <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Map Columns to CRM Fields</p>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Map Columns to Dialer Fields</p>
             </div>
             <div className="divide-y divide-gray-50 dark:divide-gray-800">
               {headers.map((header, i) => {

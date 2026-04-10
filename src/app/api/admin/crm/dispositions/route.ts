@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       actorUserId: admin.userId,
       actorName: admin.userName,
       createFollowUpTask: body.create_follow_up_task !== false,
+      fromRawLeadId: body.raw_lead_id ?? null,
     })
 
     console.log('[Disposition API] Disposition saved successfully:', {

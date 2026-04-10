@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3, GitBranch, PhoneCall, PlayCircle, ContactRound, SearchCheck, ShieldCheck } from 'lucide-react'
+import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3, GitBranch, PhoneCall, PlayCircle, ContactRound, SearchCheck, ShieldCheck, Headphones } from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
 import { excludeChildBusinessProfiles } from '@/lib/business-memberships'
 import dynamic from 'next/dynamic'
@@ -80,9 +80,16 @@ export default async function AdminHubPage() {
 
   const navCards = [
     {
+      href: '/admin/dialer',
+      label: 'Dialer',
+      desc: 'Power dialer for raw leads. Promote qualified leads to CRM.',
+      icon: Headphones,
+      color: 'bg-orange-600',
+    },
+    {
       href: '/admin/crm',
       label: 'Sales CRM',
-      desc: 'Pre-portal lead pipeline, activity feed, and voice campaign launcher',
+      desc: 'Promoted leads only. Pipeline, activity feed, and appointments.',
       icon: ContactRound,
       color: 'bg-teal-600',
     },

@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No leads provided' }, { status: 400 })
   }
 
-  // Fetch existing phones to dedupe
+  // Fetch existing phones to dedupe (from dialer_raw_leads)
   const { data: existing } = await supabase
-    .from('crm_leads')
+    .from('dialer_raw_leads')
     .select('phone')
   const existingPhones = new Set((existing ?? []).map((r: { phone: string }) => normalizePhone(r.phone)))
 
@@ -69,10 +69,9 @@ export async function POST(req: NextRequest) {
       phone:            row.phone.trim(),
       email:            row.email?.trim() || null,
       business_name:    row.business_name?.trim() || null,
-      stage:            VALID_STAGES.includes(row.stage ?? '') ? row.stage : 'new',
-      program_interest: VALID_PROGRAMS.includes(row.program_interest ?? '') ? row.program_interest : null,
       source:           VALID_SOURCES.includes(row.source ?? '') ? row.source : 'manual',
       notes:            row.notes?.trim() || null,
+      original_import_payload: { stage: row.stage, program_interest: row.program_interest },
     })
   }
 
@@ -81,7 +80,7 @@ export async function POST(req: NextRequest) {
   const BATCH = 200
   for (let i = 0; i < toInsert.length; i += BATCH) {
     const batch = toInsert.slice(i, i + BATCH)
-    const { error } = await supabase.from('crm_leads').insert(batch)
+    const { error } = await supabase.from('dialer_raw_leads').insert(batch)
     if (error) {
       return NextResponse.json({
         error: `Batch insert failed at row ${i}: ${error.message}`,
