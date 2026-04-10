@@ -32,12 +32,12 @@ export default async function DialerQualifiedPage() {
     .limit(50)
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-950">
       <DialerNav />
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-gray-900 border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6">
-          <h1 className="text-xl font-bold text-gray-900">Ready to Promote</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-xl font-bold text-gray-100">Ready to Promote</h1>
+          <p className="text-sm text-gray-400 mt-1">
             {qualified?.length ?? 0} qualified · {promoted?.length ?? 0} already in CRM
           </p>
         </div>
@@ -53,10 +53,10 @@ export default async function DialerQualifiedPage() {
           {qualified && qualified.length > 0 ? (
             <div className="grid gap-3">
               {qualified.map(lead => (
-                <div key={lead.id} className="bg-white rounded-xl border border-green-200 p-4 flex items-center justify-between">
+                <div key={lead.id} className="bg-gray-900 rounded-xl border border-green-800/50 p-4 flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">{lead.first_name} {lead.last_name}</p>
-                    <p className="text-sm text-gray-500">{lead.phone}</p>
+                    <p className="font-medium text-gray-100">{lead.first_name} {lead.last_name}</p>
+                    <p className="text-sm text-gray-400">{lead.phone}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
                         {lead.last_call_outcome}
@@ -79,9 +79,9 @@ export default async function DialerQualifiedPage() {
               ))}
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-              <p className="text-sm text-gray-500">No qualified leads ready to promote.</p>
-              <p className="text-xs text-gray-400 mt-1">
+            <div className="bg-gray-900 rounded-xl border border-gray-800 p-8 text-center">
+              <p className="text-sm text-gray-400">No qualified leads ready to promote.</p>
+              <p className="text-xs text-gray-500 mt-1">
                 Use positive dispositions (Interested, Appointment Set, Booked Call) during calls.
               </p>
             </div>
@@ -91,14 +91,14 @@ export default async function DialerQualifiedPage() {
         {/* Recently Promoted */}
         {promoted && promoted.length > 0 && (
           <div>
-            <h2 className="text-sm font-semibold text-gray-600 mb-3">Recently Promoted ({promoted.length})</h2>
+            <h2 className="text-sm font-semibold text-gray-400 mb-3">Recently Promoted ({promoted.length})</h2>
             <div className="grid gap-3">
               {promoted.slice(0, 10).map(lead => (
-                <div key={lead.id} className="bg-white rounded-xl border border-gray-200 p-4 opacity-75">
+                <div key={lead.id} className="bg-gray-900 rounded-xl border border-gray-800 p-4 opacity-75">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-900">{lead.first_name} {lead.last_name}</p>
-                      <p className="text-sm text-gray-500">{lead.phone}</p>
+                      <p className="font-medium text-gray-100">{lead.first_name} {lead.last_name}</p>
+                      <p className="text-sm text-gray-400">{lead.phone}</p>
                     </div>
                     <span className="text-xs px-2 py-1 bg-teal-100 text-teal-700 rounded-full">
                       In CRM

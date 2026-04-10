@@ -103,8 +103,8 @@ export default function CampaignListClient() {
         {/* Header + create button */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{activeCampaigns.length} active</p>
+            <h1 className="text-2xl font-bold text-gray-100">Campaigns</h1>
+            <p className="text-sm text-gray-400 mt-0.5">{activeCampaigns.length} active</p>
           </div>
           <button
             onClick={() => setShowNew(v => !v)}
@@ -116,14 +116,14 @@ export default function CampaignListClient() {
 
         {/* Create form */}
         {showNew && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-700">New Campaign</h2>
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-5 space-y-3">
+            <h2 className="text-sm font-semibold text-gray-300">New Campaign</h2>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="Campaign name (e.g. April MCA Push)"
-              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-gray-400"
+              className="w-full px-4 py-2.5 text-sm border border-gray-700 rounded-xl focus:outline-none focus:border-gray-500 bg-gray-800 text-gray-100 placeholder:text-gray-500"
               autoFocus
             />
             <textarea
@@ -131,7 +131,7 @@ export default function CampaignListClient() {
               onChange={e => setDesc(e.target.value)}
               placeholder="Description (optional)"
               rows={2}
-              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-gray-400 resize-none"
+              className="w-full px-4 py-2.5 text-sm border border-gray-700 rounded-xl focus:outline-none focus:border-gray-500 bg-gray-800 text-gray-100 placeholder:text-gray-500 resize-none"
             />
             <div className="flex gap-3">
               <button
@@ -143,7 +143,7 @@ export default function CampaignListClient() {
               </button>
               <button
                 onClick={() => { setShowNew(false); setName(''); setDesc('') }}
-                className="px-5 py-2 text-sm text-gray-500 hover:text-gray-700"
+                className="px-5 py-2 text-sm text-gray-400 hover:text-gray-200"
               >
                 Cancel
               </button>
@@ -153,10 +153,10 @@ export default function CampaignListClient() {
 
         {/* Empty state */}
         {campaigns.length === 0 && !showNew && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-16 text-center">
-            <Megaphone size={44} className="mx-auto mb-4 text-gray-300" />
-            <h3 className="font-semibold text-gray-800 mb-1">No campaigns yet</h3>
-            <p className="text-sm text-gray-500 mb-5">Create a campaign to start dialing raw leads.</p>
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-16 text-center">
+            <Megaphone size={44} className="mx-auto mb-4 text-gray-600" />
+            <h3 className="font-semibold text-gray-200 mb-1">No campaigns yet</h3>
+            <p className="text-sm text-gray-400 mb-5">Create a campaign to start dialing raw leads.</p>
             <button
               onClick={() => setShowNew(true)}
               className="px-5 py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700"
@@ -178,42 +178,42 @@ export default function CampaignListClient() {
               const pct = c.lead_count > 0 ? Math.round((dialed / c.lead_count) * 100) : 0
 
               return (
-                <div key={c.id} className="bg-white rounded-2xl border border-gray-200 p-5">
+                <div key={c.id} className="bg-gray-900 rounded-2xl border border-gray-800 p-5">
                   <div className="flex items-start justify-between gap-4 mb-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-gray-900 text-base">{c.name}</h3>
+                        <h3 className="font-semibold text-gray-100 text-base">{c.name}</h3>
                         <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize', STATUS_BADGE[c.status])}>
                           {c.status}
                         </span>
                       </div>
                       {c.description && (
-                        <p className="text-xs text-gray-500 mt-0.5 truncate">{c.description}</p>
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{c.description}</p>
                       )}
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
                       {c.status === 'active' && (
                         <button onClick={() => setStatus(c.id, 'paused')} title="Pause"
-                          className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors">
+                          className="p-2 text-gray-500 hover:text-yellow-400 hover:bg-yellow-900/30 rounded-lg transition-colors">
                           <Pause size={15} />
                         </button>
                       )}
                       {c.status === 'paused' && (
                         <button onClick={() => setStatus(c.id, 'active')} title="Resume"
-                          className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                          className="p-2 text-gray-500 hover:text-green-400 hover:bg-green-900/30 rounded-lg transition-colors">
                           <Play size={15} />
                         </button>
                       )}
                       {c.status !== 'completed' && c.status !== 'archived' && (
                         <button onClick={() => setStatus(c.id, 'completed')} title="Mark complete"
-                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                          className="p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-900/30 rounded-lg transition-colors">
                           <CheckCircle2 size={15} />
                         </button>
                       )}
                       {c.status === 'completed' && (
                         <button onClick={() => setStatus(c.id, 'archived')} title="Archive"
-                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                          className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors">
                           <Archive size={15} />
                         </button>
                       )}
@@ -222,11 +222,11 @@ export default function CampaignListClient() {
 
                   {/* Progress bar */}
                   <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                    <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
                       <span className="flex items-center gap-1"><Users size={11} /> {c.lead_count} leads</span>
                       <span>{dialed} dialed · {pct}%</span>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                       <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
@@ -254,7 +254,7 @@ export default function CampaignListClient() {
                   <div className="flex gap-2">
                     <Link
                       href={`/admin/dialer/campaigns/${c.id}`}
-                      className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                      className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-300 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors"
                     >
                       Manage <ChevronRight size={14} />
                     </Link>
@@ -276,14 +276,14 @@ export default function CampaignListClient() {
         {/* Archived */}
         {archivedCampaigns.length > 0 && (
           <details className="group">
-            <summary className="text-xs font-semibold text-gray-400 cursor-pointer hover:text-gray-600 select-none">
+            <summary className="text-xs font-semibold text-gray-500 cursor-pointer hover:text-gray-300 select-none">
               Archived ({archivedCampaigns.length})
             </summary>
             <div className="mt-3 space-y-2">
               {archivedCampaigns.map(c => (
-                <div key={c.id} className="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between opacity-60">
-                  <p className="text-sm font-medium text-gray-600">{c.name}</p>
-                  <span className="text-xs text-gray-400">{c.lead_count} leads</span>
+                <div key={c.id} className="bg-gray-900 rounded-xl border border-gray-800 px-4 py-3 flex items-center justify-between opacity-60">
+                  <p className="text-sm font-medium text-gray-400">{c.name}</p>
+                  <span className="text-xs text-gray-500">{c.lead_count} leads</span>
                 </div>
               ))}
             </div>

@@ -22,7 +22,7 @@ export default async function DialerQueuePage({
   if (!campaignId) redirect('/admin/dialer/campaigns')
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-950 flex flex-col">
       <DialerNav />
       <CampaignDialerClient campaignId={campaignId} />
     </div>

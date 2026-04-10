@@ -63,12 +63,13 @@ export default function DialerLeadsClient() {
   const [search, setSearch] = useState('')
   const [stageFilter, setStageFilter] = useState<DialerStage | 'all'>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [page, setPage] = useState(0)
   const [bulkActing, setBulkActing] = useState(false)
   const [showBulkMoveMenu, setShowBulkMoveMenu] = useState(false)
   const bulkMenuRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const fetchLeads = useCallback(async (q: string, stage: DialerStage | 'all') => {
+  const fetchLeads = useCallback(async (q: string, stage: DialerStage | 'all', pg = 0) => {
     setLoading(true)
     try {
       const p = new URLSearchParams()
@@ -76,6 +77,7 @@ export default function DialerLeadsClient() {
       if (q.trim()) p.set('search', q.trim())
       if (stage !== 'all') p.set('stage', stage)
       p.set('limit', '100')
+      p.set('page', pg.toString())
       const res = await fetch(`/api/admin/dialer/leads?${p}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
@@ -90,14 +92,15 @@ export default function DialerLeadsClient() {
   }, [])
 
   useEffect(() => {
-    fetchLeads(search, stageFilter)
+    fetchLeads(search, stageFilter, page)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stageFilter])
+  }, [stageFilter, page])
 
   function handleSearchChange(val: string) {
     setSearch(val)
+    setPage(0)
     if (searchRef.current) clearTimeout(searchRef.current)
-    searchRef.current = setTimeout(() => fetchLeads(val, stageFilter), 350)
+    searchRef.current = setTimeout(() => fetchLeads(val, stageFilter, 0), 350)
   }
 
   function toggleSelect(id: string) {
@@ -155,7 +158,7 @@ export default function DialerLeadsClient() {
   return (
     <div className="flex-1 overflow-auto">
       {/* Stage count pills */}
-      <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3 overflow-x-auto">
+      <div className="bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-3 overflow-x-auto">
         <div className="flex items-center gap-2 min-w-max">
           {STAGES.map(s => {
             const count = s.key === 'all'
@@ -165,7 +168,7 @@ export default function DialerLeadsClient() {
             return (
               <button
                 key={s.key}
-                onClick={() => { setStageFilter(s.key); setSelected(new Set()) }}
+                onClick={() => { setStageFilter(s.key); setPage(0); setSelected(new Set()) }}
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors whitespace-nowrap',
                   active
@@ -187,7 +190,7 @@ export default function DialerLeadsClient() {
       </div>
 
       {/* Search + actions bar */}
-      <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3 flex items-center gap-3 flex-wrap">
+      <div className="bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-3 flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -195,14 +198,14 @@ export default function DialerLeadsClient() {
             placeholder="Search name, phone, email..."
             value={search}
             onChange={e => handleSearchChange(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400 bg-gray-50"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-700 rounded-lg focus:outline-none focus:border-gray-500 bg-gray-800 text-gray-100 placeholder:text-gray-500"
           />
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
           <button
             onClick={() => fetchLeads(search, stageFilter)}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
             title="Refresh"
           >
             <RefreshCw size={15} />
@@ -224,7 +227,7 @@ export default function DialerLeadsClient() {
 
       {/* Bulk actions bar */}
       {someSelected && (
-        <div className="bg-blue-50 border-b border-blue-200 px-4 sm:px-6 py-2.5 flex items-center gap-3 flex-wrap">
+        <div className="bg-blue-950/30 border-b border-blue-800 px-4 sm:px-6 py-2.5 flex items-center gap-3 flex-wrap">
           <span className="text-sm font-medium text-blue-800">
             {selected.size} selected
           </span>
@@ -234,17 +237,17 @@ export default function DialerLeadsClient() {
               <button
                 onClick={() => setShowBulkMoveMenu(v => !v)}
                 disabled={bulkActing}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-300 text-blue-700 text-xs font-medium rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 border border-blue-700 text-blue-300 text-xs font-medium rounded-lg hover:bg-blue-900/40 transition-colors disabled:opacity-50"
               >
                 Move Stage <ChevronDown size={13} />
               </button>
               {showBulkMoveMenu && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-[160px] py-1">
+                <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-50 min-w-[160px] py-1">
                   {STAGES.filter(s => s.key !== 'all' && s.key !== 'promoted').map(s => (
                     <button
                       key={s.key}
                       onClick={() => bulkAction('move_stage', s.key as DialerStage)}
-                      className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                      className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
                     >
                       {s.label}
                     </button>
@@ -256,7 +259,7 @@ export default function DialerLeadsClient() {
             <button
               onClick={() => bulkAction('dnc')}
               disabled={bulkActing}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-300 text-red-600 text-xs font-medium rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 border border-red-700 text-red-400 text-xs font-medium rounded-lg hover:bg-red-900/30 transition-colors disabled:opacity-50"
             >
               <Ban size={13} /> Mark DNC
             </button>
@@ -264,7 +267,7 @@ export default function DialerLeadsClient() {
             <button
               onClick={() => bulkAction('archive')}
               disabled={bulkActing}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 border border-gray-600 text-gray-400 text-xs font-medium rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
               <Archive size={13} /> Archive
             </button>
@@ -302,10 +305,10 @@ export default function DialerLeadsClient() {
           </div>
         ) : (
           <>
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
+                  <tr className="border-b border-gray-800 bg-gray-800/50">
                     <th className="w-10 px-3 py-3">
                       <button onClick={toggleSelectAll} className="text-gray-400 hover:text-gray-600">
                         {allSelected
@@ -322,11 +325,11 @@ export default function DialerLeadsClient() {
                     <th className="w-10 px-3 py-3"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-800">
                   {leads.map(lead => (
                     <tr
                       key={lead.id}
-                      className={cn('hover:bg-gray-50 transition-colors', selected.has(lead.id) && 'bg-blue-50/50')}
+                      className={cn('hover:bg-gray-800/50 transition-colors', selected.has(lead.id) && 'bg-blue-900/20')}
                     >
                       <td className="px-3 py-3">
                         <button onClick={() => toggleSelect(lead.id)} className="text-gray-400 hover:text-gray-600">
@@ -337,9 +340,10 @@ export default function DialerLeadsClient() {
                         </button>
                       </td>
                       <td className="px-3 py-3">
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-gray-100">
                           {lead.first_name} {lead.last_name ?? ''}
                         </p>
+                        
                         {lead.business_name && (
                           <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                             <Building2 size={11} /> {lead.business_name}
@@ -350,7 +354,7 @@ export default function DialerLeadsClient() {
                         )}
                       </td>
                       <td className="px-3 py-3">
-                        <span className="flex items-center gap-1 text-gray-600 text-xs">
+                        <span className="flex items-center gap-1 text-gray-300 text-xs">
                           <Phone size={11} className="shrink-0 text-gray-400" />
                           {lead.phone}
                         </span>
@@ -398,9 +402,30 @@ export default function DialerLeadsClient() {
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-gray-400 mt-3 text-right">
-              Showing {leads.length} of {total} leads
-            </p>
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                Showing {page * 100 + 1}–{Math.min((page + 1) * 100, total)} of {total.toLocaleString()} leads
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(p - 1, 0))}
+                  disabled={page === 0 || loading}
+                  className="px-3 py-1.5 text-xs text-gray-400 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  ← Prev
+                </button>
+                <span className="text-xs text-gray-500 select-none">
+                  {page + 1} / {Math.ceil(total / 100) || 1}
+                </span>
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={(page + 1) * 100 >= total || loading}
+                  className="px-3 py-1.5 text-xs text-gray-400 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
           </>
         )}
       </div>

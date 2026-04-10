@@ -143,6 +143,24 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     toast.success('Phone number copied')
   }
 
+  function handleDial() {
+    if (!raw) return
+    const number = raw.phone_e164 ?? raw.phone
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+    if (isMobile) {
+      window.location.href = `tel:${number}`
+      return
+    }
+    // Desktop: open tel: and always copy as reliable fallback
+    const opened = window.open(`tel:${number}`)
+    navigator.clipboard.writeText(number).catch(() => {})
+    if (!opened) {
+      toast(`📋 ${number} copied — browser blocked auto-dial`, { duration: 4000, icon: '📋' })
+    } else {
+      toast.success(`Dialing ${raw.first_name} · ${number} copied`)
+    }
+  }
+
   async function saveDisposition(d: typeof DISPOSITIONS[number]) {
     if (!current) return
     setActing(true)
@@ -188,8 +206,8 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   if (!loading && queue.length > 0 && index >= queue.length) return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
       <CheckCircle2 size={52} className="text-green-500 mb-4" />
-      <h2 className="text-2xl font-bold text-gray-900 mb-1">Queue Complete</h2>
-      <p className="text-gray-500 mb-1">{done} dispositioned · {skipped} skipped</p>
+      <h2 className="text-2xl font-bold text-gray-100 mb-1">Queue Complete</h2>
+      <p className="text-gray-400 mb-1">{done} dispositioned · {skipped} skipped</p>
       {campaign && <p className="text-sm text-gray-400 mb-8">Campaign: {campaign.name}</p>}
       <div className="flex flex-wrap gap-3 justify-center">
         <button
@@ -201,17 +219,17 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
         {FILTER_OPTIONS.filter(f => f.key !== statusFilter).slice(0, 2).map(f => (
           <button key={f.key}
             onClick={() => { setStatusFilter(f.key); setDone(0); setSkipped(0) }}
-            className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50"
+            className="px-5 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700"
           >
             Dial {f.label}
           </button>
         ))}
         <Link href={`/admin/dialer/campaigns/${campaignId}`}
-          className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50">
+          className="px-5 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700">
           Campaign Overview
         </Link>
         <Link href="/admin/dialer/campaigns"
-          className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50">
+          className="px-5 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700">
           All Campaigns
         </Link>
       </div>
@@ -227,14 +245,14 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   if (queue.length === 0) return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
       <Phone size={40} className="text-gray-300 mb-4" />
-      <h3 className="font-semibold text-gray-700 mb-1">
+      <h3 className="font-semibold text-gray-300 mb-1">
         No leads in <span className="capitalize">{statusFilter.replace('_',' ')}</span>
       </h3>
       <p className="text-sm text-gray-400 mb-6">Try a different filter or add more leads to this campaign.</p>
       <div className="flex gap-3 flex-wrap justify-center">
         {FILTER_OPTIONS.filter(f => f.key !== statusFilter).map(f => (
           <button key={f.key} onClick={() => setStatusFilter(f.key)}
-            className="px-4 py-2 bg-white border border-gray-200 text-gray-600 text-sm rounded-xl hover:bg-gray-50">
+            className="px-4 py-2 bg-gray-800 border border-gray-700 text-gray-400 text-sm rounded-xl hover:bg-gray-700">
             Try {f.label}
           </button>
         ))}
@@ -251,10 +269,10 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   return (
     <div className="flex-1 overflow-auto">
       {/* Sub-nav: campaign info + filter pills */}
-      <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-2.5">
+      <div className="bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-2.5">
         <div className="flex items-center gap-3 overflow-x-auto">
           <Link href={`/admin/dialer/campaigns/${campaignId}`}
-            className="text-xs text-gray-500 hover:text-gray-700 shrink-0 flex items-center gap-1">
+            className="text-xs text-gray-400 hover:text-gray-200 shrink-0 flex items-center gap-1">
             {campaign?.name ?? 'Campaign'}
           </Link>
           <span className="text-gray-300 shrink-0">›</span>
@@ -263,7 +281,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
               <button key={f.key} onClick={() => { setStatusFilter(f.key); setDone(0); setSkipped(0) }}
                 className={cn(
                   'px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
-                  statusFilter === f.key ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                  statusFilter === f.key ? 'bg-gray-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
                 )}>
                 {f.label}
               </button>
@@ -274,7 +292,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       </div>
 
       {/* Progress bar */}
-      <div className="h-1 bg-gray-100">
+      <div className="h-1 bg-gray-800">
         <div className="h-full bg-green-500 transition-all duration-300"
           style={{ width: total ? `${(index / total) * 100}%` : '0%' }} />
       </div>
@@ -282,21 +300,21 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 grid gap-5 lg:grid-cols-[1fr_320px]">
         {/* Left: lead card */}
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-5">
             {/* Lead header */}
             <div className="flex items-start justify-between gap-3 mb-4">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">
+                <h2 className="text-xl font-bold text-gray-100">
                   {raw ? `${raw.first_name} ${raw.last_name ?? ''}` : 'No lead'}
                 </h2>
                 {raw?.business_name && (
-                  <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
+                  <p className="text-sm text-gray-400 flex items-center gap-1 mt-0.5">
                     <Building2 size={13} /> {raw.business_name}
                   </p>
                 )}
                 {raw && <div className="mt-1.5"><CallWindowBadge lead={raw} /></div>}
                 {current?.last_call_outcome && (
-                  <span className="inline-block mt-1.5 text-[11px] bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">
+                  <span className="inline-block mt-1.5 text-[11px] bg-gray-700 text-gray-400 rounded-full px-2 py-0.5">
                     Last: {current.last_call_outcome}
                   </span>
                 )}
@@ -329,10 +347,10 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                       {copied ? <CheckCircle size={13} /> : <Copy size={13} />}
                       {copied ? 'Copied' : 'Copy'}
                     </button>
-                    <a href={`tel:${raw.phone_e164 ?? raw.phone}`}
+                    <button onClick={handleDial}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700">
                       <Phone size={13} /> Dial
-                    </a>
+                    </button>
                   </div>
                 </div>
                 {raw.email && <p className="text-xs text-gray-500 mt-2">{raw.email}</p>}
@@ -345,28 +363,28 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Call Note</label>
                 <input type="text" value={note} onChange={e => setNote(e.target.value)}
                   placeholder="Quick note (optional)…"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-gray-400 bg-gray-50" />
+                  className="w-full px-3 py-2.5 text-sm border border-gray-700 rounded-xl focus:outline-none focus:border-gray-500 bg-gray-800 text-gray-100 placeholder:text-gray-500" />
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Callback / Follow-up Time</label>
                 <input type="datetime-local" value={callbackAt} onChange={e => setCallbackAt(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-gray-400 bg-gray-50" />
+                  className="w-full px-3 py-2.5 text-sm border border-gray-700 rounded-xl focus:outline-none focus:border-gray-500 bg-gray-800 text-gray-100 [color-scheme:dark]" />
               </div>
             </div>
           </div>
 
           {/* Raw lead notes */}
           {raw?.notes && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600 mb-1">Lead Notes</p>
-              <p className="text-sm text-amber-900 leading-relaxed">{raw.notes}</p>
+            <div className="bg-amber-950/30 border border-amber-800 rounded-2xl p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-400 mb-1">Lead Notes</p>
+              <p className="text-sm text-amber-200 leading-relaxed">{raw.notes}</p>
             </div>
           )}
         </div>
 
         {/* Right: dispositions */}
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-gray-200 p-4">
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Call Outcome</p>
             <div className="grid grid-cols-2 gap-2">
               {DISPOSITIONS.map(d => {
@@ -384,16 +402,16 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
             </div>
 
             <button onClick={skip} disabled={!current || acting}
-              className="w-full mt-3 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 disabled:opacity-40 transition-colors">
+              className="w-full mt-3 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-gray-400 bg-gray-800 rounded-xl hover:bg-gray-700 disabled:opacity-40 transition-colors">
               <ChevronRight size={15} /> Skip
             </button>
           </div>
 
           {/* Stats */}
-          <div className="bg-white rounded-2xl border border-gray-200 px-4 py-3 grid grid-cols-3 gap-3 text-center">
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 px-4 py-3 grid grid-cols-3 gap-3 text-center">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Position</p>
-              <p className="text-lg font-bold text-gray-900 mt-0.5">{index + 1}/{total}</p>
+              <p className="text-lg font-bold text-gray-100 mt-0.5">{index + 1}/{total}</p>
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Done</p>
@@ -407,11 +425,11 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
 
           {/* Next lead preview */}
           {queue[index + 1] && (
-            <div className="bg-gray-50 rounded-2xl border border-gray-100 p-4">
+            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5 flex items-center gap-1">
                 <ArrowRight size={10} /> Up next
               </p>
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-gray-300">
                 {queue[index + 1].raw_lead.first_name} {queue[index + 1].raw_lead.last_name ?? ''}
               </p>
               <p className="text-xs text-gray-400">{queue[index + 1].raw_lead.phone}</p>

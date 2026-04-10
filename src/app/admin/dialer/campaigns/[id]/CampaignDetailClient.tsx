@@ -113,7 +113,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
   const loadRawLeads = useCallback(async () => {
     setRawLoading(true)
     try {
-      const p = new URLSearchParams({ limit: '200' })
+      const p = new URLSearchParams({ limit: '500', show_all: 'false' })
       if (rawSearch) p.set('search', rawSearch)
       const res  = await fetch(`/api/admin/dialer/leads?${p}`)
       const json = await res.json()
@@ -211,22 +211,22 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
       <div className="max-w-5xl mx-auto px-4 py-5 sm:px-6">
 
         {/* Breadcrumb */}
-        <Link href="/admin/dialer/campaigns" className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-4">
+        <Link href="/admin/dialer/campaigns" className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-200 mb-4">
           <ChevronLeft size={13} /> Campaigns
         </Link>
 
         {/* Campaign header */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-5">
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-5 mb-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl font-bold text-gray-900">{campaign.name}</h1>
+                <h1 className="text-xl font-bold text-gray-100">{campaign.name}</h1>
                 <span className={cn('text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize', STATUS_BADGE[campaign.status])}>
                   {campaign.status}
                 </span>
               </div>
               {campaign.description && (
-                <p className="text-sm text-gray-500 mt-0.5">{campaign.description}</p>
+                <p className="text-sm text-gray-400 mt-0.5">{campaign.description}</p>
               )}
               <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                 <Users size={11} /> {campaign.lead_count} leads
@@ -236,23 +236,23 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
             <div className="flex items-center gap-2">
               {campaign.status === 'active' && (
                 <button onClick={() => updateCampaignStatus('paused')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-yellow-400 bg-yellow-900/30 border border-yellow-700 rounded-lg hover:bg-yellow-900/50">
                   <Pause size={13} /> Pause
                 </button>
               )}
               {campaign.status === 'paused' && (
                 <button onClick={() => updateCampaignStatus('active')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-400 bg-green-900/30 border border-green-700 rounded-lg hover:bg-green-900/50">
                   <Play size={13} /> Resume
                 </button>
               )}
               {!['completed','archived'].includes(campaign.status) && (
                 <button onClick={() => updateCampaignStatus('completed')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-400 bg-blue-900/30 border border-blue-700 rounded-lg hover:bg-blue-900/50">
                   <CheckCircle2 size={13} /> Complete
                 </button>
               )}
-              <button onClick={load} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
+              <button onClick={load} className="p-2 text-gray-500 hover:text-gray-200 rounded-lg hover:bg-gray-800">
                 <RefreshCw size={14} />
               </button>
             </div>
@@ -271,7 +271,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
 
           {/* Start dialing CTA */}
           {campaign.status === 'active' && dialableCount > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="mt-4 pt-4 border-t border-gray-800">
               <Link
                 href={`/admin/dialer/queue?campaign_id=${campaign.id}`}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition-colors"
@@ -288,7 +288,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
             <button key={key} onClick={() => setTab(key as 'leads' | 'add')}
               className={cn(
                 'px-4 py-2 text-sm font-medium rounded-xl transition-colors',
-                tab === key ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100',
+                tab === key ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800',
               )}>
               {label}
             </button>
@@ -297,14 +297,14 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
 
         {/* Leads tab */}
         {tab === 'leads' && (
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
             {/* Status filter */}
-            <div className="px-4 py-3 border-b border-gray-100 flex gap-1.5 overflow-x-auto">
+            <div className="px-4 py-3 border-b border-gray-800 flex gap-1.5 overflow-x-auto">
               {['all', 'new', 'attempted', 'interested', 'callback', 'qualified', 'promoted', 'dnc'].map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)}
                   className={cn(
                     'px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors',
-                    statusFilter === s ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                    statusFilter === s ? 'bg-gray-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
                   )}>
                   {s === 'all' ? `All (${leads.length})` : `${s.replace('_',' ')} (${campaign.status_counts[s] ?? 0})`}
                 </button>
@@ -327,7 +327,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
+                  <tr className="bg-gray-800/50 border-b border-gray-800">
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Phone</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
@@ -335,14 +335,14 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                     <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-800">
                   {filteredLeads.map(l => (
-                    <tr key={l.id} className="hover:bg-gray-50/50">
+                    <tr key={l.id} className="hover:bg-gray-800/50">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{l.raw_lead.first_name} {l.raw_lead.last_name ?? ''}</p>
+                        <p className="font-medium text-gray-100">{l.raw_lead.first_name} {l.raw_lead.last_name ?? ''}</p>
                         {l.raw_lead.business_name && <p className="text-xs text-gray-400">{l.raw_lead.business_name}</p>}
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell text-gray-600">
+                      <td className="px-4 py-3 hidden sm:table-cell text-gray-300">
                         <span className="flex items-center gap-1"><Phone size={11} /> {l.raw_lead.phone}</span>
                       </td>
                       <td className="px-4 py-3">
@@ -355,7 +355,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button onClick={() => removeLead(l.raw_lead_id)}
-                          className="p-1.5 text-gray-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
+                          className="p-1.5 text-gray-600 hover:text-red-400 rounded-lg hover:bg-red-900/30 transition-colors"
                           title="Remove from campaign">
                           <Trash2 size={13} />
                         </button>
@@ -370,16 +370,16 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
 
         {/* Add leads tab */}
         {tab === 'add' && (
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-3">
               <input
                 type="text"
                 value={rawSearch}
                 onChange={e => setRawSearch(e.target.value)}
                 placeholder="Search leads by name, phone, business…"
-                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-gray-400"
+                className="flex-1 px-3 py-2 text-sm border border-gray-700 rounded-xl focus:outline-none focus:border-gray-500 bg-gray-800 text-gray-100 placeholder:text-gray-500"
               />
-              <button onClick={loadRawLeads} className="p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100">
+              <button onClick={loadRawLeads} className="p-2 text-gray-500 hover:text-gray-200 rounded-lg hover:bg-gray-800">
                 <RefreshCw size={14} />
               </button>
               {selected.size > 0 && (
@@ -399,7 +399,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
+                  <tr className="bg-gray-800/50 border-b border-gray-800">
                     <th className="w-10 px-4 py-2.5">
                       <input type="checkbox"
                         checked={selected.size === rawLeads.length}
@@ -412,9 +412,9 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Source</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-800">
                   {rawLeads.map(l => (
-                    <tr key={l.id} className="hover:bg-gray-50/50">
+                    <tr key={l.id} className="hover:bg-gray-800/50">
                       <td className="px-4 py-3">
                         <input type="checkbox"
                           checked={selected.has(l.id)}
@@ -427,10 +427,10 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{l.first_name} {l.last_name ?? ''}</p>
+                        <p className="font-medium text-gray-100">{l.first_name} {l.last_name ?? ''}</p>
                         {l.business_name && <p className="text-xs text-gray-400">{l.business_name}</p>}
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell text-gray-600">
+                      <td className="px-4 py-3 hidden sm:table-cell text-gray-300">
                         <span className="flex items-center gap-1"><Phone size={11} /> {l.phone}</span>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell text-xs text-gray-400">{l.stage}</td>

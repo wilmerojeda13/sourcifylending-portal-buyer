@@ -15,7 +15,7 @@ export default async function DialerLeadsPage() {
   if (!profile?.is_admin) redirect('/dashboard')
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-950 flex flex-col">
       <DialerNav />
       <DialerLeadsClient />
     </div>
