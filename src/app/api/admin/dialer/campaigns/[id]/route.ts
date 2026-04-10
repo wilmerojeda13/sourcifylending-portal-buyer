@@ -23,15 +23,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   if (error || !campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  // Query the pre-aggregated view — returns ≤10 rows, never hits max-rows cap
   const { data: statusRows } = await admin.supabase
-    .from('dialer_campaign_leads')
-    .select('status')
+    .from('dialer_campaign_status_counts')
+    .select('status, count')
     .eq('campaign_id', params.id)
-    .range(0, 999999)
 
   const status_counts: Record<string, number> = {}
-  for (const r of statusRows ?? []) {
-    status_counts[r.status] = (status_counts[r.status] ?? 0) + 1
+  for (const r of (statusRows ?? []) as { status: string; count: number }[]) {
+    status_counts[r.status] = r.count
   }
 
   return NextResponse.json({ campaign: { ...campaign, status_counts } })

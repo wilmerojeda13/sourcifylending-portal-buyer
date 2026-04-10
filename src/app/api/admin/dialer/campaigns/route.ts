@@ -22,18 +22,15 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Add status counts per campaign
+  // Use pre-aggregated view — one row per (campaign, status), never hits max-rows cap
   const { data: statusData } = await admin.supabase
-    .from('dialer_campaign_leads')
-    .select('campaign_id, status')
-    .range(0, 999999)
+    .from('dialer_campaign_status_counts')
+    .select('campaign_id, status, count')
 
   const counts: Record<string, Record<string, number>> = {}
-  for (const row of statusData ?? []) {
-    const cid = (row as { campaign_id: string; status: string }).campaign_id
-    const st  = (row as { campaign_id: string; status: string }).status
-    if (!counts[cid]) counts[cid] = {}
-    counts[cid][st] = (counts[cid][st] ?? 0) + 1
+  for (const row of (statusData ?? []) as { campaign_id: string; status: string; count: number }[]) {
+    if (!counts[row.campaign_id]) counts[row.campaign_id] = {}
+    counts[row.campaign_id][row.status] = row.count
   }
 
   const campaigns = (data ?? []).map(c => ({
