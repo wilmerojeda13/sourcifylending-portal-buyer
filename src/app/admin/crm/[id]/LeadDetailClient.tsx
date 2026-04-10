@@ -882,78 +882,46 @@ export default function LeadDetailClient({
         </div>
       )}
 
-      <div className="mx-auto max-w-6xl px-4 py-4">
-        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-green-100 text-lg font-bold text-green-700 dark:bg-green-900/30 dark:text-green-200">
-                  {lead.first_name[0]}{lead.last_name?.[0] ?? ''}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</h1>
-                    <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', stageInfo.bgColor, stageInfo.color)}>{stageInfo.label}</span>
-                    {lead.do_not_call && <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 dark:bg-red-950/30 dark:text-red-300">Do Not Call</span>}
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                    {lead.business_name && <span className="flex items-center gap-1"><Building2 size={14} /> {lead.business_name}</span>}
-                    {lead.assigned_to_name && <span className="flex items-center gap-1"><User size={14} /> {lead.assigned_to_name}</span>}
-                    <span className="flex items-center gap-1"><Tag size={14} /> {lead.source}</span>
-                    <span className="flex items-center gap-1"><Clock size={14} /> Added {formatDateTime(lead.created_at)}</span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', nextCalendarEvent ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/20 dark:text-purple-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300')}>
-                      {nextCalendarEvent ? 'Demo or calendar booking on file' : 'No booked demo yet'}
-                    </span>
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300">
-                      {openTasks.length} open task{openTasks.length === 1 ? '' : 's'}
-                    </span>
-                    {lead.email && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/20 dark:text-blue-300">Email ready</span>}
-                    {(lead.unread_conversation_count ?? 0) > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">{lead.unread_conversation_count} unread text replies</span>}
-                  </div>
-                </div>
+      <div className="mx-auto max-w-6xl px-4 py-3">
+        <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-100 text-sm font-bold text-green-700 dark:bg-green-900/30 dark:text-green-200">
+                {lead.first_name[0]}{lead.last_name?.[0] ?? ''}
               </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Phone size={14} className="text-green-600" /> {lead.phone}</div>
-                  <button onClick={() => copyToClipboard(lead.phone)} className="mt-2 text-xs font-medium text-gray-500 hover:text-green-700">Copy phone</button>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <h1 className="text-base font-bold text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</h1>
+                  <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', stageInfo.bgColor, stageInfo.color)}>{stageInfo.label}</span>
+                  {lead.do_not_call && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600 dark:bg-red-950/30 dark:text-red-300">DNC</span>}
+                  {(lead.unread_conversation_count ?? 0) > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">{lead.unread_conversation_count} unread</span>}
+                  {openTasks.length > 0 && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300">{openTasks.length} task{openTasks.length === 1 ? '' : 's'}</span>}
                 </div>
-                <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Mail size={14} className="text-blue-600" /> {lead.email || 'No email'}</div>
-                  {lead.email && <button onClick={() => copyToClipboard(lead.email!)} className="mt-2 text-xs font-medium text-gray-500 hover:text-blue-700">Copy email</button>}
-                </div>
-                <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><MapPin size={14} className="text-purple-600" /> {lead.likely_timezone || 'Timezone unknown'}</div>
-                  <p className="mt-2 text-xs text-gray-500">{buildCallabilityLabel(lead)}</p>
-                </div>
-                <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><TrendingUp size={14} className="text-emerald-600" /> {lead.close_probability != null ? `${lead.close_probability}% close probability` : 'Close probability not set'}</div>
-                  <p className="mt-2 text-xs text-gray-500">{lead.lead_temperature ? `Temperature: ${titleize(lead.lead_temperature)}` : 'Temperature not set'}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                  <button onClick={() => copyToClipboard(lead.phone)} className="flex items-center gap-1 hover:text-green-700"><Phone size={11} className="text-green-600" /> {lead.phone}</button>
+                  {lead.email && <button onClick={() => copyToClipboard(lead.email!)} className="flex items-center gap-1 hover:text-blue-700"><Mail size={11} className="text-blue-600" /> {lead.email}</button>}
+                  {lead.business_name && <span className="flex items-center gap-1"><Building2 size={11} /> {lead.business_name}</span>}
+                  {lead.likely_timezone && <span className="flex items-center gap-1"><MapPin size={11} className="text-purple-600" /> {lead.likely_timezone} · {buildCallabilityLabel(lead)}</span>}
+                  {lead.close_probability != null && <span className="flex items-center gap-1"><TrendingUp size={11} className="text-emerald-600" /> {lead.close_probability}%</span>}
+                  {lead.lead_temperature && <span className="capitalize">{lead.lead_temperature}</span>}
+                  <span className="flex items-center gap-1"><Tag size={11} /> {lead.source}</span>
                 </div>
               </div>
             </div>
-
-            <div className="flex flex-wrap gap-1.5 lg:w-[280px] lg:justify-end">
-              <button
-                onClick={authorizeDial}
-                disabled={authorizingCall || lead.call_window_status === 'blocked_by_timezone' || lead.call_window_status === 'unknown_timezone'}
-                className={cn('flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60', authorizingCall ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700')}
-              >
-                {authorizingCall ? <Loader2 size={15} className="animate-spin" /> : <Phone size={15} />}
-                Call
+            <div className="flex shrink-0 flex-wrap gap-1.5">
+              <button onClick={authorizeDial} disabled={authorizingCall || lead.call_window_status === 'blocked_by_timezone' || lead.call_window_status === 'unknown_timezone'} className={cn('flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60', authorizingCall ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700')}>
+                {authorizingCall ? <Loader2 size={13} className="animate-spin" /> : <Phone size={13} />} Call
               </button>
-              {lead.email && <button onClick={() => setShowEmail(true)} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={15} /> Email</button>}
-              <button onClick={() => setShowBookDemo(true)} className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-2 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={15} /> Book Demo</button>
-              <button type="button" onClick={() => { setSelectedDispositionKey(null); setDispositionError(null); setShowDisposition(true) }} className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
-                <PhoneCall size={15} /> Disposition
+              {lead.email && <button onClick={() => setShowEmail(true)} className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={13} /> Email</button>}
+              <button onClick={() => setShowBookDemo(true)} className="flex items-center gap-1 rounded-lg bg-purple-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={13} /> Demo</button>
+              <button type="button" onClick={() => { setSelectedDispositionKey(null); setDispositionError(null); setShowDisposition(true) }} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
+                <PhoneCall size={13} /> Disposition
               </button>
             </div>
           </div>
-
-          <div className="mt-3 flex gap-1 overflow-x-auto pb-1">
+          <div className="mt-2 flex gap-1 overflow-x-auto pb-0.5">
             {STAGES.map((stage) => (
-              <button key={stage.key} onClick={() => changeStage(stage.key)} className={cn('shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all', lead.stage === stage.key ? cn(stage.bgColor, stage.color, 'border-current') : 'border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400')}>
+              <button key={stage.key} onClick={() => changeStage(stage.key)} className={cn('shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all', lead.stage === stage.key ? cn(stage.bgColor, stage.color, 'border-current') : 'border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400')}>
                 {stage.label}
               </button>
             ))}

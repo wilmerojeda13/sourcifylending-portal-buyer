@@ -9,14 +9,10 @@ import {
 } from '@/lib/crm-overview-range'
 import { applyVisibleCrmLeadsFilter } from '@/lib/crm-visibility'
 
-// 60s browser cache reduces repeated aggregation queries significantly.
-// Admin dashboard polls every 30s — with this header the browser serves from cache
-// for the first 60s, cutting actual DB hits by ~50–70%.
 const CACHE_HEADERS = {
-  'Cache-Control': 'private, max-age=60, stale-while-revalidate=30',
+  'Cache-Control': 'no-store',
 }
 
-// Keep no-store only for error responses
 const NO_STORE_HEADERS = {
   'Cache-Control': 'no-store',
 }
@@ -98,7 +94,7 @@ export async function GET(req: NextRequest) {
     applyVisibleCrmLeadsFilter(
       supabase
         .from('crm_leads')
-        .select('stage', { count: 'exact' })
+        .select('*', { count: 'exact', head: true })
     ),
   ])
 

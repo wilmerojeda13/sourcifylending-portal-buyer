@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
   const cursor = searchParams.get('cursor')
   const { start, end } = getRange(view, cursor)
 
-  const [{ data: settingsRow }, tasksRes] = await Promise.all([
+  const [{ data: settingsRow }, tasksRes, crmEventIdsRes, callEventIdsRes] = await Promise.all([
     supabase
       .from('voice_agent_settings')
       .select('google_client_id, google_client_secret, google_refresh_token, google_calendar_id, booking_timezone')
@@ -65,6 +65,14 @@ export async function GET(req: NextRequest) {
       .gte('due_at', start.toISOString())
       .lt('due_at', end.toISOString())
       .order('due_at', { ascending: true }),
+    supabase
+      .from('crm_leads')
+      .select('google_calendar_event_id')
+      .not('google_calendar_event_id', 'is', null),
+    supabase
+      .from('crm_calls')
+      .select('booked_event_id')
+      .not('booked_event_id', 'is', null),
   ])
 
   if (tasksRes.error && !isMissingRelationError(tasksRes.error, 'crm_tasks')) {
@@ -121,8 +129,17 @@ export async function GET(req: NextRequest) {
     }
   })
 
+  // Build explicit set of Google event IDs created by CRM
+  const crmEventIds = new Set<string>([
+    ...((crmEventIdsRes.data ?? []).map(r => r.google_calendar_event_id).filter(Boolean) as string[]),
+    ...((callEventIdsRes.data ?? []).map(r => r.booked_event_id).filter(Boolean) as string[]),
+  ])
+
   const crmGoogleEvents = googleEvents.filter(event =>
-    typeof event.summary === 'string' && event.summary.toLowerCase().includes('sourcifylending')
+    // Explicit CRM linkage via stored event ID
+    crmEventIds.has(event.id) ||
+    // Belt-and-suspenders: all events created by createCalendarEvent use this prefix
+    (typeof event.summary === 'string' && event.summary.startsWith('SourcifyLending'))
   )
 
   const merged = [
