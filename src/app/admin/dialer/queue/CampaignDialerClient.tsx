@@ -151,14 +151,11 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       window.location.href = `tel:${number}`
       return
     }
-    // Desktop: open tel: and always copy as reliable fallback
-    const opened = window.open(`tel:${number}`)
+    // Desktop: open Google Voice click-to-call
+    const gvUrl = `https://voice.google.com/calls?a=nc&n=${encodeURIComponent(number)}`
+    window.open(gvUrl, '_blank', 'noopener')
     navigator.clipboard.writeText(number).catch(() => {})
-    if (!opened) {
-      toast(`📋 ${number} copied — browser blocked auto-dial`, { duration: 4000, icon: '📋' })
-    } else {
-      toast.success(`Dialing ${raw.first_name} · ${number} copied`)
-    }
+    toast.success(`Opening Google Voice · ${number} copied`)
   }
 
   async function saveDisposition(d: typeof DISPOSITIONS[number]) {
