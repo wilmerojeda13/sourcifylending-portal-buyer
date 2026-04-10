@@ -50,6 +50,7 @@ interface Campaign {
   id: string
   name: string
   status: string
+  status_counts: Record<string, number>
 }
 
 // ─── Dispositions ────────────────────────────────────────────────────────────
@@ -87,21 +88,24 @@ function CallWindowBadge({ lead }: { lead: RawLead }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 export default function CampaignDialerClient({ campaignId }: { campaignId: string }) {
-  const [campaign, setCampaign]       = useState<Campaign | null>(null)
-  const [queue, setQueue]             = useState<CampaignLead[]>([])
-  const [index, setIndex]             = useState(0)
-  const [loading, setLoading]         = useState(true)
-  const [acting, setActing]           = useState(false)
-  const [note, setNote]               = useState('')
-  const [callbackAt, setCallbackAt]   = useState('')
-  const [done, setDone]               = useState(0)
-  const [skipped, setSkipped]         = useState(0)
-  const [copied, setCopied]           = useState(false)
-  const [statusFilter, setStatusFilter] = useState<string>('dialable')
+  const [campaign, setCampaign]           = useState<Campaign | null>(null)
+  const [queue, setQueue]                 = useState<CampaignLead[]>([])
+  const [index, setIndex]                 = useState(0)
+  const [loading, setLoading]             = useState(true)
+  const [acting, setActing]               = useState(false)
+  const [note, setNote]                   = useState('')
+  const [callbackAt, setCallbackAt]       = useState('')
+  const [done, setDone]                   = useState(0)
+  const [skipped, setSkipped]             = useState(0)
+  const [copied, setCopied]               = useState(false)
+  const [statusFilter, setStatusFilter]   = useState<string>('dialable')
+  const [totalDialable, setTotalDialable] = useState(0)
 
   const current   = queue[index] ?? null
-  const total     = queue.length
-  const remaining = total - index
+  const batchSize = queue.length
+  // Use accurate server-side total (from status_counts view), not capped batch size
+  const total     = totalDialable || batchSize
+  const remaining = Math.max(0, total - done)
 
   const FILTER_OPTIONS = [
     { key: 'dialable',   label: 'Ready to Dial' },
@@ -124,8 +128,17 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
         fetch(`/api/admin/dialer/campaigns/${campaignId}/leads?${filter === 'dialable' ? 'dialable=1' : `status=${filter}`}`),
       ])
       const [camJson, leadsJson] = await Promise.all([camRes.json(), leadsRes.json()])
-      setCampaign(camJson.campaign ?? null)
+      const cam: Campaign | null = camJson.campaign ?? null
+      setCampaign(cam)
       setQueue(leadsJson.leads ?? [])
+      // Compute accurate total from status_counts view (not capped batch)
+      if (cam?.status_counts) {
+        const sc = cam.status_counts
+        const t = filter === 'dialable'
+          ? (['new','attempted','callback','follow_up'] as const).reduce((s, k) => s + (sc[k] ?? 0), 0)
+          : (sc[filter] ?? 0)
+        setTotalDialable(t)
+      }
     } catch {
       toast.error('Failed to load queue')
     } finally {
@@ -200,7 +213,13 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   }
 
   // ── Queue complete screen ──────────────────────────────────────────────────
-  if (!loading && queue.length > 0 && index >= queue.length) return (
+  // Batch exhausted — automatically reload to get the next batch from the remaining pool
+  if (!loading && batchSize > 0 && index >= batchSize && done < total) {
+    load(statusFilter)
+    return null
+  }
+
+  if (!loading && (batchSize === 0 || done >= total || index >= batchSize)) return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
       <CheckCircle2 size={52} className="text-green-500 mb-4" />
       <h2 className="text-2xl font-bold text-gray-100 mb-1">Queue Complete</h2>
@@ -284,7 +303,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
               </button>
             ))}
           </div>
-          <span className="ml-2 text-xs text-gray-400 shrink-0">{remaining} left</span>
+          <span className="ml-2 text-xs text-gray-400 shrink-0">{remaining.toLocaleString()} left</span>
         </div>
       </div>
 
@@ -322,7 +341,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                 )}
               </div>
               <div className="text-right shrink-0">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">{index + 1} / {total}</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">{index + 1} / {total.toLocaleString()}</p>
                 <p className="text-xs text-gray-400">{done} done · {skipped} skipped</p>
               </div>
             </div>
@@ -408,7 +427,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
           <div className="bg-gray-900 rounded-2xl border border-gray-800 px-4 py-3 grid grid-cols-3 gap-3 text-center">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Position</p>
-              <p className="text-lg font-bold text-gray-100 mt-0.5">{index + 1}/{total}</p>
+              <p className="text-lg font-bold text-gray-100 mt-0.5">{index + 1}/{total.toLocaleString()}</p>
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Done</p>
