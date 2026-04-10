@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import DialerNav from '@/components/dialer/DialerNav'
-import DialerImportClient from './DialerImportClient'
+import DialerLeadsClient from './DialerLeadsClient'
 
-export const metadata = { title: 'Import \u2014 Dialer' }
+export const metadata = { title: 'Leads — Dialer' }
 
-export default async function DialerImportPage() {
+export default async function DialerLeadsPage() {
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) redirect('/login')
@@ -17,7 +17,7 @@ export default async function DialerImportPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <DialerNav />
-      <DialerImportClient />
+      <DialerLeadsClient />
     </div>
   )
 }

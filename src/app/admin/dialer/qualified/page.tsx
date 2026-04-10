@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import Link from 'next/link'
-import { ChevronLeft, CheckCircle2, ArrowUpRight } from 'lucide-react'
+import { CheckCircle2, ArrowUpRight } from 'lucide-react'
+import DialerNav from '@/components/dialer/DialerNav'
 
 export const metadata = { title: 'Ready to Promote — Dialer' }
 
@@ -14,14 +14,14 @@ export default async function DialerQualifiedPage() {
   const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
   if (!profile?.is_admin) redirect('/dashboard')
   
-  // Fetch raw leads that are qualified/ready to promote
-  // These are leads with positive dispositions but not yet promoted
+  // Fetch raw leads in qualified stage (not yet promoted)
   const { data: qualified } = await supabase
     .from('dialer_raw_leads')
     .select('*')
     .is('promoted_to_crm_lead_id', null)
-    .or('last_call_outcome.eq.interested,last_call_outcome.eq.appointment_set,last_call_outcome.eq.booked_call')
-    .order('last_call_at', { ascending: false })
+    .in('stage', ['qualified', 'interested'])
+    .eq('is_archived', false)
+    .order('created_at', { ascending: false })
     .limit(100)
   
   const { data: promoted } = await supabase
@@ -33,27 +33,13 @@ export default async function DialerQualifiedPage() {
   
   return (
     <div className="min-h-screen bg-gray-50">
+      <DialerNav />
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6">
-          <Link href="/admin/dialer" className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-2">
-            <ChevronLeft size={14} /> Back to Dialer
-          </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Ready to Promote</h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Qualified raw leads and recently promoted leads.
-              </p>
-            </div>
-            <a
-              href="/admin/crm"
-              className="text-sm text-teal-600 hover:text-teal-700 flex items-center gap-1"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Open CRM <ArrowUpRight size={14} />
-            </a>
-          </div>
+          <h1 className="text-xl font-bold text-gray-900">Ready to Promote</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {qualified?.length ?? 0} qualified · {promoted?.length ?? 0} already in CRM
+          </p>
         </div>
       </div>
       

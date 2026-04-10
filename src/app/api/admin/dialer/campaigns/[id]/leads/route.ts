@@ -1,0 +1,96 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+
+async function assertAdmin() {
+  const auth = await createClient()
+  const { data: { user } } = await auth.auth.getUser()
+  if (!user) return null
+  const supabase = await createServiceClient()
+  const { data: p } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
+  if (!p?.is_admin) return null
+  return { supabase, userId: user.id }
+}
+
+// GET: list campaign leads with raw lead data merged in
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await assertAdmin()
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const sp     = new URL(req.url).searchParams
+  const status = sp.get('status')   // filter by campaign lead status
+  const dialable = sp.get('dialable') === '1' // only new/attempted
+
+  let query = admin.supabase
+    .from('dialer_campaign_leads')
+    .select(`
+      id, campaign_id, raw_lead_id, status, last_call_outcome, last_called_at,
+      callback_due_at, follow_up_at, notes, sort_order, added_at, updated_at,
+      raw_lead:dialer_raw_leads(
+        id, first_name, last_name, phone, phone_e164, email, business_name, notes,
+        do_not_call, is_archived, promoted_to_crm_lead_id,
+        likely_timezone, timezone_confidence, call_window_status, blocked_until_label,
+        source, created_at
+      )
+    `)
+    .eq('campaign_id', params.id)
+    .order('sort_order', { ascending: true })
+    .order('added_at',   { ascending: true })
+
+  if (status) {
+    query = query.eq('status', status)
+  } else if (dialable) {
+    query = query.in('status', ['new', 'attempted', 'callback', 'follow_up'])
+  }
+
+  const { data, error } = await query
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Filter out DNC / archived raw leads from dialable sets
+  const leads = (data ?? []).filter(l => {
+    const raw = (l as unknown as { raw_lead?: { do_not_call?: boolean; is_archived?: boolean } }).raw_lead
+    return raw && !raw.do_not_call && !raw.is_archived
+  })
+
+  return NextResponse.json({ leads: dialable ? leads : data ?? [] })
+}
+
+// POST: add raw leads into this campaign
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await assertAdmin()
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await req.json() as { raw_lead_ids: string[] }
+  if (!Array.isArray(body.raw_lead_ids) || body.raw_lead_ids.length === 0) {
+    return NextResponse.json({ error: 'raw_lead_ids required' }, { status: 400 })
+  }
+
+  const rows = body.raw_lead_ids.map((id, i) => ({
+    campaign_id: params.id,
+    raw_lead_id: id,
+    sort_order:  i,
+  }))
+
+  // upsert so duplicates are ignored
+  const { error } = await admin.supabase
+    .from('dialer_campaign_leads')
+    .upsert(rows, { onConflict: 'campaign_id,raw_lead_id', ignoreDuplicates: true })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true, added: rows.length })
+}
+
+// DELETE: remove a raw lead from campaign (body: { raw_lead_id })
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await assertAdmin()
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await req.json() as { raw_lead_id: string }
+  const { error } = await admin.supabase
+    .from('dialer_campaign_leads')
+    .delete()
+    .eq('campaign_id', params.id)
+    .eq('raw_lead_id', body.raw_lead_id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}

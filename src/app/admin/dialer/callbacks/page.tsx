@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { ChevronLeft, Clock, PhoneCall } from 'lucide-react'
+import { Clock, PhoneCall } from 'lucide-react'
+import DialerNav from '@/components/dialer/DialerNav'
 
-export const metadata = { title: 'Dialer Callbacks' }
+export const metadata = { title: 'Callbacks — Dialer' }
 
 export default async function DialerCallbacksPage() {
   const authClient = await createClient()
@@ -29,19 +30,13 @@ export default async function DialerCallbacksPage() {
   
   return (
     <div className="min-h-screen bg-gray-50">
+      <DialerNav />
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6">
-          <Link href="/admin/dialer" className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-2">
-            <ChevronLeft size={14} /> Back to Dialer
-          </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Callbacks</h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Raw leads with scheduled callbacks. Promote to CRM after successful contact.
-              </p>
-            </div>
-          </div>
+          <h1 className="text-xl font-bold text-gray-900">Callbacks</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {dueCallbacks.length} due now · {upcomingCallbacks.length} upcoming
+          </p>
         </div>
       </div>
       

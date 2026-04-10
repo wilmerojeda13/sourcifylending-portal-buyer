@@ -342,7 +342,7 @@ function getManualCallErrorMessage(reason: string) {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function DialerClient() {
+export default function DialerClient({ mode = 'crm' }: { mode?: 'crm' | 'dialer' }) {
   const [leads, setLeads]         = useState<CRMLead[]>([])
   const [index, setIndex]         = useState(0)
   const [loading, setLoading]     = useState(true)
@@ -1941,8 +1941,8 @@ useEffect(() => {
   // ── Stage picker splash ──────────────────────────────────────────────────────
   if (!queueFilter) return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-6">
-      <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-300 mb-10 self-start absolute top-4 left-4">
-        <ChevronLeft size={16}/> CRM
+      <Link href={mode === 'dialer' ? '/admin' : '/admin/crm'} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-300 mb-10 self-start absolute top-4 left-4">
+        <ChevronLeft size={16}/> {mode === 'dialer' ? 'Admin' : 'CRM'}
       </Link>
       <Phone size={36} className="text-green-500 mb-4"/>
       <h1 className="text-2xl font-bold text-white mb-2">Dialer Mode</h1>
@@ -1972,10 +1972,17 @@ useEffect(() => {
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Queue Complete!</h2>
       <p className="text-gray-500 mb-2">{done} contacted · {skipped} skipped</p>
       <p className="text-sm text-gray-400 mb-8">You've gone through all leads in this filter.</p>
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap justify-center">
         <button onClick={() => { setQueueFilter(null); setLeads([]); setDone(0); setSkipped(0) }} className="btn-primary px-6 py-3">Change Queue</button>
         <button onClick={() => queueFilter && load(queueFilter)} className="btn-secondary px-6 py-3">Reload Queue</button>
-        <Link href="/admin/crm" className="btn-secondary px-6 py-3">Back to CRM</Link>
+        {mode === 'dialer' ? (
+          <>
+            <Link href="/admin/dialer" className="btn-secondary px-6 py-3">Dialer Home</Link>
+            <Link href="/admin/dialer/leads" className="btn-secondary px-6 py-3">Manage Leads</Link>
+          </>
+        ) : (
+          <Link href="/admin/crm" className="btn-secondary px-6 py-3">Back to CRM</Link>
+        )}
       </div>
     </div>
   )
@@ -1991,9 +1998,15 @@ useEffect(() => {
           <Link href="/admin" className="text-xs text-gray-600 hover:text-green-500 font-medium inline-flex items-center gap-0.5 leading-none mb-0.5">
             <ChevronLeft size={12}/> Admin
           </Link>
-          <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-200">
-            <ChevronLeft size={18}/> CRM
-          </Link>
+          {mode === 'dialer' ? (
+            <Link href="/admin/dialer" className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-200">
+              <ChevronLeft size={18}/> Dialer
+            </Link>
+          ) : (
+            <Link href="/admin/crm" className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-200">
+              <ChevronLeft size={18}/> CRM
+            </Link>
+          )}
         </div>
         <div className="text-center">
           <p className="text-xs text-gray-500 font-medium">DIALER MODE</p>
@@ -2670,7 +2683,7 @@ useEffect(() => {
                   <div className="flex items-center justify-center text-center text-xs text-gray-600">
                     {index + 1} / {total}
                   </div>
-                  {current && (
+                  {current && mode !== 'dialer' && (
                     <Link href={`/admin/crm/${current.id}`} className="flex items-center justify-center gap-2 rounded-2xl bg-gray-800 py-3.5 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-700">
                       <Users size={15}/> Full Profile
                     </Link>
@@ -2831,7 +2844,7 @@ useEffect(() => {
                   >
                     <ChevronRight size={12} /> Skip
                   </button>
-                  {current ? (
+                  {mode !== 'dialer' && (current ? (
                     <Link
                       href={`/admin/crm/${current.id}`}
                       onClick={() => setMobileDispoExpanded(false)}
@@ -2843,7 +2856,7 @@ useEffect(() => {
                     <span className="flex items-center justify-center gap-1.5 rounded-lg bg-gray-800 py-2 text-xs font-medium text-gray-600 cursor-not-allowed opacity-40">
                       <Users size={12} /> Full Profile
                     </span>
-                  )}
+                  ))}
                 </div>
               </div>
             )}

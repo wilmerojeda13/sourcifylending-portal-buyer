@@ -223,9 +223,14 @@ export default function DialerImportClient() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <Link href="/admin/dialer" className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-2">
-            <ChevronLeft size={14} /> Back to Dialer
-          </Link>
+          <div className="flex items-center gap-4 mb-2">
+            <Link href="/admin" className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600">
+              <ChevronLeft size={14} /> Back to Admin
+            </Link>
+            <Link href="/admin/dialer" className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600">
+              <ChevronLeft size={14} /> Back to Dialer
+            </Link>
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <FileSpreadsheet size={22} className="text-orange-600" /> Import Raw Leads to Dialer
           </h1>

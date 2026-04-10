@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { 
-  Headphones, Upload, PhoneCall, Clock, CheckCircle2, ArrowUpRight, BarChart3, Phone, TrendingUp, MessageSquare 
+  Headphones, Upload, PhoneCall, Clock, CheckCircle2, ArrowUpRight, BarChart3, Phone, TrendingUp, MessageSquare, ChevronLeft
 } from 'lucide-react'
 
 function StatCard({ label, value, detail, icon: Icon }: { label: string; value: string | number; detail: string; icon: React.ElementType }) {
@@ -70,6 +70,9 @@ export default function DialerHomeClient() {
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6">
+          <Link href="/admin" className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-3">
+            <ChevronLeft size={14} /> Back to Admin
+          </Link>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-gray-900">Dialer Workspace</h1>
