@@ -127,7 +127,25 @@ function ChartCard({
         <p className="hidden text-[10px] uppercase tracking-[0.16em] text-gray-500 sm:block">{data.length} days</p>
       </div>
 
-      <div className="mt-2 flex h-[4.25rem] items-end gap-1 sm:mt-6 sm:h-56 sm:gap-2">
+      <div className="mt-3 -mx-3 overflow-x-auto px-3 sm:hidden">
+        <div className="flex min-w-max items-end gap-2 pb-1">
+          {data.map(item => (
+            <div key={`mobile-${item.key}`} className="flex w-5 shrink-0 flex-col items-center justify-end gap-1">
+              <div className="flex h-[4.25rem] w-full items-end">
+                <div
+                  className={`w-full rounded-t-md ${colorClass}`}
+                  style={{ height: getBarWidth(item.value, maxValue) }}
+                />
+              </div>
+              <div className="text-[8px] leading-none text-gray-500">
+                {dateLabel(item.key)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-2 hidden h-[14rem] items-end gap-1 sm:mt-6 sm:flex sm:h-56 sm:gap-2">
         {data.map(item => (
           <div key={item.key} className="group flex min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
             <div className="hidden text-[10px] font-medium text-gray-500 opacity-0 transition-opacity group-hover:opacity-100 sm:block">
