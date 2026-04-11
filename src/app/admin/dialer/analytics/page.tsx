@@ -116,6 +116,7 @@ function ChartCard({
   colorClass: string
 }) {
   const maxValue = Math.max(...data.map(item => item.value), 1)
+  const mobileData = data.slice(-7)
 
   return (
     <section className="rounded-xl border border-gray-800 bg-[#111827] p-3 sm:p-5">
@@ -127,22 +128,20 @@ function ChartCard({
         <p className="hidden text-[10px] uppercase tracking-[0.16em] text-gray-500 sm:block">{data.length} days</p>
       </div>
 
-      <div className="mt-3 -mx-3 overflow-x-auto px-3 sm:hidden">
-        <div className="flex min-w-max items-end gap-2 pb-1">
-          {data.map(item => (
-            <div key={`mobile-${item.key}`} className="flex w-5 shrink-0 flex-col items-center justify-end gap-1">
-              <div className="flex h-[4.25rem] w-full items-end">
-                <div
-                  className={`w-full rounded-t-md ${colorClass}`}
-                  style={{ height: getBarWidth(item.value, maxValue) }}
-                />
-              </div>
-              <div className="text-[8px] leading-none text-gray-500">
-                {dateLabel(item.key)}
-              </div>
+      <div className="mt-3 grid grid-cols-7 gap-1.5 sm:hidden">
+        {mobileData.map(item => (
+          <div key={`mobile-${item.key}`} className="flex min-w-0 flex-col items-center justify-end gap-1">
+            <div className="flex h-[4.25rem] w-full items-end">
+              <div
+                className={`w-full rounded-t-md ${colorClass}`}
+                style={{ height: getBarWidth(item.value, maxValue) }}
+              />
             </div>
-          ))}
-        </div>
+            <div className="truncate text-[8px] leading-none text-gray-500">
+              {dateLabel(item.key)}
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="mt-2 hidden h-[14rem] items-end gap-1 sm:mt-6 sm:flex sm:h-56 sm:gap-2">
