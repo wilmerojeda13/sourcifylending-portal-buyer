@@ -13,6 +13,12 @@ type CampaignLeadStatus =
   | 'callback' | 'follow_up' | 'qualified'
   | 'promoted' | 'dnc' | 'closed_lost'
 
+type PromotionOutcome =
+  | 'created_new_crm_lead'
+  | 'merged_into_existing_crm_lead'
+  | 'already_promoted'
+  | 'promotion_failed'
+
 const OUTCOME_TO_STATUS: Record<string, CampaignLeadStatus> = {
   no_answer:      'attempted',
   voicemail:      'attempted',
@@ -62,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { error: clErr } = await admin.supabase
     .from('dialer_campaign_leads')
     .update({
-      status:            promote ? 'promoted' : newStatus,
+      status:            newStatus,
       last_call_outcome: outcome,
       last_called_at:    now,
       callback_due_at:   callback_due_at ?? null,
@@ -90,7 +96,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .eq('id', raw_lead_id)
 
   // 3. CRM promotion (qualified or explicit promote flag)
-  let promotion: { crm_lead_id: string; merged: boolean } | null = null
+  let promotion:
+    | {
+        outcome: PromotionOutcome
+        crm_lead_id: string
+        merged: boolean
+        alreadyPromoted: boolean
+      }
+    | null = null
   if (promote || outcome === 'qualified') {
     const { data: rawLead } = await admin.supabase
       .from('dialer_raw_leads')
@@ -98,7 +111,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .eq('id', raw_lead_id)
       .single()
 
-    if (rawLead && !rawLead.promoted_to_crm_lead_id) {
+    if (rawLead) {
       try {
         const result = await promoteToCrm(admin.supabase, {
           rawLeadId: raw_lead_id,
@@ -113,15 +126,38 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             crm_stage:         CAMPAIGN_OUTCOME_TO_CRM_STAGE[outcome] ?? null,
           },
         })
-        if (!result.alreadyPromoted) {
-          promotion = { crm_lead_id: result.crmLeadId, merged: result.merged }
-          await admin.supabase
-            .from('dialer_campaign_leads')
-            .update({ status: 'promoted', updated_at: now })
-            .eq('id', campaign_lead_id)
+
+        const outcomeLabel: PromotionOutcome = result.alreadyPromoted
+          ? 'already_promoted'
+          : result.merged
+            ? 'merged_into_existing_crm_lead'
+            : 'created_new_crm_lead'
+
+        promotion = {
+          outcome: outcomeLabel,
+          crm_lead_id: result.crmLeadId,
+          merged: result.merged,
+          alreadyPromoted: result.alreadyPromoted,
+        }
+
+        const { error: promotedErr } = await admin.supabase
+          .from('dialer_campaign_leads')
+          .update({ status: 'promoted', updated_at: now })
+          .eq('id', campaign_lead_id)
+          .eq('campaign_id', campaignId)
+
+        if (promotedErr) {
+          console.error('[Campaign Disposition] Campaign lead promotion status update failed:', promotedErr)
         }
       } catch (err) {
         console.error('[Campaign Disposition] Promotion failed:', err)
+        return NextResponse.json(
+          {
+            error: err instanceof Error ? err.message : 'CRM promotion failed',
+            promotion: { outcome: 'promotion_failed' satisfies PromotionOutcome },
+          },
+          { status: 500 },
+        )
       }
     }
   }

@@ -6,11 +6,13 @@ import {
   Phone, ChevronRight, Building2, Loader2, CheckCircle2,
   ThumbsUp, ThumbsDown, Voicemail, PhoneMissed,
   CalendarPlus, Ban, Clock, ArrowRight, Copy, AlertTriangle,
-  CheckCircle, Globe,
+  CheckCircle, Globe, Send,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
+// Canonical dialer campaign flow used from /admin/dialer/campaigns.
+// Do not move mobile UI work into the legacy CRM dialer tree.
 // ─── Types ───────────────────────────────────────────────────────────────────
 type CampaignLeadStatus =
   | 'new' | 'attempted' | 'contacted' | 'interested'
@@ -53,6 +55,27 @@ interface Campaign {
   status_counts: Record<string, number>
 }
 
+function isMobileDialDevice() {
+  if (typeof navigator === 'undefined') return false
+  return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+}
+
+function buildDialTarget(number: string) {
+  if (isMobileDialDevice()) {
+    return {
+      href: `tel:${number}`,
+      target: undefined,
+      copiedMessage: null,
+    }
+  }
+
+  return {
+    href: `https://voice.google.com/calls?a=${encodeURIComponent(`nc,${number}`)}`,
+    target: '_blank',
+    copiedMessage: `Opening Google Voice · ${number} copied`,
+  }
+}
+
 // ─── Dispositions ────────────────────────────────────────────────────────────
 const DISPOSITIONS = [
   { outcome: 'no_answer',      label: 'No Answer',      icon: PhoneMissed,   color: 'bg-gray-800 text-gray-200 hover:bg-gray-700',    next: 'attempted'    },
@@ -93,11 +116,13 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   const [index, setIndex]                 = useState(0)
   const [loading, setLoading]             = useState(true)
   const [acting, setActing]               = useState(false)
+  const [mobileDockMode, setMobileDockMode] = useState<'pre_call' | 'post_call'>('pre_call')
   const [note, setNote]                   = useState('')
   const [callbackAt, setCallbackAt]       = useState('')
   const [done, setDone]                   = useState(0)
   const [skipped, setSkipped]             = useState(0)
   const [copied, setCopied]               = useState(false)
+  const [emailSending, setEmailSending]   = useState(false)
   const [statusFilter, setStatusFilter]   = useState<string>('dialable')
   const [totalDialable, setTotalDialable] = useState(0)
 
@@ -148,6 +173,10 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
 
   useEffect(() => { load(statusFilter) }, [statusFilter, load])
 
+  useEffect(() => {
+    setMobileDockMode('pre_call')
+  }, [current?.id])
+
   function copyPhone() {
     if (!current) return
     navigator.clipboard.writeText(current.raw_lead.phone_e164 ?? current.raw_lead.phone)
@@ -159,16 +188,39 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   function handleDial() {
     if (!raw) return
     const number = raw.phone_e164 ?? raw.phone
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
-    if (isMobile) {
-      window.location.href = `tel:${number}`
+    const dialTarget = buildDialTarget(number)
+    setMobileDockMode('post_call')
+    if (dialTarget.target) {
+      window.open(dialTarget.href, dialTarget.target, 'noopener,noreferrer')
+      navigator.clipboard.writeText(number).catch(() => {})
+      if (dialTarget.copiedMessage) {
+        toast.success(dialTarget.copiedMessage)
+      }
       return
     }
-    // Desktop: open Google Voice click-to-call
-    const gvUrl = `https://voice.google.com/calls?a=nc&n=${encodeURIComponent(number)}`
-    window.open(gvUrl, '_blank', 'noopener')
-    navigator.clipboard.writeText(number).catch(() => {})
-    toast.success(`Opening Google Voice · ${number} copied`)
+
+    window.location.href = dialTarget.href
+  }
+
+  async function sendIntroEmail() {
+    if (!raw?.id || !raw.email || emailSending) return
+    setEmailSending(true)
+    try {
+      const res = await fetch(`/api/admin/dialer/leads/${raw.id}/intro-email`, {
+        method: 'POST',
+      })
+      await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Could not send intro email.')
+        return
+      }
+
+      toast.success('Intro email sent.')
+    } catch {
+      toast.error('Could not send intro email.')
+    } finally {
+      setEmailSending(false)
+    }
   }
 
   async function saveDisposition(d: typeof DISPOSITIONS[number]) {
@@ -187,15 +239,29 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
           promote:          ('promote' in d && (d as { promote?: boolean }).promote) || false,
         }),
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
+      const json = await res.json().catch(() => ({})) as {
+        error?: string
+        promotion?: { outcome?: string }
+      }
 
-      if (json.promotion) toast.success(`${current.raw_lead.first_name} promoted to CRM!`)
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to save')
+      }
+
+      const promotionOutcome = json.promotion?.outcome
+      if (promotionOutcome === 'created_new_crm_lead') {
+        toast.success(`${current.raw_lead.first_name} created in CRM.`)
+      } else if (promotionOutcome === 'merged_into_existing_crm_lead') {
+        toast('Merged into existing CRM lead.', { icon: 'ℹ' })
+      } else if (promotionOutcome === 'already_promoted') {
+        toast('Lead was already in CRM.', { icon: 'ℹ' })
+      }
 
       // Remove from queue and advance
       setQueue(q => q.filter((_, i) => i !== index))
       setIndex(i => Math.min(i, queue.length - 2))
       setDone(n => n + 1)
+      setMobileDockMode('pre_call')
       setNote('')
       setCallbackAt('')
     } catch (e) {
@@ -207,6 +273,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
 
   function skip() {
     setSkipped(s => s + 1)
+    setMobileDockMode('pre_call')
     setNote('')
     setCallbackAt('')
     setIndex(i => i + 1)
@@ -281,9 +348,11 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   )
 
   const raw = current?.raw_lead
+  const dialNumber = raw ? (raw.phone_e164 ?? raw.phone) : null
+  const dialTarget = dialNumber ? buildDialTarget(dialNumber) : null
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 overflow-auto overflow-x-hidden">
       {/* Sub-nav: campaign info + filter pills */}
       <div className="bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-2.5">
         <div className="flex items-center gap-3 overflow-x-auto">
@@ -313,7 +382,116 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
           style={{ width: total ? `${(index / total) * 100}%` : '0%' }} />
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 grid gap-5 lg:grid-cols-[1fr_320px]">
+      <div className="max-w-5xl mx-auto px-4 py-4 sm:px-6 lg:py-6">
+        <div className="lg:hidden space-y-4 pb-[calc(18rem+env(safe-area-inset-bottom))]">
+          <div className="rounded-2xl border border-gray-800 bg-gray-900 p-4 overflow-x-hidden">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-lg font-bold text-gray-100">
+                  {raw ? `${raw.first_name} ${raw.last_name ?? ''}` : 'No lead'}
+                </h2>
+                {raw?.business_name && (
+                  <p className="mt-0.5 truncate text-sm text-gray-400 flex items-center gap-1 min-w-0">
+                    <Building2 size={13} className="shrink-0" />
+                    <span className="truncate">{raw.business_name}</span>
+                  </p>
+                )}
+                {raw && <div className="mt-1.5"><CallWindowBadge lead={raw} /></div>}
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-xs text-gray-400 uppercase tracking-wide">{index + 1} / {total.toLocaleString()}</p>
+                <p className="text-xs text-gray-500">{done} done · {skipped} skipped</p>
+              </div>
+            </div>
+
+            {raw && (
+              <div className="mt-4 space-y-3">
+                <a
+                  key={`${current?.id ?? raw.id}:${dialNumber ?? raw.phone}`}
+                  href={dialTarget?.href ?? '#'}
+                  target={dialTarget?.target}
+                  rel={dialTarget?.target ? 'noopener noreferrer' : undefined}
+                  className="flex min-w-0 items-center gap-2 rounded-xl border border-gray-800 bg-gray-950 px-3 py-3 text-white hover:border-green-500/50 hover:text-green-400 transition-colors"
+                >
+                  <Phone size={16} className="shrink-0 text-green-400" />
+                  <span className="min-w-0 truncate text-lg font-semibold tracking-wide">
+                    {raw.phone}
+                  </span>
+                </a>
+
+                <button
+                  onClick={handleDial}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700"
+                >
+                  <Phone size={15} /> Dial
+                </button>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={copyPhone}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700"
+                  >
+                    {copied ? <CheckCircle size={13} /> : <Copy size={13} />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                  {raw.email && (
+                    <button
+                      onClick={sendIntroEmail}
+                      disabled={emailSending}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+                    >
+                      {emailSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                      {emailSending ? 'Sending...' : 'Send Email'}
+                    </button>
+                  )}
+                </div>
+                {!raw.email && (
+                  <p className="text-[11px] text-gray-500">No email on file</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <details className="rounded-2xl border border-gray-800 bg-gray-900 p-4">
+            <summary className="cursor-pointer list-none text-sm font-semibold text-gray-200">
+              More
+            </summary>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500">Call Note</label>
+                <input
+                  type="text"
+                  value={note}
+                  onChange={e => setNote(e.target.value)}
+                  placeholder="Quick note (optional)…"
+                  className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:border-gray-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500">Callback / Follow-up Time</label>
+                <input
+                  type="datetime-local"
+                  value={callbackAt}
+                  onChange={e => setCallbackAt(e.target.value)}
+                  className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 [color-scheme:dark] focus:border-gray-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          </details>
+
+          {raw?.notes && (
+            <details className="rounded-2xl border border-amber-800 bg-amber-950/30 p-4">
+              <summary className="cursor-pointer list-none text-sm font-semibold text-amber-300">
+                Lead Notes
+              </summary>
+              <p className="mt-4 text-sm leading-relaxed text-amber-200">
+                {raw.notes}
+              </p>
+            </details>
+          )}
+        </div>
+
+        <div className="hidden gap-5 lg:grid lg:grid-cols-[1fr_320px]">
         {/* Left: lead card */}
         <div className="space-y-4">
           <div className="bg-gray-900 rounded-2xl border border-gray-800 p-5">
@@ -348,11 +526,14 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
 
             {/* Phone — manual dial */}
             {raw && (
-              <div className="rounded-2xl bg-gray-900 px-5 py-4 mb-4">
+              <div key={current?.id ?? raw.id} className="rounded-2xl bg-gray-900 px-5 py-4 mb-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Phone Number</p>
                 <div className="flex items-center justify-between gap-3">
                   <a
-                    href={`tel:${raw.phone_e164 ?? raw.phone}`}
+                    key={`${current?.id ?? raw.id}:${dialNumber ?? raw.phone}`}
+                    href={dialTarget?.href ?? '#'}
+                    target={dialTarget?.target}
+                    rel={dialTarget?.target ? 'noopener noreferrer' : undefined}
                     className="text-2xl font-bold text-white tracking-wide hover:text-green-400 transition-colors"
                   >
                     {raw.phone}
@@ -363,13 +544,23 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                       {copied ? <CheckCircle size={13} /> : <Copy size={13} />}
                       {copied ? 'Copied' : 'Copy'}
                     </button>
+                    <button
+                      onClick={sendIntroEmail}
+                      disabled={!raw.email || emailSending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white text-xs font-semibold rounded-lg hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+                    >
+                      {emailSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                      {emailSending ? 'Sending...' : 'Send Email'}
+                    </button>
                     <button onClick={handleDial}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700">
                       <Phone size={13} /> Dial
                     </button>
                   </div>
                 </div>
-                {raw.email && <p className="text-xs text-gray-500 mt-2">{raw.email}</p>}
+                <p className="text-xs text-gray-500 mt-2">
+                  {raw.email ?? 'No email on file'}
+                </p>
               </div>
             )}
 
@@ -449,6 +640,83 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                 {queue[index + 1].raw_lead.first_name} {queue[index + 1].raw_lead.last_name ?? ''}
               </p>
               <p className="text-xs text-gray-400">{queue[index + 1].raw_lead.phone}</p>
+            </div>
+          )}
+        </div>
+        </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-800 bg-gray-950/96 backdrop-blur lg:hidden">
+        <div className="mx-auto max-w-5xl px-4 pt-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))]">
+          <div className="mb-2 flex items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-gray-400">
+            <span>Bottom Dock</span>
+            <span className="rounded-full border border-gray-700 px-2 py-0.5 text-gray-300">
+              {mobileDockMode === 'pre_call' ? 'Pre-call' : 'Disposition'}
+            </span>
+          </div>
+
+          {mobileDockMode === 'pre_call' ? (
+            <div className="space-y-2">
+              <button
+                onClick={handleDial}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold text-white hover:bg-green-700"
+              >
+                <Phone size={15} /> Dial
+              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={skip}
+                  disabled={!current || acting}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2.5 text-sm font-medium text-gray-200 hover:bg-gray-700 disabled:opacity-40"
+                >
+                  <ChevronRight size={15} /> Skip
+                </button>
+                <button
+                  onClick={copyPhone}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2.5 text-sm font-medium text-gray-200 hover:bg-gray-700"
+                >
+                  {copied ? <CheckCircle size={15} /> : <Copy size={15} />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid max-h-[44svh] grid-cols-2 gap-2 overflow-y-auto pr-1">
+                {DISPOSITIONS.map(d => {
+                  const Icon = d.icon
+                  return (
+                    <button
+                      key={d.outcome}
+                      onClick={() => saveDisposition(d)}
+                      disabled={acting}
+                      className={cn(
+                        'flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition-all active:scale-[0.97] disabled:opacity-50',
+                        d.color,
+                      )}
+                    >
+                      <Icon size={15} /> {d.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={skip}
+                  disabled={!current || acting}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2.5 text-sm font-medium text-gray-200 hover:bg-gray-700 disabled:opacity-40"
+                >
+                  <ChevronRight size={15} /> Skip
+                </button>
+                <button
+                  onClick={copyPhone}
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2.5 text-sm font-medium text-gray-200 hover:bg-gray-700"
+                >
+                  {copied ? <CheckCircle size={15} /> : <Copy size={15} />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
             </div>
           )}
         </div>
