@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import PortalLayout from '@/components/layout/PortalLayout'
+import BusinessManagementCard from '@/components/member/BusinessManagementCard'
 import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/Badge'
@@ -260,6 +261,10 @@ export default function BillingPage() {
           Billing & Membership
         </h1>
         <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Manage your SourcifyLending memberships</p>
+      </div>
+
+      <div className="mb-6">
+        <BusinessManagementCard />
       </div>
 
       {(subscriptionRequiredFlow || (!isActive && newBusinessFlow)) && (
