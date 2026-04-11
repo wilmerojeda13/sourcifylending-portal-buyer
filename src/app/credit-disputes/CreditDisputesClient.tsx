@@ -67,7 +67,7 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000)
 }
 
-export default function CreditDisputesClient({ initialDisputes }: { initialDisputes: Dispute[] }) {
+export default function CreditDisputesClient({ initialDisputes, prospectMode = false }: { initialDisputes: Dispute[]; prospectMode?: boolean }) {
   const [disputes, setDisputes] = useState<Dispute[]>(initialDisputes)
   const [showForm, setShowForm] = useState(false)
   const [step, setStep] = useState<Step>(1)
@@ -86,12 +86,14 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [escalationLoading, setEscalationLoading] = useState<string | null>(null)
   const [escalationLetter, setEscalationLetter] = useState<{ id: string; text: string } | null>(null)
+  const inquiryOnlyMode = prospectMode
 
   const activeDisputes = disputes.filter(d => ['Sent', 'Under Investigation', 'Escalated'].includes(d.status))
   const deadlineSoon = activeDisputes.filter(d => d.investigation_deadline && daysUntil(d.investigation_deadline) <= 7)
+  const effectiveDisputeType = inquiryOnlyMode ? 'Hard Inquiry' : disputeType
 
   const resetForm = () => {
-    setStep(1); setBureau(''); setDisputeType(''); setRecipientType(''); setItemDisputed('')
+    setStep(1); setBureau(''); setDisputeType(inquiryOnlyMode ? 'Hard Inquiry' : ''); setRecipientType(''); setItemDisputed('')
     setIncorrectInfo(''); setCorrectInfo(''); setFormError(null)
     setGeneratedLetter(null); setLegalBasis([]); setNewDisputeId(null)
   }
@@ -107,7 +109,9 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bureau, dispute_type: disputeType, recipient_type: recipientType || undefined,
+          bureau,
+          dispute_type: effectiveDisputeType,
+          recipient_type: inquiryOnlyMode ? undefined : recipientType || undefined,
           item_disputed: itemDisputed, incorrect_information: incorrectInfo,
           correct_information: correctInfo,
         }),
@@ -172,23 +176,30 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
         <div>
           <div className="flex items-center gap-2 mb-1">
             <ShieldCheck size={20} className="text-green-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Credit Dispute Management</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {inquiryOnlyMode ? 'Free Inquiry Dispute Tool' : 'Credit Dispute Management'}
+            </h1>
           </div>
           <p className="text-sm text-gray-500 max-w-xl">
-            Generate FCRA-compliant dispute letters, track your disputes, and manage investigation deadlines from one place.
+            {inquiryOnlyMode
+              ? 'Generate hard inquiry dispute letters for inquiries you believe are unauthorized or inaccurate, then track them from one place.'
+              : 'Generate FCRA-compliant dispute letters, track your disputes, and manage investigation deadlines from one place.'}
           </p>
         </div>
         <button
           onClick={() => { resetForm(); setShowForm(true) }}
           className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shrink-0"
         >
-          <Plus size={16} /> New Dispute
+          <Plus size={16} /> {inquiryOnlyMode ? 'New Inquiry Dispute' : 'New Dispute'}
         </button>
       </div>
 
       {/* Compliance notice */}
       <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 text-xs text-amber-700 leading-relaxed">
         <strong>Informational Tool:</strong> Dispute tools are provided to help consumers exercise their rights under the Fair Credit Reporting Act. SourcifyLending does not provide credit repair services.
+        {inquiryOnlyMode && (
+          <span className="block mt-1">Free accounts can generate hard inquiry dispute letters only.</span>
+        )}
       </div>
 
       {/* Deadline alerts */}
@@ -209,7 +220,15 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">
-              {step === 4 ? 'Dispute Letter Generated' : step === 2.5 ? 'New Dispute — Step 2b of 3' : `New Dispute — Step ${step} of 3`}
+              {inquiryOnlyMode
+                ? step === 4
+                  ? 'Inquiry Dispute Letter Generated'
+                  : `New Inquiry Dispute — Step ${step} of 3`
+                : step === 4
+                  ? 'Dispute Letter Generated'
+                  : step === 2.5
+                    ? 'New Dispute — Step 2b of 3'
+                    : `New Dispute — Step ${step} of 3`}
             </h2>
             <button onClick={() => { setShowForm(false); resetForm() }} className="text-gray-400 hover:text-gray-600">
               <XCircle size={18} />
@@ -237,30 +256,50 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
 
             {step === 2 && (
               <>
-                <p className="text-sm font-semibold text-gray-700">Step 2: Select Dispute Type</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {DISPUTE_TYPES.map(t => (
-                    <button key={t} onClick={() => setDisputeType(t)}
-                      className={`p-3 rounded-xl border-2 text-sm font-semibold text-left transition-all ${disputeType === t ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:border-green-300'}`}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
-                {disputeType && DISPUTE_TYPE_INFO[disputeType] && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 space-y-1">
-                    <p className="text-xs font-bold text-blue-700 uppercase tracking-wide">Legal Basis</p>
-                    <p className="text-xs text-blue-800 font-mono">{DISPUTE_TYPE_INFO[disputeType].laws}</p>
-                    <p className="text-xs text-blue-600">{DISPUTE_TYPE_INFO[disputeType].tip}</p>
-                  </div>
+                {inquiryOnlyMode ? (
+                  <>
+                    <p className="text-sm font-semibold text-gray-700">Step 2: Hard Inquiry Only</p>
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 space-y-1">
+                      <p className="text-xs font-bold text-blue-700 uppercase tracking-wide">Free Account Scope</p>
+                      <p className="text-xs text-blue-800 font-mono">{DISPUTE_TYPE_INFO['Hard Inquiry'].laws}</p>
+                      <p className="text-xs text-blue-600">{DISPUTE_TYPE_INFO['Hard Inquiry'].tip}</p>
+                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      Only hard inquiry disputes are available on the free account.
+                    </p>
+                    <div className="flex gap-3 mt-2">
+                      <button onClick={() => setStep(1)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors">← Back</button>
+                      <button onClick={() => setStep(3)} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Continue →</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-gray-700">Step 2: Select Dispute Type</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {DISPUTE_TYPES.map(t => (
+                        <button key={t} onClick={() => setDisputeType(t)}
+                          className={`p-3 rounded-xl border-2 text-sm font-semibold text-left transition-all ${disputeType === t ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:border-green-300'}`}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                    {disputeType && DISPUTE_TYPE_INFO[disputeType] && (
+                      <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 space-y-1">
+                        <p className="text-xs font-bold text-blue-700 uppercase tracking-wide">Legal Basis</p>
+                        <p className="text-xs text-blue-800 font-mono">{DISPUTE_TYPE_INFO[disputeType].laws}</p>
+                        <p className="text-xs text-blue-600">{DISPUTE_TYPE_INFO[disputeType].tip}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-3 mt-2">
+                      <button onClick={() => setStep(1)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors">← Back</button>
+                      <button disabled={!disputeType} onClick={() => disputeType === 'Collection Account' ? setStep(2.5) : setStep(3)} className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Continue →</button>
+                    </div>
+                  </>
                 )}
-                <div className="flex gap-3 mt-2">
-                  <button onClick={() => setStep(1)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors">← Back</button>
-                  <button disabled={!disputeType} onClick={() => disputeType === 'Collection Account' ? setStep(2.5) : setStep(3)} className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Continue →</button>
-                </div>
               </>
             )}
 
-            {step === 2.5 && (
+            {step === 2.5 && !inquiryOnlyMode && (
               <>
                 <p className="text-sm font-semibold text-gray-700">Step 2b: Who is this letter directed to?</p>
                 <p className="text-xs text-gray-500">Collection disputes use different laws depending on who receives the letter.</p>
@@ -286,20 +325,28 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
 
             {step === 3 && (
               <>
-                <p className="text-sm font-semibold text-gray-700">Step 3: Enter Dispute Details</p>
+                <p className="text-sm font-semibold text-gray-700">
+                  {inquiryOnlyMode ? 'Step 3: Enter Inquiry Details' : 'Step 3: Enter Dispute Details'}
+                </p>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">Item Being Disputed</label>
-                  <input value={itemDisputed} onChange={e => setItemDisputed(e.target.value)} placeholder="e.g. Account #12345 — Capital One"
+                  <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+                    {inquiryOnlyMode ? 'Inquiry Being Disputed' : 'Item Being Disputed'}
+                  </label>
+                  <input value={itemDisputed} onChange={e => setItemDisputed(e.target.value)} placeholder={inquiryOnlyMode ? 'e.g. Inquiry from Capital One on 03/12/2026' : 'e.g. Account #12345 — Capital One'}
                     className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition-all" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">Incorrect Information on File</label>
-                  <textarea value={incorrectInfo} onChange={e => setIncorrectInfo(e.target.value)} rows={3} placeholder="Describe what is incorrect on your credit report…"
+                  <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+                    {inquiryOnlyMode ? 'Why the Inquiry Was Unauthorized or Inaccurate' : 'Incorrect Information on File'}
+                  </label>
+                  <textarea value={incorrectInfo} onChange={e => setIncorrectInfo(e.target.value)} rows={3} placeholder={inquiryOnlyMode ? 'Describe why you believe the inquiry was unauthorized or inaccurate…' : 'Describe what is incorrect on your credit report…'}
                     className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 resize-none transition-all" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">Correct Information</label>
-                  <textarea value={correctInfo} onChange={e => setCorrectInfo(e.target.value)} rows={3} placeholder="Describe what the correct information should be…"
+                  <label className="block text-xs font-semibold text-gray-600 mb-1 uppercase tracking-wide">
+                    {inquiryOnlyMode ? 'What Should Appear Instead' : 'Correct Information'}
+                  </label>
+                  <textarea value={correctInfo} onChange={e => setCorrectInfo(e.target.value)} rows={3} placeholder={inquiryOnlyMode ? 'Describe what should be shown instead…' : 'Describe what the correct information should be…'}
                     className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 resize-none transition-all" />
                 </div>
                 {formError && (
@@ -311,7 +358,7 @@ export default function CreditDisputesClient({ initialDisputes }: { initialDispu
                 <div className="flex gap-3">
                   <button onClick={() => setStep(2)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors">← Back</button>
                   <button onClick={handleGenerate} disabled={submitting} className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2">
-                    {submitting ? <><Loader2 size={15} className="animate-spin" /> Generating…</> : 'Generate Letter'}
+                    {submitting ? <><Loader2 size={15} className="animate-spin" /> Generating…</> : inquiryOnlyMode ? 'Generate Inquiry Letter' : 'Generate Letter'}
                   </button>
                 </div>
               </>

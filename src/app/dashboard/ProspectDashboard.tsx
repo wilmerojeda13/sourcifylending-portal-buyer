@@ -66,7 +66,7 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
       <div>
         <h1 className="page-title">Welcome, {firstName} 👋</h1>
         <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-          Here's your personalized credit readiness analysis.
+          Here&apos;s your personalized credit readiness analysis.
           {program && <span className="font-medium text-gray-700 dark:text-gray-200"> Recommended: {programInfo?.short}.</span>}
         </p>
       </div>
@@ -100,6 +100,23 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
               <CalendarDays size={14} /> Book a Strategy Call
             </a>
           )}
+        </div>
+      </div>
+
+      <div className="card border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/20">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-green-500">Free Inquiry Dispute Tool</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+              Generate a hard inquiry dispute letter and track it inside your portal.
+            </p>
+          </div>
+          <Link
+            href="/credit-disputes"
+            className="inline-flex items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+          >
+            Open Inquiry Disputes
+          </Link>
         </div>
       </div>
 
@@ -257,7 +274,7 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
                 <Bot size={14} /> AI Fulfillment Agent
               </p>
               <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                <p className="text-xs text-gray-500 italic">&ldquo;What's my next step for building business credit?&rdquo;</p>
+                <p className="text-xs text-gray-500 italic">&ldquo;What&apos;s my next step for building business credit?&rdquo;</p>
                 <div className="mt-2 bg-green-50 dark:bg-green-900/30 rounded-lg px-3 py-2">
                   <p className="text-xs text-green-700 dark:text-green-400">Based on your profile, your next step is to open a Net-30 account with Uline…</p>
                 </div>

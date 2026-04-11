@@ -25,9 +25,10 @@ const BASE_NAV_ITEMS = [
   { href: '/billing', label: 'Billing', icon: CreditCard },
 ]
 
-// Prospect accounts only see Dashboard + Funding Results + Upgrade + Support
+// Prospect accounts get the reduced prospect nav, with Inquiry Disputes added to that set
 const PROSPECT_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/credit-disputes', label: 'Inquiry Disputes', icon: ShieldAlert },
   { href: '/funding-results', label: 'Funding Results', icon: DollarSign },
   { href: '/training', label: 'Training Videos', icon: PlayCircle },
   { href: '/billing', label: 'Upgrade', icon: ArrowUpCircle },
@@ -166,10 +167,12 @@ export default function PortalLayout({
         ? 'border-sky-500/30 bg-sky-500/10 text-sky-300'
         : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
   const subscriptionGateAllowedPaths = new Set(['/dashboard', '/billing', '/funding-results', '/support', '/settings', '/training', '/notifications'])
+  const prospectInquiryDisputesPath = isProspect && pathname === '/credit-disputes'
   const shouldShowSubscriptionGate =
     !portalBlocked &&
     !currentBusinessPaid &&
-    !subscriptionGateAllowedPaths.has(pathname)
+    !subscriptionGateAllowedPaths.has(pathname) &&
+    !prospectInquiryDisputesPath
 
   const switchBusiness = async (businessId: string) => {
     if (!businessId || businessId === activeBusinessId) return
@@ -682,7 +685,7 @@ export default function PortalLayout({
 
         {/* Mobile Bottom Navigation */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 z-10 px-1 py-1.5 safe-area-pb">
-          <div className={`grid gap-0.5 ${isProspect ? 'grid-cols-6' : 'grid-cols-6'}`}>
+          <div className={`grid gap-0.5 ${isProspect ? 'grid-cols-7' : 'grid-cols-6'}`}>
             {(isProspect ? PROSPECT_NAV_ITEMS : MOBILE_NAV_ITEMS).map(({ href, label, icon: Icon }) => {
               const active = pathname === href || pathname.startsWith(href + '/')
               return (

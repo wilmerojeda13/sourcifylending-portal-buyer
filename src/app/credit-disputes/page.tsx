@@ -6,6 +6,7 @@ import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function CreditDisputesPage() {
   const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
+  const prospectMode = profile?.account_state === 'prospect'
 
   const [{ data: disputes }] = await Promise.all([
     supabase
@@ -28,7 +29,7 @@ export default async function CreditDisputesPage() {
       accountState={profile?.account_state ?? 'active_member'}
       allPrograms={activePrograms}
     >
-      <CreditDisputesClient initialDisputes={disputes ?? []} />
+      <CreditDisputesClient initialDisputes={disputes ?? []} prospectMode={prospectMode} />
     </PortalLayout>
   )
 }

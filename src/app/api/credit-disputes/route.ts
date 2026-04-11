@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getBusinessContext } from '@/lib/business-context'
 import { logMemoryEvent } from '@/lib/ai-memory'
 
 // ─── Legal basis definitions ──────────────────────────────────────────────────
@@ -710,14 +711,14 @@ ${fullName}
 
 // ─── GET — list disputes ──────────────────────────────────────────────────────
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = await createServiceClient()
 
   const { data, error } = await supabase
     .from('credit_disputes')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', context.activeBusinessId)
     .neq('status', 'Deleted')
     .order('created_at', { ascending: false })
 
@@ -727,9 +728,10 @@ export async function GET() {
 
 // ─── POST — create dispute and generate law-aware letter ──────────────────────
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = await createServiceClient()
+  const isProspect = context.activeProfile.account_state === 'prospect'
 
   const body = await req.json()
   const { bureau, dispute_type, recipient_type, item_disputed, incorrect_information, correct_information } = body
@@ -738,20 +740,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .single()
+  const requestedDisputeType = String(dispute_type).trim()
+  if (isProspect && requestedDisputeType.toLowerCase() !== 'hard inquiry') {
+    return NextResponse.json({ error: 'Prospect accounts can only create Hard Inquiry disputes.' }, { status: 403 })
+  }
 
-  const fullName = profile?.full_name ?? user.email ?? 'Consumer'
+  const fullName = context.activeProfile.full_name ?? context.viewerProfile.full_name ?? 'Consumer'
   const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 
   const { letter, legalBasis } = generateDisputeLetter({
     fullName,
     bureau,
-    disputeType: dispute_type,
-    recipientType: recipient_type,
+    disputeType: isProspect ? 'Hard Inquiry' : requestedDisputeType,
+    recipientType: isProspect ? undefined : recipient_type,
     itemDisputed: item_disputed,
     incorrectInformation: incorrect_information,
     correctInformation: correct_information,
@@ -762,9 +763,9 @@ export async function POST(req: NextRequest) {
   const { data: dispute, error } = await supabase
     .from('credit_disputes')
     .insert({
-      user_id: user.id,
+      user_id: context.activeBusinessId,
       bureau,
-      dispute_type,
+      dispute_type: isProspect ? 'Hard Inquiry' : requestedDisputeType,
       item_disputed,
       incorrect_information,
       correct_information,
@@ -779,16 +780,16 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  logMemoryEvent(user.id, 'dispute_generated', `Dispute letter generated for ${bureau}`, `${dispute_type}: ${item_disputed}`, dispute.id)
+  logMemoryEvent(context.activeBusinessId, 'dispute_generated', `Dispute letter generated for ${bureau}`, `${isProspect ? 'Hard Inquiry' : requestedDisputeType}: ${item_disputed}`, dispute.id)
 
   return NextResponse.json({ dispute, legal_basis: legalBasis }, { status: 201 })
 }
 
 // ─── PATCH — update status / escalation ──────────────────────────────────────
 export async function PATCH(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const context = await getBusinessContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = await createServiceClient()
 
   const body = await req.json()
   const { id, status, response_notes, escalation_type } = body
@@ -799,7 +800,7 @@ export async function PATCH(req: NextRequest) {
     .from('credit_disputes')
     .select('*')
     .eq('id', id)
-    .eq('user_id', user.id)
+    .eq('user_id', context.activeBusinessId)
     .single()
 
   if (!existing) return NextResponse.json({ error: 'Dispute not found' }, { status: 404 })
@@ -819,13 +820,7 @@ export async function PATCH(req: NextRequest) {
   if (response_notes !== undefined) updates.response_notes = response_notes
 
   if (escalation_type && ['cfpb', 'method_of_verification', 'followup'].includes(escalation_type)) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .single()
-
-    const fullName = profile?.full_name ?? user.email ?? 'Consumer'
+    const fullName = context.activeProfile.full_name ?? context.viewerProfile.full_name ?? 'Consumer'
     const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     const originalDisputeDate = existing.date_sent
       ? new Date(existing.date_sent).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -847,7 +842,7 @@ export async function PATCH(req: NextRequest) {
     .from('credit_disputes')
     .update(updates)
     .eq('id', id)
-    .eq('user_id', user.id)
+    .eq('user_id', context.activeBusinessId)
     .select('*')
     .single()
 
