@@ -65,7 +65,7 @@ async function createLocalBooking(
     details: description,
   })
 
-  const { data: appointment, error: appointmentError } = await supabase
+  const appointmentInsert = await supabase
     .from('appointments')
     .insert({
       lead_id: lead.id,
@@ -92,21 +92,21 @@ async function createLocalBooking(
     description: string | null
     status: string | null
     source: 'appointment' | 'task'
-  } | null = appointment && !appointmentError
-    ? {
-        id: appointment.id,
-        title: appointment.title,
-        description: appointment.description,
-        status: appointment.status,
-        source: 'appointment' as const,
-      }
-    : null
+  }
 
-  if (!record) {
-    if (appointmentError) {
+  if (appointmentInsert.data && !appointmentInsert.error) {
+    record = {
+      id: appointmentInsert.data.id,
+      title: appointmentInsert.data.title,
+      description: appointmentInsert.data.description,
+      status: appointmentInsert.data.status,
+      source: 'appointment',
+    }
+  } else {
+    if (appointmentInsert.error) {
       console.warn('[crm schedule] appointments insert failed, using crm_tasks fallback', {
-        code: (appointmentError as { code?: string }).code,
-        message: appointmentError.message,
+        code: (appointmentInsert.error as { code?: string }).code,
+        message: appointmentInsert.error.message,
       })
     }
 
@@ -125,14 +125,6 @@ async function createLocalBooking(
         pipeline_stage: 'demo_scheduled',
         notes: body.notes?.trim() || null,
         created_by_user_id: admin.userId,
-        created_source: 'calendar_booking',
-        created_source_label: 'Book Demo modal',
-        source_metadata: {
-          google_calendar_fallback: true,
-          slot_start: body.slot_start,
-          slot_end: slotEnd,
-          timezone,
-        },
       })
       .select('*')
       .single()
@@ -146,25 +138,50 @@ async function createLocalBooking(
       title: task.title,
       description: task.description,
       status: task.status,
-      source: 'task' as const,
+      source: 'task',
     }
   }
 
-  const { data: updatedLead, error: updateError } = await supabase
+  const leadUpdatePayload = {
+    stage: 'demo_scheduled',
+    strategy_call_booked: true,
+    appointment_at: body.slot_start,
+    follow_up_at: body.slot_start,
+    updated_at: new Date().toISOString(),
+  }
+
+  let { data: updatedLead, error: updateError } = await supabase
     .from('crm_leads')
-    .update({
-      stage: 'demo_scheduled',
-      strategy_call_booked: true,
-      appointment_at: body.slot_start,
-      follow_up_at: body.slot_start,
-      updated_at: new Date().toISOString(),
-    })
+    .update(leadUpdatePayload)
     .eq('id', lead.id)
     .select('*')
     .single()
 
   if (updateError || !updatedLead) {
-    throw updateError || new Error('Unable to update CRM lead.')
+    const missingAppointmentColumn =
+      updateError?.code === '42703' ||
+      /appointment_at/i.test(updateError?.message || '') ||
+      /column .*appointment_at.* does not exist/i.test(updateError?.message || '')
+
+    if (!missingAppointmentColumn) {
+      throw updateError || new Error('Unable to update CRM lead.')
+    }
+
+    ;({ data: updatedLead, error: updateError } = await supabase
+      .from('crm_leads')
+      .update({
+        stage: 'demo_scheduled',
+        strategy_call_booked: true,
+        follow_up_at: body.slot_start,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', lead.id)
+      .select('*')
+      .single())
+
+    if (updateError || !updatedLead) {
+      throw updateError || new Error('Unable to update CRM lead.')
+    }
   }
 
   await supabase.from('crm_activities').insert({
