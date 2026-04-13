@@ -16,10 +16,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const campaignId = params.id
-  const userId = admin.userId
 
-  // Rolling 24-hour window for 'Today' (local user time via 24h ago)
-  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  // Get today's date bounds in UTC (source of truth from database timestamp)
+  const now = new Date()
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0))
+  const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0))
 
   const [calledRes, todayRes, freshRes, totalRes] = await Promise.all([
     // Leads called AT LEAST ONCE in this campaign (persistent progress counter)
@@ -29,13 +30,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .eq('campaign_id', campaignId)
       .not('last_called_at', 'is', null),
 
-    // Call attempts logged in last 24 hours by THIS USER (personalized count)
+    // Calls Today: SOURCE OF TRUTH - count leads where last_called_at is TODAY
+    // This is a direct database count, not session-based
     admin.supabase
-      .from('dialer_analytics_logs')
+      .from('dialer_campaign_leads')
       .select('*', { count: 'exact', head: true })
       .eq('campaign_id', campaignId)
-      .eq('user_id', userId)
-      .gte('created_at', twentyFourHoursAgo.toISOString()),
+      .gte('last_called_at', todayStart.toISOString())
+      .lt('last_called_at', todayEnd.toISOString()),
 
     // Truly fresh leads: never called, still status='new'
     admin.supabase
