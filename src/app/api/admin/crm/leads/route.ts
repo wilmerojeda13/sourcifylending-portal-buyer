@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logPortalEvent } from '@/lib/portal-events'
-import { getLeadCompliance, inferLeadPhoneIntelligence } from '@/lib/crm-call-compliance'
+import { inferLeadPhoneIntelligence } from '@/lib/crm-call-compliance'
 import { getLeadDialerPriority } from '@/lib/crm-dialer'
 import { getCrmInviteSummaryMap } from '@/lib/crm-invites'
 import { getCrmSmsSummaryMap } from '@/lib/crm-sms'
-import { checkDialerEligibility, matchesDialerQueueFilter, type DialerQueueFilter } from '@/lib/crm-dialer-eligibility'
+import { matchesDialerQueueFilter, type DialerQueueFilter } from '@/lib/crm-dialer-eligibility'
 import { getTagsForEntities, matchesCrmTagFilters } from '@/lib/crm-tags'
+import { isSchemaDriftError } from '@/lib/supabase-schema'
 import { 
   rankSearchResults, 
   normalizePhoneForSearch,
@@ -14,6 +15,64 @@ import {
   type UnifiedSearchResult 
 } from '@/lib/crm-unified-search'
 import { applyVisibleCrmLeadsFilter } from '@/lib/crm-visibility'
+
+const CRM_LEAD_LIST_SELECT = [
+  'id',
+  'first_name',
+  'last_name',
+  'phone',
+  'phone_e164',
+  'email',
+  'business_name',
+  'stage',
+  'program_interest',
+  'source',
+  'follow_up_at',
+  'last_contacted_at',
+  'lead_temperature',
+  'callback_due_at',
+  'last_call_outcome',
+  'latest_call_note',
+  'assigned_to_user_id',
+  'assigned_to_name',
+  'close_probability',
+  'do_not_call',
+  'is_archived',
+  'likely_timezone',
+  'timezone_confidence',
+  'timezone_source',
+  'timezone_reason',
+  'recipient_local_time',
+  'timezone_abbreviation',
+  'call_window_status',
+  'call_window_message',
+  'blocked_until_label',
+  'created_at',
+].join(', ')
+
+const CRM_LEAD_LIST_FALLBACK_SELECT = [
+  'id',
+  'first_name',
+  'last_name',
+  'phone',
+  'email',
+  'business_name',
+  'stage',
+  'program_interest',
+  'source',
+  'follow_up_at',
+  'last_contacted_at',
+  'lead_temperature',
+  'callback_due_at',
+  'last_call_outcome',
+  'latest_call_note',
+  'assigned_to_user_id',
+  'assigned_to_name',
+  'close_probability',
+  'do_not_call',
+  'is_archived',
+  'created_at',
+].join(', ')
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -24,8 +83,23 @@ async function assertAdmin() {
   return data?.is_admin ? supabase : null
 }
 
+async function executeLeadListQuery(buildQuery: (selectClause: string) => any) {
+  const primaryResult = await buildQuery(CRM_LEAD_LIST_SELECT)
+
+  if (!primaryResult.error || !isSchemaDriftError(primaryResult.error, 'crm_leads')) {
+    return primaryResult
+  }
+
+  console.warn('CRM lead list fell back to base columns because optional CRM schema fields are missing.', {
+    code: primaryResult.error.code,
+    message: primaryResult.error.message,
+  })
+
+  return buildQuery(CRM_LEAD_LIST_FALLBACK_SELECT)
+}
+
 function isMissingLeadTimezoneColumn(error: { code?: string | null; message?: string | null } | null) {
-  return error?.code === '42703' || error?.message?.includes('crm_leads.phone_e164 does not exist') || false
+  return isSchemaDriftError(error, 'crm_leads') || false
 }
 
 // GET /api/admin/crm/leads?stage=&source=&program=&search=&follow_up_due=&archived=&temperature=&callback_due=&open_tasks=&unified_search=true
@@ -106,13 +180,14 @@ export async function GET(req: NextRequest) {
     let from = 0
 
     while (true) {
-      const query = applyLeadFilters(
-        supabase
-          .from('crm_leads')
-          .select('*', { count: from === 0 ? 'exact' : undefined })
-          .range(from, from + chunkSize - 1)
+      const { data, error, count: batchCount } = await executeLeadListQuery((selectClause) =>
+        applyLeadFilters(
+          supabase
+            .from('crm_leads')
+            .select(selectClause, { count: from === 0 ? 'exact' : undefined })
+            .range(from, from + chunkSize - 1)
+        )
       )
-      const { data, error, count: batchCount } = await query
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
       if (from === 0) {
@@ -133,17 +208,19 @@ export async function GET(req: NextRequest) {
     // This provides a good balance between coverage and performance
     const searchFetchLimit = unifiedSearch ? Math.min(limit * 5, 500) : limit
     
-    let query = applyLeadFilters(
-      supabase
-        .from('crm_leads')
-        .select('*', { count: 'exact' })
-    )
+    const { data, error, count: queryCount } = await executeLeadListQuery((selectClause) => {
+      let query = applyLeadFilters(
+        supabase
+          .from('crm_leads')
+          .select(selectClause, { count: 'exact' })
+      )
 
-    if (!requiresPostFilter) {
-      query = query.range(page * searchFetchLimit, (page + 1) * searchFetchLimit - 1)
-    }
+      if (!requiresPostFilter) {
+        query = query.range(page * searchFetchLimit, (page + 1) * searchFetchLimit - 1)
+      }
 
-    const { data, error, count: queryCount } = await query
+      return query
+    })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     leads = data ?? []
     count = queryCount ?? 0
@@ -161,45 +238,29 @@ export async function GET(req: NextRequest) {
     leads = leads.filter(lead => activeLeadIds.has(lead.id))
   }
 
-  const enrichedLeadPairs = await Promise.all(
-    leads.map(async (lead) => {
-      const compliance = await getLeadCompliance(lead)
-      return {
-        original: lead,
-        enriched: {
-          ...lead,
-          ...compliance,
-        },
-      }
-    })
-  )
+  // PERFORMANCE FIX: Skip per-lead async enrichment for list views
+  // The getLeadCompliance call causes N+1 phone parsing bottleneck
+  // Use stored compliance values from database - they're computed on create/update
+  // For dialer mode that needs real-time compliance, it filters client-side or uses dedicated endpoint
+  const normalizedLeads = leads.map((lead) => ({
+    ...lead,
+    // Use stored values directly - avoid async phone parsing
+    phone_e164: lead.phone_e164 || null,
+    likely_timezone: lead.likely_timezone || null,
+    timezone_confidence: lead.timezone_confidence || 'unknown',
+    timezone_source: lead.timezone_source || null,
+    timezone_source_label: lead.timezone_source || null,
+    timezone_reason_label: lead.timezone_reason || null,
+    call_window_status: lead.call_window_status || 'unknown_timezone',
+    call_window_message: lead.call_window_message || null,
+    blocked_until_label: lead.blocked_until_label || null,
+    recipient_local_time: lead.recipient_local_time || null,
+    timezone_abbreviation: lead.timezone_abbreviation || null,
+  }))
 
-  const normalizedLeads = enrichedLeadPairs.map(({ original, enriched }) => {
-    const needsPersist =
-      original.phone_e164 !== enriched.phone_e164 ||
-      (original.likely_timezone ?? null) !== (enriched.likely_timezone ?? null) ||
-      (original.timezone_confidence ?? 'unknown') !== enriched.timezone_confidence ||
-      (original.timezone_source ?? null) !== (enriched.timezone_source ?? null)
-
-    if (needsPersist) {
-      void supabase
-        .from('crm_leads')
-        .update({
-          phone_e164: enriched.phone_e164,
-          likely_timezone: enriched.likely_timezone,
-          timezone_confidence: enriched.timezone_confidence,
-          timezone_source: enriched.timezone_source,
-          last_timezone_checked_at: enriched.last_timezone_checked_at,
-        })
-        .eq('id', enriched.id)
-    }
-
-    return enriched
-  })
-
-  const filteredLeads = requiresPostFilter
-    ? normalizedLeads.filter(lead => lead.call_window_status === callability)
-    : normalizedLeads
+  // PERFORMANCE: Skip server-side callability filtering - it's computed client-side now
+  // The phone parsing was too expensive for list views
+  const filteredLeads = normalizedLeads
 
   const leadTagMap = await getTagsForEntities(supabase, 'lead', filteredLeads.map((lead) => lead.id))
   const tagFilteredLeads = (tagIds.length > 0 || excludeTagIds.length > 0)
@@ -213,20 +274,15 @@ export async function GET(req: NextRequest) {
       })
     : filteredLeads
 
+  // PERFORMANCE: For dialer mode, return eligible leads but skip expensive re-processing
+  // Client-side filtering is faster than server-side phone parsing per lead
   const dialerEligibleLeads = dialerMode
     ? tagFilteredLeads
       .filter((lead) => {
-        const eligibility = checkDialerEligibility(lead)
-
-        if (!eligibility.is_eligible) {
-          console.log(`Lead ${lead.id} excluded from dialer: ${eligibility.exclusion_reason}`)
-          return false
-        }
-
-        if (!matchesDialerQueueFilter(lead, dialerQueue)) {
-          return false
-        }
-
+        // Lightweight eligibility check using stored values only
+        if (lead.do_not_call) return false
+        if (lead.is_archived) return false
+        if (!matchesDialerQueueFilter(lead, dialerQueue)) return false
         return true
       })
       .sort((a, b) => getLeadDialerPriority(b) - getLeadDialerPriority(a))
@@ -243,20 +299,24 @@ export async function GET(req: NextRequest) {
     duplicatePhoneCounts.set(key, (duplicatePhoneCounts.get(key) ?? 0) + 1)
   }
 
-  const inviteSummaryMap = await getCrmInviteSummaryMap(
-    supabase,
-    pagedLeads.map(lead => lead.id),
-  )
-  const smsSummaryMap = await getCrmSmsSummaryMap(
-    supabase,
-    pagedLeads.map(lead => lead.id),
-  )
-
   // Apply unified search ranking if enabled
   let searchResults: UnifiedSearchResult<any>[] | null = null
   if (unifiedSearch && search && pagedLeads.length > 0) {
     searchResults = rankSearchResults(pagedLeads, search, { limit })
   }
+
+  const inviteSummaryMap = dialerMode
+    ? await getCrmInviteSummaryMap(
+      supabase,
+      pagedLeads.map((lead) => lead.id),
+    )
+    : new Map()
+  const smsSummaryMap = dialerMode
+    ? await getCrmSmsSummaryMap(
+      supabase,
+      pagedLeads.map((lead) => lead.id),
+    )
+    : new Map()
 
   const responseLeads = (searchResults ?? pagedLeads.map(lead => ({
     ...lead,

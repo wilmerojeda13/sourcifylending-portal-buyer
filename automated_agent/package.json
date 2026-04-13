@@ -1,0 +1,23 @@
+{
+  "name": "sourcifylending-lead-processor",
+  "version": "1.0.0",
+  "description": "Automated agent for processing CRM leads - flags professional emails and creates follow-up tasks",
+  "main": "lead-processor.ts",
+  "type": "module",
+  "scripts": {
+    "process": "tsx lead-processor.ts",
+    "process:dry": "DRY_RUN=true tsx lead-processor.ts",
+    "test": "node --import tsx --test lead-processor.test.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.99.1",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

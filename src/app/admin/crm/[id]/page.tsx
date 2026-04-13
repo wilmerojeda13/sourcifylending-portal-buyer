@@ -1,10 +1,5 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { isMissingRelationError } from '@/lib/supabase-schema'
-import { getLeadCompliance } from '@/lib/crm-call-compliance'
-import { buildCrmInviteSummary, getCrmInviteRows } from '@/lib/crm-invites'
-import { buildCrmSmsSummary, getCrmSmsRows } from '@/lib/crm-sms'
-import { getLeadCalendarSummary } from '@/lib/crm-calendar-events'
 import { getTagsForEntities } from '@/lib/crm-tags'
 import LeadDetailClient from './LeadDetailClient'
 
@@ -23,88 +18,22 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const { data: lead, error } = await supabase.from('crm_leads').select('*').eq('id', id).single()
   if (error || !lead) notFound()
 
-  const leadCompliance = await getLeadCompliance(lead)
-  const hydratedLead = { ...lead, ...leadCompliance }
-
-  if (
-    lead.phone_e164 !== hydratedLead.phone_e164 ||
-    (lead.likely_timezone ?? null) !== (hydratedLead.likely_timezone ?? null) ||
-    (lead.timezone_confidence ?? 'unknown') !== hydratedLead.timezone_confidence ||
-    (lead.timezone_source ?? null) !== (hydratedLead.timezone_source ?? null)
-  ) {
-    void supabase
-      .from('crm_leads')
-      .update({
-        phone_e164: hydratedLead.phone_e164,
-        likely_timezone: hydratedLead.likely_timezone,
-        timezone_confidence: hydratedLead.timezone_confidence,
-        timezone_source: hydratedLead.timezone_source,
-        last_timezone_checked_at: hydratedLead.last_timezone_checked_at,
-      })
-      .eq('id', id)
-  }
-
-  const { data: activities } = await supabase
-    .from('crm_activities')
-    .select('*')
-    .eq('lead_id', id)
-    .order('created_at', { ascending: false })
-
-  const { data: calls, error: callsError } = await supabase
-    .from('crm_calls')
-    .select('*')
-    .eq('lead_id', id)
-    .order('call_started_at', { ascending: false })
-    .limit(10)
-
-  if (callsError && !isMissingRelationError(callsError, 'crm_calls')) {
-    console.error('Failed to load crm_calls on lead detail page', callsError)
-  }
-
+  // PERFORMANCE: Load only core data for first paint
+  // Heavy sections (activities, calls, SMS, calendar) are lazy-loaded client-side
   const { data: tasks } = await supabase
     .from('crm_tasks')
-    .select('*')
+    .select('id, title, task_type, priority, status, due_at, notes, created_source, created_source_label')
     .eq('lead_id', id)
     .order('due_at', { ascending: true, nullsFirst: false })
+    .limit(20)
 
   const leadTagMap = await getTagsForEntities(supabase, 'lead', [id])
 
-  const invites = await getCrmInviteRows(supabase, id)
-  const inviteSummary = buildCrmInviteSummary(invites)
-  const smsRows = await getCrmSmsRows(supabase, id)
-  const unreadSmsIds = smsRows.filter(row => row.direction === 'inbound' && row.unread).map(row => row.id)
-  let hydratedSmsRows = smsRows
-
-  if (unreadSmsIds.length > 0) {
-    const readAt = new Date().toISOString()
-    hydratedSmsRows = smsRows.map((row) => (
-      unreadSmsIds.includes(row.id)
-        ? { ...row, unread: false, read_at: readAt }
-        : row
-    ))
-
-    void supabase
-      .from('crm_lead_sms')
-      .update({
-        unread: false,
-        read_at: readAt,
-      })
-      .in('id', unreadSmsIds)
-  }
-
-  const smsSummary = buildCrmSmsSummary(hydratedSmsRows)
-  const calendarSummary = await getLeadCalendarSummary(supabase, hydratedLead)
-
   return (
     <LeadDetailClient
-      lead={{ ...hydratedLead, ...inviteSummary, ...smsSummary }}
-      activities={activities ?? []}
-      calls={calls ?? []}
+      lead={lead}
       tasks={tasks ?? []}
-      calendarSummary={calendarSummary}
       tags={leadTagMap.get(id) ?? []}
-      invites={invites}
-      smsMessages={hydratedSmsRows}
       adminEmail={profile.email ?? ''}
     />
   )

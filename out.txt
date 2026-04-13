@@ -1,0 +1,9 @@
+
+╔══════════════════════════════════════════════════════╗
+║   SourcifyLending Voice Agent Server                 ║
+║   Listening on port 3002                           ║
+║   Stream endpoint: ws://HOST:3002/stream          ║
+║   Health check:    http://HOST:3002/health        ║
+║   Gemini: ✗ NOT configured — add GEMINI_API_KEY║
+╚══════════════════════════════════════════════════════╝
+

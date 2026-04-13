@@ -42,6 +42,33 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ ids: (data ?? []).map(r => r.id) })
   }
 
+  // Special case: high_priority filter looks at raw lead stage, not campaign status
+  if (status === 'high_priority') {
+    const { data, error } = await admin.supabase
+      .from('dialer_campaign_leads')
+      .select(`
+        id, campaign_id, raw_lead_id, status, last_call_outcome, last_called_at,
+        callback_due_at, follow_up_at, notes, sort_order, added_at, updated_at,
+        raw_lead:dialer_raw_leads!inner(
+          id, first_name, last_name, phone, phone_e164, email, business_name, notes,
+          do_not_call, is_archived, promoted_to_crm_lead_id,
+          likely_timezone, timezone_confidence, call_window_status, blocked_until_label,
+          source, created_at, stage
+        )
+      `)
+      .eq('campaign_id', params.id)
+      .eq('raw_lead.stage', 'high_priority')
+      .order('last_called_at', { ascending: true, nullsFirst: true })
+      .order('sort_order', { ascending: true })
+      .range(0, 999999)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const leads = (data ?? []).filter(l => {
+      const raw = (l as unknown as { raw_lead?: { do_not_call?: boolean; is_archived?: boolean } }).raw_lead
+      return raw && !raw.do_not_call && !raw.is_archived
+    })
+    return NextResponse.json({ leads, total: leads.length })
+  }
+
   if (dialable) {
     // Queue: return all dialable leads (no pagination — dialer works through them sequentially)
     const { data, error } = await admin.supabase

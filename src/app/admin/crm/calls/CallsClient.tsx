@@ -79,7 +79,7 @@ export default function CallsClient() {
             <h1 className="mt-0.5 text-xl font-bold text-gray-900 dark:text-white">Dialer call tracker</h1>
             <p className="mt-0.5 text-sm text-gray-500">Every disposition, every callback, and every close in one place.</p>
           </div>
-          <Link href="/admin/crm/dialer" className="inline-flex items-center justify-center rounded-xl bg-green-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-green-700">
+          <Link href="/admin/dialer" className="inline-flex items-center justify-center rounded-xl bg-green-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-green-700">
             Open Dialer
           </Link>
         </div>

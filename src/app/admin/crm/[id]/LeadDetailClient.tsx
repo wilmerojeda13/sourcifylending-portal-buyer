@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
   AlertTriangle,
@@ -10,7 +11,7 @@ import {
   Calendar,
   CalendarPlus,
   CheckCircle2,
-  ChevronLeft,
+  ChevronDown,
   Clock,
   Copy,
   Edit3,
@@ -34,10 +35,11 @@ import {
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import type { LeadCalendarEvent, LeadCalendarSummary } from '@/lib/crm-calendar-events'
-import AnalyzerLivePanel from '@/components/admin/crm/AnalyzerLivePanel'
 import TagEditor from '@/components/admin/crm/TagEditor'
 import type { CRMTagBadge } from '@/components/admin/crm/TagBadge'
 import CRMDispositionForm from '@/components/admin/crm/CRMDispositionForm'
+
+const AnalyzerLivePanel = dynamic(() => import('@/components/admin/crm/AnalyzerLivePanel'))
 
 type Stage =
   | 'new'
@@ -191,14 +193,15 @@ interface InviteRecord {
 
 interface Props {
   lead: CRMLead
-  activities: Activity[]
-  calls: CallRecord[]
   tasks: TaskRecord[]
-  calendarSummary: LeadCalendarSummary
   tags: CRMTagBadge[]
-  invites: InviteRecord[]
-  smsMessages: SmsMessage[]
   adminEmail: string
+  // Optional - lazy loaded
+  activities?: Activity[]
+  calls?: CallRecord[]
+  calendarSummary?: LeadCalendarSummary
+  invites?: InviteRecord[]
+  smsMessages?: SmsMessage[]
 }
 
 const STAGES: { key: Stage; label: string; color: string; bgColor: string }[] = [
@@ -463,23 +466,34 @@ function BookDemoModal({
 
 export default function LeadDetailClient({
   lead: initialLead,
-  activities: initialActivities,
-  calls: initialCalls,
   tasks: initialTasks,
-  calendarSummary: initialCalendarSummary,
   tags: initialTags,
-  invites,
-  smsMessages: initialSmsMessages,
   adminEmail,
+  activities: initialActivities = [],
+  calls: initialCalls = [],
+  calendarSummary: initialCalendarSummary = { configured: false, matched: false, warning: null, events: [], nextEvent: null, hasBookedDemo: false },
+  invites: initialInvites = [],
+  smsMessages: initialSmsMessages = [],
 }: Props) {
   const router = useRouter()
   const [lead, setLead] = useState(initialLead)
   const [activities, setActivities] = useState(initialActivities)
-  const [calls] = useState(initialCalls)
+  const [calls, setCalls] = useState(initialCalls)
   const [tasks, setTasks] = useState(initialTasks)
   const [calendarSummary, setCalendarSummary] = useState(initialCalendarSummary)
   const [tags, setTags] = useState(initialTags)
   const [smsMessages, setSmsMessages] = useState(initialSmsMessages)
+  const [invites, setInvites] = useState(initialInvites)
+  
+  const [activitiesLoaded, setActivitiesLoaded] = useState(initialActivities.length > 0)
+  const [callsLoaded, setCallsLoaded] = useState(initialCalls.length > 0)
+  const [calendarLoaded, setCalendarLoaded] = useState(initialCalendarSummary.configured || initialCalendarSummary.events.length > 0)
+  const [outreachLoaded, setOutreachLoaded] = useState(initialInvites.length > 0 || initialSmsMessages.length > 0)
+  const [analyzerLoaded, setAnalyzerLoaded] = useState(false)
+  const [loadingActivities, setLoadingActivities] = useState(false)
+  const [loadingCalls, setLoadingCalls] = useState(false)
+  const [loadingCalendar, setLoadingCalendar] = useState(false)
+  const [loadingOutreach, setLoadingOutreach] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [noteText, setNoteText] = useState('')
@@ -499,6 +513,7 @@ export default function LeadDetailClient({
   const [smsReplyBody, setSmsReplyBody] = useState('')
   const [sendingSmsReply, setSendingSmsReply] = useState(false)
   const [duplicateLeads, setDuplicateLeads] = useState<Array<{ id: string; first_name: string; last_name: string; stage: string }>>([])
+  const [duplicatesLoaded, setDuplicatesLoaded] = useState(false)
   const [editForm, setEditForm] = useState({
     first_name: initialLead.first_name,
     last_name: initialLead.last_name,
@@ -540,20 +555,92 @@ export default function LeadDetailClient({
   }
 
   useEffect(() => {
-    if (!lead.phone) return
+    if (!lead.phone || duplicatesLoaded || !lead.duplicate_review_required) return
     fetch(`/api/admin/crm/leads?search=${encodeURIComponent(lead.phone)}&limit=10`)
       .then((response) => response.json())
       .then((json) => {
         const duplicates = (json.leads ?? []).filter((item: { id: string }) => item.id !== lead.id)
         setDuplicateLeads(duplicates)
+        setDuplicatesLoaded(true)
       })
       .catch(() => {})
-  }, [lead.phone, lead.id])
+  }, [duplicatesLoaded, lead.duplicate_review_required, lead.id, lead.phone])
+
+  async function loadActivities() {
+    if (activitiesLoaded || loadingActivities) return
+    setLoadingActivities(true)
+    try {
+      const response = await fetch(`/api/admin/crm/activities?lead_id=${lead.id}`)
+      const json = await response.json()
+      setActivities(json.activities ?? [])
+      setActivitiesLoaded(true)
+    } finally {
+      setLoadingActivities(false)
+    }
+  }
+
+  async function loadCalls() {
+    if (callsLoaded || loadingCalls) return
+    setLoadingCalls(true)
+    try {
+      const response = await fetch(`/api/admin/crm/calls?lead_id=${lead.id}`)
+      const json = await response.json()
+      setCalls(json.calls ?? [])
+      setCallsLoaded(true)
+    } finally {
+      setLoadingCalls(false)
+    }
+  }
+
+  async function loadCalendar() {
+    if (calendarLoaded || loadingCalendar) return
+    setLoadingCalendar(true)
+    try {
+      const response = await fetch(`/api/admin/crm/calendar?lead_id=${lead.id}`)
+      const json = await response.json()
+      setCalendarSummary({
+        configured: json.connected ?? false,
+        matched: (json.events ?? []).length > 0,
+        warning: json.google_calendar?.error || null,
+        events: json.events ?? [],
+        nextEvent: json.events?.[0] ?? null,
+        hasBookedDemo: (json.events ?? []).some((event: LeadCalendarEvent) => event.type === 'demo' && event.status !== 'cancelled'),
+      })
+      setCalendarLoaded(true)
+    } finally {
+      setLoadingCalendar(false)
+    }
+  }
+
+  async function loadOutreach() {
+    if (outreachLoaded || loadingOutreach) return
+    setLoadingOutreach(true)
+    try {
+      const [smsResponse, inviteResponse] = await Promise.all([
+        fetch(`/api/admin/crm/leads/${lead.id}/sms`),
+        fetch(`/api/admin/crm/leads/${lead.id}/invites`),
+      ])
+      const [smsJson, inviteJson] = await Promise.all([smsResponse.json(), inviteResponse.json()])
+      setSmsMessages(smsJson.messages ?? [])
+      setInvites(inviteJson.invites ?? [])
+      setOutreachLoaded(true)
+    } finally {
+      setLoadingOutreach(false)
+    }
+  }
+
+  async function openBookDemoModal() {
+    if (!calendarLoaded) {
+      await loadCalendar()
+    }
+    setShowBookDemo(true)
+  }
 
   async function refreshActivities() {
     const response = await fetch(`/api/admin/crm/activities?lead_id=${lead.id}`)
     const json = await response.json()
     setActivities(json.activities ?? [])
+    setActivitiesLoaded(true)
   }
 
   async function refreshTasks() {
@@ -824,6 +911,7 @@ export default function LeadDetailClient({
   async function handleDemoBooked(event: LeadCalendarEvent, updatedLead: CRMLead) {
     setLead(updatedLead)
     setCalendarSummary((current) => mergeCalendarEvents(current, event))
+    setCalendarLoaded(true)
     await refreshActivities()
     toast.success('Calendar demo booked')
   }
@@ -833,7 +921,7 @@ export default function LeadDetailClient({
       <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 px-3 py-1.5 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:px-4">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
           <Link href="/admin/crm" className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-green-700">
-            <ChevronLeft size={18} /> <span className="hidden sm:inline">Leads</span>
+            <ChevronDown size={18} className="rotate-90" /> <span className="hidden sm:inline">Leads</span>
           </Link>
           <div className="flex items-center gap-2">
             <button
@@ -884,7 +972,7 @@ export default function LeadDetailClient({
 
       <div className="mx-auto max-w-6xl px-4 py-3">
         <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-100 text-sm font-bold text-green-700 dark:bg-green-900/30 dark:text-green-200">
                 {lead.first_name[0]}{lead.last_name?.[0] ?? ''}
@@ -897,7 +985,16 @@ export default function LeadDetailClient({
                   {(lead.unread_conversation_count ?? 0) > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">{lead.unread_conversation_count} unread</span>}
                   {openTasks.length > 0 && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300">{openTasks.length} task{openTasks.length === 1 ? '' : 's'}</span>}
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                <div className="mt-1 sm:hidden">
+                  <button
+                    onClick={() => copyToClipboard(lead.phone)}
+                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-green-500/20 bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700"
+                  >
+                    <Phone size={11} className="shrink-0" />
+                    <span className="min-w-0 truncate whitespace-nowrap">{lead.phone}</span>
+                  </button>
+                </div>
+                <div className="mt-1 hidden flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500 sm:flex">
                   <button onClick={() => copyToClipboard(lead.phone)} className="flex items-center gap-1 hover:text-green-700"><Phone size={11} className="text-green-600" /> {lead.phone}</button>
                   {lead.email && <button onClick={() => copyToClipboard(lead.email!)} className="flex items-center gap-1 hover:text-blue-700"><Mail size={11} className="text-blue-600" /> {lead.email}</button>}
                   {lead.business_name && <span className="flex items-center gap-1"><Building2 size={11} /> {lead.business_name}</span>}
@@ -908,14 +1005,63 @@ export default function LeadDetailClient({
                 </div>
               </div>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-1.5">
+            <div className="hidden shrink-0 flex-wrap gap-1.5 sm:flex">
               <button onClick={authorizeDial} disabled={authorizingCall || lead.call_window_status === 'blocked_by_timezone' || lead.call_window_status === 'unknown_timezone'} className={cn('flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60', authorizingCall ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700')}>
                 {authorizingCall ? <Loader2 size={13} className="animate-spin" /> : <Phone size={13} />} Call
               </button>
               {lead.email && <button onClick={() => setShowEmail(true)} className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={13} /> Email</button>}
-              <button onClick={() => setShowBookDemo(true)} className="flex items-center gap-1 rounded-lg bg-purple-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={13} /> Demo</button>
+              <button onClick={() => void openBookDemoModal()} className="flex items-center gap-1 rounded-lg bg-purple-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={13} /> Demo</button>
               <button type="button" onClick={() => { setSelectedDispositionKey(null); setDispositionError(null); setShowDisposition(true) }} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
                 <PhoneCall size={13} /> Disposition
+              </button>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2 sm:hidden">
+            <button
+              onClick={authorizeDial}
+              disabled={authorizingCall || lead.call_window_status === 'blocked_by_timezone' || lead.call_window_status === 'unknown_timezone'}
+              className={cn(
+                'flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                authorizingCall ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700',
+              )}
+            >
+              {authorizingCall ? <Loader2 size={14} className="animate-spin" /> : <Phone size={14} />}
+              Call
+            </button>
+            <div className={cn('grid gap-2', lead.email ? 'grid-cols-2' : 'grid-cols-1')}>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(lead.phone)}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+              >
+                <Copy size={13} />
+                Copy
+              </button>
+              {lead.email && (
+                <button
+                  onClick={() => setShowEmail(true)}
+                  className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 text-xs font-semibold text-white"
+                >
+                  <Mail size={13} />
+                  Email
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => void openBookDemoModal()}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-purple-600 px-3 text-xs font-semibold text-white"
+              >
+                <CalendarPlus size={13} />
+                Demo
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSelectedDispositionKey(null); setDispositionError(null); setShowDisposition(true) }}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+              >
+                <PhoneCall size={13} />
+                Disposition
               </button>
             </div>
           </div>
@@ -946,14 +1092,14 @@ export default function LeadDetailClient({
         )}
 
         <div className="mt-3 grid gap-3 xl:grid-cols-[1.5fr_1fr]">
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:block">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-purple-600">Schedule</p>
                 <h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Calendar & next actions</h2>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => setShowBookDemo(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={13} /> {nextCalendarEvent ? 'Book another' : 'Book demo'}</button>
+                <button onClick={() => void openBookDemoModal()} className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={13} /> {nextCalendarEvent ? 'Book another' : 'Book demo'}</button>
                 {nextCalendarEvent?.htmlLink && <a href={nextCalendarEvent.htmlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:border-purple-300 hover:text-purple-700 dark:border-gray-700 dark:text-gray-200"><ExternalLink size={13} /> Reschedule</a>}
               </div>
             </div>
@@ -976,7 +1122,18 @@ export default function LeadDetailClient({
               </div>
             </div>
 
-            {upcomingEvents.length > 0 && (
+            {!calendarLoaded && (
+              <div className="mt-3 rounded-xl border border-dashed border-gray-200 px-3 py-3 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span>Calendar event detail is deferred until needed.</span>
+                  <button onClick={() => void loadCalendar()} disabled={loadingCalendar} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-purple-300 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-200">
+                    {loadingCalendar ? 'Loading…' : 'Load calendar items'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {calendarLoaded && upcomingEvents.length > 0 && (
               <div className="mt-3 space-y-1.5">
                 {upcomingEvents.slice(0, 3).map((event) => (
                   <div key={event.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
@@ -992,7 +1149,63 @@ export default function LeadDetailClient({
             )}
           </div>
 
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <details className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:hidden">
+            <summary className="flex list-none items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-purple-600">Schedule</p>
+                <h2 className="mt-0.5 text-sm font-bold text-gray-900 dark:text-white">Calendar & next actions</h2>
+                <p className="mt-0.5 truncate text-xs text-gray-500">
+                  Callback {formatDateTime(lead.callback_due_at)} · Follow-up {formatDateTime(lead.follow_up_at)}
+                </p>
+              </div>
+              <ChevronDown size={16} className="shrink-0 text-gray-400" />
+            </summary>
+            <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className={cn('rounded-xl border px-3 py-2', eventTone(nextCalendarEvent))}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">Next demo</p>
+                  <p className="mt-1 text-sm font-semibold">{nextCalendarEvent ? nextCalendarEvent.title : 'Not booked'}</p>
+                  {nextCalendarEvent && <p className="mt-0.5 text-xs opacity-80">{formatDateTime(nextCalendarEvent.start)}</p>}
+                </div>
+                <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Callback due</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{formatDateTime(lead.callback_due_at)}</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Follow-up</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{formatDateTime(lead.follow_up_at)}</p>
+                </div>
+              </div>
+
+              {!calendarLoaded && (
+                <div className="mt-3 rounded-xl border border-dashed border-gray-200 px-3 py-3 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span>Calendar event detail is deferred until needed.</span>
+                    <button onClick={() => void loadCalendar()} disabled={loadingCalendar} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-purple-300 hover:text-purple-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-200">
+                      {loadingCalendar ? 'Loading…' : 'Load calendar items'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {calendarLoaded && upcomingEvents.length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                  {upcomingEvents.slice(0, 3).map((event) => (
+                    <div key={event.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', eventTone(event))}>{titleize(event.type)}</span>
+                        <span className="truncate text-sm text-gray-900 dark:text-white">{event.title}</span>
+                        <span className="shrink-0 text-xs text-gray-500">{formatDateTime(event.start)}</span>
+                      </div>
+                      {event.htmlLink && <a href={event.htmlLink} target="_blank" rel="noreferrer" className="shrink-0 text-purple-600 hover:text-purple-700"><ExternalLink size={12} /></a>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </details>
+
+          <div className="hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:block">
             <div className="flex items-center justify-between gap-3">
               <div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-emerald-600">Tasks</p><h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Rep task queue</h2></div>
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300">{openTasks.length} open</span>
@@ -1043,7 +1256,17 @@ export default function LeadDetailClient({
               <div className="rounded-xl bg-gray-50 px-2 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Replies</p><p className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">{lead.inbound_reply_count ?? 0}</p></div>
               <div className="rounded-xl bg-gray-50 px-2 py-2 dark:bg-gray-800/70"><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Unread</p><p className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">{lead.unread_conversation_count ?? 0}</p></div>
             </div>
-            {smsMessages.length > 0 && (
+            {!outreachLoaded && (
+              <div className="mt-3 rounded-xl border border-dashed border-gray-200 px-3 py-3 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span>Thread history and invite detail load on demand.</span>
+                  <button onClick={() => void loadOutreach()} disabled={loadingOutreach} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-200">
+                    {loadingOutreach ? 'Loading…' : 'Load outreach history'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {outreachLoaded && smsMessages.length > 0 && (
               <div className="mt-3 space-y-1.5">
                 {smsMessages.slice(0, 3).map((message) => (
                   <div key={message.id} className="flex items-start justify-between gap-2 rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800/70">
@@ -1069,7 +1292,23 @@ export default function LeadDetailClient({
           </div>
 
           <div className="space-y-3">
-            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <details className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:hidden">
+              <summary className="flex list-none items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500">Notes</p>
+                  <h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Lead Notes</h2>
+                </div>
+                <ChevronDown size={16} className="shrink-0 text-gray-400" />
+              </summary>
+              <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+                {!editing ? (
+                  lead.notes ? <p className="rounded-xl bg-gray-50 p-3 text-sm leading-relaxed text-gray-700 dark:bg-gray-800/70 dark:text-gray-200">{lead.notes}</p> : <p className="text-sm text-gray-500">No notes on this contact yet.</p>
+                ) : (
+                  <textarea className="input-field min-h-[120px] resize-y text-sm" value={editForm.notes} onChange={(event) => setEF('notes', event.target.value)} />
+                )}
+              </div>
+            </details>
+            <div className="hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:block">
               <div className="flex items-center justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500">Notes</p><h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Rep notes</h2></div></div>
               {!editing ? (
                 lead.notes ? <p className="mt-3 rounded-xl bg-gray-50 p-3 text-sm leading-relaxed text-gray-700 dark:bg-gray-800/70 dark:text-gray-200">{lead.notes}</p> : <p className="mt-3 text-sm text-gray-500">No notes on this contact yet.</p>
@@ -1114,7 +1353,17 @@ export default function LeadDetailClient({
                 <button onClick={addActivity} disabled={!noteText.trim() || addingNote} className="btn-primary self-end px-4 text-sm">{addingNote ? 'Saving…' : 'Log'}</button>
               </div>
             </div>
-            {activities.length === 0 ? <p className="mt-3 text-sm text-gray-500">No activity logged yet.</p> : (
+            {!activitiesLoaded && (
+              <div className="mt-3 rounded-xl border border-dashed border-gray-200 px-3 py-3 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span>Timeline history is deferred until needed.</span>
+                  <button onClick={() => void loadActivities()} disabled={loadingActivities} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-200">
+                    {loadingActivities ? 'Loading…' : 'Load activity timeline'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {activitiesLoaded && activities.length === 0 ? <p className="mt-3 text-sm text-gray-500">No activity logged yet.</p> : activitiesLoaded ? (
               <div className="mt-3 space-y-2">
                 {activities.map((activity) => {
                   const Icon = ACTIVITY_ICONS[activity.type] ?? MessageSquare
@@ -1130,12 +1379,22 @@ export default function LeadDetailClient({
                   )
                 })}
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-center justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500">Calls</p><h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Recent call history</h2></div><Link href="/admin/crm/calls" className="text-sm font-semibold text-green-600 hover:text-green-700">View all</Link></div>
-            {recentCalls.length === 0 ? <p className="mt-3 text-sm text-gray-500">No calls logged yet.</p> : (
+            {!callsLoaded && (
+              <div className="mt-3 rounded-xl border border-dashed border-gray-200 px-3 py-3 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span>Call history loads only when requested.</span>
+                  <button onClick={() => void loadCalls()} disabled={loadingCalls} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-200">
+                    {loadingCalls ? 'Loading…' : 'Load call history'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {callsLoaded && recentCalls.length === 0 ? <p className="mt-3 text-sm text-gray-500">No calls logged yet.</p> : callsLoaded ? (
               <div className="mt-3 space-y-2">
                 {recentCalls.map((call) => (
                   <div key={call.id} className="rounded-xl border border-gray-200 px-3 py-2.5 dark:border-gray-800">
@@ -1148,12 +1407,43 @@ export default function LeadDetailClient({
                   </div>
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
         <div className="mt-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <AnalyzerLivePanel leadId={lead.id} sourceContext="lead_detail" />
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-500">Analyzer</p>
+              <h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Analyzer status</h2>
+              <p className="mt-1 text-sm text-gray-500">{lead.readiness_status ?? 'Waiting on analyzer activity'}</p>
+            </div>
+            {!analyzerLoaded && (
+              <button onClick={() => setAnalyzerLoaded(true)} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
+                Load live analyzer
+              </button>
+            )}
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Readiness</p>
+              <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{lead.readiness_score != null ? `${lead.readiness_score}/100` : '—'}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Started</p>
+              <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{lead.analyzer_started_at ? formatDateTime(lead.analyzer_started_at) : 'Not started'}</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Submitted</p>
+              <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{lead.analyzer_submitted_at ? formatDateTime(lead.analyzer_submitted_at) : 'Not submitted'}</p>
+            </div>
+          </div>
+          {lead.analyzer_summary && (
+            <p className="mt-3 rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-700 dark:bg-gray-800/70 dark:text-gray-200">
+              {lead.analyzer_summary}
+            </p>
+          )}
+          {analyzerLoaded && <div className="mt-4"><AnalyzerLivePanel leadId={lead.id} sourceContext="lead_detail" /></div>}
         </div>
 
         <button onClick={deleteLead} className="mt-4 flex w-full items-center justify-center gap-1.5 py-3 text-xs text-red-400 transition-colors hover:text-red-600">
@@ -1167,7 +1457,7 @@ export default function LeadDetailClient({
             {authorizingCall ? <Loader2 size={16} className="animate-spin" /> : <Phone size={16} />} Call
           </button>
           {lead.email && <button onClick={() => setShowEmail(true)} className="btn-secondary flex h-10 flex-1 items-center justify-center gap-1.5 text-sm font-semibold"><Mail size={16} /> Email</button>}
-          <button onClick={() => setShowBookDemo(true)} className="btn-secondary flex h-10 flex-1 items-center justify-center gap-1.5 text-sm font-semibold"><CalendarPlus size={16} /> Demo</button>
+          <button onClick={() => void openBookDemoModal()} className="btn-secondary flex h-10 flex-1 items-center justify-center gap-1.5 text-sm font-semibold"><CalendarPlus size={16} /> Demo</button>
         </div>
       </div>
 

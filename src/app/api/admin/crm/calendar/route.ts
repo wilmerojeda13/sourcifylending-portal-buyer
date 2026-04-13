@@ -50,58 +50,39 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const view = searchParams.get('view') || 'week'
   const cursor = searchParams.get('cursor')
+  const leadId = searchParams.get('lead_id')
+  // PERFORMANCE: Only load Google Calendar when explicitly requested
+  // Default to false for fast first paint - client can request with ?google=true if needed
+  const loadGoogle = searchParams.get('google') === 'true'
   const { start, end } = getRange(view, cursor)
 
-  const [{ data: settingsRow }, tasksRes, crmEventIdsRes, callEventIdsRes] = await Promise.all([
-    supabase
-      .from('voice_agent_settings')
-      .select('google_client_id, google_client_secret, google_refresh_token, google_calendar_id, booking_timezone')
-      .eq('id', 'default')
-      .maybeSingle(),
-    supabase
-      .from('crm_tasks')
-      .select('id, title, description, due_at, status, priority, task_type, lead_id, crm_leads(id, first_name, last_name, business_name)')
-      .not('due_at', 'is', null)
-      .gte('due_at', start.toISOString())
-      .lt('due_at', end.toISOString())
-      .order('due_at', { ascending: true }),
-    supabase
-      .from('crm_leads')
-      .select('google_calendar_event_id')
-      .not('google_calendar_event_id', 'is', null),
-    supabase
-      .from('crm_calls')
-      .select('booked_event_id')
-      .not('booked_event_id', 'is', null),
+  // PERFORMANCE: Build query based on needs
+  let tasksQuery = supabase
+    .from('crm_tasks')
+    .select('id, title, due_at, status, priority, task_type, lead_id')
+    .not('due_at', 'is', null)
+    .gte('due_at', start.toISOString())
+    .lt('due_at', end.toISOString())
+    .order('due_at', { ascending: true })
+    .limit(100)
+
+  if (leadId) {
+    tasksQuery = tasksQuery.eq('lead_id', leadId)
+  }
+
+  const [{ data: settingsRow }, tasksRes] = await Promise.all([
+    loadGoogle
+      ? supabase
+        .from('voice_agent_settings')
+        .select('google_client_id, google_client_secret, google_refresh_token, google_calendar_id, booking_timezone')
+        .eq('id', 'default')
+        .maybeSingle()
+      : Promise.resolve({ data: null }),
+    tasksQuery,
   ])
 
   if (tasksRes.error && !isMissingRelationError(tasksRes.error, 'crm_tasks')) {
     return NextResponse.json({ error: 'Unable to load CRM calendar items right now.' }, { status: 500 })
-  }
-
-  const settings: CalendarSettings = {
-    google_client_id: settingsRow?.google_client_id || process.env.GOOGLE_CLIENT_ID,
-    google_client_secret: settingsRow?.google_client_secret || process.env.GOOGLE_CLIENT_SECRET,
-    google_refresh_token: settingsRow?.google_refresh_token || process.env.GOOGLE_REFRESH_TOKEN,
-    google_calendar_id: settingsRow?.google_calendar_id || process.env.GOOGLE_CALENDAR_ID || 'primary',
-    booking_timezone: settingsRow?.booking_timezone || process.env.GOOGLE_CALENDAR_TIMEZONE || 'America/New_York',
-  }
-
-  const hasGoogleCalendar = Boolean(settings.google_client_id && settings.google_client_secret && settings.google_refresh_token)
-
-  let googleEvents: Awaited<ReturnType<typeof listCalendarEvents>> = []
-  let googleError: string | null = null
-
-  if (hasGoogleCalendar) {
-    try {
-      googleEvents = await listCalendarEvents(settings, {
-        timeMin: start.toISOString(),
-        timeMax: end.toISOString(),
-        maxResults: 150,
-      })
-    } catch (error) {
-      googleError = error instanceof Error ? error.message : 'Unable to fetch Google Calendar events'
-    }
   }
 
   const warnings: string[] = []
@@ -110,40 +91,52 @@ export async function GET(req: NextRequest) {
     warnings.push(getRelationUnavailableMessage('CRM tasks'))
   }
 
-  const crmTaskEvents = ((tasksRes.error ? [] : tasksRes.data) ?? []).map(task => {
-    const lead = Array.isArray(task.crm_leads) ? task.crm_leads[0] : task.crm_leads
-    return {
-      id: `task-${task.id}`,
-      source: 'crm_task',
-      type: 'task',
-      title: task.title,
-      start: task.due_at,
-      end: task.due_at,
-      status: task.status,
-      priority: task.priority,
-      task_type: task.task_type,
-      lead_id: task.lead_id,
-      lead_name: lead ? [lead.first_name, lead.last_name].filter(Boolean).join(' ') : null,
-      business_name: lead?.business_name || null,
-      detail_url: task.lead_id ? `/admin/crm/${task.lead_id}` : '/admin/crm/tasks',
+  const crmTaskEvents = ((tasksRes.error ? [] : tasksRes.data) ?? []).map(task => ({
+    id: `task-${task.id}`,
+    source: 'crm_task',
+    type: 'task',
+    title: task.title,
+    start: task.due_at,
+    end: task.due_at,
+    status: task.status,
+    priority: task.priority,
+    task_type: task.task_type,
+    lead_id: task.lead_id,
+    detail_url: task.lead_id ? `/admin/crm/${task.lead_id}` : '/admin/crm/tasks',
+  }))
+
+  // PERFORMANCE: Skip Google Calendar API call unless explicitly requested
+  // This removes the 500-1000ms blocking call on first paint
+  let googleEvents: any[] = []
+  let googleError: string | null = null
+  let hasGoogleCalendar = false
+  let settings: CalendarSettings | null = null
+
+  if (loadGoogle && settingsRow) {
+    settings = {
+      google_client_id: settingsRow.google_client_id || process.env.GOOGLE_CLIENT_ID,
+      google_client_secret: settingsRow.google_client_secret || process.env.GOOGLE_CLIENT_SECRET,
+      google_refresh_token: settingsRow.google_refresh_token || process.env.GOOGLE_REFRESH_TOKEN,
+      google_calendar_id: settingsRow.google_calendar_id || process.env.GOOGLE_CALENDAR_ID || 'primary',
+      booking_timezone: settingsRow.booking_timezone || process.env.GOOGLE_CALENDAR_TIMEZONE || 'America/New_York',
     }
-  })
+    hasGoogleCalendar = Boolean(settings.google_client_id && settings.google_client_secret && settings.google_refresh_token)
 
-  // Build explicit set of Google event IDs created by CRM
-  const crmEventIds = new Set<string>([
-    ...((crmEventIdsRes.data ?? []).map(r => r.google_calendar_event_id).filter(Boolean) as string[]),
-    ...((callEventIdsRes.data ?? []).map(r => r.booked_event_id).filter(Boolean) as string[]),
-  ])
-
-  const crmGoogleEvents = googleEvents.filter(event =>
-    // Explicit CRM linkage via stored event ID
-    crmEventIds.has(event.id) ||
-    // Belt-and-suspenders: all events created by createCalendarEvent use this prefix
-    (typeof event.summary === 'string' && event.summary.startsWith('SourcifyLending'))
-  )
+    if (hasGoogleCalendar) {
+      try {
+        googleEvents = await listCalendarEvents(settings, {
+          timeMin: start.toISOString(),
+          timeMax: end.toISOString(),
+          maxResults: 100,
+        })
+      } catch (error) {
+        googleError = error instanceof Error ? error.message : 'Unable to fetch Google Calendar events'
+      }
+    }
+  }
 
   const merged = [
-    ...crmGoogleEvents.map(event => ({
+    ...googleEvents.map((event: any) => ({
       id: event.id,
       source: 'google',
       type: 'event',
@@ -160,12 +153,12 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     connected: hasGoogleCalendar && !googleError,
-    google_calendar: {
+    google_calendar: loadGoogle ? {
       configured: hasGoogleCalendar,
       error: googleError,
-      calendar_id: settings.google_calendar_id || 'primary',
-      timezone: settings.booking_timezone || 'America/New_York',
-    },
+      calendar_id: settings?.google_calendar_id || 'primary',
+      timezone: settings?.booking_timezone || 'America/New_York',
+    } : { configured: false, error: null, calendar_id: 'primary', timezone: 'America/New_York' },
     range: {
       view,
       start: start.toISOString(),

@@ -15,6 +15,7 @@ function getResend(): Resend {
 // Always use the verified subdomain — sourcifylending.com is NOT verified in Resend
 const FROM_ADDRESS = 'SourcifyLending <no-reply@ai.sourcifylending.com>'
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://sourcifylending.com'
+export const DIALER_INTRO_EMAIL_SUBJECT = 'Set up your free SourcifyLending account'
 
 const PROGRAM_LABELS: Record<string, string> = {
   program_a: 'Program A — 0% Intro APR Card Strategy',
@@ -32,6 +33,87 @@ const READINESS_COLORS: Record<string, { bg: string; text: string; label: string
   'Ready':               { bg: '#f0fdf4', text: '#15803d', label: '✅ Ready' },
   'Conditionally Ready': { bg: '#fefce8', text: '#a16207', label: '⚠️ Conditionally Ready' },
   'Not Ready':           { bg: '#fef2f2', text: '#b91c1c', label: '❌ Not Ready' },
+}
+
+export function buildDialerIntroEmailText() {
+  return `Hello,
+
+Here is the link to set up your free SourcifyLending account and run the free analyzer:
+
+Portal:
+https://app.sourcifylending.com/login
+
+Free Analyzer:
+https://app.sourcifylending.com/analyzer
+
+The analyzer takes about 3 minutes and helps determine the best path based on your business profile.
+
+Thank you,
+SourcifyLending`
+}
+
+export async function sendDialerIntroEmail({
+  toEmail,
+}: {
+  toEmail: string
+}): Promise<{ success: boolean; error?: string }> {
+  const resendKey = process.env.RESEND_API_KEY
+  if (!resendKey) {
+    return { success: false, error: 'Email not configured' }
+  }
+
+  const text = buildDialerIntroEmailText()
+  const html = text
+    .split('\n\n')
+    .map((paragraph) => `<p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.7;">${paragraph.replace(/\n/g, '<br />')}</p>`)
+    .join('')
+
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_ADDRESS,
+        to: [toEmail],
+        subject: DIALER_INTRO_EMAIL_SUBJECT,
+        text,
+        html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin:0;padding:32px 16px;background:#f9fafb;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+    <tr>
+      <td style="background:#16a34a;padding:24px 32px;">
+        <p style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">SourcifyLending</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:32px;">
+        ${html}
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+        tags: [
+          { name: 'source', value: 'dialer_intro_email' },
+          { name: 'recipient', value: toEmail },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      return { success: false, error: errorText || `Resend request failed with status ${response.status}` }
+    }
+
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 // ─── Analyzer Results Email ────────────────────────────────────────────────────

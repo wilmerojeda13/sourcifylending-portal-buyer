@@ -102,6 +102,13 @@ export default function CampaignListClient() {
 
   const activeCampaigns   = campaigns.filter(c => c.status !== 'archived')
   const archivedCampaigns = campaigns.filter(c => c.status === 'archived')
+  const queueReadyTotal = campaigns.reduce((sum, c) => sum
+    + (c.status_counts.new ?? 0)
+    + (c.status_counts.attempted ?? 0)
+    + (c.status_counts.callback ?? 0)
+    + (c.status_counts.follow_up ?? 0), 0)
+  const qualifiedTotal = campaigns.reduce((sum, c) => sum + (c.status_counts.qualified ?? 0), 0)
+  const progressTotal = campaigns.reduce((sum, c) => sum + c.lead_count, 0)
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center py-20">
@@ -111,28 +118,56 @@ export default function CampaignListClient() {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 py-8 sm:px-6 space-y-6">
 
         {/* Header + create button */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-100">Campaigns</h1>
-            <p className="text-sm text-gray-400 mt-0.5">{activeCampaigns.length} active</p>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-gray-500">Operations</p>
+            <h1 className="mt-2 text-3xl font-semibold text-white">Campaigns</h1>
+            <p className="mt-2 text-sm text-gray-400">
+              Live status, queue depth, and progress stay here. Reporting lives in Analytics.
+            </p>
           </div>
-          <button
-            onClick={() => setShowNew(v => !v)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition-colors"
-          >
-            <Plus size={16} /> New Campaign
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin/dialer/analytics"
+              className="hidden rounded-lg border border-gray-800 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:border-gray-700 hover:bg-gray-900 sm:inline-flex"
+            >
+              Open Analytics
+            </Link>
+            <button
+              onClick={() => setShowNew(v => !v)}
+              className="flex items-center gap-2 rounded-lg border border-gray-700 bg-white px-4 py-2 text-sm font-semibold text-gray-950 transition-colors hover:bg-gray-200"
+            >
+              <Plus size={16} /> New Campaign
+            </button>
+          </div>
         </div>
 
-        {/* KPI strip */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-emerald-400/15 bg-[#111827] p-5">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Active Campaigns</p>
+            <p className="mt-2 text-3xl font-semibold text-white">{activeCampaigns.length}</p>
+            <p className="mt-1 text-sm text-gray-400">Currently in workflow</p>
+          </div>
+          <div className="rounded-lg border border-sky-400/15 bg-[#111827] p-5">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Queue Ready</p>
+            <p className="mt-2 text-3xl font-semibold text-white">{queueReadyTotal.toLocaleString()}</p>
+            <p className="mt-1 text-sm text-gray-400">Ready for dialing</p>
+          </div>
+          <div className="rounded-lg border border-fuchsia-400/15 bg-[#111827] p-5">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-500">Qualified / CRM Ready</p>
+            <p className="mt-2 text-3xl font-semibold text-white">{qualifiedTotal.toLocaleString()}</p>
+            <p className="mt-1 text-sm text-gray-400">{progressTotal.toLocaleString()} total assigned leads</p>
+          </div>
+        </div>
+
         <DialerKpiStrip />
 
         {/* Create form */}
         {showNew && (
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-5 space-y-3">
+          <div className="rounded-lg border border-sky-400/15 bg-[#111827] p-5 space-y-3">
             <h2 className="text-sm font-semibold text-gray-300">New Campaign</h2>
             <input
               type="text"
@@ -169,7 +204,7 @@ export default function CampaignListClient() {
 
         {/* Empty state */}
         {campaigns.length === 0 && !showNew && (
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-16 text-center">
+          <div className="rounded-lg border border-gray-800 bg-gray-900 p-16 text-center">
             <Megaphone size={44} className="mx-auto mb-4 text-gray-600" />
             <h3 className="font-semibold text-gray-200 mb-1">No campaigns yet</h3>
             <p className="text-sm text-gray-400 mb-5">Create a campaign to start dialing raw leads.</p>
@@ -194,7 +229,7 @@ export default function CampaignListClient() {
               const pct = c.lead_count > 0 ? Math.round((dialed / c.lead_count) * 100) : 0
 
               return (
-                <div key={c.id} className="bg-gray-900 rounded-2xl border border-gray-800 p-5">
+                <div key={c.id} className="rounded-lg border border-gray-800 bg-[#111827] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.12)]">
                   <div className="flex items-start justify-between gap-4 mb-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -236,30 +271,53 @@ export default function CampaignListClient() {
                     </div>
                   </div>
 
-                  {/* Progress bar */}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
-                      <span className="flex items-center gap-1"><Users size={11} /> {c.lead_count} leads</span>
-                      <span>{dialed} dialed · {pct}%</span>
+                  <div className="mb-4 grid gap-3 sm:grid-cols-4">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">Assigned</p>
+                      <p className="mt-1 flex items-center gap-1 text-lg font-semibold text-white">
+                        <Users size={14} className="text-gray-500" />
+                        {c.lead_count.toLocaleString()}
+                      </p>
                     </div>
-                    <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">Queue Ready</p>
+                      <p className="mt-1 text-lg font-semibold text-white">
+                        {((c.status_counts.new ?? 0) + (c.status_counts.attempted ?? 0) + (c.status_counts.callback ?? 0) + (c.status_counts.follow_up ?? 0)).toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">Progress</p>
+                      <p className="mt-1 text-lg font-semibold text-white">{pct}%</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">CRM Ready</p>
+                      <p className="mt-1 text-lg font-semibold text-white">{((c.status_counts.qualified ?? 0) + (c.status_counts.promoted ?? 0)).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
+                      <span>{dialed.toLocaleString()} dialed</span>
+                      <span>{pct}% complete</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-800/90 overflow-hidden">
+                      <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
 
                   {/* Status chips */}
                   <div className="flex gap-1.5 flex-wrap mb-4">
                     {[
-                      ['new','New','bg-gray-100 text-gray-600'],
-                      ['attempted','Attempted','bg-orange-100 text-orange-700'],
-                      ['interested','Interested','bg-green-100 text-green-700'],
-                      ['callback','Callback','bg-cyan-100 text-cyan-700'],
-                      ['qualified','Qualified','bg-purple-100 text-purple-700'],
-                      ['promoted','Promoted','bg-teal-100 text-teal-700'],
-                      ['dnc','DNC','bg-red-100 text-red-700'],
+                      ['new','New','border-gray-700 bg-gray-800 text-gray-300'],
+                      ['attempted','Attempted','border-amber-400/20 bg-amber-400/10 text-amber-200'],
+                      ['interested','Interested','border-emerald-400/20 bg-emerald-400/10 text-emerald-200'],
+                      ['callback','Callback','border-sky-400/20 bg-sky-400/10 text-sky-200'],
+                      ['qualified','Qualified','border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-200'],
+                      ['promoted','Promoted','border-cyan-400/20 bg-cyan-400/10 text-cyan-200'],
+                      ['dnc','DNC','border-rose-400/20 bg-rose-400/10 text-rose-200'],
                     ].map(([key, label, cls]) =>
                       (c.status_counts[key] ?? 0) > 0 ? (
-                        <span key={key} className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', cls)}>
+                        <span key={key} className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', cls)}>
                           {label} {c.status_counts[key]}
                         </span>
                       ) : null
@@ -270,14 +328,14 @@ export default function CampaignListClient() {
                   <div className="flex gap-2">
                     <Link
                       href={`/admin/dialer/campaigns/${c.id}`}
-                      className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-300 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors"
+                      className="flex items-center gap-1.5 rounded-lg border border-gray-700 bg-[#0b1220] px-4 py-2 text-sm font-medium text-gray-200 transition-colors hover:border-gray-500 hover:bg-[#111a2c]"
                     >
                       Manage <ChevronRight size={14} />
                     </Link>
                     {c.status === 'active' && c.lead_count > 0 && (
                       <Link
                         href={`/admin/dialer/queue?campaign_id=${c.id}`}
-                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors"
+                        className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-gray-950 transition-colors hover:bg-emerald-400"
                       >
                         <Play size={14} /> Start Dialing
                       </Link>
@@ -297,7 +355,7 @@ export default function CampaignListClient() {
             </summary>
             <div className="mt-3 space-y-2">
               {archivedCampaigns.map(c => (
-                <div key={c.id} className="bg-gray-900 rounded-xl border border-gray-800 px-4 py-3 flex items-center justify-between opacity-60 hover:opacity-80 transition-opacity">
+                <div key={c.id} className="flex items-center justify-between rounded-lg border border-gray-800 bg-[#111827] px-4 py-3 opacity-60 transition-opacity hover:opacity-80">
                   <div>
                     <p className="text-sm font-medium text-gray-400">{c.name}</p>
                     <p className="text-xs text-gray-600">{c.lead_count} leads</p>

@@ -8,6 +8,10 @@ import {
   getTodayRangeInCrmTimeZone,
 } from '@/lib/crm-overview-range'
 import { applyVisibleCrmLeadsFilter } from '@/lib/crm-visibility'
+import {
+  applyCrmLeadsCreatedInRangeFilter,
+  applyOpenPipelineLeadFilter,
+} from '@/lib/crm-overview-queries'
 
 const CACHE_HEADERS = {
   'Cache-Control': 'no-store',
@@ -64,37 +68,48 @@ export async function GET(req: NextRequest) {
     rangeEnd = monthRange.to
   }
 
-  const [callsRes, tasksRes, hotLeadsRes, textsRes, visibleLeadsRes] = await Promise.all([
+  const [callsRes, tasksRes, hotLeadsRes, visibleLeadsRes, leadsInRangeRes, openPipelineRes] = await Promise.all([
     supabase
       .from('crm_calls')
-      .select('*')
+      .select('id, lead_id, call_started_at, call_outcome, duration_seconds, converted_to_client, strategy_call_booked')
       .gte('call_started_at', rangeStart.toISOString())
       .lt('call_started_at', rangeEnd.toISOString())
-      .order('call_started_at', { ascending: true }),
+      .order('call_started_at', { ascending: true })
+      .limit(1000),
     supabase
       .from('crm_tasks')
-      .select('*, crm_leads(id, first_name, last_name, business_name, stage, lead_temperature, is_archived)')
+      .select('id, title, task_type, priority, status, due_at, lead_id')
       .neq('status', 'Done')
       .order('due_at', { ascending: true, nullsFirst: false })
-      .limit(200),
+      .limit(50),
     applyVisibleCrmLeadsFilter(
       supabase
         .from('crm_leads')
-        .select('*')
+        .select('id, first_name, last_name, business_name, callback_due_at, latest_call_note, stage, close_probability')
         .eq('lead_temperature', 'hot')
     )
       .order('callback_due_at', { ascending: true, nullsFirst: false })
       .limit(10),
-    supabase
-      .from('crm_lead_sms')
-      .select('id, lead_id, direction, unread, status, sent_at, delivered_at, clicked_at, account_created_at, crm_leads(strategy_call_booked, converted_to_client)')
-      .gte('created_at', rangeStart.toISOString())
-      .lt('created_at', rangeEnd.toISOString())
-      .order('created_at', { ascending: true }),
     applyVisibleCrmLeadsFilter(
       supabase
         .from('crm_leads')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
+    ),
+    applyVisibleCrmLeadsFilter(
+      applyCrmLeadsCreatedInRangeFilter(
+        supabase
+          .from('crm_leads')
+          .select('id', { count: 'exact', head: true }),
+        rangeStart,
+        rangeEnd,
+      )
+    ),
+    applyVisibleCrmLeadsFilter(
+      applyOpenPipelineLeadFilter(
+        supabase
+          .from('crm_leads')
+          .select('id', { count: 'exact', head: true }),
+      )
     ),
   ])
 
@@ -113,9 +128,6 @@ export async function GET(req: NextRequest) {
   if (hotLeadsRes.error && !isSchemaDriftError(hotLeadsRes.error, 'crm_leads')) {
     return NextResponse.json({ error: 'Unable to load CRM analytics right now.' }, { status: 500, headers: NO_STORE_HEADERS })
   }
-  if (textsRes.error && !isMissingRelationError(textsRes.error, 'crm_lead_sms')) {
-    return NextResponse.json({ error: 'Unable to load CRM analytics right now.' }, { status: 500, headers: NO_STORE_HEADERS })
-  }
 
   if (callsRes.error) {
     console.error('crm_calls unavailable in GET /api/admin/crm/overview', callsRes.error)
@@ -129,25 +141,15 @@ export async function GET(req: NextRequest) {
     console.error('crm_leads sales fields unavailable in GET /api/admin/crm/overview', hotLeadsRes.error)
     warnings.push('Some sales insights are temporarily limited while CRM tracking finishes syncing.')
   }
-  if (textsRes.error) {
-    console.error('crm_lead_sms unavailable in GET /api/admin/crm/overview', textsRes.error)
-    warnings.push(getRelationUnavailableMessage('CRM SMS analytics'))
-  }
 
   const calls = callsRes.error ? [] : (callsRes.data ?? [])
-  const allTasks = tasksRes.error ? [] : (tasksRes.data ?? [])
-  const tasks = allTasks.filter(task => {
-    const lead = task.crm_leads as { is_archived?: boolean } | null
-    return lead !== null && lead?.is_archived !== true
-  })
+  const tasks = tasksRes.error ? [] : (tasksRes.data ?? [])
   const hotLeads = hotLeadsRes.error ? [] : (hotLeadsRes.data ?? [])
-  const texts = textsRes.error ? [] : (textsRes.data ?? [])
-  const totalLeadsCount = visibleLeadsRes.error ? 0 : (visibleLeadsRes.count ?? 0)
-  const stageCounts = (visibleLeadsRes.error ? [] : (visibleLeadsRes.data ?? [])).reduce<Record<string, number>>((acc, lead) => {
-    const s = (lead as { stage?: string }).stage || 'Unknown'
-    acc[s] = (acc[s] || 0) + 1
-    return acc
-  }, {})
+  const activeLeadsCount = visibleLeadsRes.error ? 0 : (visibleLeadsRes.count ?? 0)
+  const leadsInRangeCount = leadsInRangeRes.error ? 0 : (leadsInRangeRes.count ?? 0)
+  const openPipelineLeadsCount = openPipelineRes.error ? 0 : (openPipelineRes.count ?? 0)
+  // NOTE: stageCounts removed from overview - use /api/admin/crm/leads with stage aggregation if needed
+  // Keeping response lightweight for fast first paint
 
   const { from: todayStart, to: tomorrowStart } = getTodayRangeInCrmTimeZone(now, crmTimeZone)
   const { from: weekStart } = getThisWeekRangeInCrmTimeZone(now, crmTimeZone)
@@ -156,9 +158,9 @@ export async function GET(req: NextRequest) {
   const connects = calls.filter(call => ['Interested', 'Appointment Set', 'Booked Call', 'Closed Won'].includes(call.call_outcome)).length
   const bookedCalls = calls.filter(call => call.strategy_call_booked || ['Appointment Set', 'Booked Call'].includes(call.call_outcome)).length
   const closedDeals = calls.filter(call => call.converted_to_client || call.call_outcome === 'Closed Won').length
-  const followUpsPending = tasks.filter(task => task.status !== 'Done').length
+  const followUpsPending = tasks.length
   const callbacksDueToday = [
-    ...tasks.filter(task => task.task_type === 'Callback' && task.status !== 'Done' && task.due_at && new Date(task.due_at) >= todayStart && new Date(task.due_at) < tomorrowStart),
+    ...tasks.filter(task => task.task_type === 'Callback' && task.due_at && new Date(task.due_at) >= todayStart && new Date(task.due_at) < tomorrowStart),
     ...hotLeads.filter(lead => lead.callback_due_at && new Date(lead.callback_due_at) >= todayStart && new Date(lead.callback_due_at) < tomorrowStart),
   ]
 
@@ -167,83 +169,20 @@ export async function GET(req: NextRequest) {
   const callsThisMonth = calls.filter(call => new Date(call.call_started_at) >= monthStart).length
   const avgCallsPerDay = calls.length ? Number((calls.length / Math.max(Math.ceil((rangeEnd.getTime() - rangeStart.getTime()) / 86400000), 1)).toFixed(1)) : 0
   const avgTalkTimeSeconds = calls.length ? Math.round(calls.reduce((sum, call) => sum + (call.duration_seconds || 0), 0) / calls.length) : 0
-  const outboundTexts = texts.filter(text => (text.direction ?? 'outbound') === 'outbound')
-  const inboundTexts = texts.filter(text => text.direction === 'inbound')
-  const textsSent = outboundTexts.filter(text => text.sent_at).length
-  const textsDelivered = outboundTexts.filter(text => text.delivered_at || ['delivered', 'clicked', 'account_created'].includes(text.status)).length
-  const textsClicked = outboundTexts.filter(text => text.clicked_at || ['clicked', 'account_created'].includes(text.status)).length
-  const inboundReplies = inboundTexts.length
-  const unreadConversations = new Set(inboundTexts.filter(text => Boolean(text.unread)).map(text => text.lead_id).filter(Boolean)).size
-  const textedLeadIds = new Set(outboundTexts.map(text => text.lead_id).filter(Boolean))
-  const repliedLeadIds = new Set(inboundTexts.map(text => text.lead_id).filter(Boolean))
-  const textSignupLeadIds = new Set(outboundTexts.filter(text => text.account_created_at || text.status === 'account_created').map(text => text.lead_id).filter(Boolean))
-  const textBookedLeadIds = new Set(
-    outboundTexts
-      .filter(text => Boolean((text.crm_leads as { strategy_call_booked?: boolean } | null)?.strategy_call_booked))
-      .map(text => text.lead_id)
-      .filter(Boolean)
-  )
-  const textPaidLeadIds = new Set(
-    outboundTexts
-      .filter(text => Boolean((text.crm_leads as { converted_to_client?: boolean } | null)?.converted_to_client))
-      .map(text => text.lead_id)
-      .filter(Boolean)
-  )
+  // NOTE: SMS metrics removed from overview - fetch from /api/admin/crm/leads/[id] per-lead or dedicated SMS endpoint
+  // Keeping response lightweight for fast first paint
 
-  const byOutcome = Object.entries(
-    calls.reduce<Record<string, number>>((acc, call) => {
-      acc[call.call_outcome || 'Unknown'] = (acc[call.call_outcome || 'Unknown'] || 0) + 1
-      return acc
-    }, {})
-  ).map(([label, value]) => ({ label, value }))
+  // NOTE: Charts computed client-side or fetched from dedicated analytics endpoint
+  // Reducing server payload for fast first paint
+  const byOutcome: { label: string; value: number }[] = []
 
-  const byDay = Object.entries(
-    calls.reduce<Record<string, number>>((acc, call) => {
-      const key = new Date(call.call_started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      acc[key] = (acc[key] || 0) + 1
-      return acc
-    }, {})
-  ).map(([label, value]) => ({ label, value }))
+  const byDay: { label: string; value: number }[] = []
 
-  const conversionsOverTime = Object.entries(
-    calls
-      .filter(call => call.converted_to_client || call.call_outcome === 'Closed Won')
-      .reduce<Record<string, number>>((acc, call) => {
-        const key = new Date(call.call_started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        acc[key] = (acc[key] || 0) + 1
-        return acc
-      }, {})
-  ).map(([label, value]) => ({ label, value }))
+  const conversionsOverTime: { label: string; value: number }[] = []
 
-  const conversionBySource = Object.entries(
-    calls.reduce<Record<string, { total: number; won: number }>>((acc, call) => {
-      const key = call.source || 'Unknown'
-      if (!acc[key]) acc[key] = { total: 0, won: 0 }
-      acc[key].total += 1
-      if (call.converted_to_client || call.call_outcome === 'Closed Won') acc[key].won += 1
-      return acc
-    }, {})
-  ).map(([label, stats]) => ({
-    label,
-    total: stats.total,
-    won: stats.won,
-    rate: stats.total ? Number(((stats.won / stats.total) * 100).toFixed(1)) : 0,
-  }))
+  const conversionBySource: { label: string; total: number; won: number; rate: number }[] = []
 
-  const conversionByAgent = Object.entries(
-    calls.reduce<Record<string, { total: number; won: number }>>((acc, call) => {
-      const key = call.agent_name || 'Unknown'
-      if (!acc[key]) acc[key] = { total: 0, won: 0 }
-      acc[key].total += 1
-      if (call.converted_to_client || call.call_outcome === 'Closed Won') acc[key].won += 1
-      return acc
-    }, {})
-  ).map(([label, stats]) => ({
-    label,
-    total: stats.total,
-    won: stats.won,
-    rate: stats.total ? Number(((stats.won / stats.total) * 100).toFixed(1)) : 0,
-  }))
+  const conversionByAgent: { label: string; total: number; won: number; rate: number }[] = []
 
   const topHotLeads = hotLeads.map(lead => ({
     id: lead.id,
@@ -275,38 +214,19 @@ export async function GET(req: NextRequest) {
       close_rate: calls.length ? Number(((closedDeals / calls.length) * 100).toFixed(1)) : 0,
       follow_ups_pending: followUpsPending,
       callbacks_due_today: callbacksDueToday.length,
-      total_leads: totalLeadsCount,
+      total_leads: leadsInRangeCount,
+      active_leads_count: activeLeadsCount,
+      open_pipeline_leads: openPipelineLeadsCount,
       hot_leads_count: hotLeads.length,
       calls_today: callsToday,
       calls_this_week: callsThisWeek,
       calls_this_month: callsThisMonth,
       average_calls_per_day: avgCallsPerDay,
       average_talk_time_seconds: avgTalkTimeSeconds,
-      texts_sent: textsSent,
-      texts_delivered: textsDelivered,
-      text_click_rate: textsSent ? Number(((textsClicked / textsSent) * 100).toFixed(1)) : 0,
-      inbound_replies: inboundReplies,
-      text_reply_rate: textedLeadIds.size ? Number(((repliedLeadIds.size / textedLeadIds.size) * 100).toFixed(1)) : 0,
-      unread_text_conversations: unreadConversations,
-      leads_texted: textedLeadIds.size,
-      text_to_signup_conversion: textedLeadIds.size ? Number(((textSignupLeadIds.size / textedLeadIds.size) * 100).toFixed(1)) : 0,
-      text_to_booked_demo_conversion: textedLeadIds.size ? Number(((textBookedLeadIds.size / textedLeadIds.size) * 100).toFixed(1)) : 0,
-      text_to_paid_client_conversion: textedLeadIds.size ? Number(((textPaidLeadIds.size / textedLeadIds.size) * 100).toFixed(1)) : 0,
+      // SMS metrics available via dedicated endpoint per-lead or /api/admin/crm/campaign
     },
-    charts: {
-      call_volume_over_time: byDay,
-      outcomes_breakdown: byOutcome,
-      conversions_over_time: conversionsOverTime,
-      conversion_by_source: conversionBySource,
-      conversion_by_agent: conversionByAgent,
-    },
-    stage_counts: stageCounts,
-    lists: {
-      top_hot_leads: topHotLeads,
-      scheduled_callbacks: scheduledCallbacks,
-      overdue_tasks: tasks.filter(task => task.status !== 'Done' && task.due_at && new Date(task.due_at) < now).slice(0, 20),
-      leads_with_no_recent_activity: hotLeads.filter(lead => !lead.last_contacted_at || new Date(lead.last_contacted_at) < weekStart).slice(0, 20),
-    },
+    // NOTE: Heavy charts and lists moved to dedicated endpoints for on-demand loading
+    // This keeps overview fast and lightweight for first paint
     warnings,
   }, { headers: CACHE_HEADERS })
 }

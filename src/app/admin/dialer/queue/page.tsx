@@ -5,6 +5,7 @@ import CampaignDialerClient from './CampaignDialerClient'
 
 export const metadata = { title: 'Queue — Dialer' }
 
+// Canonical live dialer flow. Future dialer UI work belongs in /admin/dialer/*.
 export default async function DialerQueuePage({
   searchParams,
 }: {

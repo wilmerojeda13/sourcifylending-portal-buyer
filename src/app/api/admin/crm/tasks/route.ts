@@ -40,12 +40,20 @@ export async function GET(req: NextRequest) {
   const leadId = searchParams.get('lead_id')
   const owner = searchParams.get('owner')
   const bucket = searchParams.get('bucket')
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 100)
+  const offset = parseInt(searchParams.get('offset') ?? '0')
+
+  // PERFORMANCE: Use lightweight select - only join crm_leads when needed for display
+  const selectColumns = leadId 
+    ? 'id, title, description, due_at, status, priority, task_type, lead_id, owner_user_id, owner_name, pipeline_stage, created_source, created_source_label'
+    : 'id, title, description, due_at, status, priority, task_type, lead_id, owner_user_id, owner_name, pipeline_stage, created_source, created_source_label, crm_leads(id, first_name, last_name, business_name, stage, lead_temperature)'
 
   let query = admin.supabase
     .from('crm_tasks')
-    .select('*, crm_leads(id, first_name, last_name, business_name, stage, lead_temperature)')
+    .select(selectColumns, { count: 'exact' })
     .order('due_at', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
 
   if (status) query = query.eq('status', status)
   if (priority) query = query.eq('priority', priority)
@@ -54,7 +62,7 @@ export async function GET(req: NextRequest) {
   if (owner === 'me') query = query.eq('owner_user_id', admin.userId)
   else if (owner) query = query.eq('owner_user_id', owner)
 
-  const { data, error } = await query
+  const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: NO_STORE_HEADERS })
 
   const now = new Date()
@@ -63,15 +71,17 @@ export async function GET(req: NextRequest) {
   const endOfToday = new Date(startOfToday)
   endOfToday.setDate(endOfToday.getDate() + 1)
 
-  const allTasks = data ?? []
+  const allTasks: any[] = data ?? []
 
-  const counts = {
-    today:     allTasks.filter(t => t.due_at && new Date(t.due_at) >= startOfToday && new Date(t.due_at) < endOfToday && t.status !== 'Done').length,
-    overdue:   allTasks.filter(t => t.due_at && new Date(t.due_at) < startOfToday && t.status !== 'Done').length,
-    upcoming:  allTasks.filter(t => t.due_at && new Date(t.due_at) >= endOfToday && t.status !== 'Done').length,
-    priority:  allTasks.filter(t => ['High', 'Urgent'].includes(t.priority) && t.status !== 'Done').length,
-    completed: allTasks.filter(t => t.status === 'Done').length,
-  }
+  const counts = leadId
+    ? {}
+    : {
+      today: allTasks.filter((task) => task.due_at && new Date(task.due_at) >= startOfToday && new Date(task.due_at) < endOfToday && task.status !== 'Done').length,
+      overdue: allTasks.filter((task) => task.due_at && new Date(task.due_at) < startOfToday && task.status !== 'Done').length,
+      upcoming: allTasks.filter((task) => task.due_at && new Date(task.due_at) >= endOfToday && task.status !== 'Done').length,
+      priority: allTasks.filter((task) => ['High', 'Urgent'].includes(task.priority) && task.status !== 'Done').length,
+      completed: allTasks.filter((task) => task.status === 'Done').length,
+    }
 
   let tasks = allTasks
 

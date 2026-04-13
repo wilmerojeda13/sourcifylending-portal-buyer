@@ -24,6 +24,7 @@ export default function CalendarClient() {
   const [view, setView] = useState('week')
   const [cursor, setCursor] = useState(() => new Date().toISOString())
   const [events, setEvents] = useState<CalendarEventRecord[]>([])
+  const [loadGoogle, setLoadGoogle] = useState(false)
   const [loading, setLoading] = useState(true)
   const [googleInfo, setGoogleInfo] = useState<{ configured: boolean; error: string | null; timezone: string } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -32,7 +33,9 @@ export default function CalendarClient() {
     let active = true
     async function load() {
       setLoading(true)
-      const res = await fetch(`/api/admin/crm/calendar?view=${view}&cursor=${encodeURIComponent(cursor)}`)
+      const params = new URLSearchParams({ view, cursor })
+      if (loadGoogle) params.set('google', 'true')
+      const res = await fetch(`/api/admin/crm/calendar?${params.toString()}`)
       const json = await res.json()
       if (!active) return
       setEvents(json.events ?? [])
@@ -44,7 +47,7 @@ export default function CalendarClient() {
     return () => {
       active = false
     }
-  }, [view, cursor])
+  }, [cursor, loadGoogle, view])
 
   function shift(amount: number) {
     const next = new Date(cursor)
@@ -112,8 +115,15 @@ export default function CalendarClient() {
           <div className="rounded-xl bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800/60">
             <p className="font-semibold text-gray-900 dark:text-white">Google Calendar</p>
             <p className="text-gray-500">
-              {googleInfo?.configured ? `Configured (${googleInfo.timezone})` : 'Not connected yet'}
+              {loadGoogle
+                ? (googleInfo?.configured ? `Configured (${googleInfo.timezone})` : 'Not connected yet')
+                : 'Deferred until requested'}
             </p>
+            {!loadGoogle && (
+              <button onClick={() => setLoadGoogle(true)} className="mt-2 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
+                Load Google events
+              </button>
+            )}
             {googleInfo?.error && (
               <p className="mt-1 flex items-center gap-1 text-xs text-amber-600"><AlertCircle size={12} /> {googleInfo.error}</p>
             )}

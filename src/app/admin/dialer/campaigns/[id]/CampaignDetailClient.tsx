@@ -61,16 +61,17 @@ interface RawLead {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  new:          'bg-gray-100 text-gray-600',
-  attempted:    'bg-orange-100 text-orange-700',
-  contacted:    'bg-blue-100 text-blue-700',
-  interested:   'bg-green-100 text-green-700',
-  callback:     'bg-cyan-100 text-cyan-700',
-  follow_up:    'bg-yellow-100 text-yellow-700',
-  qualified:    'bg-purple-100 text-purple-700',
-  promoted:     'bg-teal-100 text-teal-700',
-  dnc:          'bg-red-100 text-red-700',
-  closed_lost:  'bg-gray-200 text-gray-500',
+  new:           'bg-gray-100 text-gray-600',
+  attempted:     'bg-orange-100 text-orange-700',
+  contacted:     'bg-blue-100 text-blue-700',
+  interested:    'bg-green-100 text-green-700',
+  callback:      'bg-cyan-100 text-cyan-700',
+  follow_up:     'bg-yellow-100 text-yellow-700',
+  qualified:     'bg-purple-100 text-purple-700',
+  promoted:      'bg-teal-100 text-teal-700',
+  dnc:           'bg-red-100 text-red-700',
+  closed_lost:   'bg-gray-200 text-gray-500',
+  high_priority: 'bg-indigo-100 text-indigo-700',
 }
 
 const STATUS_BADGE: Record<CampaignStatus, string> = {
@@ -451,7 +452,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
             {campaign.status === 'active' && dialableCount > 0 && (
               <Link
                 href={`/admin/dialer/queue?campaign_id=${campaign.id}`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-700 text-white text-sm font-semibold rounded-xl hover:bg-gray-600 transition-colors"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-gray-950 transition-colors hover:bg-emerald-400"
               >
                 <Play size={15} /> Start Dialing · {dialableCount} ready
               </Link>
@@ -459,7 +460,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
             {leads.length > 0 && (
               <button
                 onClick={() => setShowModal(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-400 bg-gray-800 border border-gray-700 rounded-xl hover:bg-gray-700"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-700 bg-[#0b1220] px-4 py-2 text-xs font-medium text-gray-200 hover:border-gray-500 hover:bg-[#111a2c]"
               >
                 <Copy size={13} /> Clone leads → new campaign
               </button>

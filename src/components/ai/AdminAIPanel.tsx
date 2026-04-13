@@ -36,8 +36,8 @@ const PAGE_CONTEXTS: Record<string, PageCtx> = {
     label: 'CRM',
     starters: ['Who should I call next?', 'How many leads are in each stage?', 'Who has a follow-up due today?', 'Which leads are unresponsive?'],
   },
-  '/admin/crm/dialer': {
-    label: 'Dialer Mode',
+  '/admin/dialer': {
+    label: 'Dialer',
     starters: ['Give me a quick talk track', 'How do I handle objections?', 'What should I say on voicemail?', 'Who am I calling today?'],
   },
   '/admin/crm/import': {
@@ -228,6 +228,9 @@ export default function AdminAIPanel() {
   const contextType = memberMatch ? 'member' : leadMatch ? 'lead' : affiliateMatch ? 'affiliate' : voiceCampMatch ? 'voice_campaign' : null
 
   const pageCtx = getPageCtx(pathname, contextType)
+  const hideMobileLauncher =
+    pathname.startsWith('/admin/dialer') ||
+    Boolean(leadMatch)
   const mobileLauncherBottomClass =
     pathname.startsWith('/admin/crm') || pathname.startsWith('/admin/voice')
       ? 'bottom-20'
@@ -447,7 +450,7 @@ export default function AdminAIPanel() {
             onClick={() => setOpen(true)}
             className={cn(
               'lg:hidden fixed right-4 z-50 w-14 h-14 rounded-full bg-gray-950 hover:bg-gray-900 text-white shadow-xl flex items-center justify-center transition-all duration-200 active:scale-95',
-              mobileLauncherBottomClass,
+              hideMobileLauncher ? 'hidden' : mobileLauncherBottomClass,
             )}
           >
             <Bot size={20} className="text-indigo-400" />

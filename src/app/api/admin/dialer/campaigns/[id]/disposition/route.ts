@@ -111,54 +111,62 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .eq('id', raw_lead_id)
       .single()
 
-    if (rawLead) {
-      try {
-        const result = await promoteToCrm(admin.supabase, {
-          rawLeadId: raw_lead_id,
-          trigger:   promote ? 'manual' : outcome,
-          userId:    admin.userId,
-          workflowState: {
-            callback_due_at:   callback_due_at ?? null,
-            follow_up_at:      follow_up_at    ?? null,
-            last_call_outcome: outcome,
-            last_call_at:      now,
-            last_call_note:    note ?? null,
-            crm_stage:         CAMPAIGN_OUTCOME_TO_CRM_STAGE[outcome] ?? null,
-          },
-        })
+    if (!rawLead) {
+      return NextResponse.json(
+        {
+          error: `Dialer raw lead not found: ${raw_lead_id}`,
+          promotion: { outcome: 'promotion_failed' satisfies PromotionOutcome },
+        },
+        { status: 404 },
+      )
+    }
 
-        const outcomeLabel: PromotionOutcome = result.alreadyPromoted
-          ? 'already_promoted'
-          : result.merged
-            ? 'merged_into_existing_crm_lead'
-            : 'created_new_crm_lead'
+    try {
+      const result = await promoteToCrm(admin.supabase, {
+        rawLeadId: raw_lead_id,
+        trigger:   promote ? 'manual' : outcome,
+        userId:    admin.userId,
+        workflowState: {
+          callback_due_at:   callback_due_at ?? null,
+          follow_up_at:      follow_up_at    ?? null,
+          last_call_outcome: outcome,
+          last_call_at:      now,
+          last_call_note:    note ?? null,
+          crm_stage:         CAMPAIGN_OUTCOME_TO_CRM_STAGE[outcome] ?? null,
+        },
+      })
 
-        promotion = {
-          outcome: outcomeLabel,
-          crm_lead_id: result.crmLeadId,
-          merged: result.merged,
-          alreadyPromoted: result.alreadyPromoted,
-        }
+      const outcomeLabel: PromotionOutcome = result.alreadyPromoted
+        ? 'already_promoted'
+        : result.merged
+          ? 'merged_into_existing_crm_lead'
+          : 'created_new_crm_lead'
 
-        const { error: promotedErr } = await admin.supabase
-          .from('dialer_campaign_leads')
-          .update({ status: 'promoted', updated_at: now })
-          .eq('id', campaign_lead_id)
-          .eq('campaign_id', campaignId)
-
-        if (promotedErr) {
-          console.error('[Campaign Disposition] Campaign lead promotion status update failed:', promotedErr)
-        }
-      } catch (err) {
-        console.error('[Campaign Disposition] Promotion failed:', err)
-        return NextResponse.json(
-          {
-            error: err instanceof Error ? err.message : 'CRM promotion failed',
-            promotion: { outcome: 'promotion_failed' satisfies PromotionOutcome },
-          },
-          { status: 500 },
-        )
+      promotion = {
+        outcome: outcomeLabel,
+        crm_lead_id: result.crmLeadId,
+        merged: result.merged,
+        alreadyPromoted: result.alreadyPromoted,
       }
+
+      const { error: promotedErr } = await admin.supabase
+        .from('dialer_campaign_leads')
+        .update({ status: 'promoted', updated_at: now })
+        .eq('id', campaign_lead_id)
+        .eq('campaign_id', campaignId)
+
+      if (promotedErr) {
+        console.error('[Campaign Disposition] Campaign lead promotion status update failed:', promotedErr)
+      }
+    } catch (err) {
+      console.error('[Campaign Disposition] Promotion failed:', err)
+      return NextResponse.json(
+        {
+          error: err instanceof Error ? err.message : 'CRM promotion failed',
+          promotion: { outcome: 'promotion_failed' satisfies PromotionOutcome },
+        },
+        { status: 500 },
+      )
     }
   }
 

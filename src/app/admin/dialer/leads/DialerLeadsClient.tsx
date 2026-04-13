@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
-export type DialerStage = 'new' | 'contacted' | 'interested' | 'callback' | 'follow_up' | 'qualified' | 'promoted' | 'dnc' | 'closed_lost'
+export type DialerStage = 'new' | 'contacted' | 'interested' | 'callback' | 'follow_up' | 'qualified' | 'promoted' | 'dnc' | 'closed_lost' | 'high_priority'
 
 interface RawLead {
   id: string
@@ -31,28 +31,30 @@ interface RawLead {
 }
 
 const STAGES: { key: DialerStage | 'all'; label: string; color: string }[] = [
-  { key: 'all',         label: 'All',            color: 'bg-gray-100 text-gray-700 border-gray-200' },
-  { key: 'new',         label: 'New',            color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { key: 'contacted',   label: 'Contacted',      color: 'bg-gray-50 text-gray-600 border-gray-200' },
-  { key: 'interested',  label: 'Interested',     color: 'bg-green-50 text-green-700 border-green-200' },
-  { key: 'callback',    label: 'Callback',       color: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
-  { key: 'follow_up',   label: 'Follow Up',      color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-  { key: 'qualified',   label: 'Qualified',      color: 'bg-purple-50 text-purple-700 border-purple-200' },
-  { key: 'promoted',    label: 'Promoted ✓',     color: 'bg-teal-50 text-teal-700 border-teal-200' },
-  { key: 'dnc',         label: 'DNC',            color: 'bg-red-50 text-red-700 border-red-200' },
-  { key: 'closed_lost', label: 'Closed Lost',    color: 'bg-gray-50 text-gray-500 border-gray-200' },
+  { key: 'all',           label: 'All',            color: 'bg-gray-100 text-gray-700 border-gray-200' },
+  { key: 'new',           label: 'New',            color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { key: 'contacted',     label: 'Contacted',      color: 'bg-gray-50 text-gray-600 border-gray-200' },
+  { key: 'interested',    label: 'Interested',     color: 'bg-green-50 text-green-700 border-green-200' },
+  { key: 'callback',      label: 'Callback',       color: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  { key: 'follow_up',     label: 'Follow Up',      color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  { key: 'qualified',     label: 'Qualified',      color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { key: 'promoted',      label: 'Promoted ✓',     color: 'bg-teal-50 text-teal-700 border-teal-200' },
+  { key: 'dnc',           label: 'DNC',            color: 'bg-red-50 text-red-700 border-red-200' },
+  { key: 'closed_lost',   label: 'Closed Lost',    color: 'bg-gray-50 text-gray-500 border-gray-200' },
+  { key: 'high_priority', label: 'High Priority',  color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
 ]
 
 const STAGE_BADGE: Record<string, string> = {
-  new:         'bg-blue-100 text-blue-700',
-  contacted:   'bg-gray-100 text-gray-600',
-  interested:  'bg-green-100 text-green-700',
-  callback:    'bg-cyan-100 text-cyan-700',
-  follow_up:   'bg-yellow-100 text-yellow-700',
-  qualified:   'bg-purple-100 text-purple-700',
-  promoted:    'bg-teal-100 text-teal-700',
-  dnc:         'bg-red-100 text-red-700',
-  closed_lost: 'bg-gray-100 text-gray-500',
+  new:           'bg-blue-100 text-blue-700',
+  contacted:     'bg-gray-100 text-gray-600',
+  interested:    'bg-green-100 text-green-700',
+  callback:      'bg-cyan-100 text-cyan-700',
+  follow_up:     'bg-yellow-100 text-yellow-700',
+  qualified:     'bg-purple-100 text-purple-700',
+  promoted:      'bg-teal-100 text-teal-700',
+  dnc:           'bg-red-100 text-red-700',
+  closed_lost:   'bg-gray-100 text-gray-500',
+  high_priority: 'bg-indigo-100 text-indigo-700',
 }
 
 export default function DialerLeadsClient() {

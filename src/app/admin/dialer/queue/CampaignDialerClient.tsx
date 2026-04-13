@@ -76,6 +76,10 @@ function buildDialTarget(number: string) {
   }
 }
 
+function buildTextMessage(firstName: string) {
+  return `Hey ${firstName}, this is Abel. Here's the link to set up your free account and take advantage of our free inquiry dispute tool: https://sourcifylending.com`
+}
+
 // ─── Dispositions ────────────────────────────────────────────────────────────
 const DISPOSITIONS = [
   { outcome: 'no_answer',      label: 'No Answer',      icon: PhoneMissed,   color: 'bg-gray-800 text-gray-200 hover:bg-gray-700',    next: 'attempted'    },
@@ -125,6 +129,8 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   const [emailSending, setEmailSending]   = useState(false)
   const [statusFilter, setStatusFilter]   = useState<string>('dialable')
   const [totalDialable, setTotalDialable] = useState(0)
+  const [textModalOpen, setTextModalOpen] = useState(false)
+  const [textDraft, setTextDraft]         = useState('')
 
   const current   = queue[index] ?? null
   const batchSize = queue.length
@@ -140,6 +146,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     { key: 'follow_up',  label: 'Follow Up' },
     { key: 'interested', label: 'Interested' },
     { key: 'qualified',  label: 'Qualified' },
+    { key: 'high_priority', label: 'High Priority', color: 'bg-indigo-100 text-indigo-700' },
   ]
 
   const load = useCallback(async (filter: string) => {
@@ -178,11 +185,32 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   }, [current?.id])
 
   function copyPhone() {
-    if (!current) return
-    navigator.clipboard.writeText(current.raw_lead.phone_e164 ?? current.raw_lead.phone)
+    const lead = current
+    if (!lead) return
+
+    const rawLead = lead.raw_lead
+    navigator.clipboard.writeText(rawLead.phone_e164 ?? rawLead.phone)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
     toast.success('Phone number copied')
+  }
+
+  function openTextModal() {
+    const lead = current
+    if (!lead) return
+
+    setTextDraft(buildTextMessage(lead.raw_lead.first_name))
+    setTextModalOpen(true)
+  }
+
+  async function copyText() {
+    if (!textDraft) return
+    try {
+      await navigator.clipboard.writeText(textDraft)
+      toast.success('Text copied')
+    } catch {
+      toast.error('Could not copy text')
+    }
   }
 
   function handleDial() {
@@ -203,10 +231,15 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   }
 
   async function sendIntroEmail() {
-    if (!raw?.id || !raw.email || emailSending) return
+    const lead = current
+    if (!lead || emailSending) return
+
+    const rawLead = lead.raw_lead
+    if (!rawLead.id || !rawLead.email) return
+
     setEmailSending(true)
     try {
-      const res = await fetch(`/api/admin/dialer/leads/${raw.id}/intro-email`, {
+      const res = await fetch(`/api/admin/dialer/leads/${rawLead.id}/intro-email`, {
         method: 'POST',
       })
       await res.json().catch(() => ({}))
@@ -224,15 +257,20 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   }
 
   async function saveDisposition(d: typeof DISPOSITIONS[number]) {
-    if (!current) return
+    const lead = current
+    if (!lead) return
+
+    const leadId = lead.id
+    const rawLead = lead.raw_lead
+
     setActing(true)
     try {
       const res = await fetch(`/api/admin/dialer/campaigns/${campaignId}/disposition`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          campaign_lead_id: current.id,
-          raw_lead_id:      current.raw_lead_id,
+          campaign_lead_id: leadId,
+          raw_lead_id:      rawLead.id,
           outcome:          d.outcome,
           note:             note.trim() || null,
           callback_due_at:  callbackAt || null,
@@ -258,8 +296,8 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       }
 
       // Remove from queue and advance
-      setQueue(q => q.filter((_, i) => i !== index))
-      setIndex(i => Math.min(i, queue.length - 2))
+      setQueue(q => q.filter(item => item.id !== leadId))
+      setIndex(i => Math.max(0, Math.min(i, queue.length - 2)))
       setDone(n => n + 1)
       setMobileDockMode('pre_call')
       setNote('')
@@ -347,7 +385,8 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     </div>
   )
 
-  const raw = current?.raw_lead
+  const raw = current?.raw_lead ?? null
+  const activeLeadId = current?.id ?? ''
   const dialNumber = raw ? (raw.phone_e164 ?? raw.phone) : null
   const dialTarget = dialNumber ? buildDialTarget(dialNumber) : null
 
@@ -407,7 +446,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
             {raw && (
               <div className="mt-4 space-y-3">
                 <a
-                  key={`${current?.id ?? raw.id}:${dialNumber ?? raw.phone}`}
+                  key={`${activeLeadId}:${dialNumber ?? raw.phone}`}
                   href={dialTarget?.href ?? '#'}
                   target={dialTarget?.target}
                   rel={dialTarget?.target ? 'noopener noreferrer' : undefined}
@@ -426,19 +465,27 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                   <Phone size={15} /> Dial
                 </button>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={copyPhone}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700"
+                    className="flex min-w-[92px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700"
                   >
                     {copied ? <CheckCircle size={13} /> : <Copy size={13} />}
                     {copied ? 'Copied' : 'Copy'}
+                  </button>
+                  <button
+                    onClick={openTextModal}
+                    disabled={!raw}
+                    className="flex min-w-[92px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Send size={13} />
+                    Send Text
                   </button>
                   {raw.email && (
                     <button
                       onClick={sendIntroEmail}
                       disabled={emailSending}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+                      className="flex min-w-[92px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
                     >
                       {emailSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                       {emailSending ? 'Sending...' : 'Send Email'}
@@ -526,11 +573,11 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
 
             {/* Phone — manual dial */}
             {raw && (
-              <div key={current?.id ?? raw.id} className="rounded-2xl bg-gray-900 px-5 py-4 mb-4">
+              <div key={activeLeadId} className="rounded-2xl bg-gray-900 px-5 py-4 mb-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Phone Number</p>
                 <div className="flex items-center justify-between gap-3">
                   <a
-                    key={`${current?.id ?? raw.id}:${dialNumber ?? raw.phone}`}
+                    key={`${activeLeadId}:${dialNumber ?? raw.phone}`}
                     href={dialTarget?.href ?? '#'}
                     target={dialTarget?.target}
                     rel={dialTarget?.target ? 'noopener noreferrer' : undefined}
@@ -538,16 +585,24 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                   >
                     {raw.phone}
                   </a>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button onClick={copyPhone}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-medium rounded-lg hover:bg-gray-600">
+                      className="flex min-w-[92px] items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-medium rounded-lg hover:bg-gray-600">
                       {copied ? <CheckCircle size={13} /> : <Copy size={13} />}
                       {copied ? 'Copied' : 'Copy'}
                     </button>
                     <button
+                      onClick={openTextModal}
+                      disabled={!raw}
+                      className="flex min-w-[92px] items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-medium rounded-lg hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Send size={13} />
+                      Send Text
+                    </button>
+                    <button
                       onClick={sendIntroEmail}
                       disabled={!raw.email || emailSending}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white text-xs font-semibold rounded-lg hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+                      className="flex min-w-[92px] items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white text-xs font-semibold rounded-lg hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
                     >
                       {emailSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                       {emailSending ? 'Sending...' : 'Send Email'}
@@ -721,6 +776,56 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
           )}
         </div>
       </div>
+
+      {textModalOpen && raw && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6">
+          <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-950 shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-gray-800 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-gray-100">Send Text</p>
+                <p className="text-xs text-gray-400">Manual copy helper only</p>
+              </div>
+              <button
+                onClick={() => setTextModalOpen(false)}
+                className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-700"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4 px-4 py-4">
+              <div>
+                <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                  Text message
+                </label>
+                <textarea
+                  value={textDraft}
+                  onChange={e => setTextDraft(e.target.value)}
+                  rows={5}
+                  className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:border-gray-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={copyText}
+                  disabled={!textDraft}
+                  className="flex min-w-[120px] items-center justify-center gap-1.5 rounded-xl bg-green-700 px-3 py-2 text-xs font-semibold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+                >
+                  <Copy size={13} />
+                  Copy Text
+                </button>
+                <button
+                  onClick={() => setTextModalOpen(false)}
+                  className="flex min-w-[92px] items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

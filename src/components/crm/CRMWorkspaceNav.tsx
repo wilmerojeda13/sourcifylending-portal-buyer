@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 const ITEMS = [
   { href: '/admin/crm?focus=overview', label: 'Overview', mode: 'overview' },
   { href: '/admin/crm?focus=leads', label: 'Leads', mode: 'leads' },
+  { href: '/admin/crm/email-campaigns', label: 'Email Campaigns' },
   { href: '/admin/crm?view=board', label: 'Pipeline', mode: 'pipeline' },
   { href: '/admin/crm/tasks', label: 'Tasks' },
   { href: '/admin/crm/calendar', label: 'Calendar' },

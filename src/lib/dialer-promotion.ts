@@ -20,6 +20,22 @@ type PromotionResult = {
   alreadyPromoted: boolean
 }
 
+const CRM_SOURCE_VALUES = new Set([
+  'manual',
+  'analyzer',
+  'affiliate',
+  'facebook',
+  'purchased',
+  'referral',
+  'inbound',
+  'other',
+])
+
+function normalizeCrmSource(source: string | null | undefined): string {
+  const normalized = source?.trim().toLowerCase() ?? ''
+  return CRM_SOURCE_VALUES.has(normalized) ? normalized : 'manual'
+}
+
 export type WorkflowState = {
   follow_up_at?:      string | null
   callback_due_at?:   string | null
@@ -91,7 +107,7 @@ export async function promoteToCrm(
     p_email: rawLead.email || null,
     p_business_name: rawLead.business_name || null,
     p_notes: rawLead.notes || null,
-    p_source: rawLead.source || 'dialer_import',
+    p_source: normalizeCrmSource(rawLead.source),
   })
 
   let promotionResult: PromotionResult
@@ -191,7 +207,7 @@ async function manualPromotionFallback(
 
   if (existing) {
     // Merge with existing
-    const { data: updated } = await supabase
+    const { data: updated, error: updateError } = await supabase
       .from('crm_leads')
       .update({
         first_name: rawLead.first_name || existing.first_name,
@@ -206,12 +222,20 @@ async function manualPromotionFallback(
       .eq('id', existing.id)
       .select('id')
       .single()
-    
-    crmLeadId = updated!.id
+
+    if (updateError || !updated?.id) {
+      throw new Error(
+        `Dialer promotion fallback could not merge CRM lead ${existing.id}: ${
+          updateError?.message ?? 'missing updated row'
+        }`
+      )
+    }
+
+    crmLeadId = updated.id
     merged = true
   } else {
     // Create new CRM lead
-    const { data: created } = await supabase
+    const { data: created, error: createError } = await supabase
       .from('crm_leads')
       .insert({
         first_name: rawLead.first_name || '',
@@ -221,13 +245,21 @@ async function manualPromotionFallback(
         email: rawLead.email,
         business_name: rawLead.business_name,
         notes: rawLead.notes,
-        source: rawLead.source || 'dialer_promoted',
+        source: normalizeCrmSource(rawLead.source),
         stage: 'new',
       })
       .select('id')
       .single()
-    
-    crmLeadId = created!.id
+
+    if (createError || !created?.id) {
+      throw new Error(
+        `Dialer promotion fallback could not create CRM lead: ${
+          createError?.message ?? 'missing created row'
+        }`
+      )
+    }
+
+    crmLeadId = created.id
   }
 
   // Mark raw lead as promoted

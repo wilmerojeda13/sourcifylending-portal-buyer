@@ -56,6 +56,7 @@ export default function TasksClient() {
   const [bucket, setBucket] = useState('today')
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [owners, setOwners] = useState<OwnerOption[]>([])
+  const [ownersLoaded, setOwnersLoaded] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [bulkDueAt, setBulkDueAt] = useState('')
@@ -74,19 +75,6 @@ export default function TasksClient() {
   useEffect(() => {
     load(bucket)
   }, [bucket])
-
-  useEffect(() => {
-    let active = true
-    fetch('/api/admin/crm/owners', { cache: 'no-store' })
-      .then((response) => response.json())
-      .then((json) => {
-        if (active) setOwners(json.owners ?? [])
-      })
-      .catch(() => {})
-    return () => {
-      active = false
-    }
-  }, [])
 
   const grouped = useMemo(() => {
     return tasks.reduce<Record<string, TaskRecord[]>>((acc, task) => {
@@ -110,6 +98,25 @@ export default function TasksClient() {
     selectAllFiltered,
     removeIds,
   } = useBulkSelection(visibleTaskIds, visibleTaskIds)
+
+  useEffect(() => {
+    if (ownersLoaded || selectedCount === 0) return
+
+    let active = true
+    fetch('/api/admin/crm/owners', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((json) => {
+        if (active) {
+          setOwners(json.owners ?? [])
+          setOwnersLoaded(true)
+        }
+      })
+      .catch(() => {})
+
+    return () => {
+      active = false
+    }
+  }, [ownersLoaded, selectedCount])
 
   async function createTask(e: React.FormEvent) {
     e.preventDefault()

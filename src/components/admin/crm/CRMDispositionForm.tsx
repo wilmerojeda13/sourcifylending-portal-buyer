@@ -5,6 +5,7 @@ import {
   Ban,
   CalendarPlus,
   Clock3,
+  ChevronDown,
   Loader2,
   PhoneMissed,
   PhoneOff,
@@ -114,7 +115,7 @@ export default function CRMDispositionForm({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 md:space-y-4">
       {lastDisposition && (
         <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm dark:border-gray-800 dark:bg-gray-900/60">
           <div className="font-semibold text-gray-900 dark:text-white">{lastDisposition.label}</div>
@@ -132,7 +133,7 @@ export default function CRMDispositionForm({
         {UI_DISPOSITIONS.map((disposition) => {
           const Icon = disposition.icon
           return (
-              <button
+            <button
               key={disposition.key}
               type="button"
               onClick={() => handleDispositionSelect(disposition.key)}
@@ -151,7 +152,24 @@ export default function CRMDispositionForm({
         })}
       </div>
 
-      <div className="space-y-2">
+      <details className="rounded-xl border border-gray-200 bg-gray-50 md:hidden dark:border-gray-800 dark:bg-gray-900/60">
+        <summary className="flex list-none items-center justify-between gap-3 px-3 py-2.5">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Call note</p>
+            <p className="mt-0.5 text-xs text-gray-500">Collapsed by default</p>
+          </div>
+          <ChevronDown size={14} className="text-gray-400" />
+        </summary>
+        <div className="border-t border-gray-200 px-3 pb-3 pt-3 dark:border-gray-800">
+          <textarea
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            className="input-field min-h-[72px] text-sm"
+            placeholder="Add context for the timeline and follow-up."
+          />
+        </div>
+      </details>
+      <div className="space-y-2 hidden md:block">
         <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Notes</label>
         <textarea
           value={note}
@@ -161,7 +179,27 @@ export default function CRMDispositionForm({
         />
       </div>
 
-      <div className="space-y-2">
+      <details className="rounded-xl border border-gray-200 bg-gray-50 md:hidden dark:border-gray-800 dark:bg-gray-900/60">
+        <summary className="flex list-none items-center justify-between gap-3 px-3 py-2.5">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Follow-up</p>
+            <p className="mt-0.5 text-xs text-gray-500">Collapsed by default</p>
+          </div>
+          {selectedDisposition?.needsFollowUp && <span className="text-[11px] font-semibold text-red-500">Required</span>}
+        </summary>
+        <div className="border-t border-gray-200 px-3 pb-3 pt-3 dark:border-gray-800">
+          <input
+            type="datetime-local"
+            value={followUpAt}
+            onChange={(event) => setFollowUpAt(event.target.value)}
+            className={cn(
+              'input-field text-sm',
+              selectedDisposition?.needsFollowUp && !followUpAt ? 'border-red-300 focus:border-red-400' : '',
+            )}
+          />
+        </div>
+      </details>
+      <div className="space-y-2 hidden md:block">
         <div className="flex items-center justify-between">
           <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Follow-up date/time</label>
           {selectedDisposition?.needsFollowUp && <span className="text-[11px] font-semibold text-red-500">Required</span>}
