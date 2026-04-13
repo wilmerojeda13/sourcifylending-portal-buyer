@@ -147,6 +147,36 @@ function buildLeadName(lead: CrmLead): string {
   return fullName || lead.business_name || 'Lead'
 }
 
+// STRICT JUNK DETECTION - Non-negotiable for queue quality
+const JUNK_KEYWORDS = new Set([
+  'STOP', 'opt out', 'opt-out', 'unsubscribe', 'Message frequency',
+  'reply stop', 'Reply STOP', 'text stop', 'help info',
+  'auto-confirm', 'automated message', 'do not reply',
+  'sms terms', 'terms and conditions', 'privacy policy',
+  'carrier rates', 'msg&data', 'msg & data', 'data rates',
+])
+
+const DIGIT_SEQUENCE_REGEX = /\d{6,}/ // 6+ consecutive digits = junk
+
+function isJunkLead(lead: DialerRawLead): boolean {
+  const allText = `${lead.first_name} ${lead.last_name || ''} ${lead.email || ''} ${lead.business_name || ''} ${lead.notes || ''}`
+  
+  // Check for >5 consecutive digits in first_name (using 6+ as strict threshold)
+  if (DIGIT_SEQUENCE_REGEX.test(lead.first_name)) {
+    return true
+  }
+  
+  // Check for SMS/junk keywords anywhere
+  const lowerText = allText.toLowerCase()
+  for (const keyword of JUNK_KEYWORDS) {
+    if (lowerText.includes(keyword.toLowerCase())) {
+      return true
+    }
+  }
+  
+  return false
+}
+
 // Action 0: Scrub dialer_raw_leads for professional emails -> high_priority stage
 async function scrubDialerLeadsForPriority(): Promise<{
   processed: number
@@ -155,10 +185,12 @@ async function scrubDialerLeadsForPriority(): Promise<{
 }> {
   console.log('\n🔍 Scrubbing dialer_raw_leads for professional emails...')
   console.log(`   Target campaign: "${CONFIG.SCRUB_CAMPAIGN_NAME}"`)
+  console.log('   🛡️  STRICT MODE: Junk detection active (>5 digits or SMS keywords)')
 
   const errors: string[] = []
   let processed = 0
   let upgraded = 0
+  let skipped = 0
 
   try {
     // Find the scrub campaign
@@ -214,6 +246,13 @@ async function scrubDialerLeadsForPriority(): Promise<{
 
       if (!lead.email) continue
 
+      // STRICT: Skip junk leads immediately
+      if (isJunkLead(lead)) {
+        skipped++
+        console.log(`   🗑️  JUNK DETECTED (skipping): ${lead.first_name} ${lead.last_name || ''}`)
+        continue
+      }
+
       if (isProfessionalEmail(lead.email)) {
         console.log(`   ✓ Professional: ${lead.email} (${lead.first_name} ${lead.last_name ?? ''})`)
 
@@ -252,6 +291,8 @@ async function scrubDialerLeadsForPriority(): Promise<{
         })
       }
     }
+    
+    console.log(`\n   📊 Results: ${processed} processed, ${upgraded} upgraded, ${skipped} junk skipped`)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     errors.push(`Fatal error in scrubDialerLeadsForPriority: ${message}`)

@@ -95,7 +95,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .update(rawUpdate)
     .eq('id', raw_lead_id)
 
-  // 3. CRM promotion (qualified or explicit promote flag)
+  // 3. Log analytics (wrapped in try/catch - non-fatal to disposition)
+  try {
+    await admin.supabase.from('dialer_analytics_logs').insert({
+      campaign_id: campaignId,
+      campaign_lead_id,
+      raw_lead_id,
+      outcome,
+      note: note || null,
+      user_id: admin.userId,
+      created_at: now,
+    })
+  } catch (analyticsErr) {
+    console.error('[Campaign Disposition] Analytics log failed (non-fatal):', analyticsErr)
+  }
+
+  // 4. CRM promotion (qualified or explicit promote flag)
   let promotion:
     | {
         outcome: PromotionOutcome

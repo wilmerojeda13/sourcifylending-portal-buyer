@@ -34,7 +34,7 @@ function containsJunkKeywords(value: string | null): boolean {
 }
 
 // Check if a lead appears to be junk/SMS garbage
-function isJunkLead(lead: { first_name?: string; last_name?: string | null; email?: string | null; business_name?: string | null; notes?: string | null }): boolean {
+function isJunkLead(lead: { first_name?: string | null; last_name?: string | null; email?: string | null; business_name?: string | null; notes?: string | null }): boolean {
   const allText = [
     lead.first_name,
     lead.last_name,
@@ -44,8 +44,8 @@ function isJunkLead(lead: { first_name?: string; last_name?: string | null; emai
   ].filter(Boolean).join(' ')
 
   // Check for long digit sequences in name or email
-  if (hasLongDigitSequence(lead.first_name, 4)) return true
-  if (hasLongDigitSequence(lead.email, 4)) return true
+  if (hasLongDigitSequence(lead.first_name ?? null, 4)) return true
+  if (hasLongDigitSequence(lead.email ?? null, 4)) return true
 
   // Check for junk keywords anywhere
   if (containsJunkKeywords(allText)) return true
