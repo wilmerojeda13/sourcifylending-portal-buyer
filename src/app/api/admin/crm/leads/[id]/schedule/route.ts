@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { createLeadCalendarBooking } from '@/lib/crm-calendar-events'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -28,6 +27,24 @@ function buildConnectUrl(leadId: string) {
   return `/api/admin/crm/google-calendar/connect?lead_id=${encodeURIComponent(leadId)}&next=${encodeURIComponent(next)}`
 }
 
+function buildGoogleCalendarUrl(params: {
+  title: string
+  start: string
+  end: string
+  timezone: string
+  leadEmail?: string | null
+  details?: string | null
+}) {
+  const url = new URL('https://calendar.google.com/calendar/render')
+  url.searchParams.set('action', 'TEMPLATE')
+  url.searchParams.set('text', params.title)
+  url.searchParams.set('dates', `${params.start.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}/${params.end.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}`)
+  url.searchParams.set('ctz', params.timezone)
+  if (params.details) url.searchParams.set('details', params.details)
+  if (params.leadEmail) url.searchParams.set('add', params.leadEmail)
+  return url.toString()
+}
+
 async function createLocalBooking(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
   lead: Record<string, any>,
@@ -35,6 +52,7 @@ async function createLocalBooking(
   body: { slot_start: string; duration_minutes: number; notes?: string | null; timezone?: string | null },
 ) {
   const slotEnd = new Date(new Date(body.slot_start).getTime() + body.duration_minutes * 60 * 1000).toISOString()
+  const timezone = body.timezone || lead.likely_timezone || 'America/New_York'
   const leadName = [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim() || 'Lead'
   const taskTitle = `Demo: ${leadName}`
 
@@ -46,7 +64,7 @@ async function createLocalBooking(
       description: [
         'Google Calendar booking could not be created.',
         body.notes?.trim() ? `Prep notes: ${body.notes.trim()}` : null,
-        `Timezone: ${body.timezone || lead.likely_timezone || 'America/New_York'}`,
+        `Timezone: ${timezone}`,
         `Requested slot: ${new Date(body.slot_start).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`,
       ].filter(Boolean).join('\n'),
       task_type: 'Book Call',
@@ -64,7 +82,7 @@ async function createLocalBooking(
         google_calendar_fallback: true,
         slot_start: body.slot_start,
         slot_end: slotEnd,
-        timezone: body.timezone || lead.likely_timezone || 'America/New_York',
+        timezone,
       },
     })
     .select('*')
@@ -105,7 +123,7 @@ async function createLocalBooking(
       fallback: true,
     },
     created_by: admin.userName,
-  })
+    })
 
   return {
     event: {
@@ -118,9 +136,21 @@ async function createLocalBooking(
       status: 'confirmed',
       type: 'demo' as const,
       source: 'google' as const,
-      timeZone: body.timezone || lead.likely_timezone || 'America/New_York',
+      timeZone: timezone,
     },
     lead: updatedLead,
+    googleCalendarUrl: buildGoogleCalendarUrl({
+      title: taskTitle,
+      start: body.slot_start,
+      end: slotEnd,
+      timezone,
+      leadEmail: typeof lead.email === 'string' ? lead.email : null,
+      details: [
+        `Lead: ${leadName}`,
+        lead.business_name ? `Business: ${lead.business_name}` : null,
+        body.notes?.trim() ? `Notes: ${body.notes.trim()}` : null,
+      ].filter(Boolean).join('\n'),
+    }),
   }
 }
 
@@ -145,85 +175,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
   }
 
-  const connectUrl = buildConnectUrl(id)
-
   try {
-    const event = await createLeadCalendarBooking(admin.supabase, lead, {
-      slotStart: body.slot_start,
-      durationMinutes: typeof body.duration_minutes === 'number' ? body.duration_minutes : 30,
+    const fallback = await createLocalBooking(admin.supabase, lead, admin, {
+      slot_start: body.slot_start,
+      duration_minutes: typeof body.duration_minutes === 'number' ? body.duration_minutes : 30,
       notes: typeof body.notes === 'string' ? body.notes : null,
       timezone: typeof body.timezone === 'string' ? body.timezone : null,
     })
 
-    const { data: updatedLead, error: updateError } = await admin.supabase
-      .from('crm_leads')
-      .update({
-        stage: 'demo_scheduled',
-        strategy_call_booked: true,
-        follow_up_at: event.start,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select('*')
-      .single()
-
-    if (updateError) {
-      throw updateError
-    }
-
-    await admin.supabase
-      .from('crm_activities')
-      .insert({
-        lead_id: id,
-        type: 'follow_up_set',
-        body: `Calendar demo booked for ${new Date(event.start).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`,
-        metadata: {
-          event_id: event.id,
-          event_type: event.type,
-          event_status: event.status,
-          event_start: event.start,
-          event_end: event.end,
-          event_timezone: event.timeZone,
-          event_link: event.htmlLink,
-        },
-        created_by: admin.userName,
-      })
-
     return NextResponse.json({
-      event,
-      lead: updatedLead,
+      event: fallback.event,
+      lead: fallback.lead,
+      google_calendar_url: fallback.googleCalendarUrl,
     }, { status: 201 })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to create calendar booking.'
-    const authRequired = /missing google oauth credentials|token refresh failed|invalid_grant|unauthorized/i.test(message)
-
-    if (authRequired) {
-      return NextResponse.json({
-        error: 'Google Calendar authorization is required.',
-        auth_required: true,
-        auth_url: connectUrl,
-        details: message,
-      }, { status: 428 })
-    }
-
-    try {
-      const fallback = await createLocalBooking(admin.supabase, lead, admin, {
-        slot_start: body.slot_start,
-        duration_minutes: typeof body.duration_minutes === 'number' ? body.duration_minutes : 30,
-        notes: typeof body.notes === 'string' ? body.notes : null,
-        timezone: typeof body.timezone === 'string' ? body.timezone : null,
-      })
-
-      return NextResponse.json({
-        ...fallback,
-        warning: 'Google Calendar sync failed. The appointment was saved to CRM only.',
-      }, { status: 201 })
-    } catch (fallbackError) {
-      console.error('[crm schedule] failed to create calendar booking', error)
-      console.error('[crm schedule] local CRM fallback also failed', fallbackError)
-      return NextResponse.json({
-        error: message,
-      }, { status: 500 })
-    }
+    console.error('[crm schedule] failed to create CRM booking', error)
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Unable to create calendar booking.',
+    }, { status: 500 })
   }
 }

@@ -355,14 +355,10 @@ function SendEmailModal({
 
 function BookDemoModal({
   lead,
-  calendarEnabled,
-  calendarAuthUrl,
   onClose,
   onBooked,
 }: {
   lead: CRMLead
-  calendarEnabled: boolean
-  calendarAuthUrl: string
   onClose: () => void
   onBooked: (event: LeadCalendarEvent, updatedLead: CRMLead, warning?: string) => void
 }) {
@@ -384,6 +380,7 @@ function BookDemoModal({
     }
 
     setSaving(true)
+    const popup = window.open('', '_blank', 'noopener,noreferrer')
     try {
       const response = await fetch(`/api/admin/crm/leads/${lead.id}/schedule`, {
         method: 'POST',
@@ -396,29 +393,28 @@ function BookDemoModal({
         }),
       })
       const json = await response.json()
-      if (response.status === 428 && json.auth_required && json.auth_url) {
-        window.location.assign(json.auth_url)
-        return
-      }
       if (!response.ok) {
+        popup?.close()
         toast.error(json.error || 'Unable to create calendar booking')
         return
+      }
+      if (json.google_calendar_url) {
+        if (popup) {
+          popup.location.href = json.google_calendar_url
+        } else {
+          window.open(json.google_calendar_url, '_blank', 'noopener,noreferrer')
+        }
+      } else {
+        popup?.close()
       }
       onBooked(json.event, json.lead, json.warning)
       onClose()
     } catch {
+      popup?.close()
       toast.error('Unable to create calendar booking')
     } finally {
       setSaving(false)
     }
-  }
-
-  function handlePrimaryAction() {
-    if (!calendarEnabled) {
-      window.location.assign(calendarAuthUrl)
-      return
-    }
-    void confirm()
   }
 
   return (
@@ -439,11 +435,6 @@ function BookDemoModal({
             {lead.business_name && <p className="text-xs text-gray-500">{lead.business_name}</p>}
             <p className="mt-0.5 text-xs text-gray-500">{lead.phone}</p>
           </div>
-          {!calendarEnabled && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300">
-              Google Calendar is not configured. Scheduling from the contact page is unavailable until CRM calendar credentials are connected.
-            </div>
-          )}
           <div>
             <label className="label">Date & Time</label>
             <input className="input-field" type="datetime-local" value={dateTime} onChange={(event) => setDateTime(event.target.value)} />
@@ -466,9 +457,9 @@ function BookDemoModal({
             <textarea className="input-field min-h-[96px] resize-y text-sm" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional prep notes for the booking." />
           </div>
           <div className="flex gap-3 pt-1">
-            <button onClick={handlePrimaryAction} disabled={saving} className="btn-primary flex flex-1 items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
+            <button onClick={confirm} disabled={saving} className="btn-primary flex flex-1 items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
               {saving ? <Loader2 size={15} className="animate-spin" /> : <CalendarPlus size={15} />}
-              {calendarEnabled ? 'Book on Calendar' : 'Connect Google Calendar'}
+              Book Demo
             </button>
             <button onClick={onClose} className="btn-secondary px-5">Cancel</button>
           </div>
@@ -565,7 +556,6 @@ export default function LeadDetailClient({
   const nextCalendarEvent = calendarSummary.nextEvent ?? upcomingEvents[0] ?? null
   const emailActivities = activities.filter((activity) => activity.type === 'email').slice(0, 4)
   const recentCalls = calls.slice(0, 5)
-  const calendarAuthUrl = `/api/admin/crm/google-calendar/connect?lead_id=${encodeURIComponent(lead.id)}&next=${encodeURIComponent(`/admin/crm/${lead.id}?book_demo=1`)}`
 
   function setEF<K extends keyof typeof editForm>(key: K, value: typeof editForm[K]) {
     setEditForm((current) => ({ ...current, [key]: value }))
@@ -1503,7 +1493,7 @@ export default function LeadDetailClient({
           </div>
         </div>
       )}
-      {showBookDemo && <BookDemoModal lead={lead} calendarEnabled={calendarSummary.configured} calendarAuthUrl={calendarAuthUrl} onClose={() => setShowBookDemo(false)} onBooked={handleDemoBooked} />}
+      {showBookDemo && <BookDemoModal lead={lead} onClose={() => setShowBookDemo(false)} onBooked={handleDemoBooked} />}
       {showEmail && <SendEmailModal lead={lead} onClose={() => setShowEmail(false)} onSent={handleEmailSent} />}
     </div>
   )
