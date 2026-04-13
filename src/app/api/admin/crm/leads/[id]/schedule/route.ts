@@ -92,25 +92,22 @@ async function createLocalBooking(
     description: string | null
     status: string | null
     source: 'appointment' | 'task'
-  } | null =
-    appointment && !appointmentError
-      ? {
-          id: appointment.id,
-          title: appointment.title,
-          description: appointment.description,
-          status: appointment.status,
-          source: 'appointment' as const,
-        }
-      : null
+  } | null = appointment && !appointmentError
+    ? {
+        id: appointment.id,
+        title: appointment.title,
+        description: appointment.description,
+        status: appointment.status,
+        source: 'appointment' as const,
+      }
+    : null
 
   if (!record) {
-    const missingAppointmentsTable =
-      appointmentError?.code === '42P01' ||
-      /appointments/i.test(appointmentError?.message || '') ||
-      /relation .*appointments.* does not exist/i.test(appointmentError?.message || '')
-
-    if (!missingAppointmentsTable) {
-      throw appointmentError || new Error('Unable to save CRM appointment.')
+    if (appointmentError) {
+      console.warn('[crm schedule] appointments insert failed, using crm_tasks fallback', {
+        code: (appointmentError as { code?: string }).code,
+        message: appointmentError.message,
+      })
     }
 
     const { data: task, error: taskError } = await supabase
