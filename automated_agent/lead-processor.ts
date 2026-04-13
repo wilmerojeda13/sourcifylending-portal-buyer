@@ -143,8 +143,8 @@ const FORBIDDEN_DOMAINS = new Set([
   'sina.com', 'sohu.com', 'foxmail.com', 'hey.com', 'fastmail.com'
 ])
 
-// STRICT: 4+ consecutive digits = REJECT
-const JUNK_DIGIT_REGEX = /\d{4,}/
+// ULTRA STRICT: Any digit in name = REJECT
+const ANY_DIGIT_REGEX = /\d/
 
 // SMS/Junk keywords that indicate automated replies or spam
 const JUNK_KEYWORDS = new Set([
@@ -169,8 +169,8 @@ function isJunkLead(lead: DialerRawLead): boolean {
   const firstName = lead.first_name.trim()
   const email = lead.email.trim().toLowerCase()
   
-  // Check 3: Email MUST contain '@'
-  if (!email.includes('@')) {
+  // Check 3: Email MUST contain '@' AND '.'
+  if (!email.includes('@') || !email.includes('.')) {
     return true
   }
   
@@ -180,12 +180,17 @@ function isJunkLead(lead: DialerRawLead): boolean {
     return true
   }
   
-  // Check 5: first_name MUST NOT have 4+ consecutive digits
-  if (JUNK_DIGIT_REGEX.test(firstName)) {
+  // Check 5: first_name MUST be at least 2 characters
+  if (firstName.length < 2) {
     return true
   }
   
-  // Check 6: No junk keywords anywhere
+  // Check 6: first_name MUST contain NO numbers (any digit = reject)
+  if (ANY_DIGIT_REGEX.test(firstName)) {
+    return true
+  }
+  
+  // Check 7: No junk keywords anywhere
   const allText = `${firstName} ${lead.last_name || ''} ${email} ${lead.business_name || ''} ${lead.notes || ''}`.toLowerCase()
   const keywordsArray = Array.from(JUNK_KEYWORDS)
   for (const keyword of keywordsArray) {

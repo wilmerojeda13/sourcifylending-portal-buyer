@@ -235,7 +235,23 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     if (!lead || emailSending) return
 
     const rawLead = lead.raw_lead
-    if (!rawLead.id || !rawLead.email) return
+    
+    // STRICT CHECK: Must have valid email with @ and .
+    if (!rawLead?.email || typeof rawLead.email !== 'string') {
+      console.warn('Email send skipped: No email for lead', rawLead?.id)
+      return
+    }
+    
+    const email = rawLead.email.trim()
+    if (!email.includes('@') || !email.includes('.')) {
+      console.warn('Email send skipped: Invalid email format', email)
+      return
+    }
+    
+    if (!rawLead.id) {
+      console.warn('Email send skipped: No lead ID')
+      return
+    }
 
     setEmailSending(true)
     try {
@@ -244,13 +260,14 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       })
       await res.json().catch(() => ({}))
       if (!res.ok) {
-        toast.error('Could not send intro email.')
+        console.warn('Intro email API returned error:', res.status)
         return
       }
 
       toast.success('Intro email sent.')
-    } catch {
-      toast.error('Could not send intro email.')
+    } catch (err) {
+      console.warn('Intro email send failed:', err)
+      // No toast error - just log to console
     } finally {
       setEmailSending(false)
     }
@@ -292,6 +309,9 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       return
     }
     
+    // Get local timestamp for timezone-accurate analytics
+    const localTimestamp = new Date().toISOString()
+    
     try {
       const res = await fetch(`/api/admin/dialer/campaigns/${campaignId}/disposition`, {
         method: 'POST',
@@ -303,6 +323,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
           note:             safeNote,
           callback_due_at:  safeCallbackAt,
           promote:          ('promote' in d && (d as { promote?: boolean }).promote) || false,
+          client_timestamp: localTimestamp, // For timezone sync
         }),
       })
       
