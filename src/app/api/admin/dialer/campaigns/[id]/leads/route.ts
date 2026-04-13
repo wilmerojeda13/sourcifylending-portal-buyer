@@ -115,7 +115,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ leads, total: leads.length })
   }
 
-  // Paginated list for campaign detail view
+  // Dialer queue filters: ALL status-based queues must exclude already-called leads
+  // to prevent rehashing (New, Attempted, Callbacks, Follow Up, Interested, Qualified)
+  // CRITICAL: Only undialable leads (promoted, dnc, closed_lost) should show called leads
+  const isDialerQueue = status && ['new', 'attempted', 'callback', 'follow_up', 'interested', 'qualified'].includes(status)
+
+  // Paginated list for campaign detail view / dialer queues
   const from = page * limit
   const to   = from + limit - 1
 
@@ -125,6 +130,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     .select('*', { count: 'exact', head: true })
     .eq('campaign_id', params.id)
   if (status) countQ = countQ.eq('status', status)
+  // STRICT: Dialer queues never show leads that have been called
+  if (isDialerQueue) countQ = countQ.is('last_called_at', null)
   const { count: total } = await countQ
 
   // Fetch the current page
@@ -145,6 +152,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     .order('added_at',   { ascending: true })
     .range(from, to)
   if (status) query = query.eq('status', status)
+  // STRICT: Dialer queues never show leads that have been called
+  if (isDialerQueue) query = query.is('last_called_at', null)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
