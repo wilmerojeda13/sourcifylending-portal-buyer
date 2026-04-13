@@ -6,7 +6,7 @@ import {
   Phone, ChevronRight, Building2, Loader2, CheckCircle2,
   ThumbsUp, ThumbsDown, Voicemail, PhoneMissed,
   CalendarPlus, Ban, Clock, ArrowRight, Copy, AlertTriangle,
-  CheckCircle, Globe, Send, Mail,
+  CheckCircle, Globe, Send, Mail, Pencil, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -110,6 +110,123 @@ function CallWindowBadge({ lead }: { lead: RawLead }) {
     <span className="flex items-center gap-1 text-[11px] text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
       <Globe size={11} /> Unknown timezone
     </span>
+  )
+}
+
+const DEFAULT_SCRIPT = `Hey, is this {first_name}? Great. My name is Abel with SourcifyLending.com. The reason I'm calling is because it looks like your business had inquired for funding in the past. Just wanted to see if you already found the funding you were seeking, or did you ever find a solution?
+
+THE PIVOT: Well, the reason I'm reaching out is because on average, I help my clients get anywhere from $50,000 to $100,000 in 0% interest business funding—or business credit cards from places like Chase or Bank of America. Just wanted to see if you had a quick minute to run it by you and see if we're a good fit?
+
+THE STRATEGY:
+Step 1: You set up a free account and run the Business Analyzer to scan for any 'blind spots' the banks look for.
+Step 2: We underwrite everything in-house without doing any hard credit inquiries, so your score is protected.
+Step 3: We determine if you're ready to get the funding now, or if we need to address any red flags on the credit side first.
+
+Does that sound like a better direction for you?`
+
+// ─── ScriptCard ──────────────────────────────────────────────────────────────
+function ScriptCard({ firstName }: { firstName: string }) {
+  const [script, setScript]         = useState(DEFAULT_SCRIPT)
+  const [draft, setDraft]           = useState(DEFAULT_SCRIPT)
+  const [editing, setEditing]       = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const [collapsed, setCollapsed]   = useState(true)
+  const [loaded, setLoaded]         = useState(false)
+
+  useEffect(() => {
+    fetch('/api/admin/settings/sales_script')
+      .then(r => r.json())
+      .then(j => {
+        if (j.value) {
+          setScript(j.value)
+          setDraft(j.value)
+        }
+        setLoaded(true)
+      })
+      .catch(() => setLoaded(true))
+  }, [])
+
+  async function save() {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/settings/sales_script', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: draft }),
+      })
+      if (!res.ok) throw new Error('Save failed')
+      setScript(draft)
+      setEditing(false)
+      toast.success('Script saved')
+    } catch {
+      toast.error('Could not save script')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function cancel() {
+    setDraft(script)
+    setEditing(false)
+  }
+
+  const rendered = script.replace(/\{first_name\}/g, firstName || 'there')
+
+  return (
+    <div className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
+      <button
+        onClick={() => setCollapsed(c => !c)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left"
+      >
+        <span className="text-xs font-semibold uppercase tracking-widest text-indigo-400">📋 Sales Script</span>
+        <div className="flex items-center gap-2">
+          {!editing && loaded && (
+            <span
+              role="button"
+              onClick={e => { e.stopPropagation(); setCollapsed(false); setEditing(true) }}
+              className="flex items-center gap-1 rounded-lg bg-gray-800 px-2 py-1 text-[11px] text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+            >
+              <Pencil size={11} /> Edit
+            </span>
+          )}
+          {collapsed ? <ChevronDown size={15} className="text-gray-500" /> : <ChevronUp size={15} className="text-gray-500" />}
+        </div>
+      </button>
+
+      {!collapsed && (
+        <div className="px-4 pb-4">
+          {editing ? (
+            <>
+              <textarea
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                rows={12}
+                className="w-full rounded-xl border border-gray-700 bg-gray-950 px-3 py-2.5 text-xs text-gray-100 leading-relaxed resize-y focus:outline-none focus:border-indigo-500"
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={save}
+                  disabled={saving}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-60"
+                >
+                  {saving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  onClick={cancel}
+                  disabled={saving}
+                  className="flex-1 rounded-xl bg-gray-800 px-4 py-2 text-xs font-semibold text-gray-300 hover:bg-gray-700 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap">{rendered}</p>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -488,6 +605,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
 
       <div className="max-w-5xl mx-auto px-4 py-4 sm:px-6 lg:py-6">
         <div className="lg:hidden space-y-4 pb-[calc(18rem+env(safe-area-inset-bottom))]">
+          <ScriptCard firstName={raw?.first_name ?? ''} />
           <div className="rounded-2xl border border-gray-800 bg-gray-900 p-4 overflow-x-hidden">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
