@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
   Phone, ChevronRight, Building2, Loader2, CheckCircle2,
-  ThumbsUp, ThumbsDown, Voicemail, PhoneMissed,
+  ThumbsUp, ThumbsDown, Voicemail, PhoneMissed, PhoneOff,
   CalendarPlus, Ban, Clock, ArrowRight, Copy, AlertTriangle,
   CheckCircle, Globe, Send, Mail, Pencil, ChevronDown, ChevronUp,
 } from 'lucide-react'
@@ -92,6 +92,7 @@ const DISPOSITIONS = [
   { outcome: 'follow_up',      label: 'Follow Up',      icon: Clock,         color: 'bg-yellow-700 text-white hover:bg-yellow-600',   next: 'follow_up'    },
   { outcome: 'qualified',      label: 'Qualified →CRM', icon: CheckCircle2,  color: 'bg-purple-700 text-white hover:bg-purple-600',   next: 'qualified', promote: true },
   { outcome: 'not_interested', label: 'Not Interested', icon: ThumbsDown,    color: 'bg-red-900 text-red-200 hover:bg-red-800',       next: 'closed_lost'  },
+  { outcome: 'disconnected',   label: 'Disconnected',   icon: PhoneOff,      color: 'bg-orange-800 text-orange-200 hover:bg-orange-700', next: 'dnc'         },
   { outcome: 'dnc',            label: 'DNC',            icon: Ban,           color: 'bg-red-700 text-white hover:bg-red-600',         next: 'dnc'          },
 ] as const
 
@@ -251,9 +252,10 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   const [textModalOpen, setTextModalOpen] = useState(false)
   const [textDraft, setTextDraft]         = useState('')
 
-  // Session-level DNC guard: raw_lead IDs marked DNC this session.
-  // Survives load() calls so a race condition can't re-show a DNC lead.
-  const dncIdsRef = useRef<Set<string>>(new Set())
+  // Session-level DNC guard: raw_lead IDs and phone numbers marked DNC this session.
+  // Both refs survive load() calls so race conditions can't re-surface a blocked lead.
+  const dncIdsRef    = useRef<Set<string>>(new Set())
+  const dncPhonesRef = useRef<Set<string>>(new Set())
 
   const current   = queue[index] ?? null
   const batchSize = queue.length
@@ -289,7 +291,9 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       // where load() fires while a disposition API call is still in-flight)
       setQueue(
         (leadsJson.leads ?? []).filter(
-          (l: CampaignLead) => !dncIdsRef.current.has(l.raw_lead?.id)
+          (l: CampaignLead) =>
+            !dncIdsRef.current.has(l.raw_lead?.id) &&
+            !dncPhonesRef.current.has(l.raw_lead?.phone)
         )
       )
       // Compute accurate total from status_counts view (not capped batch)
@@ -424,11 +428,13 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     const safeNote = safeString(note)
     const safeCallbackAt = safeString(callbackAt)
     
-    // Track DNC leads immediately in the session guard (before API call).
-    // This prevents the lead from re-appearing if load() is called while the
-    // API is still in-flight, or if the API call fails.
-    if (safeOutcome === 'dnc' && safeRawLeadId) {
+    // Track DNC/Disconnected leads immediately in the session guard (before API call).
+    // Both ID and phone are blocked so even duplicate records with the same number
+    // cannot re-appear if load() fires while the API call is still in-flight.
+    if ((safeOutcome === 'dnc' || safeOutcome === 'disconnected') && safeRawLeadId) {
       dncIdsRef.current.add(safeRawLeadId)
+      const rawPhone = rawLead?.phone_e164 ?? rawLead?.phone
+      if (rawPhone) dncPhonesRef.current.add(rawPhone)
     }
 
     // Must have valid IDs and outcome

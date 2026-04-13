@@ -93,10 +93,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .order('sort_order',     { ascending: true })
       .range(0, 999999)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const seenPhones = new Set<string>()
     const leads = (data ?? []).filter(l => {
-      const raw = (l as unknown as { raw_lead?: { do_not_call?: boolean; is_archived?: boolean; industry?: string | null; business_name?: string | null } }).raw_lead
+      const raw = (l as unknown as { raw_lead?: { do_not_call?: boolean; is_archived?: boolean; industry?: string | null; business_name?: string | null; phone?: string | null; phone_e164?: string | null } }).raw_lead
       if (!raw || raw.do_not_call || raw.is_archived) return false
       if (isBlacklistedIndustry({ industry: raw.industry, business_name: raw.business_name })) return false
+      // DISTINCT ON phone: never surface the same number twice in one queue fetch
+      const phone = raw.phone_e164 ?? raw.phone
+      if (phone) {
+        if (seenPhones.has(phone)) return false
+        seenPhones.add(phone)
+      }
       return true
     }).map(l => {
       const raw = (l as unknown as { raw_lead?: { industry?: string | null; business_name?: string | null } }).raw_lead

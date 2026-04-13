@@ -28,6 +28,7 @@ const OUTCOME_TO_STATUS: Record<string, CampaignLeadStatus> = {
   follow_up:      'follow_up',
   qualified:      'qualified',
   not_interested: 'closed_lost',
+  disconnected:   'dnc',
   dnc:            'dnc',
 }
 
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     last_call_at:      now,
     updated_at:        now,
   }
-  if (outcome === 'dnc') {
+  if (outcome === 'dnc' || outcome === 'disconnected') {
     rawUpdate.do_not_call = true
     rawUpdate.stage       = 'dnc'
   }
@@ -110,8 +111,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .update(rawUpdate)
     .eq('id', raw_lead_id)
 
-  // DNC writes must succeed — a silent failure would leave the lead dialable
-  if (rawErr && outcome === 'dnc') {
+  // DNC/Disconnected writes must succeed — a silent failure would leave the lead dialable
+  if (rawErr && (outcome === 'dnc' || outcome === 'disconnected')) {
     console.error('[Campaign Disposition] DNC raw-lead update failed:', rawErr.message)
     return NextResponse.json(
       { error: `DNC update failed: ${rawErr.message}` },
