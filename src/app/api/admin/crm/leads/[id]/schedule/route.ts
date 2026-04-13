@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createLeadCalendarBooking } from '@/lib/crm-calendar-events'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -239,16 +240,60 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   try {
+    const durationMinutes = typeof body.duration_minutes === 'number' ? body.duration_minutes : 30
+    const timezone = typeof body.timezone === 'string' ? body.timezone : (lead.likely_timezone || 'America/New_York')
+
+    // Try to create Google Calendar event first
+    let calendarEvent = null
+    let googleCalendarEventId = null
+    let warning = null
+
+    try {
+      calendarEvent = await createLeadCalendarBooking(admin.supabase, lead, {
+        slotStart: body.slot_start,
+        durationMinutes,
+        notes: typeof body.notes === 'string' ? body.notes : null,
+        timezone,
+      })
+      googleCalendarEventId = calendarEvent.id
+    } catch (calendarError) {
+      console.warn('[crm schedule] Google Calendar creation failed, falling back to local booking', calendarError)
+      warning = calendarError instanceof Error ? calendarError.message : 'Calendar sync unavailable'
+    }
+
+    // Create local CRM booking
     const fallback = await createLocalBooking(admin.supabase, lead, admin, {
       slot_start: body.slot_start,
-      duration_minutes: typeof body.duration_minutes === 'number' ? body.duration_minutes : 30,
+      duration_minutes: durationMinutes,
       notes: typeof body.notes === 'string' ? body.notes : null,
-      timezone: typeof body.timezone === 'string' ? body.timezone : null,
+      timezone,
     })
+
+    // Update lead with Google Calendar event ID if successful
+    if (googleCalendarEventId) {
+      const { data: updatedLead, error: updateError } = await admin.supabase
+        .from('crm_leads')
+        .update({
+          google_calendar_event_id: googleCalendarEventId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', lead.id)
+        .select('*')
+        .single()
+
+      if (!updateError && updatedLead) {
+        return NextResponse.json({
+          event: calendarEvent || fallback.event,
+          lead: updatedLead,
+          warning,
+        }, { status: 201 })
+      }
+    }
 
     return NextResponse.json({
       event: fallback.event,
       lead: fallback.lead,
+      warning,
     }, { status: 201 })
   } catch (error) {
     console.error('[crm schedule] failed to create CRM booking', error)
