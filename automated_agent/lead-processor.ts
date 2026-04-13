@@ -187,7 +187,8 @@ function isJunkLead(lead: DialerRawLead): boolean {
   
   // Check 6: No junk keywords anywhere
   const allText = `${firstName} ${lead.last_name || ''} ${email} ${lead.business_name || ''} ${lead.notes || ''}`.toLowerCase()
-  for (const keyword of JUNK_KEYWORDS) {
+  const keywordsArray = Array.from(JUNK_KEYWORDS)
+  for (const keyword of keywordsArray) {
     if (allText.includes(keyword)) {
       return true
     }
