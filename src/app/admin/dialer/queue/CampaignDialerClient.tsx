@@ -900,6 +900,9 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
               <p className="text-xs text-gray-400">{queue[index + 1].raw_lead.phone}</p>
             </div>
           )}
+
+          {/* Script card — desktop sidebar */}
+          <ScriptCard firstName={raw?.first_name ?? ''} />
         </div>
         </div>
       </div>
