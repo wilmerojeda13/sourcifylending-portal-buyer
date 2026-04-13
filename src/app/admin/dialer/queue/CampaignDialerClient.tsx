@@ -264,22 +264,55 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     const rawLead = lead.raw_lead
 
     setActing(true)
+    
+    // HARD GATEKEEPER: Validate lead data before sending
+    const safeString = (val: unknown): string | null => {
+      if (val === null || val === undefined) return null
+      if (typeof val === 'string') return val.trim() || null
+      return String(val).trim() || null
+    }
+    
+    const safeLeadId = safeString(leadId)
+    const safeRawLeadId = safeString(rawLead?.id)
+    const safeOutcome = safeString(d.outcome)
+    const safeNote = safeString(note)
+    const safeCallbackAt = safeString(callbackAt)
+    
+    // Must have valid IDs and outcome
+    if (!safeLeadId || !safeRawLeadId || !safeOutcome) {
+      toast.error('Invalid lead data - skipping')
+      setActing(false)
+      // Still increment done count so we don't get stuck
+      setDone(n => n + 1)
+      setQueue(q => q.filter(item => item.id !== leadId))
+      setIndex(i => Math.max(0, Math.min(i, queue.length - 2)))
+      setMobileDockMode('pre_call')
+      setNote('')
+      setCallbackAt('')
+      return
+    }
+    
     try {
       const res = await fetch(`/api/admin/dialer/campaigns/${campaignId}/disposition`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          campaign_lead_id: leadId,
-          raw_lead_id:      rawLead.id,
-          outcome:          d.outcome,
-          note:             note.trim() || null,
-          callback_due_at:  callbackAt || null,
+          campaign_lead_id: safeLeadId,
+          raw_lead_id:      safeRawLeadId,
+          outcome:          safeOutcome,
+          note:             safeNote,
+          callback_due_at:  safeCallbackAt,
           promote:          ('promote' in d && (d as { promote?: boolean }).promote) || false,
         }),
       })
-      const json = await res.json().catch(() => ({})) as {
-        error?: string
-        promotion?: { outcome?: string }
+      
+      // Try to parse response, but don't fail if it's malformed
+      let json: { error?: string; promotion?: { outcome?: string } } = {}
+      try {
+        json = await res.json()
+      } catch {
+        // Response wasn't valid JSON - log but don't fail
+        console.warn('Disposition response was not valid JSON')
       }
 
       if (!res.ok) {
@@ -288,22 +321,33 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
 
       const promotionOutcome = json.promotion?.outcome
       if (promotionOutcome === 'created_new_crm_lead') {
-        toast.success(`${current.raw_lead.first_name} created in CRM.`)
+        toast.success(`${current.raw_lead.first_name || 'Lead'} created in CRM.`)
       } else if (promotionOutcome === 'merged_into_existing_crm_lead') {
         toast('Merged into existing CRM lead.', { icon: 'ℹ' })
       } else if (promotionOutcome === 'already_promoted') {
         toast('Lead was already in CRM.', { icon: 'ℹ' })
       }
 
+      // ALWAYS increment done count - this is total_dials tracking
+      setDone(n => n + 1)
+      
       // Remove from queue and advance
       setQueue(q => q.filter(item => item.id !== leadId))
       setIndex(i => Math.max(0, Math.min(i, queue.length - 2)))
-      setDone(n => n + 1)
       setMobileDockMode('pre_call')
       setNote('')
       setCallbackAt('')
     } catch (e) {
+      console.error('Disposition error:', e)
       toast.error(e instanceof Error ? e.message : 'Failed to save')
+      
+      // STILL increment done count even on error - total_dials must track every attempt
+      setDone(n => n + 1)
+      setQueue(q => q.filter(item => item.id !== leadId))
+      setIndex(i => Math.max(0, Math.min(i, queue.length - 2)))
+      setMobileDockMode('pre_call')
+      setNote('')
+      setCallbackAt('')
     } finally {
       setActing(false)
     }

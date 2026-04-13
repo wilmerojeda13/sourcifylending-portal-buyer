@@ -1,55 +1,72 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
-// Professional email domain check (mirrors lead-processor.ts logic)
-const CONSUMER_EMAIL_DOMAINS = new Set([
+// HARD GATEKEEPER - STRICT HUMAN CHECK
+// Rules:
+// 1. MUST have first_name (string, not empty)
+// 2. MUST have email (string, not empty)  
+// 3. Email MUST contain '@'
+// 4. Email MUST NOT be consumer domain
+// 5. first_name MUST NOT contain >3 consecutive digits (4+ = REJECT)
+
+const FORBIDDEN_DOMAINS = new Set([
   'gmail.com', 'yahoo.com', 'yahoo.co.uk', 'hotmail.com', 'outlook.com',
-  'live.com', 'aol.com', 'icloud.com', 'me.com', 'mac.com',
+  'live.com', 'aol.com', 'icloud.com', 'me.com', 'mac.com', 'msn.com',
   'protonmail.com', 'zoho.com', 'yandex.com', 'mail.ru',
   'gmx.com', 'gmx.net', 'qq.com', '163.com', '126.com',
-  'sina.com', 'sohu.com', 'foxmail.com',
+  'sina.com', 'sohu.com', 'foxmail.com', 'hey.com', 'fastmail.com'
 ])
 
-// SMS/Junk keywords that indicate automated replies or spam
+// STRICT: 4+ consecutive digits = REJECT
+const JUNK_DIGIT_REGEX = /\d{4,}/
+
+// SMS/Junk keywords
 const JUNK_KEYWORDS = new Set([
   'stop', 'opt out', 'opt-out', 'unsubscribe', 'message frequency',
-  'reply stop', 'reply stop to', 'text stop', 'help info',
-  'auto-confirm', 'automated message', 'do not reply',
-  'sms terms', 'terms and conditions', 'privacy policy',
-  'carrier rates', 'msg&data', 'msg & data', 'data rates',
+  'reply stop', 'text stop', 'help info', 'auto-confirm',
+  'automated message', 'do not reply', 'sms terms',
+  'terms and conditions', 'privacy policy', 'carrier rates',
+  'msg&data', 'msg & data', 'data rates',
 ])
 
-// Check for long sequences of digits (>4 in a row indicates random/junk)
-function hasLongDigitSequence(value: string | null, maxDigits = 4): boolean {
-  if (!value) return false
-  const digitRuns = value.match(/\d{${maxDigits + 1},}/g)
-  return !!digitRuns && digitRuns.length > 0
-}
-
-// Check for junk keywords in any text field
-function containsJunkKeywords(value: string | null): boolean {
-  if (!value) return false
-  const lowerValue = value.toLowerCase()
-  return Array.from(JUNK_KEYWORDS).some(keyword => lowerValue.includes(keyword))
-}
-
-// Check if a lead appears to be junk/SMS garbage
-function isJunkLead(lead: { first_name?: string | null; last_name?: string | null; email?: string | null; business_name?: string | null; notes?: string | null }): boolean {
-  const allText = [
-    lead.first_name,
-    lead.last_name,
-    lead.email,
-    lead.business_name,
-    lead.notes,
-  ].filter(Boolean).join(' ')
-
-  // Check for long digit sequences in name or email
-  if (hasLongDigitSequence(lead.first_name ?? null, 4)) return true
-  if (hasLongDigitSequence(lead.email ?? null, 4)) return true
-
-  // Check for junk keywords anywhere
-  if (containsJunkKeywords(allText)) return true
-
+function isJunkLead(lead: { first_name?: string | null; email?: string | null; last_name?: string | null; business_name?: string | null; notes?: string | null }): boolean {
+  // Check 1: MUST have first_name
+  if (!lead.first_name || typeof lead.first_name !== 'string' || lead.first_name.trim() === '') {
+    return true
+  }
+  
+  // Check 2: MUST have email
+  if (!lead.email || typeof lead.email !== 'string' || lead.email.trim() === '') {
+    return true
+  }
+  
+  const firstName = lead.first_name.trim()
+  const email = lead.email.trim().toLowerCase()
+  
+  // Check 3: Email MUST contain '@'
+  if (!email.includes('@')) {
+    return true
+  }
+  
+  // Check 4: MUST NOT be forbidden domain
+  const domain = email.split('@')[1]
+  if (!domain || FORBIDDEN_DOMAINS.has(domain)) {
+    return true
+  }
+  
+  // Check 5: first_name MUST NOT have 4+ consecutive digits
+  if (JUNK_DIGIT_REGEX.test(firstName)) {
+    return true
+  }
+  
+  // Check 6: No junk keywords anywhere
+  const allText = `${firstName} ${lead.last_name || ''} ${email} ${lead.business_name || ''} ${lead.notes || ''}`.toLowerCase()
+  for (const keyword of JUNK_KEYWORDS) {
+    if (allText.includes(keyword)) {
+      return true
+    }
+  }
+  
   return false
 }
 
@@ -57,11 +74,9 @@ function isProfessionalEmail(email: string | null): boolean {
   if (!email || !email.includes('@')) return false
   const domain = email.split('@')[1]?.toLowerCase().trim()
   if (!domain) return false
-  if (CONSUMER_EMAIL_DOMAINS.has(domain)) return false
-  // Check subdomains of consumer providers
-  const consumerDomainsArray = Array.from(CONSUMER_EMAIL_DOMAINS)
-  for (const consumerDomain of consumerDomainsArray) {
-    if (domain === consumerDomain || domain.endsWith(`.${consumerDomain}`)) {
+  if (FORBIDDEN_DOMAINS.has(domain)) return false
+  for (const forbidden of FORBIDDEN_DOMAINS) {
+    if (domain === forbidden || domain.endsWith(`.${forbidden}`)) {
       return false
     }
   }

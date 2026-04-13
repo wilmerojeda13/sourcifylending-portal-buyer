@@ -91,6 +91,7 @@ interface DialerRawLead {
   phone: string
   email: string | null
   business_name: string | null
+  notes: string | null
   stage: string
   source: string | null
   is_archived: boolean
@@ -120,61 +121,94 @@ interface CrmTask {
   status: 'To Do' | 'In Progress' | 'Waiting' | 'Done'
 }
 
-// Utility: Check if email is professional
-function isProfessionalEmail(email: string | null): boolean {
-  if (!email || !email.includes('@')) return false
-
-  const domain = email.split('@')[1]?.toLowerCase().trim()
-  if (!domain) return false
-
-  // Check against consumer email providers
-  if (CONSUMER_EMAIL_DOMAINS.has(domain)) return false
-
-  // Additional checks for subdomains of consumer providers
-  const consumerDomainsArray = Array.from(CONSUMER_EMAIL_DOMAINS)
-  for (const consumerDomain of consumerDomainsArray) {
-    if (domain === consumerDomain || domain.endsWith(`.${consumerDomain}`)) {
-      return false
-    }
-  }
-
-  return true
-}
-
 // Utility: Build lead name for task title
 function buildLeadName(lead: CrmLead): string {
   const fullName = [lead.first_name, lead.last_name].filter(Boolean).join(' ')
   return fullName || lead.business_name || 'Lead'
 }
 
-// STRICT JUNK DETECTION - Non-negotiable for queue quality
-const JUNK_KEYWORDS = new Set([
-  'STOP', 'opt out', 'opt-out', 'unsubscribe', 'Message frequency',
-  'reply stop', 'Reply STOP', 'text stop', 'help info',
-  'auto-confirm', 'automated message', 'do not reply',
-  'sms terms', 'terms and conditions', 'privacy policy',
-  'carrier rates', 'msg&data', 'msg & data', 'data rates',
+// HARD GATEKEEPER - STRICT HUMAN CHECK (Non-negotiable)
+// Rules:
+// 1. MUST have first_name (string, not empty)
+// 2. MUST have email (string, not empty)  
+// 3. Email MUST contain '@'
+// 4. Email MUST NOT be consumer domain (gmail, yahoo, hotmail, outlook, icloud, msn, aol, live)
+// 5. first_name MUST NOT contain >3 consecutive digits (4+ digits = REJECT)
+
+const FORBIDDEN_DOMAINS = new Set([
+  'gmail.com', 'yahoo.com', 'yahoo.co.uk', 'hotmail.com', 'outlook.com',
+  'live.com', 'aol.com', 'icloud.com', 'me.com', 'mac.com', 'msn.com',
+  'protonmail.com', 'zoho.com', 'yandex.com', 'mail.ru',
+  'gmx.com', 'gmx.net', 'qq.com', '163.com', '126.com',
+  'sina.com', 'sohu.com', 'foxmail.com', 'hey.com', 'fastmail.com'
 ])
 
-const DIGIT_SEQUENCE_REGEX = /\d{6,}/ // 6+ consecutive digits = junk
+// STRICT: 4+ consecutive digits = REJECT
+const JUNK_DIGIT_REGEX = /\d{4,}/
+
+// SMS/Junk keywords that indicate automated replies or spam
+const JUNK_KEYWORDS = new Set([
+  'stop', 'opt out', 'opt-out', 'unsubscribe', 'message frequency',
+  'reply stop', 'text stop', 'help info', 'auto-confirm',
+  'automated message', 'do not reply', 'sms terms',
+  'terms and conditions', 'privacy policy', 'carrier rates',
+  'msg&data', 'msg & data', 'data rates',
+])
 
 function isJunkLead(lead: DialerRawLead): boolean {
-  const allText = `${lead.first_name} ${lead.last_name || ''} ${lead.email || ''} ${lead.business_name || ''} ${lead.notes || ''}`
+  // Check 1: MUST have first_name
+  if (!lead.first_name || typeof lead.first_name !== 'string' || lead.first_name.trim() === '') {
+    return true // No name = junk
+  }
   
-  // Check for >5 consecutive digits in first_name (using 6+ as strict threshold)
-  if (DIGIT_SEQUENCE_REGEX.test(lead.first_name)) {
+  // Check 2: MUST have email
+  if (!lead.email || typeof lead.email !== 'string' || lead.email.trim() === '') {
+    return true // No email = junk
+  }
+  
+  const firstName = lead.first_name.trim()
+  const email = lead.email.trim().toLowerCase()
+  
+  // Check 3: Email MUST contain '@'
+  if (!email.includes('@')) {
     return true
   }
   
-  // Check for SMS/junk keywords anywhere
-  const lowerText = allText.toLowerCase()
+  // Check 4: MUST NOT be forbidden domain
+  const domain = email.split('@')[1]
+  if (!domain || FORBIDDEN_DOMAINS.has(domain)) {
+    return true
+  }
+  
+  // Check 5: first_name MUST NOT have 4+ consecutive digits
+  if (JUNK_DIGIT_REGEX.test(firstName)) {
+    return true
+  }
+  
+  // Check 6: No junk keywords anywhere
+  const allText = `${firstName} ${lead.last_name || ''} ${email} ${lead.business_name || ''} ${lead.notes || ''}`.toLowerCase()
   for (const keyword of JUNK_KEYWORDS) {
-    if (lowerText.includes(keyword.toLowerCase())) {
+    if (allText.includes(keyword)) {
       return true
     }
   }
   
   return false
+}
+
+// Legacy professional email check (now integrated into isJunkLead)
+function isProfessionalEmail(email: string | null): boolean {
+  if (!email || !email.includes('@')) return false
+  const domain = email.split('@')[1]?.toLowerCase().trim()
+  if (!domain) return false
+  if (FORBIDDEN_DOMAINS.has(domain)) return false
+  // Check subdomains
+  for (const forbidden of FORBIDDEN_DOMAINS) {
+    if (domain === forbidden || domain.endsWith(`.${forbidden}`)) {
+      return false
+    }
+  }
+  return true
 }
 
 // Action 0: Scrub dialer_raw_leads for professional emails -> high_priority stage
