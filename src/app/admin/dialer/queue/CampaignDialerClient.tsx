@@ -125,12 +125,12 @@ Step 3: We determine if you're ready to get the funding now, or if we need to ad
 Does that sound like a better direction for you?`
 
 // ─── ScriptCard ──────────────────────────────────────────────────────────────
-function ScriptCard({ firstName }: { firstName: string }) {
+function ScriptCard({ firstName, defaultExpanded = false }: { firstName: string; defaultExpanded?: boolean }) {
   const [script, setScript]         = useState(DEFAULT_SCRIPT)
   const [draft, setDraft]           = useState(DEFAULT_SCRIPT)
   const [editing, setEditing]       = useState(false)
   const [saving, setSaving]         = useState(false)
-  const [collapsed, setCollapsed]   = useState(true)
+  const [collapsed, setCollapsed]   = useState(!defaultExpanded)
   const [loaded, setLoaded]         = useState(false)
 
   useEffect(() => {
@@ -732,53 +732,80 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
           )}
         </div>
 
-        <div className="hidden gap-5 lg:grid lg:grid-cols-[1fr_320px]">
-        {/* Left: lead card */}
-        <div className="space-y-4">
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-5">
-            {/* Lead header */}
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-gray-100">
-                  {raw ? `${raw.first_name} ${raw.last_name ?? ''}` : 'No lead'}
-                </h2>
-                {raw?.business_name && (
-                  <p className="text-sm text-gray-400 flex items-center gap-1 mt-0.5">
-                    <Building2 size={13} /> {raw.business_name}
-                  </p>
-                )}
-                {raw?.email ? (
-                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                    <Mail size={12} /> {raw.email}
-                  </p>
-                ) : (
-                  <p className="text-xs text-red-400 flex items-center gap-1 mt-0.5">
-                    <Mail size={12} /> No Email Provided
-                  </p>
-                )}
-                {raw && <div className="mt-1.5"><CallWindowBadge lead={raw} /></div>}
+        {/* ── COCKPIT: 3-column desktop layout ── */}
+        <div className="hidden lg:grid gap-4" style={{ gridTemplateColumns: '220px 1fr 260px' }}>
+
+          {/* ── COL 1: Lead info ── */}
+          <div className="space-y-3">
+            <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold text-gray-100 leading-tight">
+                    {raw ? `${raw.first_name} ${raw.last_name ?? ''}` : 'No lead'}
+                  </h2>
+                  {raw?.business_name && (
+                    <p className="text-xs text-gray-400 flex items-center gap-1 mt-1 truncate">
+                      <Building2 size={11} className="shrink-0" /> <span className="truncate">{raw.business_name}</span>
+                    </p>
+                  )}
+                  {raw?.email ? (
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5 truncate">
+                      <Mail size={11} className="shrink-0" /> <span className="truncate">{raw.email}</span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-red-400 flex items-center gap-1 mt-0.5">
+                      <Mail size={11} className="shrink-0" /> No Email
+                    </p>
+                  )}
+                </div>
+              </div>
+              {raw && <div className="mb-2"><CallWindowBadge lead={raw} /></div>}
+              <div className="flex flex-wrap gap-1">
                 {current?.last_call_outcome && (
-                  <span className="inline-block mt-1.5 text-[11px] bg-gray-700 text-gray-400 rounded-full px-2 py-0.5">
+                  <span className="text-[10px] bg-gray-700 text-gray-400 rounded-full px-2 py-0.5">
                     Last: {current.last_call_outcome}
                   </span>
                 )}
                 {raw?.promoted_to_crm_lead_id && (
-                  <span className="inline-block mt-1.5 text-[11px] bg-teal-100 text-teal-700 rounded-full px-2 py-0.5 ml-1">
+                  <span className="text-[10px] bg-teal-100 text-teal-700 rounded-full px-2 py-0.5">
                     In CRM ✓
                   </span>
                 )}
               </div>
-              <div className="text-right shrink-0">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">{index + 1} / {total.toLocaleString()}</p>
-                <p className="text-xs text-gray-400">{done} done · {skipped} skipped</p>
+              <div className="mt-3 pt-3 border-t border-gray-800 flex items-center justify-between text-[10px] text-gray-500 uppercase tracking-wide">
+                <span>{index + 1} / {total.toLocaleString()}</span>
+                <span>{done} done</span>
               </div>
             </div>
 
-            {/* Phone — manual dial */}
+            {/* Raw lead notes */}
+            {raw?.notes && (
+              <div className="bg-amber-950/30 border border-amber-800 rounded-2xl p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-400 mb-1">Lead Notes</p>
+                <p className="text-xs text-amber-200 leading-relaxed">{raw.notes}</p>
+              </div>
+            )}
+
+            {/* Next lead preview */}
+            {queue[index + 1] && (
+              <div className="bg-gray-800 rounded-2xl border border-gray-700 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1 flex items-center gap-1">
+                  <ArrowRight size={9} /> Up next
+                </p>
+                <p className="text-xs font-medium text-gray-300">
+                  {queue[index + 1].raw_lead.first_name} {queue[index + 1].raw_lead.last_name ?? ''}
+                </p>
+                <p className="text-[11px] text-gray-500">{queue[index + 1].raw_lead.phone}</p>
+              </div>
+            )}
+          </div>
+
+          {/* ── COL 2: Phone actions + Script ── */}
+          <div className="space-y-3">
+            {/* Phone + action row */}
             {raw && (
-              <div key={activeLeadId} className="rounded-2xl bg-gray-900 px-5 py-4 mb-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Phone Number</p>
-                <div className="flex items-center justify-between gap-3">
+              <div key={activeLeadId} className="bg-gray-900 rounded-2xl border border-gray-800 px-4 py-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
                   <a
                     key={`${activeLeadId}:${dialNumber ?? raw.phone}`}
                     href={dialTarget?.href ?? '#'}
@@ -789,121 +816,89 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                     {raw.phone}
                   </a>
                   <div className="flex flex-wrap gap-2">
+                    <button onClick={handleDial}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-xl hover:bg-green-700">
+                      <Phone size={14} /> Dial
+                    </button>
                     <button onClick={copyPhone}
-                      className="flex min-w-[92px] items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-medium rounded-lg hover:bg-gray-600">
+                      className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-gray-200 text-xs font-medium rounded-xl hover:bg-gray-600">
                       {copied ? <CheckCircle size={13} /> : <Copy size={13} />}
                       {copied ? 'Copied' : 'Copy'}
                     </button>
-                    <button
-                      onClick={openTextModal}
-                      disabled={!raw}
-                      className="flex min-w-[92px] items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-gray-200 text-xs font-medium rounded-lg hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Send size={13} />
-                      Send Text
+                    <button onClick={openTextModal} disabled={!raw}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-gray-200 text-xs font-medium rounded-xl hover:bg-gray-600 disabled:opacity-50">
+                      <Send size={13} /> Text
                     </button>
-                    <button
-                      onClick={sendIntroEmail}
-                      disabled={!raw.email || emailSending}
-                      className="flex min-w-[92px] items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white text-xs font-semibold rounded-lg hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
-                    >
-                      {emailSending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                      {emailSending ? 'Sending...' : 'Send Email'}
-                    </button>
-                    <button onClick={handleDial}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700">
-                      <Phone size={13} /> Dial
+                    <button onClick={sendIntroEmail} disabled={!raw.email || emailSending}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 text-white text-xs font-semibold rounded-xl hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400">
+                      {emailSending ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />}
+                      {emailSending ? 'Sending…' : 'Email'}
                     </button>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  {raw.email ?? 'No email on file'}
-                </p>
               </div>
             )}
 
-            {/* Notes + callback time */}
-            <div className="space-y-3">
+            {/* Notes + callback */}
+            <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4 grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Call Note</label>
+                <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wide block mb-1">Call Note</label>
                 <input type="text" value={note} onChange={e => setNote(e.target.value)}
-                  placeholder="Quick note (optional)…"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-700 rounded-xl focus:outline-none focus:border-gray-500 bg-gray-800 text-gray-100 placeholder:text-gray-500" />
+                  placeholder="Quick note…"
+                  className="w-full px-3 py-2 text-sm border border-gray-700 rounded-xl focus:outline-none focus:border-gray-500 bg-gray-800 text-gray-100 placeholder:text-gray-500" />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Callback / Follow-up Time</label>
+                <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wide block mb-1">Callback / Follow-up</label>
                 <input type="datetime-local" value={callbackAt} onChange={e => setCallbackAt(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-700 rounded-xl focus:outline-none focus:border-gray-500 bg-gray-800 text-gray-100 [color-scheme:dark]" />
+                  className="w-full px-3 py-2 text-sm border border-gray-700 rounded-xl focus:outline-none focus:border-gray-500 bg-gray-800 text-gray-100 [color-scheme:dark]" />
+              </div>
+            </div>
+
+            {/* Script — center stage, expanded by default */}
+            <ScriptCard firstName={raw?.first_name ?? ''} defaultExpanded />
+          </div>
+
+          {/* ── COL 3: Dispositions + Stats ── */}
+          <div className="space-y-3">
+            <div className="bg-gray-900 rounded-2xl border border-gray-800 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Call Outcome</p>
+              <div className="grid grid-cols-1 gap-1.5">
+                {DISPOSITIONS.map(d => {
+                  const Icon = d.icon
+                  return (
+                    <button key={d.outcome} onClick={() => saveDisposition(d)} disabled={acting}
+                      className={cn(
+                        'flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold transition-all active:scale-[0.97] disabled:opacity-50',
+                        d.color,
+                      )}>
+                      <Icon size={13} /> {d.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <button onClick={skip} disabled={!current || acting}
+                className="w-full mt-2 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-gray-400 bg-gray-800 rounded-xl hover:bg-gray-700 disabled:opacity-40 transition-colors">
+                <ChevronRight size={13} /> Skip
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="bg-gray-900 rounded-2xl border border-gray-800 px-3 py-2.5 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500">Pos</p>
+                <p className="text-base font-bold text-gray-100">{index + 1}/{total.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500">Done</p>
+                <p className="text-base font-bold text-green-600">{done}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500">Skip</p>
+                <p className="text-base font-bold text-gray-500">{skipped}</p>
               </div>
             </div>
           </div>
 
-          {/* Raw lead notes */}
-          {raw?.notes && (
-            <div className="bg-amber-950/30 border border-amber-800 rounded-2xl p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-400 mb-1">Lead Notes</p>
-              <p className="text-sm text-amber-200 leading-relaxed">{raw.notes}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Right: dispositions */}
-        <div className="space-y-4">
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Call Outcome</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DISPOSITIONS.map(d => {
-                const Icon = d.icon
-                return (
-                  <button key={d.outcome} onClick={() => saveDisposition(d)} disabled={acting}
-                    className={cn(
-                      'flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold transition-all active:scale-[0.97] disabled:opacity-50',
-                      d.color,
-                    )}>
-                    <Icon size={15} /> {d.label}
-                  </button>
-                )
-              })}
-            </div>
-
-            <button onClick={skip} disabled={!current || acting}
-              className="w-full mt-3 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-gray-400 bg-gray-800 rounded-xl hover:bg-gray-700 disabled:opacity-40 transition-colors">
-              <ChevronRight size={15} /> Skip
-            </button>
-          </div>
-
-          {/* Stats */}
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 px-4 py-3 grid grid-cols-3 gap-3 text-center">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Position</p>
-              <p className="text-lg font-bold text-gray-100 mt-0.5">{index + 1}/{total.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Done</p>
-              <p className="text-lg font-bold text-green-600 mt-0.5">{done}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Skipped</p>
-              <p className="text-lg font-bold text-gray-500 mt-0.5">{skipped}</p>
-            </div>
-          </div>
-
-          {/* Next lead preview */}
-          {queue[index + 1] && (
-            <div className="bg-gray-800 rounded-2xl border border-gray-700 p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5 flex items-center gap-1">
-                <ArrowRight size={10} /> Up next
-              </p>
-              <p className="text-sm font-medium text-gray-300">
-                {queue[index + 1].raw_lead.first_name} {queue[index + 1].raw_lead.last_name ?? ''}
-              </p>
-              <p className="text-xs text-gray-400">{queue[index + 1].raw_lead.phone}</p>
-            </div>
-          )}
-
-          {/* Script card — desktop sidebar */}
-          <ScriptCard firstName={raw?.first_name ?? ''} />
-        </div>
         </div>
       </div>
 
