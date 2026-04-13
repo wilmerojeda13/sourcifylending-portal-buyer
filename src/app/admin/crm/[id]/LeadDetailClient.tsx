@@ -373,23 +373,35 @@ function SendEmailModal({
 
 function BookDemoModal({
   lead,
+  isOpen,
   onClose,
   onBooked,
 }: {
   lead: CRMLead
+  isOpen: boolean
   onClose: () => void
   onBooked: (event: LeadCalendarEvent, updatedLead: CRMLead, warning?: string) => void
 }) {
-  const now = new Date()
-  now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15, 0, 0)
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  const defaultDateTime = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+  function buildDefaultDateTime() {
+    const now = new Date()
+    now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15, 0, 0)
+    const pad = (n: number) => n.toString().padStart(2, '0')
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+  }
 
-  const [dateTime, setDateTime] = useState(defaultDateTime)
+  const [dateTime, setDateTime] = useState(buildDefaultDateTime())
   const [duration, setDuration] = useState(30)
   const [timezone, setTimezone] = useState(lead.likely_timezone || 'America/New_York')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    setDateTime(buildDefaultDateTime())
+    setDuration(30)
+    setTimezone(lead.likely_timezone || 'America/New_York')
+    setNotes('')
+  }, [isOpen, lead.id])
 
   async function confirm() {
     if (!dateTime) {
@@ -407,12 +419,8 @@ function BookDemoModal({
         start: slotStart.toISOString(),
         end: slotEnd.toISOString(),
         timezone,
-        attendeeEmail: lead.email,
-        details: [
-          `Company: ${lead.business_name || 'N/A'}`,
-          `Phone: ${lead.phone || 'N/A'}`,
-          notes.trim() ? `Notes: ${notes.trim()}` : null,
-        ].filter(Boolean).join('\n'),
+        attendeeEmail: lead.email || null,
+        details: `Phone: ${lead.phone}`,
       })
 
       const calendarWindow = window.open('about:blank', '_blank', 'noopener,noreferrer')
@@ -486,7 +494,7 @@ function BookDemoModal({
             <textarea className="input-field min-h-[96px] resize-y text-sm" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional prep notes for the booking." />
           </div>
           <div className="flex gap-3 pt-1">
-            <button onClick={confirm} disabled={saving} className="btn-primary flex flex-1 items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
+            <button onClick={confirm} disabled={saving || !lead?.id} className="btn-primary flex flex-1 items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
               {saving ? <Loader2 size={15} className="animate-spin" /> : <CalendarPlus size={15} />}
               Book Demo
             </button>
@@ -535,6 +543,8 @@ export default function LeadDetailClient({
   const [addingNote, setAddingNote] = useState(false)
   const [noteType, setNoteType] = useState<'note' | 'call' | 'email' | 'sms' | 'voicemail'>('note')
   const [showBookDemo, setShowBookDemo] = useState(false)
+  const [bookingLead, setBookingLead] = useState<CRMLead | null>(null)
+  const [loadingBookingLead, setLoadingBookingLead] = useState(false)
   const [showEmail, setShowEmail] = useState(false)
   const [taskTitle, setTaskTitle] = useState('')
   const [taskDueAt, setTaskDueAt] = useState('')
@@ -589,6 +599,11 @@ export default function LeadDetailClient({
   function setEF<K extends keyof typeof editForm>(key: K, value: typeof editForm[K]) {
     setEditForm((current) => ({ ...current, [key]: value }))
   }
+
+  useEffect(() => {
+    setBookingLead(null)
+    setShowBookDemo(false)
+  }, [lead.id])
 
   useEffect(() => {
     if (!lead.phone || duplicatesLoaded || !lead.duplicate_review_required) return
@@ -676,10 +691,24 @@ export default function LeadDetailClient({
   }
 
   async function openBookDemoModal() {
-    if (!calendarLoaded) {
-      await loadCalendar()
+    setLoadingBookingLead(true)
+    try {
+      const response = await fetch(`/api/admin/crm/leads/${lead.id}`)
+      const json = await response.json()
+      if (!response.ok || !json.lead) {
+        toast.error(json.error || 'Unable to load current lead')
+        return
+      }
+      setBookingLead(json.lead)
+      if (!calendarLoaded) {
+        await loadCalendar()
+      }
+      setShowBookDemo(true)
+    } catch {
+      toast.error('Unable to load current lead')
+    } finally {
+      setLoadingBookingLead(false)
     }
-    setShowBookDemo(true)
   }
 
   async function refreshActivities() {
@@ -1060,7 +1089,7 @@ export default function LeadDetailClient({
                 {authorizingCall ? <Loader2 size={13} className="animate-spin" /> : <Phone size={13} />} Call
               </button>
               {lead.email && <button onClick={() => setShowEmail(true)} className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={13} /> Email</button>}
-              <button onClick={() => void openBookDemoModal()} className="flex items-center gap-1 rounded-lg bg-purple-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={13} /> Demo</button>
+              <button onClick={() => void openBookDemoModal()} disabled={loadingBookingLead || !lead.id} className="flex items-center gap-1 rounded-lg bg-purple-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"><CalendarPlus size={13} /> Demo</button>
               <button type="button" onClick={() => { setSelectedDispositionKey(null); setDispositionError(null); setShowDisposition(true) }} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
                 <PhoneCall size={13} /> Disposition
               </button>
@@ -1100,7 +1129,8 @@ export default function LeadDetailClient({
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => void openBookDemoModal()}
-                className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-purple-600 px-3 text-xs font-semibold text-white"
+                disabled={loadingBookingLead || !lead.id}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-purple-600 px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <CalendarPlus size={13} />
                 Demo
@@ -1149,7 +1179,7 @@ export default function LeadDetailClient({
                 <h2 className="mt-0.5 text-base font-bold text-gray-900 dark:text-white">Calendar & next actions</h2>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => void openBookDemoModal()} className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-purple-700"><CalendarPlus size={13} /> {nextCalendarEvent ? 'Book another' : 'Book demo'}</button>
+                <button onClick={() => void openBookDemoModal()} disabled={loadingBookingLead || !lead.id} className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"><CalendarPlus size={13} /> {nextCalendarEvent ? 'Book another' : 'Book demo'}</button>
                 {nextCalendarEvent?.htmlLink && <a href={nextCalendarEvent.htmlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:border-purple-300 hover:text-purple-700 dark:border-gray-700 dark:text-gray-200"><ExternalLink size={13} /> Reschedule</a>}
               </div>
             </div>
@@ -1507,7 +1537,7 @@ export default function LeadDetailClient({
             {authorizingCall ? <Loader2 size={16} className="animate-spin" /> : <Phone size={16} />} Call
           </button>
           {lead.email && <button onClick={() => setShowEmail(true)} className="btn-secondary flex h-10 flex-1 items-center justify-center gap-1.5 text-sm font-semibold"><Mail size={16} /> Email</button>}
-          <button onClick={() => void openBookDemoModal()} className="btn-secondary flex h-10 flex-1 items-center justify-center gap-1.5 text-sm font-semibold"><CalendarPlus size={16} /> Demo</button>
+          <button onClick={() => void openBookDemoModal()} disabled={loadingBookingLead || !lead.id} className="btn-secondary flex h-10 flex-1 items-center justify-center gap-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"><CalendarPlus size={16} /> Demo</button>
         </div>
       </div>
 
@@ -1522,7 +1552,9 @@ export default function LeadDetailClient({
           </div>
         </div>
       )}
-      {showBookDemo && <BookDemoModal lead={lead} onClose={() => setShowBookDemo(false)} onBooked={handleDemoBooked} />}
+      {showBookDemo && bookingLead && (
+        <BookDemoModal key={bookingLead.id} lead={bookingLead} isOpen={showBookDemo} onClose={() => setShowBookDemo(false)} onBooked={handleDemoBooked} />
+      )}
       {showEmail && <SendEmailModal lead={lead} onClose={() => setShowEmail(false)} onSent={handleEmailSent} />}
     </div>
   )
