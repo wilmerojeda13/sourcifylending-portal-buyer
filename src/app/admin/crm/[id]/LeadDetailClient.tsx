@@ -250,6 +250,24 @@ function formatDateTimeLocal(iso: string | null) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+function buildGoogleCalendarTemplateUrl(params: {
+  title: string
+  start: string
+  end: string
+  timezone: string
+  details?: string | null
+  attendeeEmail?: string | null
+}) {
+  const url = new URL('https://calendar.google.com/calendar/render')
+  url.searchParams.set('action', 'TEMPLATE')
+  url.searchParams.set('text', params.title)
+  url.searchParams.set('dates', `${params.start.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}/${params.end.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}`)
+  url.searchParams.set('ctz', params.timezone)
+  if (params.details) url.searchParams.set('details', params.details)
+  if (params.attendeeEmail) url.searchParams.set('add', params.attendeeEmail)
+  return url.toString()
+}
+
 function titleize(value: string | null | undefined) {
   if (!value) return 'Unknown'
   return value.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
@@ -380,13 +398,35 @@ function BookDemoModal({
     }
 
     setSaving(true)
-    const popup = window.open('', '_blank', 'noopener,noreferrer')
     try {
+      const slotStart = new Date(dateTime)
+      const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000)
+      const leadName = [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim() || 'Lead'
+      const googleCalendarUrl = buildGoogleCalendarTemplateUrl({
+        title: `Sourcify Meeting: ${leadName}`,
+        start: slotStart.toISOString(),
+        end: slotEnd.toISOString(),
+        timezone,
+        attendeeEmail: lead.email,
+        details: [
+          `Company: ${lead.business_name || 'N/A'}`,
+          `Phone: ${lead.phone || 'N/A'}`,
+          notes.trim() ? `Notes: ${notes.trim()}` : null,
+        ].filter(Boolean).join('\n'),
+      })
+
+      const calendarWindow = window.open('about:blank', '_blank', 'noopener,noreferrer')
+      if (calendarWindow) {
+        calendarWindow.location.href = googleCalendarUrl
+      } else {
+        window.open(googleCalendarUrl, '_blank', 'noopener,noreferrer')
+      }
+
       const response = await fetch(`/api/admin/crm/leads/${lead.id}/schedule`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          slot_start: new Date(dateTime).toISOString(),
+          slot_start: slotStart.toISOString(),
           duration_minutes: duration,
           timezone,
           notes,
@@ -394,23 +434,12 @@ function BookDemoModal({
       })
       const json = await response.json()
       if (!response.ok) {
-        popup?.close()
         toast.error(json.error || 'Unable to create calendar booking')
         return
-      }
-      if (json.google_calendar_url) {
-        if (popup) {
-          popup.location.href = json.google_calendar_url
-        } else {
-          window.open(json.google_calendar_url, '_blank', 'noopener,noreferrer')
-        }
-      } else {
-        popup?.close()
       }
       onBooked(json.event, json.lead, json.warning)
       onClose()
     } catch {
-      popup?.close()
       toast.error('Unable to create calendar booking')
     } finally {
       setSaving(false)

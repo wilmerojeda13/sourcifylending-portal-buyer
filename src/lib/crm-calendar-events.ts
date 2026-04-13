@@ -123,7 +123,7 @@ export async function getLeadCalendarSummary(
     return {
       configured: false,
       matched: false,
-      warning: 'Google Calendar is not configured for CRM.',
+      warning: null,
       events: [],
       nextEvent: null,
       hasBookedDemo: false,
@@ -158,7 +158,7 @@ export async function getLeadCalendarSummary(
     return {
       configured: true,
       matched: false,
-      warning: error instanceof Error ? error.message : 'Unable to load Google Calendar events.',
+      warning: null,
       events: [],
       nextEvent: null,
       hasBookedDemo: false,
@@ -179,7 +179,7 @@ export async function createLeadCalendarBooking(
   const settings = await getCrmCalendarSettings(supabase)
 
   if (!hasCalendarIntegration(settings)) {
-    throw new Error('Google Calendar is not configured for CRM.')
+    throw new Error('Calendar integration is unavailable.')
   }
 
   const slotEnd = new Date(new Date(input.slotStart).getTime() + input.durationMinutes * 60 * 1000).toISOString()

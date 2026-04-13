@@ -14,19 +14,12 @@ import {
 } from 'lucide-react'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import DialerNav from '@/components/dialer/DialerNav'
-import { AnalyticsRow, getAnalyticsDataset, getDefaultFilters } from './analytics-data'
+import { AnalyticsRow, getAnalyticsDataset, getDefaultFilters, getAnalyticsRowDateKey, getAnalyticsRowHour } from './analytics-data'
+import { DIALER_TIME_ZONE } from '@/lib/timezones'
 
 export const metadata = { title: 'Analytics - Dialer' }
 
-const CONNECT_OUTCOMES = new Set([
-  'contacted',
-  'interested',
-  'callback',
-  'follow_up',
-  'qualified',
-  'not_interested',
-  'dnc',
-])
+const CONNECT_OUTCOMES = new Set(['contacted', 'qualified'])
 
 const INTERESTED_OUTCOMES = new Set(['interested', 'callback', 'follow_up', 'qualified'])
 const APPOINTMENT_OUTCOMES = new Set(['appointment_set', 'booked_call'])
@@ -46,6 +39,7 @@ function dateLabel(input: string) {
   return new Date(`${input}T00:00:00.000Z`).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
+    timeZone: DIALER_TIME_ZONE,
   })
 }
 
@@ -67,7 +61,7 @@ function getDayBuckets(rows: AnalyticsRow[], startDate: string, endDate: string,
   const indexMap = new Map(buckets.map((bucket, index) => [bucket.key, index]))
   rows.forEach(row => {
     if (predicate && !predicate(row)) return
-    const key = row.last_called_at.slice(0, 10)
+    const key = getAnalyticsRowDateKey(row.last_called_at)
     const bucketIndex = indexMap.get(key)
     if (bucketIndex !== undefined) buckets[bucketIndex].value += 1
   })
@@ -184,10 +178,10 @@ export default async function DialerAnalyticsPage({
 
   const totalDials = rows.length
   const connectedRows = rows.filter(row => row.last_call_outcome && CONNECT_OUTCOMES.has(row.last_call_outcome))
-  const qualifiedRows = rows.filter(row => row.status === 'qualified' || row.status === 'promoted' || row.last_call_outcome === 'qualified')
+  const qualifiedRows = rows.filter(row => row.last_call_outcome && ['qualified', 'appointment_set', 'booked_call'].includes(row.last_call_outcome))
   const appointmentRows = rows.filter(row => row.last_call_outcome && APPOINTMENT_OUTCOMES.has(row.last_call_outcome))
   const crmRows = rows.filter(row => row.crm_converted)
-  const dncRows = rows.filter(row => row.last_call_outcome === 'dnc')
+  const dncRows = rows.filter(row => row.last_call_outcome && ['dnc', 'disconnected'].includes(row.last_call_outcome))
   const interestedRows = rows.filter(row => row.last_call_outcome && INTERESTED_OUTCOMES.has(row.last_call_outcome))
 
   const dialsOverTime = getDayBuckets(rows, filters.startDate, filters.endDate)
@@ -224,7 +218,7 @@ export default async function DialerAnalyticsPage({
     }
     current.dials += 1
     if (row.last_call_outcome && CONNECT_OUTCOMES.has(row.last_call_outcome)) current.connects += 1
-    if (row.status === 'qualified' || row.status === 'promoted' || row.last_call_outcome === 'qualified') current.qualified += 1
+    if (row.last_call_outcome && ['qualified', 'appointment_set', 'booked_call'].includes(row.last_call_outcome)) current.qualified += 1
     if (row.crm_converted) current.crm += 1
     leaderboardMap.set(row.rep_id, current)
   })
@@ -238,7 +232,7 @@ export default async function DialerAnalyticsPage({
 
   const hourMap = new Map<number, { dials: number; connects: number }>()
   rows.forEach(row => {
-    const hour = new Date(row.last_called_at).getUTCHours()
+    const hour = getAnalyticsRowHour(row.last_called_at)
     const current = hourMap.get(hour) ?? { dials: 0, connects: 0 }
     current.dials += 1
     if (row.last_call_outcome && CONNECT_OUTCOMES.has(row.last_call_outcome)) current.connects += 1
@@ -263,6 +257,7 @@ export default async function DialerAnalyticsPage({
     dnc: number
   }>()
   rows.forEach(row => {
+    if (!row.campaign_id) return
     const current = campaignMap.get(row.campaign_id) ?? {
       name: row.campaign_name,
       status: row.campaign_status,
@@ -274,9 +269,9 @@ export default async function DialerAnalyticsPage({
     }
     current.dials += 1
     if (row.last_call_outcome && CONNECT_OUTCOMES.has(row.last_call_outcome)) current.connects += 1
-    if (row.status === 'qualified' || row.status === 'promoted' || row.last_call_outcome === 'qualified') current.qualified += 1
+    if (row.last_call_outcome && ['qualified', 'appointment_set', 'booked_call'].includes(row.last_call_outcome)) current.qualified += 1
     if (row.crm_converted) current.crm += 1
-    if (row.last_call_outcome === 'dnc') current.dnc += 1
+    if (row.last_call_outcome && ['dnc', 'disconnected'].includes(row.last_call_outcome)) current.dnc += 1
     campaignMap.set(row.campaign_id, current)
   })
   const campaignComparison = Array.from(campaignMap.values())

@@ -22,11 +22,6 @@ async function assertAdmin() {
   }
 }
 
-function buildConnectUrl(leadId: string) {
-  const next = `/admin/crm/${leadId}?book_demo=1`
-  return `/api/admin/crm/google-calendar/connect?lead_id=${encodeURIComponent(leadId)}&next=${encodeURIComponent(next)}`
-}
-
 function buildGoogleCalendarUrl(params: {
   title: string
   start: string
@@ -54,42 +49,108 @@ async function createLocalBooking(
   const slotEnd = new Date(new Date(body.slot_start).getTime() + body.duration_minutes * 60 * 1000).toISOString()
   const timezone = body.timezone || lead.likely_timezone || 'America/New_York'
   const leadName = [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim() || 'Lead'
-  const taskTitle = `Demo: ${leadName}`
+  const title = `Sourcify Meeting: ${leadName}`
+  const description = [
+    `Company: ${lead.business_name || 'N/A'}`,
+    `Phone: ${lead.phone || 'N/A'}`,
+    body.notes?.trim() ? `Notes: ${body.notes.trim()}` : null,
+  ].filter(Boolean).join('\n')
 
-  const { data: task, error: taskError } = await supabase
-    .from('crm_tasks')
+  const googleCalendarUrl = buildGoogleCalendarUrl({
+    title,
+    start: body.slot_start,
+    end: slotEnd,
+    timezone,
+    leadEmail: typeof lead.email === 'string' ? lead.email : null,
+    details: description,
+  })
+
+  const { data: appointment, error: appointmentError } = await supabase
+    .from('appointments')
     .insert({
       lead_id: lead.id,
-      title: taskTitle,
-      description: [
-        'Google Calendar booking could not be created.',
-        body.notes?.trim() ? `Prep notes: ${body.notes.trim()}` : null,
-        `Timezone: ${timezone}`,
-        `Requested slot: ${new Date(body.slot_start).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`,
-      ].filter(Boolean).join('\n'),
-      task_type: 'Book Call',
-      priority: 'High',
-      status: 'To Do',
-      due_at: body.slot_start,
-      owner_user_id: admin.userId,
-      owner_name: admin.userName,
-      pipeline_stage: 'demo_scheduled',
+      appointment_at: body.slot_start,
+      duration_minutes: body.duration_minutes,
+      timezone,
+      title,
+      description,
       notes: body.notes?.trim() || null,
+      status: 'scheduled',
+      google_calendar_url: googleCalendarUrl,
       created_by_user_id: admin.userId,
-      created_source: 'calendar_booking',
-      created_source_label: 'Book Demo modal',
-      source_metadata: {
-        google_calendar_fallback: true,
-        slot_start: body.slot_start,
-        slot_end: slotEnd,
-        timezone,
-      },
+      created_by_name: admin.userName,
+      lead_name: leadName,
+      company_name: lead.business_name || null,
+      phone_number: lead.phone || null,
     })
     .select('*')
     .single()
 
-  if (taskError || !task) {
-    throw taskError || new Error('Unable to save CRM appointment.')
+  let record: {
+    id: string
+    title: string | null
+    description: string | null
+    status: string | null
+    source: 'appointment' | 'task'
+  } | null =
+    appointment && !appointmentError
+      ? {
+          id: appointment.id,
+          title: appointment.title,
+          description: appointment.description,
+          status: appointment.status,
+          source: 'appointment' as const,
+        }
+      : null
+
+  if (!record) {
+    const missingAppointmentsTable =
+      appointmentError?.code === '42P01' ||
+      /appointments/i.test(appointmentError?.message || '') ||
+      /relation .*appointments.* does not exist/i.test(appointmentError?.message || '')
+
+    if (!missingAppointmentsTable) {
+      throw appointmentError || new Error('Unable to save CRM appointment.')
+    }
+
+    const { data: task, error: taskError } = await supabase
+      .from('crm_tasks')
+      .insert({
+        lead_id: lead.id,
+        title,
+        description,
+        task_type: 'Book Call',
+        priority: 'High',
+        status: 'To Do',
+        due_at: body.slot_start,
+        owner_user_id: admin.userId,
+        owner_name: admin.userName,
+        pipeline_stage: 'demo_scheduled',
+        notes: body.notes?.trim() || null,
+        created_by_user_id: admin.userId,
+        created_source: 'calendar_booking',
+        created_source_label: 'Book Demo modal',
+        source_metadata: {
+          google_calendar_fallback: true,
+          slot_start: body.slot_start,
+          slot_end: slotEnd,
+          timezone,
+        },
+      })
+      .select('*')
+      .single()
+
+    if (taskError || !task) {
+      throw taskError || new Error('Unable to save CRM appointment.')
+    }
+
+    record = {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      source: 'task' as const,
+    }
   }
 
   const { data: updatedLead, error: updateError } = await supabase
@@ -97,6 +158,7 @@ async function createLocalBooking(
     .update({
       stage: 'demo_scheduled',
       strategy_call_booked: true,
+      appointment_at: body.slot_start,
       follow_up_at: body.slot_start,
       updated_at: new Date().toISOString(),
     })
@@ -113,23 +175,22 @@ async function createLocalBooking(
     type: 'follow_up_set',
     body: `Demo booked in CRM for ${new Date(body.slot_start).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${body.notes?.trim() ? ` — ${body.notes.trim()}` : ''}`,
     metadata: {
-      task_id: task.id,
-      task_type: task.task_type,
-      task_status: task.status,
-      task_priority: task.priority,
+      appointment_id: record.id,
+      appointment_status: record.status,
+      booking_source: record.source,
+      appointment_at: body.slot_start,
       event_start: body.slot_start,
       event_end: slotEnd,
       event_timezone: body.timezone || lead.likely_timezone || 'America/New_York',
-      fallback: true,
     },
     created_by: admin.userName,
-    })
+  })
 
   return {
     event: {
-      id: `task-${task.id}`,
-      title: task.title,
-      description: task.description,
+      id: `${record.source}-${record.id}`,
+      title: record.title,
+      description: record.description,
       start: body.slot_start,
       end: slotEnd,
       htmlLink: null,
@@ -139,18 +200,6 @@ async function createLocalBooking(
       timeZone: timezone,
     },
     lead: updatedLead,
-    googleCalendarUrl: buildGoogleCalendarUrl({
-      title: taskTitle,
-      start: body.slot_start,
-      end: slotEnd,
-      timezone,
-      leadEmail: typeof lead.email === 'string' ? lead.email : null,
-      details: [
-        `Lead: ${leadName}`,
-        lead.business_name ? `Business: ${lead.business_name}` : null,
-        body.notes?.trim() ? `Notes: ${body.notes.trim()}` : null,
-      ].filter(Boolean).join('\n'),
-    }),
   }
 }
 
@@ -186,7 +235,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({
       event: fallback.event,
       lead: fallback.lead,
-      google_calendar_url: fallback.googleCalendarUrl,
     }, { status: 201 })
   } catch (error) {
     console.error('[crm schedule] failed to create CRM booking', error)
