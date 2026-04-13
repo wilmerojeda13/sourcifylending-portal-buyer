@@ -112,13 +112,13 @@ export async function GET(req: NextRequest) {
   let hasGoogleCalendar = false
   let settings: CalendarSettings | null = null
 
-  if (loadGoogle && settingsRow) {
+  if (loadGoogle) {
     settings = {
-      google_client_id: settingsRow.google_client_id || process.env.GOOGLE_CLIENT_ID,
-      google_client_secret: settingsRow.google_client_secret || process.env.GOOGLE_CLIENT_SECRET,
-      google_refresh_token: settingsRow.google_refresh_token || process.env.GOOGLE_REFRESH_TOKEN,
-      google_calendar_id: settingsRow.google_calendar_id || process.env.GOOGLE_CALENDAR_ID || 'primary',
-      booking_timezone: settingsRow.booking_timezone || process.env.GOOGLE_CALENDAR_TIMEZONE || 'America/New_York',
+      google_client_id: settingsRow?.google_client_id || process.env.GOOGLE_CLIENT_ID,
+      google_client_secret: settingsRow?.google_client_secret || process.env.GOOGLE_CLIENT_SECRET,
+      google_refresh_token: settingsRow?.google_refresh_token || process.env.GOOGLE_REFRESH_TOKEN,
+      google_calendar_id: settingsRow?.google_calendar_id || process.env.GOOGLE_CALENDAR_ID || 'primary',
+      booking_timezone: settingsRow?.booking_timezone || process.env.GOOGLE_CALENDAR_TIMEZONE || 'America/New_York',
     }
     hasGoogleCalendar = Boolean(settings.google_client_id && settings.google_client_secret && settings.google_refresh_token)
 

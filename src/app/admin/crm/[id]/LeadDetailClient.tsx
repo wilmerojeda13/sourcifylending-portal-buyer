@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   AlertTriangle,
   Ban,
@@ -356,13 +356,15 @@ function SendEmailModal({
 function BookDemoModal({
   lead,
   calendarEnabled,
+  calendarAuthUrl,
   onClose,
   onBooked,
 }: {
   lead: CRMLead
   calendarEnabled: boolean
+  calendarAuthUrl: string
   onClose: () => void
-  onBooked: (event: LeadCalendarEvent, updatedLead: CRMLead) => void
+  onBooked: (event: LeadCalendarEvent, updatedLead: CRMLead, warning?: string) => void
 }) {
   const now = new Date()
   now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15, 0, 0)
@@ -394,17 +396,29 @@ function BookDemoModal({
         }),
       })
       const json = await response.json()
+      if (response.status === 428 && json.auth_required && json.auth_url) {
+        window.location.assign(json.auth_url)
+        return
+      }
       if (!response.ok) {
         toast.error(json.error || 'Unable to create calendar booking')
         return
       }
-      onBooked(json.event, json.lead)
+      onBooked(json.event, json.lead, json.warning)
       onClose()
     } catch {
       toast.error('Unable to create calendar booking')
     } finally {
       setSaving(false)
     }
+  }
+
+  function handlePrimaryAction() {
+    if (!calendarEnabled) {
+      window.location.assign(calendarAuthUrl)
+      return
+    }
+    void confirm()
   }
 
   return (
@@ -452,9 +466,9 @@ function BookDemoModal({
             <textarea className="input-field min-h-[96px] resize-y text-sm" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional prep notes for the booking." />
           </div>
           <div className="flex gap-3 pt-1">
-            <button onClick={confirm} disabled={saving || !calendarEnabled} className="btn-primary flex flex-1 items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
+            <button onClick={handlePrimaryAction} disabled={saving} className="btn-primary flex flex-1 items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60">
               {saving ? <Loader2 size={15} className="animate-spin" /> : <CalendarPlus size={15} />}
-              Book on Calendar
+              {calendarEnabled ? 'Book on Calendar' : 'Connect Google Calendar'}
             </button>
             <button onClick={onClose} className="btn-secondary px-5">Cancel</button>
           </div>
@@ -476,6 +490,7 @@ export default function LeadDetailClient({
   smsMessages: initialSmsMessages = [],
 }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [lead, setLead] = useState(initialLead)
   const [activities, setActivities] = useState(initialActivities)
   const [calls, setCalls] = useState(initialCalls)
@@ -514,6 +529,7 @@ export default function LeadDetailClient({
   const [sendingSmsReply, setSendingSmsReply] = useState(false)
   const [duplicateLeads, setDuplicateLeads] = useState<Array<{ id: string; first_name: string; last_name: string; stage: string }>>([])
   const [duplicatesLoaded, setDuplicatesLoaded] = useState(false)
+  const autoOpenBooking = useRef(false)
   const [editForm, setEditForm] = useState({
     first_name: initialLead.first_name,
     last_name: initialLead.last_name,
@@ -549,6 +565,7 @@ export default function LeadDetailClient({
   const nextCalendarEvent = calendarSummary.nextEvent ?? upcomingEvents[0] ?? null
   const emailActivities = activities.filter((activity) => activity.type === 'email').slice(0, 4)
   const recentCalls = calls.slice(0, 5)
+  const calendarAuthUrl = `/api/admin/crm/google-calendar/connect?lead_id=${encodeURIComponent(lead.id)}&next=${encodeURIComponent(`/admin/crm/${lead.id}?book_demo=1`)}`
 
   function setEF<K extends keyof typeof editForm>(key: K, value: typeof editForm[K]) {
     setEditForm((current) => ({ ...current, [key]: value }))
@@ -565,6 +582,15 @@ export default function LeadDetailClient({
       })
       .catch(() => {})
   }, [duplicatesLoaded, lead.duplicate_review_required, lead.id, lead.phone])
+
+  useEffect(() => {
+    if (autoOpenBooking.current) return
+    if (searchParams.get('book_demo') !== '1') return
+    autoOpenBooking.current = true
+    void openBookDemoModal().finally(() => {
+      router.replace(`/admin/crm/${lead.id}`)
+    })
+  }, [lead.id, router, searchParams])
 
   async function loadActivities() {
     if (activitiesLoaded || loadingActivities) return
@@ -596,7 +622,8 @@ export default function LeadDetailClient({
     if (calendarLoaded || loadingCalendar) return
     setLoadingCalendar(true)
     try {
-      const response = await fetch(`/api/admin/crm/calendar?lead_id=${lead.id}`)
+      // Request Google Calendar explicitly; the route skips it by default for first paint.
+      const response = await fetch(`/api/admin/crm/calendar?lead_id=${lead.id}&google=true`)
       const json = await response.json()
       setCalendarSummary({
         configured: json.connected ?? false,
@@ -908,12 +935,16 @@ export default function LeadDetailClient({
     toast.success('Email opened in Gmail')
   }
 
-  async function handleDemoBooked(event: LeadCalendarEvent, updatedLead: CRMLead) {
+  async function handleDemoBooked(event: LeadCalendarEvent, updatedLead: CRMLead, warning?: string) {
     setLead(updatedLead)
     setCalendarSummary((current) => mergeCalendarEvents(current, event))
     setCalendarLoaded(true)
     await refreshActivities()
-    toast.success('Calendar demo booked')
+    if (warning) {
+      toast(warning)
+    } else {
+      toast.success('Calendar demo booked')
+    }
   }
 
   return (
@@ -1472,7 +1503,7 @@ export default function LeadDetailClient({
           </div>
         </div>
       )}
-      {showBookDemo && <BookDemoModal lead={lead} calendarEnabled={calendarSummary.configured} onClose={() => setShowBookDemo(false)} onBooked={handleDemoBooked} />}
+      {showBookDemo && <BookDemoModal lead={lead} calendarEnabled={calendarSummary.configured} calendarAuthUrl={calendarAuthUrl} onClose={() => setShowBookDemo(false)} onBooked={handleDemoBooked} />}
       {showEmail && <SendEmailModal lead={lead} onClose={() => setShowEmail(false)} onSent={handleEmailSent} />}
     </div>
   )
