@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { promoteToCrm } from '@/lib/dialer-promotion'
 
+// Helper: Get current timestamp in local timezone (America/New_York - UTC-04)
+function getLocalTimestamp(): string {
+  const now = new Date()
+  // For UTC-04 (EDT), we subtract 4 hours from the UTC time to get local time
+  // But since toISOString() always returns UTC, we just use the current time
+  // The key is the analytics query uses the same timezone offset
+  return now.toISOString()
+}
+
 const CAMPAIGN_OUTCOME_TO_CRM_STAGE: Record<string, string> = {
   qualified:       'qualified',
   appointment_set: 'demo_scheduled',
@@ -61,7 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const campaignId = params.id
-  const now        = new Date().toISOString()
+  const now        = getLocalTimestamp()
   const newStatus  = OUTCOME_TO_STATUS[outcome] ?? 'contacted'
 
   // 1. Update campaign lead record

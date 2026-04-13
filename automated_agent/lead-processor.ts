@@ -204,7 +204,8 @@ function isProfessionalEmail(email: string | null): boolean {
   if (!domain) return false
   if (FORBIDDEN_DOMAINS.has(domain)) return false
   // Check subdomains
-  for (const forbidden of FORBIDDEN_DOMAINS) {
+  const forbiddenArray = Array.from(FORBIDDEN_DOMAINS)
+  for (const forbidden of forbiddenArray) {
     if (domain === forbidden || domain.endsWith(`.${forbidden}`)) {
       return false
     }

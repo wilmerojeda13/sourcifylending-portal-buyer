@@ -94,6 +94,32 @@ async function statsFor(
   }
 }
 
+// Helper: Get start of day in local timezone (America/New_York - UTC-04)
+function getLocalDayStart(offsetDays = 0): Date {
+  const now = new Date()
+  // Convert to UTC-04 (EDT) by adding 4 hours to UTC time
+  const utcMinus4 = new Date(now.getTime() + (4 * 60 * 60 * 1000))
+  
+  // Set to midnight in UTC-04
+  utcMinus4.setUTCHours(0, 0, 0, 0)
+  
+  // Add offset days if needed
+  if (offsetDays !== 0) {
+    utcMinus4.setUTCDate(utcMinus4.getUTCDate() + offsetDays)
+  }
+  
+  // Convert back to UTC for database query
+  return new Date(utcMinus4.getTime() - (4 * 60 * 60 * 1000))
+}
+
+// Helper: Get Monday of current week in local timezone
+function getLocalWeekStart(): Date {
+  const dayStart = getLocalDayStart()
+  const dayOfWeek = dayStart.getUTCDay() // 0=Sun, 1=Mon, etc.
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  return new Date(dayStart.getTime() - (daysFromMonday * 24 * 60 * 60 * 1000))
+}
+
 export async function GET(req: NextRequest) {
   const admin = await assertAdmin()
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -101,19 +127,16 @@ export async function GET(req: NextRequest) {
   const sp         = new URL(req.url).searchParams
   const campaignId = sp.get('campaign_id') ?? undefined
 
-  // Today = UTC midnight of current day
-  const todayStart = new Date()
-  todayStart.setUTCHours(0, 0, 0, 0)
+  // Today = Local midnight (UTC-04/EDT)
+  const todayStart = getLocalDayStart()
 
-  // This week = Monday UTC midnight
-  const weekStart = new Date(todayStart)
-  const dow = weekStart.getUTCDay() // 0=Sun
-  weekStart.setUTCDate(weekStart.getUTCDate() - (dow === 0 ? 6 : dow - 1))
+  // This week = Monday local midnight
+  const weekStart = getLocalWeekStart()
 
   const [today, week] = await Promise.all([
     statsFor(admin.supabase, todayStart.toISOString(), campaignId),
     statsFor(admin.supabase, weekStart.toISOString(),  campaignId),
   ])
 
-  return NextResponse.json({ today, week })
+  return NextResponse.json({ today, week, timezone: 'America/New_York' })
 }

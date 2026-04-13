@@ -75,7 +75,8 @@ function isJunkLead(lead: { first_name?: string | null; last_name?: string | nul
     lead.notes,
   ].filter(Boolean).join(' ').toLowerCase()
   
-  for (const keyword of JUNK_KEYWORDS) {
+  const keywordsArray = Array.from(JUNK_KEYWORDS)
+  for (const keyword of keywordsArray) {
     if (allText.includes(keyword)) return true
   }
   
