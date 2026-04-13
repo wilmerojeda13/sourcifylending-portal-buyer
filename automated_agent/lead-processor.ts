@@ -835,6 +835,121 @@ async function createFollowUpTasksForInterested(): Promise<{
   return { processed, tasksCreated, errors }
 }
 
+// ─── Backfill threshold ─────────────────────────────────────────────────────
+const BACKFILL_THRESHOLD = 20 // if fresh queue drops below this, add more leads
+
+// Action: Backfill campaign with fresh high_priority leads when queue runs low
+async function backfillFreshLeads(): Promise<{ backfilled: number; errors: string[] }> {
+  console.log('\n🔄 Checking campaign queue depth for backfill...')
+  const errors: string[] = []
+  let backfilled = 0
+
+  try {
+    const { data: campaign } = await supabase
+      .from('dialer_campaigns')
+      .select('id')
+      .ilike('name', CONFIG.SCRUB_CAMPAIGN_NAME)
+      .eq('status', 'active')
+      .single()
+
+    if (!campaign) {
+      console.log('   No active scrub campaign — skipping backfill')
+      return { backfilled: 0, errors }
+    }
+
+    // Count truly fresh leads in campaign: status=new and never called
+    const { count: freshCount, error: countErr } = await supabase
+      .from('dialer_campaign_leads')
+      .select('*', { count: 'exact', head: true })
+      .eq('campaign_id', campaign.id)
+      .eq('status', 'new')
+      .is('last_called_at', null)
+
+    if (countErr) {
+      errors.push(`Failed to count fresh leads: ${countErr.message}`)
+      return { backfilled: 0, errors }
+    }
+
+    const fresh = freshCount ?? 0
+    console.log(`   Fresh (never-called) leads in queue: ${fresh}`)
+
+    if (fresh >= BACKFILL_THRESHOLD) {
+      console.log(`   Queue healthy (≥${BACKFILL_THRESHOLD}) — no backfill needed`)
+      return { backfilled: 0, errors }
+    }
+
+    const needed = BACKFILL_THRESHOLD - fresh
+    console.log(`   Queue low — seeking ${needed} fresh high_priority leads...`)
+
+    // Get raw_lead_ids already in the campaign (to avoid duplicates)
+    const { data: existingRows } = await supabase
+      .from('dialer_campaign_leads')
+      .select('raw_lead_id')
+      .eq('campaign_id', campaign.id)
+
+    const existingSet = new Set((existingRows ?? []).map(r => r.raw_lead_id))
+
+    // Find high_priority raw leads not yet in the campaign
+    const { data: candidates, error: fetchErr } = await supabase
+      .from('dialer_raw_leads')
+      .select('id')
+      .eq('stage', 'high_priority')
+      .eq('is_archived', false)
+      .eq('do_not_call', false)
+      .is('promoted_to_crm_lead_id', null)
+      .is('last_call_at', null)      // only truly fresh (never called globally)
+      .order('created_at', { ascending: true }) // oldest first
+      .limit(needed + 50)            // fetch extra to account for already-in-campaign ones
+
+    if (fetchErr) {
+      errors.push(`Failed to fetch backfill candidates: ${fetchErr.message}`)
+      return { backfilled: 0, errors }
+    }
+
+    const toAdd = (candidates ?? [])
+      .filter(l => !existingSet.has(l.id))
+      .slice(0, needed)
+
+    if (toAdd.length === 0) {
+      console.log('   No new high_priority leads available for backfill — run scrub first')
+      return { backfilled: 0, errors }
+    }
+
+    // Determine max sort_order in campaign to append after existing leads
+    const { data: maxRow } = await supabase
+      .from('dialer_campaign_leads')
+      .select('sort_order')
+      .eq('campaign_id', campaign.id)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .single()
+    const baseSort = (maxRow?.sort_order ?? 0) + 1
+
+    const rows = toAdd.map((l, i) => ({
+      campaign_id: campaign.id,
+      raw_lead_id: l.id,
+      sort_order:  baseSort + i,
+    }))
+
+    const { error: insertErr } = await supabase
+      .from('dialer_campaign_leads')
+      .upsert(rows, { onConflict: 'campaign_id,raw_lead_id', ignoreDuplicates: true })
+
+    if (insertErr) {
+      errors.push(`Backfill insert failed: ${insertErr.message}`)
+    } else {
+      backfilled = toAdd.length
+      console.log(`   ✓ Backfilled ${backfilled} fresh high_priority leads into campaign`)
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push(`Fatal error in backfillFreshLeads: ${msg}`)
+    console.error('   backfillFreshLeads error:', msg)
+  }
+
+  return { backfilled, errors }
+}
+
 // Single run execution (one cycle)
 async function runOnce(): Promise<boolean> {
   const startTime = Date.now()
@@ -853,6 +968,10 @@ async function runOnce(): Promise<boolean> {
 
     const scrubResult = await scrubDialerLeadsForPriority()
     allErrors.push(...scrubResult.errors)
+
+    // Backfill campaign with fresh leads if queue runs low (runs after scrub promotes leads)
+    const backfillResult = await backfillFreshLeads()
+    allErrors.push(...backfillResult.errors)
 
     const flagResult = await flagProfessionalEmails()
     allErrors.push(...flagResult.errors)
@@ -875,6 +994,7 @@ async function runOnce(): Promise<boolean> {
     console.log('═══════════════════════════════════════════════════════════')
     console.log(`  Garbage purge: ${purgeResult.purged} archived`)
     console.log(`  Dialer scrub: ${scrubResult.upgraded}/${scrubResult.processed} upgraded · ${scrubResult.archived} archived`)
+    console.log(`  Backfill:     ${backfillResult.backfilled} fresh leads added to campaign`)
     console.log(`  CRM tags: ${flagResult.flagged}/${flagResult.processed} flagged`)
     console.log(`  Tasks: ${taskResult.tasksCreated}/${taskResult.processed} created`)
 

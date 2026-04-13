@@ -83,6 +83,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   if (clErr) return NextResponse.json({ error: clErr.message }, { status: 500 })
 
+  // 1b. Increment call_count on both tables atomically (every call attempt, any outcome)
+  try {
+    await admin.supabase.rpc('increment_call_counts', {
+      p_campaign_lead_id: campaign_lead_id,
+      p_raw_lead_id:      raw_lead_id,
+    })
+  } catch (cntErr) {
+    console.error('[Campaign Disposition] call_count increment failed (non-fatal):', cntErr)
+  }
+
   // 2. Mirror outcome onto raw lead
   const rawUpdate: Record<string, unknown> = {
     last_call_outcome: outcome,

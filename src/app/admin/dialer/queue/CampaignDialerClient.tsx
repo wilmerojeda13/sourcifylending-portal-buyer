@@ -296,7 +296,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       if (cam?.status_counts) {
         const sc = cam.status_counts
         const t = filter === 'dialable'
-          ? (['new','attempted','callback','follow_up'] as const).reduce((s, k) => s + (sc[k] ?? 0), 0)
+          ? (['new','callback','follow_up'] as const).reduce((s, k) => s + (sc[k] ?? 0), 0)
           : (sc[filter] ?? 0)
         setTotalDialable(t)
       }

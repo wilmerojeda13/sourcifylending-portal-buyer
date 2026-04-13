@@ -87,8 +87,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         )
       `)
       .eq('campaign_id', params.id)
-      .in('status', ['new', 'attempted', 'callback', 'follow_up'])
-      // new leads (null last_called_at) come first; then oldest-attempted last
+      .in('status', ['new', 'callback', 'follow_up'])
+      // new leads (null last_called_at) come first; then scheduled callbacks/follow-ups
       .order('last_called_at', { ascending: true, nullsFirst: true })
       .order('sort_order',     { ascending: true })
       .range(0, 999999)
