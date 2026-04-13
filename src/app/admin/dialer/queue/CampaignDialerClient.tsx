@@ -681,8 +681,14 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
         <Loader2 size={52} className="animate-spin text-indigo-500 mb-4" />
         <h2 className="text-2xl font-bold text-gray-100 mb-1">Loading More Fresh Leads...</h2>
-        <p className="text-gray-400 mb-1">Scanning database for high-priority leads</p>
+        <p className="text-gray-400 mb-1">Scanning 6,000+ database for high-priority leads</p>
         {campaign && <p className="text-sm text-gray-400 mb-8">Campaign: {campaign.name}</p>}
+        <button 
+          onClick={() => { setRefilling(false); load(statusFilter); }}
+          className="px-4 py-2 bg-gray-800 text-gray-300 text-sm rounded-xl hover:bg-gray-700"
+        >
+          Cancel & Reload
+        </button>
       </div>
     )
   }
@@ -693,14 +699,49 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     </div>
   )
 
+  // Force refill function
+  async function forceRefill() {
+    setRefilling(true)
+    try {
+      const res = await fetch(`/api/admin/dialer/campaigns/${campaignId}/refill`, { method: 'POST' })
+      const data = await res.json()
+      if (data.added > 0) {
+        toast.success(`🔄 +${data.added} fresh leads added`)
+        load(statusFilter)
+      } else if (data.fresh_remaining > 0) {
+        toast(`Queue has ${data.fresh_remaining} leads remaining`)
+        load(statusFilter)
+      } else {
+        toast.error('No more leads available in database')
+      }
+    } catch (err) {
+      toast.error('Refill failed - try again')
+    } finally {
+      setRefilling(false)
+    }
+  }
+
   if (queue.length === 0) return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
       <Phone size={40} className="text-gray-300 mb-4" />
       <h3 className="font-semibold text-gray-300 mb-1">
         No leads in <span className="capitalize">{statusFilter.replace('_',' ')}</span>
       </h3>
-      <p className="text-sm text-gray-400 mb-6">Try a different filter or add more leads to this campaign.</p>
+      <p className="text-sm text-gray-400 mb-2">Try a different filter or add more leads.</p>
+      {statusFilter === 'high_priority' && (
+        <p className="text-xs text-indigo-400 mb-4">6,000+ leads in database - Force Refill to pull more</p>
+      )}
       <div className="flex gap-3 flex-wrap justify-center">
+        {statusFilter === 'high_priority' && (
+          <button 
+            onClick={forceRefill}
+            disabled={refilling}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-500 disabled:opacity-50 flex items-center gap-2"
+          >
+            {refilling ? <Loader2 size={14} className="animate-spin" /> : '⚡'}
+            {refilling ? 'Refilling...' : 'Force Refill'}
+          </button>
+        )}
         {FILTER_OPTIONS.filter(f => f.key !== statusFilter).map(f => (
           <button key={f.key} onClick={() => setStatusFilter(f.key)}
             className="px-4 py-2 bg-gray-800 border border-gray-700 text-gray-400 text-sm rounded-xl hover:bg-gray-700">
