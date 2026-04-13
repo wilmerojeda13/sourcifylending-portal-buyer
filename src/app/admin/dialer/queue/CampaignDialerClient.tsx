@@ -249,6 +249,8 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   const [emailSending, setEmailSending]   = useState(false)
   const [statusFilter, setStatusFilter]   = useState<string>('dialable')
   const [totalDialable, setTotalDialable] = useState(0)
+  const [callsToday, setCallsToday]       = useState(0)
+  const [campaignTotal, setCampaignTotal] = useState(0)
   const [textModalOpen, setTextModalOpen] = useState(false)
   const [textDraft, setTextDraft]         = useState('')
 
@@ -260,7 +262,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   const current   = queue[index] ?? null
   const batchSize = queue.length
   // Use accurate server-side total (from status_counts view), not capped batch size
-  const total     = totalDialable || batchSize
+  const total     = campaignTotal || totalDialable || batchSize
   const remaining = Math.max(0, total - done)
 
   const FILTER_OPTIONS = [
@@ -280,11 +282,12 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     setNote('')
     setCallbackAt('')
     try {
-      const [camRes, leadsRes] = await Promise.all([
+      const [camRes, leadsRes, statsRes] = await Promise.all([
         fetch(`/api/admin/dialer/campaigns/${campaignId}`),
         fetch(`/api/admin/dialer/campaigns/${campaignId}/leads?${filter === 'dialable' ? 'dialable=1' : `status=${filter}`}`),
+        fetch(`/api/admin/dialer/campaigns/${campaignId}/stats`),
       ])
-      const [camJson, leadsJson] = await Promise.all([camRes.json(), leadsRes.json()])
+      const [camJson, leadsJson, statsJson] = await Promise.all([camRes.json(), leadsRes.json(), statsRes.json()])
       const cam: Campaign | null = camJson.campaign ?? null
       setCampaign(cam)
       // Filter out any leads DNC'd this session (guards against race conditions
@@ -296,11 +299,16 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
             !dncPhonesRef.current.has(l.raw_lead?.phone)
         )
       )
-      // Compute accurate total from status_counts view (not capped batch)
+      // DB-accurate progress: initialize done from total called count (survives page refresh)
+      const stats = (statsJson ?? {}) as { calls_total?: number; calls_today?: number; total?: number }
+      if (stats.calls_today  !== undefined) setCallsToday(stats.calls_today)
+      if (stats.total)                      setCampaignTotal(stats.total)
+      if (stats.calls_total !== undefined)  setDone(d => Math.max(d, stats.calls_total ?? 0))
+      // Compute fresh-lead total from status_counts view (fallback)
       if (cam?.status_counts) {
         const sc = cam.status_counts
         const t = filter === 'dialable'
-          ? (sc['new'] ?? 0)  // dialable now = fresh (status=new, last_called_at IS NULL)
+          ? (sc['new'] ?? 0)
           : (sc[filter] ?? 0)
         setTotalDialable(t)
       }
@@ -645,7 +653,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       {/* Progress bar */}
       <div className="h-1 bg-gray-800">
         <div className="h-full bg-green-500 transition-all duration-300"
-          style={{ width: total ? `${(index / total) * 100}%` : '0%' }} />
+          style={{ width: total ? `${Math.min(100, (done / total) * 100)}%` : '0%' }} />
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-4 sm:px-6 lg:py-6">
@@ -685,8 +693,8 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                 {raw && <div className="mt-1.5"><CallWindowBadge lead={raw} /></div>}
               </div>
               <div className="shrink-0 text-right">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">{index + 1} / {total.toLocaleString()}</p>
-                <p className="text-xs text-gray-500">{done} done · {skipped} skipped</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">#{done + 1} / {total.toLocaleString()}</p>
+                <p className="text-xs text-gray-500">{callsToday} today · {done.toLocaleString()} total</p>
               </div>
             </div>
 
@@ -834,8 +842,8 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                 )}
               </div>
               <div className="mt-3 pt-3 border-t border-gray-800 flex items-center justify-between text-[10px] text-gray-500 uppercase tracking-wide">
-                <span>{index + 1} / {total.toLocaleString()}</span>
-                <span>{done} done</span>
+                <span>#{done + 1} / {total.toLocaleString()}</span>
+                <span>{callsToday} today</span>
               </div>
             </div>
 
@@ -947,11 +955,11 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
             <div className="bg-gray-900 rounded-2xl border border-gray-800 px-3 py-2.5 grid grid-cols-3 gap-2 text-center">
               <div>
                 <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500">Pos</p>
-                <p className="text-base font-bold text-gray-100">{index + 1}/{total.toLocaleString()}</p>
+                <p className="text-base font-bold text-gray-100">#{done + 1}</p>
               </div>
               <div>
-                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500">Done</p>
-                <p className="text-base font-bold text-green-600">{done}</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500">Today</p>
+                <p className="text-base font-bold text-green-600">{callsToday}</p>
               </div>
               <div>
                 <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500">Skip</p>
