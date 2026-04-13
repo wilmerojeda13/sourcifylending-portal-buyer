@@ -253,6 +253,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   const [campaignTotal, setCampaignTotal] = useState(0)
   const [textModalOpen, setTextModalOpen] = useState(false)
   const [textDraft, setTextDraft]         = useState('')
+  const [refilling, setRefilling]         = useState(false)
 
   // Session-level DNC guard: raw_lead IDs and phone numbers marked DNC this session.
   // Both refs survive load() calls so race conditions can't re-surface a blocked lead.
@@ -587,6 +588,24 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     setIndex(i => i + 1)
   }
 
+  // ── Auto-refill when queue runs low ───────────────────────────────────────
+  useEffect(() => {
+    if (!loading && !refilling && statusFilter === 'high_priority' && queue.length < 50) {
+      // Trigger refill for high priority when running low
+      setRefilling(true)
+      fetch(`/api/admin/dialer/campaigns/${campaignId}/refill`, { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.added > 0) {
+            toast(`🔄 +${d.added} fresh leads added`, { icon: undefined, duration: 3000 })
+            load(statusFilter)
+          }
+        })
+        .catch(() => {})
+        .finally(() => setRefilling(false))
+    }
+  }, [loading, queue.length, statusFilter, campaignId, refilling, load])
+
   // ── Queue complete screen ──────────────────────────────────────────────────
   // Batch exhausted — automatically reload to get the next batch from the remaining pool
   if (!loading && batchSize > 0 && index >= batchSize && done < total) {
@@ -594,38 +613,79 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     return null
   }
 
-  if (!loading && (batchSize === 0 || done >= total || index >= batchSize)) return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
-      <CheckCircle2 size={52} className="text-green-500 mb-4" />
-      <h2 className="text-2xl font-bold text-gray-100 mb-1">Queue Complete</h2>
-      <p className="text-gray-400 mb-1">{done} dispositioned · {skipped} skipped</p>
-      {campaign && <p className="text-sm text-gray-400 mb-8">Campaign: {campaign.name}</p>}
-      <div className="flex flex-wrap gap-3 justify-center">
-        <button
-          onClick={() => { setDone(0); setSkipped(0); load(statusFilter) }}
-          className="px-5 py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700"
-        >
-          Reload Queue
-        </button>
-        {FILTER_OPTIONS.filter(f => f.key !== statusFilter).slice(0, 2).map(f => (
-          <button key={f.key}
-            onClick={() => { setStatusFilter(f.key); setDone(0); setSkipped(0) }}
-            className="px-5 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700"
+  // INFINITE FEED: Show loading state if refilling, otherwise check if truly complete
+  if (!loading && !refilling && (batchSize === 0 || done >= total || index >= batchSize)) {
+    // Trigger one more refill check before showing complete
+    if (statusFilter === 'high_priority') {
+      setRefilling(true)
+      fetch(`/api/admin/dialer/campaigns/${campaignId}/refill`, { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.added > 0) {
+            load(statusFilter)
+          } else {
+            // Truly complete - no more leads in database
+            setRefilling(false)
+          }
+        })
+        .catch(() => setRefilling(false))
+      
+      // Show loading state while checking
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
+          <Loader2 size={52} className="animate-spin text-indigo-500 mb-4" />
+          <h2 className="text-2xl font-bold text-gray-100 mb-1">Loading More Fresh Leads...</h2>
+          <p className="text-gray-400 mb-1">Scanning database for high-priority leads</p>
+          {campaign && <p className="text-sm text-gray-400 mb-8">Campaign: {campaign.name}</p>}
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
+        <CheckCircle2 size={52} className="text-green-500 mb-4" />
+        <h2 className="text-2xl font-bold text-gray-100 mb-1">Queue Complete</h2>
+        <p className="text-gray-400 mb-1">{done} dispositioned · {skipped} skipped</p>
+        {campaign && <p className="text-sm text-gray-400 mb-8">Campaign: {campaign.name}</p>}
+        <div className="flex flex-wrap gap-3 justify-center">
+          <button
+            onClick={() => { setDone(0); setSkipped(0); load(statusFilter) }}
+            className="px-5 py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700"
           >
-            Dial {f.label}
+            Reload Queue
           </button>
-        ))}
-        <Link href={`/admin/dialer/campaigns/${campaignId}`}
-          className="px-5 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700">
-          Campaign Overview
-        </Link>
-        <Link href="/admin/dialer/campaigns"
-          className="px-5 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700">
-          All Campaigns
-        </Link>
+          {FILTER_OPTIONS.filter(f => f.key !== statusFilter).slice(0, 2).map(f => (
+            <button key={f.key}
+              onClick={() => { setStatusFilter(f.key); setDone(0); setSkipped(0) }}
+              className="px-5 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700"
+            >
+              Dial {f.label}
+            </button>
+          ))}
+          <Link href={`/admin/dialer/campaigns/${campaignId}`}
+            className="px-5 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700">
+            Campaign Overview
+          </Link>
+          <Link href="/admin/dialer/campaigns"
+            className="px-5 py-2.5 bg-gray-800 border border-gray-700 text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-700">
+            All Campaigns
+          </Link>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  // Show refilling state
+  if (refilling) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
+        <Loader2 size={52} className="animate-spin text-indigo-500 mb-4" />
+        <h2 className="text-2xl font-bold text-gray-100 mb-1">Loading More Fresh Leads...</h2>
+        <p className="text-gray-400 mb-1">Scanning database for high-priority leads</p>
+        {campaign && <p className="text-sm text-gray-400 mb-8">Campaign: {campaign.name}</p>}
+      </div>
+    )
+  }
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center py-20">

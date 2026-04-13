@@ -125,6 +125,7 @@ function isProfessionalEmail(email: string | null): boolean {
 }
 
 // Scrub dialer_raw_leads for professional emails -> high_priority stage
+// GLOBAL SEARCH: Scans entire 6,000+ lead database, not just campaign leads
 async function scrubDialerLeadsForPriority(supabase: ReturnType<typeof createServiceClient>) {
   const errors: string[] = []
   let processed = 0
@@ -140,29 +141,24 @@ async function scrubDialerLeadsForPriority(supabase: ReturnType<typeof createSer
       .eq('status', 'active')
       .single()
 
-    // Build query for dialer_raw_leads
-    let query = serviceClient
+    // GLOBAL SEARCH: Get ALL unassigned leads from entire database
+    // First, get IDs of leads already in ANY campaign to avoid re-processing
+    const { data: assignedLeads } = await serviceClient
+      .from('dialer_campaign_leads')
+      .select('raw_lead_id')
+
+    const assignedSet = new Set((assignedLeads ?? []).map(l => l.raw_lead_id))
+
+    // Build query for ALL unassigned dialer_raw_leads
+    const { data: leads, error } = await serviceClient
       .from('dialer_raw_leads')
       .select('id, first_name, last_name, phone, email, business_name, industry, notes, stage, source, is_archived, promoted_to_crm_lead_id')
       .eq('is_archived', false)
       .not('email', 'is', null)
       .neq('stage', 'high_priority')
       .is('promoted_to_crm_lead_id', null)
-
-    // If campaign exists, filter to campaign leads
-    if (campaign) {
-      const { data: campaignLeadIds } = await serviceClient
-        .from('dialer_campaign_leads')
-        .select('raw_lead_id')
-        .eq('campaign_id', campaign.id)
-
-      if (campaignLeadIds && campaignLeadIds.length > 0) {
-        const ids = campaignLeadIds.map(cl => cl.raw_lead_id)
-        query = query.in('id', ids)
-      }
-    }
-
-    const { data: leads, error } = await query
+      .is('last_call_at', null) // Never called globally
+      .limit(5000) // Scan up to 5000 leads at once
 
     if (error) throw new Error(`Failed to fetch leads: ${error.message}`)
     if (!leads || leads.length === 0) {
@@ -172,6 +168,9 @@ async function scrubDialerLeadsForPriority(supabase: ReturnType<typeof createSer
     for (const lead of leads) {
       processed++
       if (!lead.email) continue
+
+      // Skip leads already assigned to any campaign
+      if (assignedSet.has(lead.id)) continue
 
       // Skip junk/SMS leads
       if (isJunkLead(lead)) {
@@ -192,6 +191,17 @@ async function scrubDialerLeadsForPriority(supabase: ReturnType<typeof createSer
         }
 
         upgraded++
+
+        // AUTO-INGEST: Add qualified lead directly to scrub campaign
+        if (campaign) {
+          await serviceClient
+            .from('dialer_campaign_leads')
+            .upsert({
+              campaign_id: campaign.id,
+              raw_lead_id: lead.id,
+              sort_order: 0,
+            }, { onConflict: 'campaign_id,raw_lead_id', ignoreDuplicates: true })
+        }
 
         // Audit log
         await serviceClient.from('crm_audit_logs').insert({

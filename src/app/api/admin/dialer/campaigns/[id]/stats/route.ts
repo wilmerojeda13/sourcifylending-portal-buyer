@@ -11,16 +11,26 @@ async function assertAdmin() {
   return { supabase, userId: user.id }
 }
 
+// Helper: Get start of day in local timezone (America/New_York - UTC-04)
+function getLocalDayStart(): Date {
+  const now = new Date()
+  // Convert to UTC-04 (EDT) by adding 4 hours to UTC time
+  const utcMinus4 = new Date(now.getTime() + (4 * 60 * 60 * 1000))
+  // Set to midnight in UTC-04
+  utcMinus4.setUTCHours(0, 0, 0, 0)
+  // Convert back to UTC for database query
+  return new Date(utcMinus4.getTime() - (4 * 60 * 60 * 1000))
+}
+
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const admin = await assertAdmin()
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const campaignId = params.id
 
-  // Get today's date bounds in UTC (source of truth from database timestamp)
-  const now = new Date()
-  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0))
-  const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0))
+  // Get today's date bounds in local timezone (EDT) to match analytics API
+  const todayStart = getLocalDayStart()
+  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
 
   const [calledRes, todayRes, freshRes, totalRes] = await Promise.all([
     // Leads called AT LEAST ONCE in this campaign (persistent progress counter)
