@@ -389,6 +389,14 @@ function BookDemoModal({
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
   }
 
+  const buildLeadFormData = () => ({
+    name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || `${lead.first_name || ''}`.trim() || 'Lead',
+    phone: lead.phone || '',
+    email: lead.email || '',
+    company: lead.business_name || '',
+  })
+
+  const [formData, setFormData] = useState(buildLeadFormData())
   const [dateTime, setDateTime] = useState(buildDefaultDateTime())
   const [duration, setDuration] = useState(30)
   const [timezone, setTimezone] = useState(lead.likely_timezone || 'America/New_York')
@@ -397,6 +405,7 @@ function BookDemoModal({
 
   useEffect(() => {
     if (!isOpen) return
+    setFormData(buildLeadFormData())
     setDateTime(buildDefaultDateTime())
     setDuration(30)
     setTimezone(lead.likely_timezone || 'America/New_York')
@@ -413,14 +422,14 @@ function BookDemoModal({
     try {
       const slotStart = new Date(dateTime)
       const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000)
-      const leadName = [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim() || 'Lead'
+      const leadName = formData.name.trim() || 'Lead'
       const googleCalendarUrl = buildGoogleCalendarTemplateUrl({
         title: `Sourcify Meeting: ${leadName}`,
         start: slotStart.toISOString(),
         end: slotEnd.toISOString(),
         timezone,
-        attendeeEmail: lead.email || null,
-        details: `Phone: ${lead.phone}`,
+        attendeeEmail: formData.email || null,
+        details: `Phone: ${formData.phone}`,
       })
 
       const calendarWindow = window.open('about:blank', '_blank', 'noopener,noreferrer')
@@ -468,9 +477,9 @@ function BookDemoModal({
         </div>
         <div className="space-y-4 p-6">
           <div className="rounded-xl bg-gray-50 p-3 text-sm dark:bg-gray-800">
-            <p className="font-semibold text-gray-900 dark:text-white">{lead.first_name} {lead.last_name}</p>
-            {lead.business_name && <p className="text-xs text-gray-500">{lead.business_name}</p>}
-            <p className="mt-0.5 text-xs text-gray-500">{lead.phone}</p>
+            <p className="font-semibold text-gray-900 dark:text-white">{formData.name}</p>
+            {formData.company && <p className="text-xs text-gray-500">{formData.company}</p>}
+            <p className="mt-0.5 text-xs text-gray-500">{formData.phone}</p>
           </div>
           <div>
             <label className="label">Date & Time</label>
