@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 
+// Deployment: 2026-04-13 - Infinite Feed System enabled
 // How many leads to pull in each backfill batch
 const REFILL_BATCH     = 500
 // Trigger threshold — refill when fresh leads fall below this
