@@ -8,7 +8,7 @@ async function assertAdmin() {
   const supabase = await createServiceClient()
   const { data: p } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
   if (!p?.is_admin) return null
-  return { supabase }
+  return { supabase, userId: user.id }
 }
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -16,10 +16,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const campaignId = params.id
+  const userId = admin.userId
 
-  // Today at midnight UTC (consistent with how analytics logs are stored)
-  const todayStart = new Date()
-  todayStart.setUTCHours(0, 0, 0, 0)
+  // Rolling 24-hour window for 'Today' (local user time via 24h ago)
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
   const [calledRes, todayRes, freshRes, totalRes] = await Promise.all([
     // Leads called AT LEAST ONCE in this campaign (persistent progress counter)
@@ -29,12 +29,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .eq('campaign_id', campaignId)
       .not('last_called_at', 'is', null),
 
-    // Call attempts logged today (from analytics — never resets on refresh)
+    // Call attempts logged in last 24 hours by THIS USER (personalized count)
     admin.supabase
       .from('dialer_analytics_logs')
       .select('*', { count: 'exact', head: true })
       .eq('campaign_id', campaignId)
-      .gte('created_at', todayStart.toISOString()),
+      .eq('user_id', userId)
+      .gte('created_at', twentyFourHoursAgo.toISOString()),
 
     // Truly fresh leads: never called, still status='new'
     admin.supabase

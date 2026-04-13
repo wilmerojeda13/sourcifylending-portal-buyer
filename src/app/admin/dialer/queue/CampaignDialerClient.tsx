@@ -276,6 +276,45 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     { key: 'high_priority', label: 'High Priority', color: 'bg-indigo-100 text-indigo-700' },
   ]
 
+  // Silent background refresh without loading spinner (used after disposition)
+  const refreshQueue = useCallback(async (filter: string) => {
+    try {
+      const [camRes, leadsRes, statsRes] = await Promise.all([
+        fetch(`/api/admin/dialer/campaigns/${campaignId}`),
+        fetch(`/api/admin/dialer/campaigns/${campaignId}/leads?${filter === 'dialable' ? 'dialable=1' : `status=${filter}`}`),
+        fetch(`/api/admin/dialer/campaigns/${campaignId}/stats`),
+      ])
+      const [camJson, leadsJson, statsJson] = await Promise.all([camRes.json(), leadsRes.json(), statsRes.json()])
+      const cam: Campaign | null = camJson.campaign ?? null
+      setCampaign(cam)
+      // Filter out any leads DNC'd this session + phone numbers globally DNC'd
+      const freshQueue = (leadsJson.leads ?? []).filter(
+        (l: CampaignLead) =>
+          !dncIdsRef.current.has(l.raw_lead?.id) &&
+          !dncPhonesRef.current.has(l.raw_lead?.phone)
+      )
+      setQueue(freshQueue)
+      // Reset index to 0 to jump to next fresh lead (current is now excluded by DB)
+      setIndex(0)
+      // Update stats
+      const stats = (statsJson ?? {}) as { calls_total?: number; calls_today?: number; total?: number }
+      if (stats.calls_today  !== undefined) setCallsToday(stats.calls_today)
+      if (stats.total)                      setCampaignTotal(stats.total)
+      if (stats.calls_total !== undefined)  setDone(d => Math.max(d, stats.calls_total ?? 0))
+      // Compute fresh-lead total from status_counts view (fallback)
+      if (cam?.status_counts) {
+        const sc = cam.status_counts
+        const t = filter === 'dialable'
+          ? (sc['new'] ?? 0)
+          : (sc[filter] ?? 0)
+        setTotalDialable(t)
+      }
+    } catch {
+      // Silent fail - don't block UX on background refresh
+      console.error('Background queue refresh failed')
+    }
+  }, [campaignId])
+
   const load = useCallback(async (filter: string) => {
     setLoading(true)
     setIndex(0)
@@ -517,9 +556,11 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
           .catch(() => {})
       }
 
-      // Remove from queue and advance
-      setQueue(q => q.filter(item => item.id !== leadId))
-      setIndex(i => Math.max(0, Math.min(i, queue.length - 2)))
+      // HARD REFRESH: Immediately fetch fresh queue from DB to guarantee
+      // we jump to next truly undialed lead (last_called_at IS NULL)
+      // This prevents rehashing leads that might have slipped through
+      refreshQueue(statusFilter)
+
       setMobileDockMode('pre_call')
       setNote('')
       setCallbackAt('')
@@ -527,10 +568,9 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       console.error('Disposition error:', e)
       toast.error(e instanceof Error ? e.message : 'Failed to save')
       
-      // STILL increment done count even on error - total_dials must track every attempt
+      // On error: remove from local queue and hard refresh to get clean state
       setDone(n => n + 1)
-      setQueue(q => q.filter(item => item.id !== leadId))
-      setIndex(i => Math.max(0, Math.min(i, queue.length - 2)))
+      refreshQueue(statusFilter)
       setMobileDockMode('pre_call')
       setNote('')
       setCallbackAt('')
