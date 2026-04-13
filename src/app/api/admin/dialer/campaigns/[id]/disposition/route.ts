@@ -89,13 +89,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     last_call_at:      now,
     updated_at:        now,
   }
-  if (outcome === 'dnc') rawUpdate.do_not_call = true
-  if (callback_due_at)   rawUpdate.callback_due_at = callback_due_at
+  if (outcome === 'dnc') {
+    rawUpdate.do_not_call = true
+    rawUpdate.stage       = 'dnc'
+  }
+  if (callback_due_at) rawUpdate.callback_due_at = callback_due_at
 
-  await admin.supabase
+  const { error: rawErr } = await admin.supabase
     .from('dialer_raw_leads')
     .update(rawUpdate)
     .eq('id', raw_lead_id)
+
+  // DNC writes must succeed — a silent failure would leave the lead dialable
+  if (rawErr && outcome === 'dnc') {
+    console.error('[Campaign Disposition] DNC raw-lead update failed:', rawErr.message)
+    return NextResponse.json(
+      { error: `DNC update failed: ${rawErr.message}` },
+      { status: 500 },
+    )
+  }
+  if (rawErr) {
+    console.error('[Campaign Disposition] Raw-lead update failed (non-fatal):', rawErr.message)
+  }
 
   // 3. Log analytics (wrapped in try/catch - non-fatal to disposition)
   try {

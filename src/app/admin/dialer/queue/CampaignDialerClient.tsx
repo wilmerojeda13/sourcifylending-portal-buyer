@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
   Phone, ChevronRight, Building2, Loader2, CheckCircle2,
@@ -251,6 +251,10 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   const [textModalOpen, setTextModalOpen] = useState(false)
   const [textDraft, setTextDraft]         = useState('')
 
+  // Session-level DNC guard: raw_lead IDs marked DNC this session.
+  // Survives load() calls so a race condition can't re-show a DNC lead.
+  const dncIdsRef = useRef<Set<string>>(new Set())
+
   const current   = queue[index] ?? null
   const batchSize = queue.length
   // Use accurate server-side total (from status_counts view), not capped batch size
@@ -281,7 +285,13 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       const [camJson, leadsJson] = await Promise.all([camRes.json(), leadsRes.json()])
       const cam: Campaign | null = camJson.campaign ?? null
       setCampaign(cam)
-      setQueue(leadsJson.leads ?? [])
+      // Filter out any leads DNC'd this session (guards against race conditions
+      // where load() fires while a disposition API call is still in-flight)
+      setQueue(
+        (leadsJson.leads ?? []).filter(
+          (l: CampaignLead) => !dncIdsRef.current.has(l.raw_lead?.id)
+        )
+      )
       // Compute accurate total from status_counts view (not capped batch)
       if (cam?.status_counts) {
         const sc = cam.status_counts
@@ -414,6 +424,13 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     const safeNote = safeString(note)
     const safeCallbackAt = safeString(callbackAt)
     
+    // Track DNC leads immediately in the session guard (before API call).
+    // This prevents the lead from re-appearing if load() is called while the
+    // API is still in-flight, or if the API call fails.
+    if (safeOutcome === 'dnc' && safeRawLeadId) {
+      dncIdsRef.current.add(safeRawLeadId)
+    }
+
     // Must have valid IDs and outcome
     if (!safeLeadId || !safeRawLeadId || !safeOutcome) {
       toast.error('Invalid lead data - skipping')
