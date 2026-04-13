@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { isBlacklistedIndustry, inferIndustryFromCompany } from '@/lib/dialer-industry'
+import { PRIORITY_INDUSTRIES, isBlacklistedIndustry, inferIndustryFromCompany } from '@/lib/dialer-industry'
 
 async function assertAdmin() {
   const auth = await createClient()
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ ids: (data ?? []).map(r => r.id) })
   }
 
-  // Special case: high_priority filter looks at raw lead stage, not campaign status
+  // Special case: high_priority filter resolves from raw lead stage and target industries.
   // CRITICAL: Must exclude leads already called (last_called_at IS NULL) to prevent rehashing
   if (status === 'high_priority') {
     const { data, error } = await admin.supabase
@@ -59,16 +59,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         )
       `)
       .eq('campaign_id', params.id)
-      .eq('raw_lead.stage', 'high_priority')
       .is('last_called_at', null)   // STRICT: once called, never rehashed
       .order('sort_order', { ascending: true })
       .range(0, 999999)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     const leads = (data ?? []).filter(l => {
-      const raw = (l as unknown as { raw_lead?: { do_not_call?: boolean; is_archived?: boolean; industry?: string | null; business_name?: string | null } }).raw_lead
+      const raw = (l as unknown as { raw_lead?: { do_not_call?: boolean; is_archived?: boolean; industry?: string | null; business_name?: string | null; stage?: string | null } }).raw_lead
       if (!raw || raw.do_not_call || raw.is_archived) return false
       if (isBlacklistedIndustry({ industry: raw.industry, business_name: raw.business_name })) return false
-      return true
+      const industry = raw.industry?.trim() || inferIndustryFromCompany(raw.business_name)
+      return raw.stage === 'high_priority' || Boolean(industry && PRIORITY_INDUSTRIES.includes(industry))
     })
     return NextResponse.json({ leads, total: leads.length })
   }
@@ -206,6 +206,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       .eq('campaign_id', params.id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   } else if (body.action === 'reset') {
+    // Reset leads AND delete their corresponding call logs to keep in sync
+    const deleteRes = await admin.supabase
+      .from('call_logs')
+      .delete()
+      .eq('source_system', 'dialer')
+      .in('campaign_lead_id', ids)
+      .eq('campaign_id', params.id)
+
+    if (deleteRes.error) console.error('Failed to delete call logs during reset:', deleteRes.error)
+
     const { error } = await admin.supabase
       .from('dialer_campaign_leads')
       .update({ status: 'new', last_call_outcome: null, last_called_at: null })

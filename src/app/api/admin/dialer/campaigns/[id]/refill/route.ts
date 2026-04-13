@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { PRIORITY_INDUSTRIES, inferIndustryFromCompany } from '@/lib/dialer-industry'
 
-// Deployment: 2026-04-13 - Infinite Feed System enabled
-// How many leads to pull in each backfill batch
-const REFILL_BATCH     = 500
-// Trigger threshold — refill when fresh leads fall below this
-const FRESH_THRESHOLD  = 500
-// High priority industries for automatic ingestion
-const PRIORITY_INDUSTRIES = [
-  'Construction', 'Transportation/Trucking', 'Manufacturing', 'E-commerce',
-  'Professional Services', 'Real Estate', 'Healthcare', 'Auto/Automotive'
-]
+const AUTO_REFILL_BATCH = 200
+const AUTO_REFILL_THRESHOLD = 10
 
 async function assertAdmin() {
   const auth = await createClient()
@@ -54,116 +47,72 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const fresh = freshCount ?? 0
 
-  // ── Step 3: Backfill only when below threshold ───────────────────────────
-  // INFINITE FEED: Auto-ingest high-priority leads from entire database
-  if (fresh < FRESH_THRESHOLD) {
-    // Get all raw_lead_ids already in this campaign to avoid duplicates
-    const { data: existingRows } = await admin.supabase
-      .from('dialer_campaign_leads')
-      .select('raw_lead_id')
-      .eq('campaign_id', campaignId)
+  // ── Step 3: Auto-backfill when the queue is low ──────────────────────────
+  if (fresh < AUTO_REFILL_THRESHOLD) {
+    const [{ data: campaignRows }, { data: allCampaignRows }] = await Promise.all([
+      admin.supabase
+        .from('dialer_campaign_leads')
+        .select('raw_lead_id')
+        .eq('campaign_id', campaignId),
+      admin.supabase
+        .from('dialer_campaign_leads')
+        .select('raw_lead_id')
+        .range(0, 999999),
+    ])
 
-    const existingSet = new Set((existingRows ?? []).map(r => r.raw_lead_id))
+    const currentCampaignSet = new Set((campaignRows ?? []).map(r => r.raw_lead_id))
+    const assignedSet = new Set((allCampaignRows ?? []).map(r => r.raw_lead_id))
 
-    const needed = FRESH_THRESHOLD - fresh
-
-    // PRIORITY 1: Pull existing high_priority stage leads
-    let toAdd: { id: string }[] = []
-    
-    const { data: priorityCandidates } = await admin.supabase
+    const { data: candidateRows, error: candidateErr } = await admin.supabase
       .from('dialer_raw_leads')
-      .select('id')
-      .eq('stage', 'high_priority')
+      .select('id, industry, business_name, created_at, stage')
       .eq('is_archived', false)
       .eq('do_not_call', false)
       .is('promoted_to_crm_lead_id', null)
       .is('last_call_at', null)
       .order('created_at', { ascending: true })
-      .limit(REFILL_BATCH * 2)
+      .range(0, 5999)
 
-    toAdd = (priorityCandidates ?? [])
-      .filter(l => !existingSet.has(l.id))
-      .slice(0, needed)
-
-    // PRIORITY 2: If still need more, auto-promote priority industry leads
-    if (toAdd.length < needed) {
-      const { data: industryCandidates } = await admin.supabase
-        .from('dialer_raw_leads')
-        .select('id, industry, stage')
-        .eq('is_archived', false)
-        .eq('do_not_call', false)
-        .is('promoted_to_crm_lead_id', null)
-        .is('last_call_at', null)
-        .not('industry', 'is', null)
-        .in('industry', PRIORITY_INDUSTRIES)
-        .neq('stage', 'high_priority') // Don't duplicate
-        .order('created_at', { ascending: true })
-        .limit(REFILL_BATCH * 2)
-
-      const industryAdds = (industryCandidates ?? [])
-        .filter(l => !existingSet.has(l.id) && !toAdd.some(a => a.id === l.id))
-        .slice(0, needed - toAdd.length)
-
-      // Auto-upgrade these leads to high_priority stage
-      if (industryAdds.length > 0) {
-        const idsToUpgrade = industryAdds.map(l => l.id)
-        await admin.supabase
-          .from('dialer_raw_leads')
-          .update({ stage: 'high_priority', updated_at: now })
-          .in('id', idsToUpgrade)
-        
-        toAdd.push(...industryAdds)
-      }
+    if (candidateErr) {
+      console.error('[Refill] Candidate query error:', candidateErr.message)
+      return NextResponse.json({ error: candidateErr.message }, { status: 500 })
     }
 
-    // PRIORITY 3: If still need more, scan entire unassigned database
-    if (toAdd.length < needed) {
-      const { data: allCandidates } = await admin.supabase
+    const highPriorityCandidates = (candidateRows ?? [])
+      .filter(row => {
+        const industry = row.industry?.trim() || inferIndustryFromCompany(row.business_name)
+        return Boolean(industry && PRIORITY_INDUSTRIES.includes(industry))
+      })
+      .filter(row => !currentCampaignSet.has(row.id) && !assignedSet.has(row.id))
+      .slice(0, AUTO_REFILL_BATCH)
+
+    if (highPriorityCandidates.length > 0) {
+      const candidateIds = highPriorityCandidates.map(row => row.id)
+      await admin.supabase
         .from('dialer_raw_leads')
-        .select('id, industry, email')
-        .eq('is_archived', false)
-        .eq('do_not_call', false)
-        .is('promoted_to_crm_lead_id', null)
-        .is('last_call_at', null)
-        .order('created_at', { ascending: true })
-        .limit(REFILL_BATCH * 3)
+        .update({ stage: 'high_priority', updated_at: now })
+        .in('id', candidateIds)
 
-      const remainingAdds = (allCandidates ?? [])
-        .filter(l => {
-          if (existingSet.has(l.id)) return false
-          if (toAdd.some(a => a.id === l.id)) return false
-          // Filter for leads with professional emails or priority industries
-          const hasPriorityIndustry = l.industry && PRIORITY_INDUSTRIES.includes(l.industry)
-          const hasEmail = l.email && l.email.includes('@') && !l.email.match(/@(gmail|yahoo|hotmail|outlook)\.com$/i)
-          return hasPriorityIndustry || hasEmail
-        })
-        .slice(0, needed - toAdd.length)
-
-      toAdd.push(...remainingAdds)
-    }
-
-    if (toAdd.length > 0) {
-      // Append after existing leads
       const { data: maxRow } = await admin.supabase
         .from('dialer_campaign_leads')
         .select('sort_order')
         .eq('campaign_id', campaignId)
         .order('sort_order', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
       const baseSort = (maxRow?.sort_order ?? 0) + 1
 
-      const rows = toAdd.map((l, i) => ({
+      const rows = highPriorityCandidates.map((l, i) => ({
         campaign_id: campaignId,
         raw_lead_id: l.id,
-        sort_order:  baseSort + i,
+        sort_order: baseSort + i,
       }))
 
       const { error: insertErr } = await admin.supabase
         .from('dialer_campaign_leads')
         .upsert(rows, { onConflict: 'campaign_id,raw_lead_id', ignoreDuplicates: true })
 
-      if (!insertErr) added = toAdd.length
+      if (!insertErr) added = rows.length
       else console.error('[Refill] Insert error:', insertErr.message)
     }
   }
@@ -173,6 +122,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     scrubbed,
     added,
     fresh_remaining: fresh + added,
-    was_below_threshold: fresh < FRESH_THRESHOLD,
+    was_below_threshold: fresh < AUTO_REFILL_THRESHOLD,
   })
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { recordCallLog } from '@/lib/call-logs'
 import { promoteToCrm } from '@/lib/dialer-promotion'
 
 const CAMPAIGN_OUTCOME_TO_CRM_STAGE: Record<string, string> = {
@@ -50,6 +51,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     campaign_lead_id: string     // id from dialer_campaign_leads
     raw_lead_id:      string
     outcome:          string     // no_answer | voicemail | interested | callback | ...
+    call_log_id?:     string | null
+    duration_seconds?: number | null
     note?:            string | null
     callback_due_at?: string | null
     follow_up_at?:    string | null
@@ -66,6 +69,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // Use client timestamp if provided, otherwise use server time
   const now = body.client_timestamp || new Date().toISOString()
   const newStatus  = OUTCOME_TO_STATUS[outcome] ?? 'contacted'
+
+  const { data: rawLead, error: rawLeadError } = await admin.supabase
+    .from('dialer_raw_leads')
+    .select('source')
+    .eq('id', raw_lead_id)
+    .single<{ source: string | null }>()
+
+  if (rawLeadError) return NextResponse.json({ error: rawLeadError.message }, { status: 500 })
+
+  try {
+    await recordCallLog(admin.supabase, {
+      id: body.call_log_id ?? crypto.randomUUID(),
+      leadId: raw_lead_id,
+      rawLeadId: raw_lead_id,
+      campaignId,
+      campaignLeadId: campaign_lead_id,
+      repUserId: admin.userId,
+      sourceSystem: 'dialer',
+      timestamp: now,
+      durationSeconds: body.duration_seconds ?? 0,
+      disposition: outcome,
+      leadSource: rawLead?.source ?? null,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to record call log.'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 
   // 1. Update campaign lead record
   const { error: clErr } = await admin.supabase
@@ -123,22 +153,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     console.error('[Campaign Disposition] Raw-lead update failed (non-fatal):', rawErr.message)
   }
 
-  // 3. Log analytics (wrapped in try/catch - non-fatal to disposition)
-  try {
-    await admin.supabase.from('dialer_analytics_logs').insert({
-      campaign_id: campaignId,
-      campaign_lead_id,
-      raw_lead_id,
-      outcome,
-      note: note || null,
-      user_id: admin.userId,
-      created_at: now,
-    })
-  } catch (analyticsErr) {
-    console.error('[Campaign Disposition] Analytics log failed (non-fatal):', analyticsErr)
-  }
-
-  // 4. CRM promotion (qualified or explicit promote flag)
+  // 3. CRM promotion (qualified or explicit promote flag)
   let promotion:
     | {
         outcome: PromotionOutcome

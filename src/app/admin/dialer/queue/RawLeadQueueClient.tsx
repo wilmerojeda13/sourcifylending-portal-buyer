@@ -216,6 +216,7 @@ export default function RawLeadQueueClient({ initialStage }: { initialStage?: Ra
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          call_log_id:     crypto.randomUUID(),
           raw_lead_id:     current.id,
           disposition_key: d.key,
           call_id:         activeCallId,

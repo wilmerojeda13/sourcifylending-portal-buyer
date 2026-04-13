@@ -8,6 +8,7 @@ import { appendCrmActivity, createCrmAuditLog } from '@/lib/crm-audit'
 import { assignCrmTags } from '@/lib/crm-tags'
 import { isMissingRelationError } from '@/lib/supabase-schema'
 import { promoteToCrm, shouldAutoPromote } from '@/lib/dialer-promotion'
+import { recordCallLog } from '@/lib/call-logs'
 
 /**
  * Check if disposition should conditionally promote (e.g., 'interested' only if follow-up scheduled)
@@ -246,6 +247,19 @@ export async function applyCrmDisposition(
     definition.key === 'call_back' || definition.key === 'call_back_later' ? input.followUpAt : null,
     definition.appointment ? input.followUpAt : null,
   )
+
+  if (input.callId) {
+    await recordCallLog(supabase, {
+      id: input.callId,
+      leadId: effectiveLeadId,
+      rawLeadId: input.fromRawLeadId ?? null,
+      sourceSystem: 'crm',
+      timestamp: nowIso,
+      durationSeconds: 0,
+      disposition: definition.key,
+      repUserId: input.actorUserId ?? null,
+    })
+  }
 
   const leadUpdate: Record<string, unknown> = {
     ...eligibilityUpdates,

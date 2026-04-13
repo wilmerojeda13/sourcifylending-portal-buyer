@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { recordCallLog } from '@/lib/call-logs'
 
 async function assertAdmin() {
   const auth = await createClient()
@@ -19,13 +20,15 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const {
+      call_log_id,
       campaign_id,
       campaign_lead_id,
       raw_lead_id,
       outcome,
-      note,
+      duration_seconds,
+      timestamp,
+      lead_source,
       user_id,
-      user_name,
     } = body
 
     // Validate required fields
@@ -36,39 +39,33 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Insert analytics log - wrapped in try/catch to prevent disposition failures
-    const { error: logError } = await admin.supabase
-      .from('dialer_analytics_logs')
-      .insert({
-        campaign_id,
-        campaign_lead_id,
-        raw_lead_id: raw_lead_id || null,
-        outcome,
-        note: note || null,
-        user_id: user_id || admin.userId,
-        user_name: user_name || null,
-        created_at: new Date().toISOString(),
-      })
-
-    // Log error but don't fail the request - disposition should still succeed
-    if (logError) {
-      console.error('Analytics log error (non-fatal):', logError)
-    }
+    await recordCallLog(admin.supabase, {
+      id: call_log_id ?? crypto.randomUUID(),
+      leadId: raw_lead_id || campaign_lead_id,
+      rawLeadId: raw_lead_id || null,
+      campaignId: campaign_id,
+      campaignLeadId: campaign_lead_id,
+      repUserId: user_id || admin.userId,
+      sourceSystem: 'dialer',
+      timestamp: timestamp ?? new Date().toISOString(),
+      durationSeconds: duration_seconds ?? 0,
+      disposition: outcome,
+      leadSource: lead_source ?? null,
+    })
 
     return NextResponse.json({
       success: true,
-      logged: !logError,
+      logged: true,
       timestamp: new Date().toISOString(),
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error('Analytics log exception (non-fatal):', message)
-    // Return success even on error - don't block disposition
+    console.error('Analytics log exception:', message)
     return NextResponse.json({
-      success: true,
+      success: false,
       logged: false,
       error: message,
       timestamp: new Date().toISOString(),
-    })
+    }, { status: 500 })
   }
 }

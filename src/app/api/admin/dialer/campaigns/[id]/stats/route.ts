@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { DIALER_TIME_ZONE, getTimeZoneDayBounds } from '@/lib/timezones'
 
 async function assertAdmin() {
   const auth = await createClient()
@@ -11,26 +12,14 @@ async function assertAdmin() {
   return { supabase, userId: user.id }
 }
 
-// Helper: Get start of day in local timezone (America/New_York - UTC-04)
-function getLocalDayStart(): Date {
-  const now = new Date()
-  // Convert to UTC-04 (EDT) by adding 4 hours to UTC time
-  const utcMinus4 = new Date(now.getTime() + (4 * 60 * 60 * 1000))
-  // Set to midnight in UTC-04
-  utcMinus4.setUTCHours(0, 0, 0, 0)
-  // Convert back to UTC for database query
-  return new Date(utcMinus4.getTime() - (4 * 60 * 60 * 1000))
-}
-
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const admin = await assertAdmin()
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const campaignId = params.id
 
-  // Get today's date bounds in local timezone (EDT) to match analytics API
-  const todayStart = getLocalDayStart()
-  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
+  // Get today's date bounds in America/New_York so "Today" includes all EST/EDT dispositions.
+  const todayBounds = getTimeZoneDayBounds(new Date(), DIALER_TIME_ZONE)
 
   const [calledRes, todayRes, freshRes, totalRes] = await Promise.all([
     // Leads called AT LEAST ONCE in this campaign (persistent progress counter)
@@ -40,14 +29,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .eq('campaign_id', campaignId)
       .not('last_called_at', 'is', null),
 
-    // Calls Today: SOURCE OF TRUTH - count leads where last_called_at is TODAY
-    // This is a direct database count, not session-based
+    // Calls Today: SOURCE OF TRUTH - raw call logs for the campaign today.
     admin.supabase
-      .from('dialer_campaign_leads')
+      .from('call_logs')
       .select('*', { count: 'exact', head: true })
+      .eq('source_system', 'dialer')
       .eq('campaign_id', campaignId)
-      .gte('last_called_at', todayStart.toISOString())
-      .lt('last_called_at', todayEnd.toISOString()),
+      .gte('timestamp', todayBounds.start.toISOString())
+      .lte('timestamp', todayBounds.end.toISOString()),
 
     // Truly fresh leads: never called, still status='new'
     admin.supabase

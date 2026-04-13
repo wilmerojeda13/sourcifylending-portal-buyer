@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { recordCallLog } from '@/lib/call-logs'
 import { promoteToCrm } from '@/lib/dialer-promotion'
 
 const DISPOSITION_TO_CRM_STAGE: Record<string, string> = {
@@ -55,6 +56,8 @@ export async function POST(req: NextRequest) {
     raw_lead_id: string
     disposition_key: string
     call_id?: string | null
+    call_log_id?: string | null
+    duration_seconds?: number | null
     note?: string | null
     follow_up_at?: string | null
     lead_temperature?: 'cold' | 'warm' | 'hot' | null
@@ -66,6 +69,30 @@ export async function POST(req: NextRequest) {
 
   const now = new Date().toISOString()
   const newStage = STAGE_MAP[body.disposition_key]
+
+  const { data: rawLead, error: rawLeadError } = await admin.supabase
+    .from('dialer_raw_leads')
+    .select('source')
+    .eq('id', body.raw_lead_id)
+    .single<{ source: string | null }>()
+
+  if (rawLeadError) return NextResponse.json({ error: rawLeadError.message }, { status: 500 })
+
+  try {
+    await recordCallLog(admin.supabase, {
+      id: body.call_log_id ?? body.call_id ?? crypto.randomUUID(),
+      leadId: body.raw_lead_id,
+      rawLeadId: body.raw_lead_id,
+      sourceSystem: 'dialer',
+      timestamp: now,
+      durationSeconds: body.duration_seconds ?? 0,
+      disposition: body.disposition_key,
+      leadSource: rawLead?.source ?? null,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to record call log.'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 
   const updates: Record<string, unknown> = {
     last_call_outcome: body.disposition_key,

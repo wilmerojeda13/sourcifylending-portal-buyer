@@ -507,6 +507,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          call_log_id:     crypto.randomUUID(),
           campaign_lead_id: safeLeadId,
           raw_lead_id:      safeRawLeadId,
           outcome:          safeOutcome,
