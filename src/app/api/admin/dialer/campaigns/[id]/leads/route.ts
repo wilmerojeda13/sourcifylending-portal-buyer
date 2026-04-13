@@ -87,10 +87,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         )
       `)
       .eq('campaign_id', params.id)
-      .in('status', ['new', 'callback', 'follow_up'])
-      // new leads (null last_called_at) come first; then scheduled callbacks/follow-ups
-      .order('last_called_at', { ascending: true, nullsFirst: true })
-      .order('sort_order',     { ascending: true })
+      .eq('status', 'new')
+      .is('last_called_at', null)   // STRICT: once called, never rehashed
+      .order('sort_order', { ascending: true })
       .range(0, 999999)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     const seenPhones = new Set<string>()

@@ -300,7 +300,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       if (cam?.status_counts) {
         const sc = cam.status_counts
         const t = filter === 'dialable'
-          ? (['new','callback','follow_up'] as const).reduce((s, k) => s + (sc[k] ?? 0), 0)
+          ? (sc['new'] ?? 0)  // dialable now = fresh (status=new, last_called_at IS NULL)
           : (sc[filter] ?? 0)
         setTotalDialable(t)
       }
@@ -493,7 +493,22 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
 
       // ALWAYS increment done count - this is total_dials tracking
       setDone(n => n + 1)
-      
+
+      // Auto-refill: when fresh leads in the loaded queue drop below 50,
+      // fire a background call to pull the next 100 fresh leads into the campaign.
+      // Non-blocking — reloads queue silently if leads were added.
+      if (statusFilter === 'dialable' && queue.length - 1 < 50) {
+        fetch(`/api/admin/dialer/campaigns/${campaignId}/refill`, { method: 'POST' })
+          .then(r => r.json())
+          .then(d => {
+            if (d.added > 0) {
+              toast(`🔄 +${d.added} fresh leads added`, { icon: undefined, duration: 3000 })
+              load(statusFilter)
+            }
+          })
+          .catch(() => {})
+      }
+
       // Remove from queue and advance
       setQueue(q => q.filter(item => item.id !== leadId))
       setIndex(i => Math.max(0, Math.min(i, queue.length - 2)))
@@ -618,7 +633,12 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
               </button>
             ))}
           </div>
-          <span className="ml-2 text-xs text-gray-400 shrink-0">{remaining.toLocaleString()} left</span>
+          <span className="ml-2 text-xs shrink-0">
+            {statusFilter === 'dialable'
+              ? <span className="text-green-400 font-semibold">{queue.length} fresh left</span>
+              : <span className="text-gray-400">{remaining.toLocaleString()} left</span>
+            }
+          </span>
         </div>
       </div>
 
