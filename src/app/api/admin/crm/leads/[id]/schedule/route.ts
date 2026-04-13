@@ -111,6 +111,7 @@ async function createLocalBooking(
       })
     }
 
+    const now = new Date().toISOString()
     const { data: task, error: taskError } = await supabase
       .from('crm_tasks')
       .insert({
@@ -126,6 +127,14 @@ async function createLocalBooking(
         pipeline_stage: 'demo_scheduled',
         notes: body.notes?.trim() || null,
         created_by_user_id: admin.userId,
+        created_at: now,
+        updated_at: now,
+        created_source: 'crm_booking',
+        source_metadata: {
+          booking_type: 'demo_schedule',
+          timezone: timezone,
+          duration_minutes: durationMinutes,
+        },
       })
       .select('*')
       .single()
