@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { isBlacklistedIndustry, inferIndustryFromCompany } from '@/lib/dialer-industry'
 
 async function assertAdmin() {
   const auth = await createClient()
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         id, campaign_id, raw_lead_id, status, last_call_outcome, last_called_at,
         callback_due_at, follow_up_at, notes, sort_order, added_at, updated_at,
         raw_lead:dialer_raw_leads!inner(
-          id, first_name, last_name, phone, phone_e164, email, business_name, notes,
+          id, first_name, last_name, phone, phone_e164, email, business_name, notes, industry,
           do_not_call, is_archived, promoted_to_crm_lead_id,
           likely_timezone, timezone_confidence, call_window_status, blocked_until_label,
           source, created_at, stage
@@ -63,8 +64,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .range(0, 999999)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     const leads = (data ?? []).filter(l => {
-      const raw = (l as unknown as { raw_lead?: { do_not_call?: boolean; is_archived?: boolean } }).raw_lead
-      return raw && !raw.do_not_call && !raw.is_archived
+      const raw = (l as unknown as { raw_lead?: { do_not_call?: boolean; is_archived?: boolean; industry?: string | null; business_name?: string | null } }).raw_lead
+      if (!raw || raw.do_not_call || raw.is_archived) return false
+      if (isBlacklistedIndustry({ industry: raw.industry, business_name: raw.business_name })) return false
+      return true
     })
     return NextResponse.json({ leads, total: leads.length })
   }
@@ -77,7 +80,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         id, campaign_id, raw_lead_id, status, last_call_outcome, last_called_at,
         callback_due_at, follow_up_at, notes, sort_order, added_at, updated_at,
         raw_lead:dialer_raw_leads(
-          id, first_name, last_name, phone, phone_e164, email, business_name, notes,
+          id, first_name, last_name, phone, phone_e164, email, business_name, notes, industry,
           do_not_call, is_archived, promoted_to_crm_lead_id,
           likely_timezone, timezone_confidence, call_window_status, blocked_until_label,
           source, created_at
@@ -91,8 +94,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .range(0, 999999)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     const leads = (data ?? []).filter(l => {
-      const raw = (l as unknown as { raw_lead?: { do_not_call?: boolean; is_archived?: boolean } }).raw_lead
-      return raw && !raw.do_not_call && !raw.is_archived
+      const raw = (l as unknown as { raw_lead?: { do_not_call?: boolean; is_archived?: boolean; industry?: string | null; business_name?: string | null } }).raw_lead
+      if (!raw || raw.do_not_call || raw.is_archived) return false
+      if (isBlacklistedIndustry({ industry: raw.industry, business_name: raw.business_name })) return false
+      return true
+    }).map(l => {
+      const raw = (l as unknown as { raw_lead?: { industry?: string | null; business_name?: string | null } }).raw_lead
+      if (raw && !raw.industry && raw.business_name) {
+        raw.industry = inferIndustryFromCompany(raw.business_name)
+      }
+      return l
     })
     return NextResponse.json({ leads, total: leads.length })
   }
@@ -116,7 +127,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       id, campaign_id, raw_lead_id, status, last_call_outcome, last_called_at,
       callback_due_at, follow_up_at, notes, sort_order, added_at, updated_at,
       raw_lead:dialer_raw_leads(
-        id, first_name, last_name, phone, phone_e164, email, business_name, notes,
+        id, first_name, last_name, phone, phone_e164, email, business_name, notes, industry,
         do_not_call, is_archived, promoted_to_crm_lead_id,
         likely_timezone, timezone_confidence, call_window_status, blocked_until_label,
         source, created_at

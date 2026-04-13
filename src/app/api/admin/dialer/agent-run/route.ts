@@ -29,7 +29,40 @@ const JUNK_KEYWORDS = new Set([
   'msg&data', 'msg & data', 'data rates',
 ])
 
-function isJunkLead(lead: { first_name?: string | null; email?: string | null; last_name?: string | null; business_name?: string | null; notes?: string | null }): boolean {
+const BLACKLISTED_INDUSTRY_TERMS_AR = [
+  'government', ' gov ', '.gov', 'federal', 'state of ', 'city of ', 'county of ',
+  'department of ', 'dept of ', 'office of ',
+  'non-profit', 'nonprofit', 'non profit', '501(c)', '501c3', 'charity', 'foundation',
+  'fire department', 'fire dept', 'fire station', 'fire district',
+  'county office', 'county clerk', 'county sheriff',
+  'public works', 'public school', 'school district', 'unified school',
+  'municipality', 'municipal', 'township', 'city hall',
+  'police department', 'police dept', 'sheriff', 'corrections',
+]
+
+const INFERENCE_MAP_AR: Array<{ keywords: string[]; industry: string }> = [
+  { keywords: ['construc', 'contractor', 'contracting', 'builder', 'remodel', 'roofing', 'plumbing', 'hvac', 'electrician', 'flooring', 'concrete', 'landscap', 'paving', 'masonry'], industry: 'Construction' },
+  { keywords: ['truck', 'transport', 'freight', 'logistics', 'hauling', 'courier', 'dispatch', 'delivery', 'moving', 'carrier', 'shipping'], industry: 'Transportation/Trucking' },
+  { keywords: ['real estate', 'realty', 'realtor', 'properties', 'property mgmt', 'property management', 'apartment'], industry: 'Real Estate' },
+  { keywords: ['medical', 'clinic', 'dental', 'dentist', 'therapy', 'therapist', 'healthcare', 'chiro', 'pharmacy', 'urgent care', 'physical therapy', 'veterinar'], industry: 'Healthcare' },
+  { keywords: ['ecommerce', 'e-commerce', 'online store', 'shopify', 'dropship'], industry: 'E-commerce' },
+  { keywords: ['restaurant', 'cafe', 'catering', 'bakery', 'diner', 'pizza', 'grill', 'bbq', 'food service', 'bistro'], industry: 'Restaurants/Food' },
+  { keywords: ['manufactur', 'fabricat', 'machining', 'assembly', 'industrial', 'welding'], industry: 'Manufacturing' },
+  { keywords: ['consult', 'advisory', 'solutions', 'services', 'group', 'associates', 'partners', 'agency', 'staffing', 'marketing', 'accounting', 'cpa', 'attorney', 'legal', 'insurance'], industry: 'Professional Services' },
+]
+
+function inferIndustryAR(businessName: string | null | undefined): string | null {
+  if (!businessName) return null
+  const lower = businessName.toLowerCase()
+  for (const entry of INFERENCE_MAP_AR) {
+    for (const kw of entry.keywords) {
+      if (lower.includes(kw)) return entry.industry
+    }
+  }
+  return null
+}
+
+function isJunkLead(lead: { first_name?: string | null; email?: string | null; last_name?: string | null; business_name?: string | null; notes?: string | null; industry?: string | null }): boolean {
   // Check 1: MUST have first_name
   if (!lead.first_name || typeof lead.first_name !== 'string' || lead.first_name.trim() === '') {
     return true
@@ -67,7 +100,13 @@ function isJunkLead(lead: { first_name?: string | null; email?: string | null; l
       return true
     }
   }
-  
+
+  // Check 7: Blacklisted industry / company name
+  const industryHaystack = `${lead.industry ?? ''} ${lead.business_name ?? ''}`.toLowerCase()
+  for (const term of BLACKLISTED_INDUSTRY_TERMS_AR) {
+    if (industryHaystack.includes(term)) return true
+  }
+
   return false
 }
 
@@ -104,7 +143,7 @@ async function scrubDialerLeadsForPriority(supabase: ReturnType<typeof createSer
     // Build query for dialer_raw_leads
     let query = serviceClient
       .from('dialer_raw_leads')
-      .select('id, first_name, last_name, phone, email, business_name, stage, source, is_archived, promoted_to_crm_lead_id')
+      .select('id, first_name, last_name, phone, email, business_name, industry, notes, stage, source, is_archived, promoted_to_crm_lead_id')
       .eq('is_archived', false)
       .not('email', 'is', null)
       .neq('stage', 'high_priority')
@@ -141,9 +180,10 @@ async function scrubDialerLeadsForPriority(supabase: ReturnType<typeof createSer
       }
 
       if (isProfessionalEmail(lead.email)) {
+        const inferredIndustry = (lead as { industry?: string | null }).industry || inferIndustryAR(lead.business_name)
         const { error: updateError } = await serviceClient
           .from('dialer_raw_leads')
-          .update({ stage: 'high_priority', updated_at: new Date().toISOString() })
+          .update({ stage: 'high_priority', industry: inferredIndustry ?? null, updated_at: new Date().toISOString() })
           .eq('id', lead.id)
 
         if (updateError) {

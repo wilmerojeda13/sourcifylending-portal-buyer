@@ -9,6 +9,7 @@ import {
   CheckCircle, Globe, Send, Mail, Pencil, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getIndustryBadge } from '@/lib/dialer-industry'
 import toast from 'react-hot-toast'
 
 // Canonical dialer campaign flow used from /admin/dialer/campaigns.
@@ -28,6 +29,7 @@ interface RawLead {
   email: string | null
   business_name: string | null
   notes: string | null
+  industry: string | null
   do_not_call: boolean
   promoted_to_crm_lead_id: string | null
   likely_timezone: string | null
@@ -629,6 +631,14 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                     <span>No Email Provided</span>
                   </p>
                 )}
+                {raw?.industry && (() => {
+                  const badge = getIndustryBadge(raw.industry)
+                  return (
+                    <span className={cn('mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', badge.color)}>
+                      {badge.priority ? '⭐ ' : ''}{badge.label}
+                    </span>
+                  )
+                })()}
                 {raw && <div className="mt-1.5"><CallWindowBadge lead={raw} /></div>}
               </div>
               <div className="shrink-0 text-right">
@@ -757,6 +767,14 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                       <Mail size={11} className="shrink-0" /> No Email
                     </p>
                   )}
+                  {raw?.industry && (() => {
+                    const badge = getIndustryBadge(raw.industry)
+                    return (
+                      <span className={cn('mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', badge.color)}>
+                        {badge.priority ? '⭐ ' : ''}{badge.label}
+                      </span>
+                    )
+                  })()}
                 </div>
               </div>
               {raw && <div className="mb-2"><CallWindowBadge lead={raw} /></div>}

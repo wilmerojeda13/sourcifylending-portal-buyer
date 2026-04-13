@@ -83,6 +83,51 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   },
 })
 
+// ─── Industry blacklist (duplicated here to avoid ESM/CommonJS issues in standalone script)
+const BLACKLISTED_INDUSTRY_TERMS_LP = [
+  'government', ' gov ', '.gov', 'federal', 'state of ', 'city of ', 'county of ',
+  'department of ', 'dept of ', 'office of ',
+  'non-profit', 'nonprofit', 'non profit', '501(c)', '501c3', 'charity', 'foundation',
+  'fire department', 'fire dept', 'fire station', 'fire district',
+  'county office', 'county clerk', 'county sheriff',
+  'public works', 'public school', 'school district', 'unified school',
+  'municipality', 'municipal', 'township', 'city hall',
+  'police department', 'police dept', 'sheriff', 'corrections',
+  'veterans affairs', 'social services', 'housing authority',
+]
+
+const INFERENCE_MAP_LP: Array<{ keywords: string[]; industry: string }> = [
+  { keywords: ['construc', 'contractor', 'contracting', 'builder', 'remodel', 'roofing', 'plumbing', 'hvac', 'electrician', 'flooring', 'concrete', 'landscap', 'paving', 'masonry', 'cabinet', 'drywall', 'excavat'], industry: 'Construction' },
+  { keywords: ['truck', 'transport', 'freight', 'logistics', 'hauling', 'courier', 'dispatch', 'delivery', 'moving', 'carrier', 'shipping'], industry: 'Transportation/Trucking' },
+  { keywords: ['real estate', 'realty', 'realtor', 'properties', 'property mgmt', 'property management', 'homes for sale', 'apartment'], industry: 'Real Estate' },
+  { keywords: ['medical', 'clinic', 'dental', 'dentist', 'therapy', 'therapist', 'healthcare', 'chiro', 'optom', 'pharmacy', 'urgent care', 'physical therapy', 'rehab', 'veterinar'], industry: 'Healthcare' },
+  { keywords: ['ecommerce', 'e-commerce', 'online store', 'shopify', 'dropship'], industry: 'E-commerce' },
+  { keywords: ['restaurant', 'cafe', 'catering', 'bakery', 'diner', 'pizza', 'grill', 'bbq', 'taco', 'food service', 'bistro'], industry: 'Restaurants/Food' },
+  { keywords: ['auto repair', 'automotive', 'car wash', 'mechanic', 'tire ', 'body shop', 'collision'], industry: 'Auto/Automotive' },
+  { keywords: ['manufactur', 'fabricat', 'machining', 'assembly', 'industrial', 'welding'], industry: 'Manufacturing' },
+  { keywords: ['retail', 'boutique', 'shop ', 'outlet', 'supplies'], industry: 'Retail' },
+  { keywords: ['consult', 'advisory', 'solutions', 'services', 'group', 'associates', 'partners', 'firm', 'agency', 'staffing', 'marketing', 'accounting', 'cpa', 'attorney', 'law office', 'legal', 'insurance'], industry: 'Professional Services' },
+]
+
+function inferIndustryLP(businessName: string | null | undefined): string | null {
+  if (!businessName) return null
+  const lower = businessName.toLowerCase()
+  for (const entry of INFERENCE_MAP_LP) {
+    for (const kw of entry.keywords) {
+      if (lower.includes(kw)) return entry.industry
+    }
+  }
+  return null
+}
+
+function isBlacklistedIndustryLP(lead: { industry?: string | null; business_name?: string | null }): boolean {
+  const haystack = `${lead.industry ?? ''} ${lead.business_name ?? ''}`.toLowerCase()
+  for (const term of BLACKLISTED_INDUSTRY_TERMS_LP) {
+    if (haystack.includes(term)) return true
+  }
+  return false
+}
+
 // Types based on database schema
 interface DialerRawLead {
   id: string
@@ -92,6 +137,7 @@ interface DialerRawLead {
   email: string | null
   business_name: string | null
   notes: string | null
+  industry: string | null
   stage: string
   source: string | null
   is_archived: boolean
@@ -198,7 +244,12 @@ function isJunkLead(lead: DialerRawLead): boolean {
       return true
     }
   }
-  
+
+  // Check 8: Blacklisted industry / company name (government, non-profit, etc.)
+  if (isBlacklistedIndustryLP(lead)) {
+    return true
+  }
+
   return false
 }
 
@@ -249,7 +300,7 @@ async function scrubDialerLeadsForPriority(): Promise<{
     // Build query for dialer_raw_leads
     let query = supabase
       .from('dialer_raw_leads')
-      .select('id, first_name, last_name, phone, email, business_name, stage, source, is_archived, promoted_to_crm_lead_id')
+      .select('id, first_name, last_name, phone, email, business_name, industry, notes, stage, source, is_archived, promoted_to_crm_lead_id')
       .eq('is_archived', false)
       .not('email', 'is', null)
       .neq('stage', 'high_priority') // Skip already flagged
@@ -297,11 +348,15 @@ async function scrubDialerLeadsForPriority(): Promise<{
       if (isProfessionalEmail(lead.email)) {
         console.log(`   ✓ Professional: ${lead.email} (${lead.first_name} ${lead.last_name ?? ''})`)
 
-        // Update stage to high_priority
+        // Infer industry if not already set
+        const inferredIndustry = lead.industry || inferIndustryLP(lead.business_name)
+
+        // Update stage to high_priority + save inferred industry
         const { error: updateError } = await supabase
           .from('dialer_raw_leads')
           .update({
             stage: 'high_priority',
+            industry: inferredIndustry ?? lead.industry ?? null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', lead.id)
