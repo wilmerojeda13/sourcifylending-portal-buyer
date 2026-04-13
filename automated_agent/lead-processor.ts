@@ -85,15 +85,20 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 // ─── Industry blacklist (duplicated here to avoid ESM/CommonJS issues in standalone script)
 const BLACKLISTED_INDUSTRY_TERMS_LP = [
-  'government', ' gov ', '.gov', 'federal', 'state of ', 'city of ', 'county of ',
-  'department of ', 'dept of ', 'office of ',
-  'non-profit', 'nonprofit', 'non profit', '501(c)', '501c3', 'charity', 'foundation',
-  'fire department', 'fire dept', 'fire station', 'fire district',
-  'county office', 'county clerk', 'county sheriff',
-  'public works', 'public school', 'school district', 'unified school',
+  // Government / public sector
+  'government', ' gov ', '.gov', 'govt', 'federal', 'state of ', 'city of ', 'county of ',
+  'department of ', 'dept of ', 'office of ', ' department', ' council',
+  'county office', 'county clerk', 'county sheriff', ' county',
+  'public works', 'public school', 'school district', 'unified school', ' school',
   'municipality', 'municipal', 'township', 'city hall',
   'police department', 'police dept', 'sheriff', 'corrections',
   'veterans affairs', 'social services', 'housing authority',
+  'district court', 'port authority', 'transit authority', 'board of education',
+  // Non-profit / religious
+  'non-profit', 'nonprofit', 'non profit', '501(c)', '501c3', 'charity', 'foundation',
+  ' church', 'ministry', 'diocese', 'synagogue', 'mosque', 'temple',
+  // Fire / emergency
+  'fire department', 'fire dept', 'fire station', 'fire district', 'fire house',
 ]
 
 const INFERENCE_MAP_LP: Array<{ keywords: string[]; industry: string }> = [
@@ -126,6 +131,38 @@ function isBlacklistedIndustryLP(lead: { industry?: string | null; business_name
     if (haystack.includes(term)) return true
   }
   return false
+}
+
+// ─── Fitness tiers ───────────────────────────────────────────────────────────
+// Tier 1: High-value industries → upgrade to high_priority
+const TIER_1_INDUSTRIES = new Set([
+  'Construction', 'Transportation/Trucking', 'Manufacturing', 'E-commerce',
+  'Professional Services', 'Real Estate', 'Healthcare', 'Auto/Automotive',
+])
+// Tier 2: Low-value industries → keep as 'new', do NOT promote to high_priority
+const TIER_2_INDUSTRIES = new Set([
+  'Retail', 'Restaurants/Food', 'Beauty/Wellness', 'Education/Childcare', 'Religious Organization',
+])
+
+// ─── Decision-maker check ────────────────────────────────────────────────────
+// If first_name looks like a role/department rather than a real person, skip the lead.
+const ROLE_NAMES_LP = new Set([
+  'admin', 'administrator', 'contact', 'info', 'information', 'office',
+  'manager', 'director', 'sales', 'marketing', 'support', 'service',
+  'hr', 'billing', 'accounting', 'reception', 'receptionist',
+  'operations', 'general', 'corporate', 'business', 'company',
+  'main', 'headquarters', 'hq', 'customer', 'help', 'team', 'staff',
+  'dept', 'department', 'division', 'unit', 'branch',
+])
+
+function isDecisionMakerLP(lead: { first_name: string | null; last_name?: string | null }): boolean {
+  const fn = lead.first_name?.trim()
+  if (!fn || fn.length < 2) return false
+  const lower = fn.toLowerCase()
+  if (ROLE_NAMES_LP.has(lower)) return false
+  // Multi-word first names usually indicate a role/department title, not a person
+  if (fn.split(/\s+/).length > 2) return false
+  return true
 }
 
 // Types based on database schema
@@ -269,19 +306,129 @@ function isProfessionalEmail(email: string | null): boolean {
   return true
 }
 
-// Action 0: Scrub dialer_raw_leads for professional emails -> high_priority stage
+// Action 0: Purge blacklisted/government leads from the scrub campaign
+async function purgeGarbageLeads(): Promise<{ purged: number; errors: string[] }> {
+  console.log('\n🗑️  Purging garbage leads from scrub campaign...')
+  const errors: string[] = []
+  let purged = 0
+
+  try {
+    const { data: campaign } = await supabase
+      .from('dialer_campaigns')
+      .select('id')
+      .ilike('name', CONFIG.SCRUB_CAMPAIGN_NAME)
+      .eq('status', 'active')
+      .single()
+
+    if (!campaign) {
+      console.log('   No active scrub campaign — skipping purge')
+      return { purged: 0, errors }
+    }
+
+    // Pull raw leads in the campaign that match garbage company name terms
+    const garbageTerms = [
+      'fire department', 'fire dept', 'fire station', 'fire district', 'fire house',
+      ' county', 'county of ', 'county office', 'county clerk',
+      'office of ', ' department', 'dept of ', 'department of ',
+      'government', 'municipality', 'municipal', 'city hall', 'city of ',
+      'state of ', 'federal ', ' council', 'public works', 'public school',
+      'school district', 'police dept', 'police department', 'sheriff',
+      'non-profit', 'nonprofit', '501(c)', 'charity', 'foundation',
+      ' church', 'transit authority', 'housing authority', 'veterans affairs',
+    ]
+
+    // Fetch all campaign lead IDs first
+    const { data: clRows } = await supabase
+      .from('dialer_campaign_leads')
+      .select('id, raw_lead_id')
+      .eq('campaign_id', campaign.id)
+
+    if (!clRows || clRows.length === 0) {
+      console.log('   Campaign is empty')
+      return { purged: 0, errors }
+    }
+
+    const rawIds = clRows.map(r => r.raw_lead_id)
+
+    // Fetch raw leads and filter in JS (most reliable cross-DB approach)
+    const CHUNK = 200
+    const garbage: string[] = [] // raw_lead ids to purge
+    for (let i = 0; i < rawIds.length; i += CHUNK) {
+      const chunk = rawIds.slice(i, i + CHUNK)
+      const { data: raws } = await supabase
+        .from('dialer_raw_leads')
+        .select('id, business_name, industry')
+        .in('id', chunk)
+        .eq('is_archived', false)
+      if (!raws) continue
+      for (const raw of raws) {
+        if (isBlacklistedIndustryLP({ industry: raw.industry, business_name: raw.business_name })) {
+          garbage.push(raw.id)
+        } else {
+          // Also check directly against the broader garbage term list
+          const haystack = (raw.business_name ?? '').toLowerCase()
+          if (garbageTerms.some(t => haystack.includes(t))) {
+            garbage.push(raw.id)
+          }
+        }
+      }
+    }
+
+    if (garbage.length === 0) {
+      console.log('   No garbage leads found in campaign ✓')
+      return { purged: 0, errors }
+    }
+
+    console.log(`   Found ${garbage.length} garbage leads — archiving...`)
+
+    // Archive raw leads in batches
+    for (let i = 0; i < garbage.length; i += 50) {
+      const batch = garbage.slice(i, i + 50)
+      await supabase.from('dialer_raw_leads').update({
+        is_archived: true,
+        do_not_call: true,
+        stage:       'dnc',
+        updated_at:  new Date().toISOString(),
+      }).in('id', batch)
+    }
+
+    // Remove from campaign
+    const garbageSet = new Set(garbage)
+    const clIdsToDelete = clRows
+      .filter(cl => garbageSet.has(cl.raw_lead_id))
+      .map(cl => cl.id)
+
+    for (let i = 0; i < clIdsToDelete.length; i += 50) {
+      const batch = clIdsToDelete.slice(i, i + 50)
+      await supabase.from('dialer_campaign_leads').delete().in('id', batch)
+    }
+
+    purged = garbage.length
+    console.log(`   ✓ Purged and archived ${purged} garbage leads`)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push(`Fatal error in purgeGarbageLeads: ${msg}`)
+    console.error('   purgeGarbageLeads error:', msg)
+  }
+
+  return { purged, errors }
+}
+
+// Action 1: Scrub dialer_raw_leads for professional emails -> high_priority stage
 async function scrubDialerLeadsForPriority(): Promise<{
   processed: number
   upgraded: number
+  archived: number
   errors: string[]
 }> {
   console.log('\n🔍 Scrubbing dialer_raw_leads for professional emails...')
   console.log(`   Target campaign: "${CONFIG.SCRUB_CAMPAIGN_NAME}"`)
-  console.log('   🛡️  STRICT MODE: Junk detection active (>5 digits or SMS keywords)')
+  console.log('   🛡️  STRICT MODE: Blacklist + decision-maker + fitness tiers active')
 
   const errors: string[] = []
   let processed = 0
   let upgraded = 0
+  let archived = 0
   let skipped = 0
 
   try {
@@ -338,25 +485,59 @@ async function scrubDialerLeadsForPriority(): Promise<{
 
       if (!lead.email) continue
 
-      // STRICT: Skip junk leads immediately
+      // ── Step 1: Blacklisted (gov/non-profit/church) → archive immediately ────
+      if (isBlacklistedIndustryLP(lead)) {
+        console.log(`   🗑️  BLACKLISTED (archiving): ${lead.business_name || lead.first_name}`)
+        await supabase.from('dialer_raw_leads').update({
+          is_archived: true,
+          do_not_call: true,
+          stage:       'dnc',
+          updated_at:  new Date().toISOString(),
+        }).eq('id', lead.id)
+        archived++
+        skipped++
+        continue
+      }
+
+      // ── Step 2: Other junk (SMS, bad email format, etc.) ─────────────────────
       if (isJunkLead(lead)) {
         skipped++
-        console.log(`   🗑️  JUNK DETECTED (skipping): ${lead.first_name} ${lead.last_name || ''}`)
+        console.log(`   🗑️  JUNK (skipping): ${lead.first_name} ${lead.last_name || ''}`)
+        continue
+      }
+
+      // ── Step 3: Decision-maker required — no roles, no departments ───────────
+      if (!isDecisionMakerLP(lead)) {
+        console.log(`   ⚠️  NO DECISION-MAKER (skipping): "${lead.first_name}" @ ${lead.business_name || 'unknown'}`)
+        skipped++
         continue
       }
 
       if (isProfessionalEmail(lead.email)) {
-        console.log(`   ✓ Professional: ${lead.email} (${lead.first_name} ${lead.last_name ?? ''})`)
-
-        // Infer industry if not already set
+        // ── Step 4: Infer industry + fitness tier ─────────────────────────────
         const inferredIndustry = lead.industry || inferIndustryLP(lead.business_name)
 
-        // Update stage to high_priority + save inferred industry
+        if (inferredIndustry && TIER_2_INDUSTRIES.has(inferredIndustry)) {
+          // Low-value industry: tag with industry but do NOT promote to high_priority
+          console.log(`   ⬇️  TIER 2 (${inferredIndustry}) — keeping as new: ${lead.first_name} ${lead.last_name ?? ''}`)
+          if (!lead.industry) {
+            await supabase.from('dialer_raw_leads').update({
+              industry:   inferredIndustry,
+              updated_at: new Date().toISOString(),
+            }).eq('id', lead.id)
+          }
+          skipped++
+          continue
+        }
+
+        console.log(`   ✓ TIER 1 (${inferredIndustry ?? 'unknown'}): ${lead.email} — ${lead.first_name} ${lead.last_name ?? ''}`)
+
+        // ── Step 5: Upgrade to high_priority ─────────────────────────────────
         const { error: updateError } = await supabase
           .from('dialer_raw_leads')
           .update({
-            stage: 'high_priority',
-            industry: inferredIndustry ?? lead.industry ?? null,
+            stage:      'high_priority',
+            industry:   inferredIndustry ?? lead.industry ?? null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', lead.id)
@@ -388,13 +569,13 @@ async function scrubDialerLeadsForPriority(): Promise<{
       }
     }
     
-    console.log(`\n   📊 Results: ${processed} processed, ${upgraded} upgraded, ${skipped} junk skipped`)
+    console.log(`\n   📊 Scrub: ${processed} processed · ${upgraded} upgraded · ${archived} archived (garbage) · ${skipped} skipped`)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     errors.push(`Fatal error in scrubDialerLeadsForPriority: ${message}`)
   }
 
-  return { processed, upgraded, errors }
+  return { processed, upgraded, archived, errors }
 }
 
 // Action 1: Flag professional emails as High Priority in CRM
@@ -667,6 +848,9 @@ async function runOnce(): Promise<boolean> {
     }
 
     // Execute actions
+    const purgeResult = await purgeGarbageLeads()
+    allErrors.push(...purgeResult.errors)
+
     const scrubResult = await scrubDialerLeadsForPriority()
     allErrors.push(...scrubResult.errors)
 
@@ -689,7 +873,8 @@ async function runOnce(): Promise<boolean> {
     console.log('\n═══════════════════════════════════════════════════════════')
     console.log(`  RUN #${agentState.totalRuns} COMPLETE · ${duration}s`)
     console.log('═══════════════════════════════════════════════════════════')
-    console.log(`  Dialer scrub: ${scrubResult.upgraded}/${scrubResult.processed} upgraded`)
+    console.log(`  Garbage purge: ${purgeResult.purged} archived`)
+    console.log(`  Dialer scrub: ${scrubResult.upgraded}/${scrubResult.processed} upgraded · ${scrubResult.archived} archived`)
     console.log(`  CRM tags: ${flagResult.flagged}/${flagResult.processed} flagged`)
     console.log(`  Tasks: ${taskResult.tasksCreated}/${taskResult.processed} created`)
 
