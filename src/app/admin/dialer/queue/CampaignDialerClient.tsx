@@ -6,7 +6,7 @@ import {
   Phone, ChevronRight, Building2, Loader2, CheckCircle2,
   ThumbsUp, ThumbsDown, Voicemail, PhoneMissed,
   CalendarPlus, Ban, Clock, ArrowRight, Copy, AlertTriangle,
-  CheckCircle, Globe, Send,
+  CheckCircle, Globe, Send, Mail,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -500,6 +500,17 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                     <span className="truncate">{raw.business_name}</span>
                   </p>
                 )}
+                {raw?.email ? (
+                  <p className="mt-0.5 truncate text-xs text-gray-500 flex items-center gap-1 min-w-0">
+                    <Mail size={12} className="shrink-0" />
+                    <span className="truncate">{raw.email}</span>
+                  </p>
+                ) : (
+                  <p className="mt-0.5 truncate text-xs text-red-400 flex items-center gap-1 min-w-0">
+                    <Mail size={12} className="shrink-0" />
+                    <span>No Email Provided</span>
+                  </p>
+                )}
                 {raw && <div className="mt-1.5"><CallWindowBadge lead={raw} /></div>}
               </div>
               <div className="shrink-0 text-right">
@@ -616,6 +627,15 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                 {raw?.business_name && (
                   <p className="text-sm text-gray-400 flex items-center gap-1 mt-0.5">
                     <Building2 size={13} /> {raw.business_name}
+                  </p>
+                )}
+                {raw?.email ? (
+                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                    <Mail size={12} /> {raw.email}
+                  </p>
+                ) : (
+                  <p className="text-xs text-red-400 flex items-center gap-1 mt-0.5">
+                    <Mail size={12} /> No Email Provided
                   </p>
                 )}
                 {raw && <div className="mt-1.5"><CallWindowBadge lead={raw} /></div>}
