@@ -44,6 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 
   // Special case: high_priority filter looks at raw lead stage, not campaign status
+  // CRITICAL: Must exclude leads already called (last_called_at IS NULL) to prevent rehashing
   if (status === 'high_priority') {
     const { data, error } = await admin.supabase
       .from('dialer_campaign_leads')
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       `)
       .eq('campaign_id', params.id)
       .eq('raw_lead.stage', 'high_priority')
-      .order('last_called_at', { ascending: true, nullsFirst: true })
+      .is('last_called_at', null)   // STRICT: once called, never rehashed
       .order('sort_order', { ascending: true })
       .range(0, 999999)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
