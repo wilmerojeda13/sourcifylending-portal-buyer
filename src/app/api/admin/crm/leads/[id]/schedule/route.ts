@@ -65,23 +65,6 @@ async function createLocalBooking(
     details: description,
   })
 
-  // Update lead status to demo_scheduled
-  const { data: updatedLead, error: updateError } = await supabase
-    .from('crm_leads')
-    .update({
-      stage: 'demo_scheduled',
-      strategy_call_booked: true,
-      follow_up_at: body.slot_start,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', lead.id)
-    .select('*')
-    .single()
-
-  if (updateError || !updatedLead) {
-    throw updateError || new Error('Unable to update CRM lead.')
-  }
-
   return {
     event: {
       id: `booking-${Date.now()}`,
@@ -95,7 +78,7 @@ async function createLocalBooking(
       source: 'google' as const,
       timeZone: timezone,
     },
-    lead: updatedLead,
+    lead,
     googleCalendarUrl,
   }
 }
