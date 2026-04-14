@@ -422,13 +422,15 @@ function BookDemoModal({
         return
       }
 
-      if (json.warning) {
-        toast('Demo booked (calendar sync unavailable)', { icon: '⚠️' })
+      // Open Google Calendar template if available
+      if (json.googleCalendarUrl) {
+        window.open(json.googleCalendarUrl, '_blank', 'width=900,height=700')
+        toast.success('Google Calendar opened — save the event manually')
       } else {
-        toast.success('Demo booked and added to Google Calendar')
+        toast.success('Demo booked in CRM')
       }
 
-      onBooked(json.event, json.lead, json.warning)
+      onBooked(json.event, json.lead)
       onClose()
     } catch {
       toast.error('Unable to create calendar booking')
