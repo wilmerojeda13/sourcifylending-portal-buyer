@@ -108,6 +108,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const durationMinutes = typeof body.duration_minutes === 'number' ? body.duration_minutes : 30
     const timezone = typeof body.timezone === 'string' ? body.timezone : (lead.likely_timezone || 'America/New_York')
 
+    // Validate slot_start is a valid date
+    const slotStartDate = new Date(body.slot_start)
+    if (isNaN(slotStartDate.getTime())) {
+      return NextResponse.json({ error: 'Invalid slot_start date format' }, { status: 400 })
+    }
+
     // Create local CRM booking with Google Calendar URL
     const booking = await createLocalBooking(admin.supabase, lead, admin, {
       slot_start: body.slot_start,
