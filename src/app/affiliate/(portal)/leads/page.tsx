@@ -463,34 +463,11 @@ export default function LeadsPage() {
 
               {/* Deal Type */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Deal Type *</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormData(d => ({ ...d, deal_type: 'referral_only' }))}
-                    className={`p-3 rounded-xl border-2 text-left transition-all ${
-                      formData.deal_type === 'referral_only'
-                        ? 'border-indigo-500 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
-                  >
-                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">Legacy Referral</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">Backward-compatible only</div>
-                    <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-1">Old referral rules</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(d => ({ ...d, deal_type: 'partner_assisted' }))}
-                    className={`p-3 rounded-xl border-2 text-left transition-all ${
-                      formData.deal_type !== 'referral_only'
-                        ? 'border-purple-500 dark:border-purple-400 bg-purple-50 dark:bg-purple-950/30'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
-                  >
-                    <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">Partner-Assisted</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">You close, onboard, and remain the frontline contact</div>
-                    <div className="text-xs font-bold text-purple-600 mt-1">80% setup + 20% recurring</div>
-                  </button>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Deal Type</label>
+                <div className="p-3 rounded-xl border-2 border-purple-500 dark:border-purple-400 bg-purple-50 dark:bg-purple-950/30 text-left">
+                  <div className="font-semibold text-sm text-gray-900 dark:text-gray-100">Partner-Assisted</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">You close, onboard, and remain the frontline contact</div>
+                  <div className="text-xs font-bold text-purple-600 mt-1">80% setup + 20% recurring</div>
                 </div>
               </div>
 
