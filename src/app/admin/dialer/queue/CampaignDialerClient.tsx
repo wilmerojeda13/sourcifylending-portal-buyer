@@ -7,9 +7,11 @@ import {
   ThumbsUp, ThumbsDown, Voicemail, PhoneMissed, PhoneOff,
   CalendarPlus, Ban, Clock, ArrowRight, Copy, AlertTriangle,
   CheckCircle, Globe, Send, Mail, Pencil, ChevronDown, ChevronUp,
+  Download, FileJson,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getIndustryBadge } from '@/lib/dialer-industry'
+import { exportToCSV, exportToExcel, BAD_LEAD_STATUSES } from '@/lib/export-leads'
 import toast from 'react-hot-toast'
 
 // Canonical dialer campaign flow used from /admin/dialer/campaigns.
@@ -254,6 +256,9 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   const [textModalOpen, setTextModalOpen] = useState(false)
   const [textDraft, setTextDraft]         = useState('')
   const [refilling, setRefilling]         = useState(false)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [excludedStatuses, setExcludedStatuses] = useState<string[]>(['dnc', 'disconnected', 'closed_lost'])
+  const [exporting, setExporting]         = useState(false)
 
   // Session-level DNC guard: raw_lead IDs and phone numbers marked DNC this session.
   // Both refs survive load() calls so race conditions can't re-surface a blocked lead.
@@ -591,6 +596,55 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     setIndex(i => i + 1)
   }
 
+  // ── Export functions ───────────────────────────────────────────────────────
+  async function handleExportCSV() {
+    if (queue.length === 0) {
+      toast.error('No leads to export')
+      return
+    }
+    setExporting(true)
+    try {
+      const timestamp = new Date().toISOString().slice(0, 10)
+      const filename = `campaign-leads-${campaign?.name?.replace(/\s+/g, '-') || 'export'}-${timestamp}.csv`
+      exportToCSV(queue, filename, excludedStatuses)
+      toast.success(`Exported ${queue.length - excludedStatuses.length} leads to CSV`)
+      setExportModalOpen(false)
+    } catch (err) {
+      toast.error('Failed to export CSV')
+      console.error(err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function handleExportExcel() {
+    if (queue.length === 0) {
+      toast.error('No leads to export')
+      return
+    }
+    setExporting(true)
+    try {
+      const timestamp = new Date().toISOString().slice(0, 10)
+      const filename = `campaign-leads-${campaign?.name?.replace(/\s+/g, '-') || 'export'}-${timestamp}.xlsx`
+      exportToExcel(queue, filename, excludedStatuses)
+      toast.success(`Exported ${queue.length - excludedStatuses.length} leads to Excel`)
+      setExportModalOpen(false)
+    } catch (err) {
+      toast.error('Failed to export Excel')
+      console.error(err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  function toggleStatusExclusion(status: string) {
+    setExcludedStatuses(prev =>
+      prev.includes(status)
+        ? prev.filter(s => s !== status)
+        : [...prev, status]
+    )
+  }
+
   // ── Auto-refill when queue runs low ───────────────────────────────────────
   useEffect(() => {
     if (!loading && !refilling && statusFilter === 'high_priority' && queue.length < 50) {
@@ -791,6 +845,13 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
               : <span className="text-gray-400">{remaining.toLocaleString()} left</span>
             }
           </span>
+          <button
+            onClick={() => setExportModalOpen(true)}
+            className="ml-auto shrink-0 px-3 py-1.5 bg-gray-800 text-gray-300 text-xs font-medium rounded-full hover:bg-gray-700 transition-colors flex items-center gap-1.5"
+          >
+            <Download size={13} />
+            Export
+          </button>
         </div>
       </div>
 
@@ -1236,6 +1297,102 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                   Done
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Modal */}
+      {exportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Download size={18} />
+                  Export Leads
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  {queue.filter(l => !excludedStatuses.includes(l.status)).length} leads to export
+                </p>
+              </div>
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-5 space-y-5">
+              {/* Exclude statuses */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-100 mb-3">
+                  Exclude Bad Leads
+                </label>
+                <div className="space-y-2">
+                  {BAD_LEAD_STATUSES.map(status => (
+                    <label key={status.id} className="flex items-center gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={excludedStatuses.includes(status.id)}
+                        onChange={() => toggleStatusExclusion(status.id)}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-600 cursor-pointer"
+                      />
+                      <span className="text-sm text-gray-300 group-hover:text-gray-100 transition-colors">
+                        {status.label}
+                      </span>
+                      <span className="text-xs text-gray-500 ml-auto">
+                        ({queue.filter(l => l.status === status.id).length})
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Export options */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-100 mb-3">
+                  Format
+                </label>
+                <div className="space-y-2">
+                  <button
+                    onClick={handleExportCSV}
+                    disabled={exporting || queue.length === 0}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {exporting ? <Loader2 size={14} className="animate-spin" /> : <FileJson size={14} />}
+                    Export as CSV
+                  </button>
+                  <button
+                    onClick={handleExportExcel}
+                    disabled={exporting || queue.length === 0}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    Export as Excel
+                  </button>
+                </div>
+              </div>
+
+              {/* Info */}
+              <div className="bg-gray-800/50 rounded-xl px-3 py-2.5 border border-gray-700">
+                <p className="text-xs text-gray-400">
+                  All lead data will be exported including phone, email, business name, notes, timezone, and call history.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-800/50 border-t border-gray-800 px-6 py-3">
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="w-full px-4 py-2 rounded-xl bg-gray-800 text-gray-200 text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
