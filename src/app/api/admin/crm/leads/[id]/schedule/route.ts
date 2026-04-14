@@ -65,155 +65,28 @@ async function createLocalBooking(
     details: description,
   })
 
-  const appointmentInsert = await supabase
-    .from('appointments')
-    .insert({
-      lead_id: lead.id,
-      appointment_at: body.slot_start,
-      duration_minutes: body.duration_minutes,
-      timezone,
-      title,
-      description,
-      notes: body.notes?.trim() || null,
-      status: 'scheduled',
-      google_calendar_url: googleCalendarUrl,
-      created_by_user_id: admin.userId,
-      created_by_name: admin.userName,
-      lead_name: leadName,
-      company_name: lead.business_name || null,
-      phone_number: lead.phone || null,
-    })
-    .select('*')
-    .single()
-
-  let record: {
-    id: string
-    title: string | null
-    description: string | null
-    status: string | null
-    source: 'appointment' | 'task'
-  }
-
-  if (appointmentInsert.data && !appointmentInsert.error) {
-    record = {
-      id: appointmentInsert.data.id,
-      title: appointmentInsert.data.title,
-      description: appointmentInsert.data.description,
-      status: appointmentInsert.data.status,
-      source: 'appointment',
-    }
-  } else {
-    if (appointmentInsert.error) {
-      console.warn('[crm schedule] appointments insert failed, using crm_tasks fallback', {
-        code: (appointmentInsert.error as { code?: string }).code,
-        message: appointmentInsert.error.message,
-      })
-    }
-
-    const now = new Date().toISOString()
-    const { data: task, error: taskError } = await supabase
-      .from('crm_tasks')
-      .insert({
-        lead_id: lead.id,
-        title,
-        description,
-        task_type: 'Book Call',
-        priority: 'High',
-        status: 'To Do',
-        due_at: body.slot_start,
-        owner_user_id: admin.userId,
-        owner_name: admin.userName,
-        pipeline_stage: 'demo_scheduled',
-        notes: body.notes?.trim() || null,
-        created_by_user_id: admin.userId,
-        created_at: now,
-        updated_at: now,
-        created_source: 'calendar',
-        source_metadata: {
-          booking_type: 'demo_schedule',
-          timezone: timezone,
-          duration_minutes: durationMinutes,
-        },
-      })
-      .select('*')
-      .single()
-
-    if (taskError || !task) {
-      throw taskError || new Error('Unable to save CRM appointment.')
-    }
-
-    record = {
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      status: task.status,
-      source: 'task',
-    }
-  }
-
-  const leadUpdatePayload = {
-    stage: 'demo_scheduled',
-    strategy_call_booked: true,
-    appointment_at: body.slot_start,
-    follow_up_at: body.slot_start,
-    updated_at: new Date().toISOString(),
-  }
-
-  let { data: updatedLead, error: updateError } = await supabase
+  // Update lead status to demo_scheduled
+  const { data: updatedLead, error: updateError } = await supabase
     .from('crm_leads')
-    .update(leadUpdatePayload)
+    .update({
+      stage: 'demo_scheduled',
+      strategy_call_booked: true,
+      follow_up_at: body.slot_start,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', lead.id)
     .select('*')
     .single()
 
   if (updateError || !updatedLead) {
-    const missingAppointmentColumn =
-      updateError?.code === '42703' ||
-      /appointment_at/i.test(updateError?.message || '') ||
-      /column .*appointment_at.* does not exist/i.test(updateError?.message || '')
-
-    if (!missingAppointmentColumn) {
-      throw updateError || new Error('Unable to update CRM lead.')
-    }
-
-    ;({ data: updatedLead, error: updateError } = await supabase
-      .from('crm_leads')
-      .update({
-        stage: 'demo_scheduled',
-        strategy_call_booked: true,
-        follow_up_at: body.slot_start,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', lead.id)
-      .select('*')
-      .single())
-
-    if (updateError || !updatedLead) {
-      throw updateError || new Error('Unable to update CRM lead.')
-    }
+    throw updateError || new Error('Unable to update CRM lead.')
   }
-
-  await supabase.from('crm_activities').insert({
-    lead_id: lead.id,
-    type: 'follow_up_set',
-    body: `Demo booked in CRM for ${new Date(body.slot_start).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${body.notes?.trim() ? ` — ${body.notes.trim()}` : ''}`,
-    metadata: {
-      appointment_id: record.id,
-      appointment_status: record.status,
-      booking_source: record.source,
-      appointment_at: body.slot_start,
-      event_start: body.slot_start,
-      event_end: slotEnd,
-      event_timezone: body.timezone || lead.likely_timezone || 'America/New_York',
-    },
-    created_by: admin.userName,
-  })
 
   return {
     event: {
-      id: `${record.source}-${record.id}`,
-      title: record.title,
-      description: record.description,
+      id: `booking-${Date.now()}`,
+      title,
+      description,
       start: body.slot_start,
       end: slotEnd,
       htmlLink: null,
