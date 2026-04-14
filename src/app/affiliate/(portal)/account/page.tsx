@@ -502,7 +502,7 @@ export default function AffiliateAccountPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Account</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Your affiliate profile, payout setup, and referral details.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Your affiliate profile, payout setup, and partner details.</p>
       </div>
 
       {/* Profile card */}
@@ -544,7 +544,7 @@ export default function AffiliateAccountPage() {
             <div className="bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-3.5 flex items-start gap-3">
               <Tag size={15} className="text-gray-400 dark:text-gray-500 mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">Referral Code</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">Partner Code</p>
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400">{affiliate.referral_code}</p>
                   <button onClick={copyCode} className="text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:text-indigo-400 transition-colors">
@@ -573,9 +573,9 @@ export default function AffiliateAccountPage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-800 rounded-xl px-4 py-3.5">
-            <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold uppercase tracking-wide mb-1">Base Rate</p>
-            <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-400">{fmt(affiliate.commission_rate)}</p>
-            <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">Referral-only tier</p>
+            <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold uppercase tracking-wide mb-1">Base Commission</p>
+            <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-400">80% setup + 20% recurring</p>
+            <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">Partner-Assisted tier</p>
           </div>
           <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3.5">
             <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-wide mb-1">Closed-Deal Tier</p>
@@ -592,9 +592,9 @@ export default function AffiliateAccountPage() {
       {/* Stripe Connect + Payout Balance */}
       <StripeConnectSection />
 
-      {/* Referral link */}
+      {/* Partner link */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-        <h2 className="font-bold text-gray-900 dark:text-gray-100 mb-3">Your Referral Link</h2>
+        <h2 className="font-bold text-gray-900 dark:text-gray-100 mb-3">Your Partner Link</h2>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 font-mono text-sm text-gray-700 dark:text-gray-300 truncate">
             {referralLink}

@@ -144,11 +144,11 @@ export default function AffiliateDashboardPage() {
         <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Here&apos;s your partner overview.</p>
       </div>
 
-      {/* Referral Link Card */}
+      {/* Partner Link Card */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h2 className="font-bold text-gray-900 dark:text-gray-100">Your Referral Link</h2>
+            <h2 className="font-bold text-gray-900 dark:text-gray-100">Your Partner Link</h2>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
               Share this link for partner-assisted clients. Code:{' '}
               <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{affiliate.referral_code}</span>
