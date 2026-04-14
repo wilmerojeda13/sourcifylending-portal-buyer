@@ -49,7 +49,7 @@ async function createLocalBooking(
   const slotEnd = new Date(new Date(body.slot_start).getTime() + body.duration_minutes * 60 * 1000).toISOString()
   const timezone = body.timezone || lead.likely_timezone || 'America/New_York'
   const leadName = [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim() || 'Lead'
-  const title = `Sourcify Meeting: ${leadName}`
+  const title = `SourcifyLending AI Funding Demo - ${leadName}`
   const description = [
     `Company: ${lead.business_name || 'N/A'}`,
     `Phone: ${lead.phone || 'N/A'}`,
