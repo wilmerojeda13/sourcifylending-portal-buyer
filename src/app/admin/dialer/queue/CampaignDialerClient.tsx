@@ -296,6 +296,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       )
       setQueue(freshQueue)
       // Reset index to 0 to jump to next fresh lead (current is now excluded by DB)
+      // This ensures UP NEXT will reflect the actual next lead from the fresh queue
       setIndex(0)
       // Update stats
       const stats = (statsJson ?? {}) as { calls_total?: number; calls_today?: number; total?: number }
@@ -561,7 +562,8 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       // HARD REFRESH: Immediately fetch fresh queue from DB to guarantee
       // we jump to next truly undialed lead (last_called_at IS NULL)
       // This prevents rehashing leads that might have slipped through
-      refreshQueue(statusFilter)
+      // Wait for refresh to complete before showing next lead to ensure UP NEXT accuracy
+      await refreshQueue(statusFilter)
 
       setMobileDockMode('pre_call')
       setNote('')
@@ -569,10 +571,10 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     } catch (e) {
       console.error('Disposition error:', e)
       toast.error(e instanceof Error ? e.message : 'Failed to save')
-      
+
       // On error: remove from local queue and hard refresh to get clean state
       setDone(n => n + 1)
-      refreshQueue(statusFilter)
+      await refreshQueue(statusFilter)
       setMobileDockMode('pre_call')
       setNote('')
       setCallbackAt('')
