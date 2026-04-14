@@ -88,35 +88,57 @@ async function createOnboardingLink(request: Request) {
 
     // Create a new Express account if not yet connected
     if (!stripeAccountId) {
-      const account = await stripe.accounts.create({
-        type: 'express',
-        email: affiliate.email,
-        capabilities: {
-          transfers: { requested: true },
-        },
-        business_type: 'individual',
-        metadata: { affiliate_id: affiliate.id },
-      })
-      stripeAccountId = account.id
+      try {
+        const account = await stripe.accounts.create({
+          type: 'express',
+          email: affiliate.email,
+          capabilities: {
+            transfers: { requested: true },
+          },
+          business_type: 'individual',
+          metadata: { affiliate_id: affiliate.id },
+        })
+        stripeAccountId = account.id
 
-      await supabase.from('affiliates').update({
-        stripe_account_id: stripeAccountId,
-        stripe_connect_status: 'pending',
-        updated_at: new Date().toISOString(),
-      }).eq('id', affiliate.id)
+        await supabase.from('affiliates').update({
+          stripe_account_id: stripeAccountId,
+          stripe_connect_status: 'pending',
+          updated_at: new Date().toISOString(),
+        }).eq('id', affiliate.id)
+      } catch (error) {
+        console.error('affiliate_stripe_account_creation_failed', {
+          affiliateId: affiliate.id,
+          email: affiliate.email,
+          error: error instanceof Error ? error.message : String(error),
+          errorType: error instanceof Stripe.errors.StripeError ? error.type : 'unknown',
+        })
+        throw error
+      }
     }
 
     // Generate fresh onboarding link
-    const accountLink = await stripe.accountLinks.create({
-      account: stripeAccountId,
-      refresh_url: `${baseUrl}/affiliate/account?connect=refresh`,
-      return_url: `${baseUrl}/affiliate/account?connect=success`,
-      type: 'account_onboarding',
-    })
-
-    return { ok: true as const, url: accountLink.url }
+    try {
+      const accountLink = await stripe.accountLinks.create({
+        account: stripeAccountId,
+        refresh_url: `${baseUrl}/affiliate/account?connect=refresh`,
+        return_url: `${baseUrl}/affiliate/account?connect=success`,
+        type: 'account_onboarding',
+      })
+      return { ok: true as const, url: accountLink.url }
+    } catch (error) {
+      console.error('affiliate_stripe_account_link_creation_failed', {
+        affiliateId: affiliate.id,
+        stripeAccountId,
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Stripe.errors.StripeError ? error.type : 'unknown',
+      })
+      throw error
+    }
   } catch (error) {
-    console.error('affiliate_stripe_connect_onboard_failed', error)
+    console.error('affiliate_stripe_connect_onboard_failed', {
+      error: error instanceof Error ? error.message : String(error),
+      errorType: error instanceof Stripe.errors.StripeError ? error.type : 'unknown',
+    })
 
     const message =
       error instanceof Stripe.errors.StripeError
