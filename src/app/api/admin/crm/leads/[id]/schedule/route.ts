@@ -129,7 +129,7 @@ async function createLocalBooking(
         created_by_user_id: admin.userId,
         created_at: now,
         updated_at: now,
-        created_source: 'crm_booking',
+        created_source: 'calendar',
         source_metadata: {
           booking_type: 'demo_schedule',
           timezone: timezone,
