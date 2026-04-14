@@ -321,7 +321,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
 
   async function fetchAllLeads() {
     try {
-      const res = await fetch(`/api/admin/dialer/campaigns/${campaignId}/leads?limit=10000`)
+      const res = await fetch(`/api/admin/dialer/campaigns/${campaignId}/leads?limit=999999`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
       setAllLeads(json.leads || [])
