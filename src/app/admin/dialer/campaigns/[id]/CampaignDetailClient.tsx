@@ -5,9 +5,11 @@ import Link from 'next/link'
 import {
   ChevronLeft, Play, Pause, CheckCircle2, Users, Plus, Loader2,
   Phone, Trash2, RefreshCw, Upload, CheckSquare, Square, Copy, ArrowRight, X,
+  Download, FileJson,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { exportToCSV, exportToExcel, BAD_LEAD_STATUSES } from '@/lib/export-leads'
 import DialerKpiStrip from '@/components/dialer/DialerKpiStrip'
 
 type CampaignStatus  = 'active' | 'paused' | 'completed' | 'archived'
@@ -134,6 +136,8 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
   const [adding, setAdding]             = useState(false)
   const [rawSearch, setRawSearch]       = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const autoRefillInFlight = useRef(false)
+  const autoRefillSignature = useRef<string | null>(null)
 
   // Pagination
   const PAGE_SIZE = 100
@@ -156,6 +160,12 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
   const [importParsed, setImportParsed]     = useState<ReturnType<typeof normalizeRow>[]>([])
   const [importing, setImporting]           = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Export
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [excludedStatuses, setExcludedStatuses] = useState<string[]>(['dnc', 'disconnected', 'closed_lost'])
+  const [exporting, setExporting] = useState(false)
+  const [allLeads, setAllLeads] = useState<CampaignLead[]>([])
 
   const loadPage = useCallback(async (pg: number, filter: string) => {
     try {
@@ -181,6 +191,37 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
   const load = useCallback(() => loadPage(0, statusFilter), [loadPage, statusFilter])
 
   useEffect(() => { loadPage(0, 'all') }, [loadPage])
+
+  useEffect(() => {
+    if (loading || statusFilter !== 'high_priority') return
+    const freshCount = campaign?.status_counts?.new ?? 0
+    const signature = `${campaignId}:high_priority:${freshCount}`
+    if (freshCount >= 10 || autoRefillInFlight.current || autoRefillSignature.current === signature) return
+
+    autoRefillSignature.current = signature
+    autoRefillInFlight.current = true
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/admin/dialer/campaigns/${campaignId}/refill`, { method: 'POST' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(json.error ?? 'Auto refill failed')
+        if ((json.added ?? 0) > 0) {
+          toast.success(`Auto-refilled ${json.added} high-priority leads`)
+        }
+        await loadPage(0, 'high_priority')
+      } catch (error) {
+        console.error('Auto refill failed:', error)
+      } finally {
+        autoRefillInFlight.current = false
+      }
+    })()
+  }, [campaignId, campaign?.status_counts?.new, loadPage, loading, statusFilter])
+
+  useEffect(() => {
+    if (statusFilter !== 'high_priority' || loading || (campaign?.status_counts?.new ?? 0) >= 10) {
+      autoRefillSignature.current = null
+    }
+  }, [campaign?.status_counts?.new, loading, statusFilter])
 
   async function loadAllFilteredIds(): Promise<string[]> {
     const p = new URLSearchParams({ ids_only: '1' })
@@ -247,7 +288,26 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
-      toast.success(`Imported ${json.imported} leads${json.skipped ? ` · ${json.skipped} duplicates skipped` : ''}`)
+
+      // Display Data Integrity Gate summary
+      if (json.summary_message) {
+        toast.success(json.summary_message)
+
+        // Log rejection details if available
+        if (json.rejected && json.rejected > 0 && json.rejection_stats) {
+          console.log('[Data Integrity Gate] Rejection Summary:', {
+            total_submitted: importParsed.length,
+            rejected: json.rejected,
+            imported: json.imported,
+            duplicates: json.skipped,
+            rejection_breakdown: json.rejection_stats,
+          })
+        }
+      } else {
+        // Fallback for backward compatibility
+        toast.success(`Imported ${json.imported} leads${json.skipped ? ` · ${json.skipped} duplicates skipped` : ''}`)
+      }
+
       setImportText('')
       setImportParsed([])
       setTab('leads')
@@ -257,6 +317,69 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
     } finally {
       setImporting(false)
     }
+  }
+
+  async function fetchAllLeads() {
+    try {
+      const res = await fetch(`/api/admin/dialer/campaigns/${campaignId}/leads?limit=10000`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      setAllLeads(json.leads || [])
+      return json.leads || []
+    } catch (e) {
+      toast.error('Failed to fetch all leads for export')
+      return []
+    }
+  }
+
+  async function handleExportCSV() {
+    setExporting(true)
+    try {
+      const leadsToExport = allLeads.length > 0 ? allLeads : await fetchAllLeads()
+      if (leadsToExport.length === 0) {
+        toast.error('No leads to export')
+        return
+      }
+      const timestamp = new Date().toISOString().slice(0, 10)
+      const filename = `campaign-${campaign?.name?.replace(/\s+/g, '-') || 'leads'}-${timestamp}.csv`
+      exportToCSV(leadsToExport, filename, excludedStatuses)
+      toast.success(`Exported ${leadsToExport.filter((l: CampaignLead) => !excludedStatuses.includes(l.status)).length} leads to CSV`)
+      setExportModalOpen(false)
+    } catch (err) {
+      toast.error('Failed to export CSV')
+      console.error(err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function handleExportExcel() {
+    setExporting(true)
+    try {
+      const leadsToExport = allLeads.length > 0 ? allLeads : await fetchAllLeads()
+      if (leadsToExport.length === 0) {
+        toast.error('No leads to export')
+        return
+      }
+      const timestamp = new Date().toISOString().slice(0, 10)
+      const filename = `campaign-${campaign?.name?.replace(/\s+/g, '-') || 'leads'}-${timestamp}.xlsx`
+      exportToExcel(leadsToExport, filename, excludedStatuses)
+      toast.success(`Exported ${leadsToExport.filter((l: CampaignLead) => !excludedStatuses.includes(l.status)).length} leads to Excel`)
+      setExportModalOpen(false)
+    } catch (err) {
+      toast.error('Failed to export Excel')
+      console.error(err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  function toggleStatusExclusion(status: string) {
+    setExcludedStatuses(prev =>
+      prev.includes(status)
+        ? prev.filter(s => s !== status)
+        : [...prev, status]
+    )
   }
 
   async function bulkAction(action: 'remove' | 'reset') {
@@ -472,7 +595,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
         <DialerKpiStrip campaignId={campaign.id} className="mb-5" />
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-4">
+        <div className="flex gap-1 mb-4 items-center">
           {([['leads','Campaign Leads'],['add','Add Existing'],['import','Import CSV']] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)}
               className={cn(
@@ -482,6 +605,13 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
               {label}
             </button>
           ))}
+          <button
+            onClick={() => setExportModalOpen(true)}
+            className="ml-auto px-4 py-2 text-sm font-medium text-gray-300 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors flex items-center gap-2"
+          >
+            <Download size={16} />
+            Export
+          </button>
         </div>
 
         {/* Leads tab */}
@@ -802,6 +932,102 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                   : <><ArrowRight size={13} /> Create Campaign</>}
               </button>
               <button onClick={() => setShowModal(false)} className="px-4 py-2.5 text-sm text-gray-400 hover:text-gray-200">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Modal */}
+      {exportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Download size={18} />
+                  Export Leads
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  {campaign ? (allLeads.length > 0 ? allLeads : []).filter(l => !excludedStatuses.includes(l.status)).length : 0} leads to export
+                </p>
+              </div>
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-5 space-y-5">
+              {/* Exclude statuses */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-100 mb-3">
+                  Exclude Bad Leads
+                </label>
+                <div className="space-y-2">
+                  {BAD_LEAD_STATUSES.map(status => (
+                    <label key={status.id} className="flex items-center gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={excludedStatuses.includes(status.id)}
+                        onChange={() => toggleStatusExclusion(status.id)}
+                        className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-600 cursor-pointer"
+                      />
+                      <span className="text-sm text-gray-300 group-hover:text-gray-100 transition-colors">
+                        {status.label}
+                      </span>
+                      <span className="text-xs text-gray-500 ml-auto">
+                        ({(allLeads.length > 0 ? allLeads : []).filter((l: CampaignLead) => l.status === status.id).length})
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Export options */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-100 mb-3">
+                  Format
+                </label>
+                <div className="space-y-2">
+                  <button
+                    onClick={handleExportCSV}
+                    disabled={exporting || !campaign}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {exporting ? <Loader2 size={14} className="animate-spin" /> : <FileJson size={14} />}
+                    Export as CSV
+                  </button>
+                  <button
+                    onClick={handleExportExcel}
+                    disabled={exporting || !campaign}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-green-700 px-4 py-3 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    Export as Excel
+                  </button>
+                </div>
+              </div>
+
+              {/* Info */}
+              <div className="bg-gray-800/50 rounded-xl px-3 py-2.5 border border-gray-700">
+                <p className="text-xs text-gray-400">
+                  All lead data will be exported including phone, email, business name, notes, timezone, and call history.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-800/50 border-t border-gray-800 px-6 py-3">
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="w-full px-4 py-2 rounded-xl bg-gray-800 text-gray-200 text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
