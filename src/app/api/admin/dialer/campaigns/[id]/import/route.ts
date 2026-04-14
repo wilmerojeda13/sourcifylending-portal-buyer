@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { validateLead, normalizePhone } from '@/lib/dialer-lead-validator'
+import { createIntegrityGateSummary, addRejection, getRejectionStats, RejectionEntry } from '@/lib/dialer-integrity-gate'
 
 async function assertAdmin() {
   const auth = await createClient()
@@ -39,8 +41,29 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .single()
   if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
-  const valid = body.leads.filter(l => l.first_name?.trim() && l.phone?.trim())
-  const phones = valid.map(l => l.phone.trim())
+  const rejections: RejectionEntry[] = []
+  const totalSubmitted = body.leads.length
+
+  // Run Data Integrity Gate validation on all leads
+  const validLeads = body.leads.filter(lead => {
+    const validation = validateLead({
+      first_name: lead.first_name,
+      last_name: lead.last_name || undefined,
+      phone: lead.phone,
+      email: lead.email || undefined,
+      business_name: lead.business_name || undefined,
+      notes: lead.notes || undefined,
+    })
+
+    if (!validation.isValid) {
+      const leadId = `${lead.first_name} ${lead.last_name || ''}`.trim()
+      addRejection(rejections, leadId, validation.rejectionReason || 'UNKNOWN', validation.rejectionDetail || 'Unknown reason')
+      return false
+    }
+    return true
+  })
+
+  const phones = validLeads.map(l => l.phone.trim())
 
   // Find raw leads that already exist by phone
   const { data: existing } = await admin.supabase
@@ -49,8 +72,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .in('phone', phones)
 
   const existingByPhone = new Map((existing ?? []).map(r => [r.phone, r.id]))
-  const toInsert = valid.filter(l => !existingByPhone.has(l.phone.trim()))
-  const skipped  = valid.length - toInsert.length
+  const toInsert = validLeads.filter(l => !existingByPhone.has(l.phone.trim()))
+  const skipped  = validLeads.length - toInsert.length
 
   // Insert new raw leads
   let newIds: string[] = []
@@ -72,7 +95,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   // Collect ALL raw_lead ids to add to campaign
-  const existingIds = valid
+  const existingIds = validLeads
     .filter(l => existingByPhone.has(l.phone.trim()))
     .map(l => existingByPhone.get(l.phone.trim())!)
   const allRawIds = [...existingIds, ...newIds]
@@ -93,9 +116,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (linkErr) return NextResponse.json({ error: linkErr.message }, { status: 500 })
   }
 
+  // Build the integrity gate summary
+  const summary = createIntegrityGateSummary(totalSubmitted, allRawIds.length, rejections)
+  const rejectionStats = getRejectionStats(rejections)
+
+  // Log rejection summary if there were rejections
+  if (rejections.length > 0) {
+    console.log(`[Dialer Import] Campaign ${params.id} - Data Integrity Gate Summary:`, {
+      totalSubmitted,
+      successCount: allRawIds.length,
+      rejectionCount: rejections.length,
+      rejectionStats,
+      sampleRejections: rejections.slice(0, 3),
+    })
+  }
+
   return NextResponse.json({
-    imported:   allRawIds.length,
-    new_leads:  newIds.length,
+    imported:        allRawIds.length,
+    new_leads:       newIds.length,
     skipped,
+    rejected:        rejections.length,
+    rejection_stats: rejectionStats,
+    summary_message: summary.summaryMessage,
   })
 }

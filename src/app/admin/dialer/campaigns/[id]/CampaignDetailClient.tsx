@@ -288,7 +288,26 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
-      toast.success(`Imported ${json.imported} leads${json.skipped ? ` · ${json.skipped} duplicates skipped` : ''}`)
+
+      // Display Data Integrity Gate summary
+      if (json.summary_message) {
+        toast.success(json.summary_message)
+
+        // Log rejection details if available
+        if (json.rejected && json.rejected > 0 && json.rejection_stats) {
+          console.log('[Data Integrity Gate] Rejection Summary:', {
+            total_submitted: importParsed.length,
+            rejected: json.rejected,
+            imported: json.imported,
+            duplicates: json.skipped,
+            rejection_breakdown: json.rejection_stats,
+          })
+        }
+      } else {
+        // Fallback for backward compatibility
+        toast.success(`Imported ${json.imported} leads${json.skipped ? ` · ${json.skipped} duplicates skipped` : ''}`)
+      }
+
       setImportText('')
       setImportParsed([])
       setTab('leads')
@@ -324,7 +343,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
       const timestamp = new Date().toISOString().slice(0, 10)
       const filename = `campaign-${campaign?.name?.replace(/\s+/g, '-') || 'leads'}-${timestamp}.csv`
       exportToCSV(leadsToExport, filename, excludedStatuses)
-      toast.success(`Exported ${leadsToExport.filter(l => !excludedStatuses.includes(l.status)).length} leads to CSV`)
+      toast.success(`Exported ${leadsToExport.filter((l: CampaignLead) => !excludedStatuses.includes(l.status)).length} leads to CSV`)
       setExportModalOpen(false)
     } catch (err) {
       toast.error('Failed to export CSV')
@@ -345,7 +364,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
       const timestamp = new Date().toISOString().slice(0, 10)
       const filename = `campaign-${campaign?.name?.replace(/\s+/g, '-') || 'leads'}-${timestamp}.xlsx`
       exportToExcel(leadsToExport, filename, excludedStatuses)
-      toast.success(`Exported ${leadsToExport.filter(l => !excludedStatuses.includes(l.status)).length} leads to Excel`)
+      toast.success(`Exported ${leadsToExport.filter((l: CampaignLead) => !excludedStatuses.includes(l.status)).length} leads to Excel`)
       setExportModalOpen(false)
     } catch (err) {
       toast.error('Failed to export Excel')
@@ -961,7 +980,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                         {status.label}
                       </span>
                       <span className="text-xs text-gray-500 ml-auto">
-                        ({(allLeads.length > 0 ? allLeads : []).filter(l => l.status === status.id).length})
+                        ({(allLeads.length > 0 ? allLeads : []).filter((l: CampaignLead) => l.status === status.id).length})
                       </span>
                     </label>
                   ))}
