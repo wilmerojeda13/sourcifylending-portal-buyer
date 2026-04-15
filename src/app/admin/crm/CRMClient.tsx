@@ -727,7 +727,7 @@ export default function CRMClient() {
       while (allLeads.length < total) {
         if (version !== loadVersion.current) return // newer load started — abort
         p.set('page', String(page))
-        const res  = await fetch(`/api/admin/crm/leads?${p}`)
+        const res  = await fetch(`/api/admin/crm/leads?${p}`, { cache: 'no-store' })
         const json = await res.json()
         const batch: CRMLead[] = json.leads ?? []
         total = json.total ?? batch.length

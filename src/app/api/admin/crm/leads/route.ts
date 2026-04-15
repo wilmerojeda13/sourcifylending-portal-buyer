@@ -16,6 +16,10 @@ import {
 } from '@/lib/crm-unified-search'
 import { applyVisibleCrmLeadsFilter } from '@/lib/crm-visibility'
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store',
+}
+
 const CRM_LEAD_LIST_SELECT = [
   'id',
   'first_name',
@@ -83,6 +87,20 @@ async function assertAdmin() {
   return data?.is_admin ? supabase : null
 }
 
+function jsonNoStore(body: unknown, init?: number | ResponseInit) {
+  if (typeof init === 'number') {
+    return NextResponse.json(body, { status: init, headers: NO_STORE_HEADERS })
+  }
+
+  return NextResponse.json(body, {
+    ...init,
+    headers: {
+      ...NO_STORE_HEADERS,
+      ...(init?.headers ?? {}),
+    },
+  })
+}
+
 async function executeLeadListQuery(buildQuery: (selectClause: string) => any) {
   const primaryResult = await buildQuery(CRM_LEAD_LIST_SELECT)
 
@@ -105,7 +123,7 @@ function isMissingLeadTimezoneColumn(error: { code?: string | null; message?: st
 // GET /api/admin/crm/leads?stage=&source=&program=&search=&follow_up_due=&archived=&temperature=&callback_due=&open_tasks=&unified_search=true
 export async function GET(req: NextRequest) {
   const supabase = await assertAdmin()
-  if (!supabase) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!supabase) return jsonNoStore({ error: 'Unauthorized' }, 401)
 
   const { searchParams } = new URL(req.url)
   const stage        = searchParams.get('stage')
@@ -188,7 +206,7 @@ export async function GET(req: NextRequest) {
             .range(from, from + chunkSize - 1)
         )
       )
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (error) return jsonNoStore({ error: error.message }, 500)
 
       if (from === 0) {
         count = batchCount ?? 0
@@ -221,7 +239,7 @@ export async function GET(req: NextRequest) {
 
       return query
     })
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return jsonNoStore({ error: error.message }, 500)
     leads = data ?? []
     count = queryCount ?? 0
   }
@@ -340,7 +358,7 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  return NextResponse.json({
+  return jsonNoStore({
     leads: responseLeads,
     total: requiresPostFilter || dialerMode ? dialerEligibleLeads.length : (openTasks === 'true' ? dialerEligibleLeads.length : count ?? 0),
     page,
@@ -352,11 +370,11 @@ export async function GET(req: NextRequest) {
 // POST /api/admin/crm/leads
 export async function POST(req: NextRequest) {
   const supabase = await assertAdmin()
-  if (!supabase) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!supabase) return jsonNoStore({ error: 'Unauthorized' }, 401)
 
   const body = await req.json()
   if (!body.first_name?.trim() || !body.phone?.trim()) {
-    return NextResponse.json({ error: 'First name and phone are required' }, { status: 400 })
+    return jsonNoStore({ error: 'First name and phone are required' }, 400)
   }
 
   const phoneIntelligence = await inferLeadPhoneIntelligence(body.phone.trim())
@@ -371,7 +389,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   if (existingDupe) {
-    return NextResponse.json({
+    return jsonNoStore({
       error: `A lead with this phone number already exists: ${existingDupe.first_name} ${existingDupe.last_name} (${existingDupe.stage})`,
       duplicate_lead_id: existingDupe.id,
     }, { status: 409 })
@@ -411,7 +429,7 @@ export async function POST(req: NextRequest) {
       .single())
   }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return jsonNoStore({ error: error.message }, 500)
 
   // Log to activity feed
   logPortalEvent({
@@ -429,5 +447,5 @@ export async function POST(req: NextRequest) {
     severity: 'info',
   }).catch(() => {})
 
-  return NextResponse.json({ lead: data }, { status: 201 })
+  return jsonNoStore({ lead: data }, { status: 201 })
 }

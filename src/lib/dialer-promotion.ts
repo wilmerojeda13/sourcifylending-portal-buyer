@@ -80,20 +80,6 @@ export async function promoteToCrm(
   let promotionResult: PromotionResult
 
   if (!alreadyPromoted) {
-    // Check for existing CRM lead by phone (duplicate prevention)
-    let existingCrmLeadId: string | null = null
-    if (rawLead.phone_e164) {
-      const { data: existing } = await supabase
-        .from('crm_leads')
-        .select('id')
-        .eq('phone_e164', rawLead.phone_e164)
-        .maybeSingle<{ id: string }>()
-
-      if (existing) {
-        existingCrmLeadId = existing.id
-      }
-    }
-
     // Use RPC for atomic promotion (handles race conditions)
     const { data: result, error: rpcError } = await supabase.rpc('promote_raw_lead_to_crm', {
       p_raw_lead_id: input.rawLeadId,
@@ -118,11 +104,17 @@ export async function promoteToCrm(
       promotionResult = { crmLeadId, merged, alreadyPromoted: wasAlreadyPromoted }
     }
   } else {
-    // Lead already promoted - just return the existing CRM lead ID
-    promotionResult = {
-      crmLeadId: crmLeadIdFromPromotion!,
-      merged: false,
-      alreadyPromoted: true,
+    // Lead already promoted - verify the linked CRM lead still exists and is visible.
+    // If the link is stale, recover by re-running the merge/create fallback path.
+    const verified = await verifyPromotedLeadLink(supabase, rawLead, crmLeadIdFromPromotion)
+    if (verified) {
+      promotionResult = {
+        crmLeadId: crmLeadIdFromPromotion!,
+        merged: false,
+        alreadyPromoted: true,
+      }
+    } else {
+      promotionResult = await manualPromotionFallback(supabase, rawLead, input)
     }
   }
 
@@ -131,6 +123,12 @@ export async function promoteToCrm(
   if (input.workflowState) {
     await applyWorkflowState(supabase, promotionResult.crmLeadId, input.workflowState, input.userId)
   }
+
+  await ensurePromotedLeadVisible(supabase, {
+    rawLeadId: input.rawLeadId,
+    crmLeadId: promotionResult.crmLeadId,
+    expectedStage: input.workflowState?.crm_stage ?? null,
+  })
 
   return promotionResult
 }
@@ -146,6 +144,7 @@ async function applyWorkflowState(
   userId: string
 ) {
   const patch: Record<string, unknown> = {}
+  patch.is_archived = false
   if (state.follow_up_at     != null) patch.follow_up_at     = state.follow_up_at
   if (state.callback_due_at  != null) patch.callback_due_at  = state.callback_due_at
   if (state.last_call_outcome != null) patch.last_call_outcome = state.last_call_outcome
@@ -154,9 +153,13 @@ async function applyWorkflowState(
   if (state.last_call_note   != null) patch.latest_call_note  = state.last_call_note
   if (state.crm_stage        != null) patch.stage             = state.crm_stage
 
+  patch.updated_at = new Date().toISOString()
+
   if (Object.keys(patch).length > 0) {
-    patch.updated_at = new Date().toISOString()
-    await supabase.from('crm_leads').update(patch).eq('id', crmLeadId)
+    const { error } = await supabase.from('crm_leads').update(patch).eq('id', crmLeadId)
+    if (error) {
+      throw new Error(`Failed to apply workflow state to CRM lead ${crmLeadId}: ${error.message}`)
+    }
   }
 
   // Create a CRM task for any scheduled callback or follow-up
@@ -175,6 +178,116 @@ async function applyWorkflowState(
       created_source: 'dialer_promotion',
       created_source_label: 'Dialer',
     })
+  }
+}
+
+async function verifyPromotedLeadLink(
+  supabase: ServiceClient,
+  rawLead: RawLead & { promoted_to_crm_lead_id: string | null },
+  expectedCrmLeadId: string | null,
+): Promise<boolean> {
+  if (!expectedCrmLeadId) return false
+
+  const [{ data: crmLead }, { data: rawLeadRow }] = await Promise.all([
+    supabase
+      .from('crm_leads')
+      .select('id, stage, is_archived')
+      .eq('id', expectedCrmLeadId)
+      .maybeSingle<{ id: string; stage: string | null; is_archived: boolean }>(),
+    supabase
+      .from('dialer_raw_leads')
+      .select('promoted_to_crm_lead_id')
+      .eq('id', rawLead.id)
+      .maybeSingle<{ promoted_to_crm_lead_id: string | null }>(),
+  ])
+
+  return !!crmLead && !crmLead.is_archived && rawLeadRow?.promoted_to_crm_lead_id === expectedCrmLeadId
+}
+
+async function ensurePromotedLeadVisible(
+  supabase: ServiceClient,
+  input: {
+    rawLeadId: string
+    crmLeadId: string
+    expectedStage: string | null
+  },
+) {
+  const { data: crmLead, error: crmLeadError } = await supabase
+    .from('crm_leads')
+    .select('id, stage, is_archived')
+    .eq('id', input.crmLeadId)
+    .maybeSingle<{ id: string; stage: string | null; is_archived: boolean }>()
+
+  if (crmLeadError) {
+    throw new Error(`Unable to verify CRM lead ${input.crmLeadId}: ${crmLeadError.message}`)
+  }
+  if (!crmLead) {
+    throw new Error(`Promoted CRM lead not found: ${input.crmLeadId}`)
+  }
+
+  const patch: Record<string, unknown> = {}
+  if (crmLead.is_archived) {
+    patch.is_archived = false
+  }
+  if (input.expectedStage && crmLead.stage !== input.expectedStage) {
+    patch.stage = input.expectedStage
+  }
+
+  if (Object.keys(patch).length > 0) {
+    patch.updated_at = new Date().toISOString()
+    const { error } = await supabase.from('crm_leads').update(patch).eq('id', input.crmLeadId)
+    if (error) {
+      throw new Error(`Unable to normalize promoted CRM lead ${input.crmLeadId}: ${error.message}`)
+    }
+  }
+
+  const { data: refreshed, error: refreshError } = await supabase
+    .from('crm_leads')
+    .select('id, stage, is_archived')
+    .eq('id', input.crmLeadId)
+    .single<{ id: string; stage: string | null; is_archived: boolean }>()
+
+  if (refreshError || !refreshed) {
+    throw new Error(
+      `Promoted CRM lead ${input.crmLeadId} could not be verified after normalization: ${
+        refreshError?.message ?? 'missing row'
+      }`
+    )
+  }
+
+  if (refreshed.is_archived) {
+    throw new Error(`Promoted CRM lead ${input.crmLeadId} is still archived after normalization`)
+  }
+
+  if (input.expectedStage && refreshed.stage !== input.expectedStage) {
+    throw new Error(
+      `Promoted CRM lead ${input.crmLeadId} did not persist expected stage "${input.expectedStage}"`
+    )
+  }
+
+  const { data: rawLeadRow, error: rawLeadError } = await supabase
+    .from('dialer_raw_leads')
+    .select('promoted_to_crm_lead_id')
+    .eq('id', input.rawLeadId)
+    .single<{ promoted_to_crm_lead_id: string | null }>()
+
+  if (rawLeadError || !rawLeadRow) {
+    throw new Error(`Unable to verify raw dialer lead linkage for ${input.rawLeadId}`)
+  }
+
+  if (rawLeadRow.promoted_to_crm_lead_id !== input.crmLeadId) {
+    const { error } = await supabase
+      .from('dialer_raw_leads')
+      .update({
+        promoted_to_crm_at: new Date().toISOString(),
+        promoted_to_crm_lead_id: input.crmLeadId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', input.rawLeadId)
+
+    if (error) {
+      throw new Error(`Unable to repair raw lead promotion link ${input.rawLeadId}: ${error.message}`)
+    }
   }
 }
 
@@ -206,7 +319,7 @@ async function manualPromotionFallback(
   const { data: existing } = await supabase
     .from('crm_leads')
     .select('id, first_name, last_name, email, business_name, notes, source, stage')
-    .eq('phone_e164', rawLead.phone_e164 || rawLead.phone)
+    .or(`phone_e164.eq.${rawLead.phone_e164 || rawLead.phone},phone.eq.${rawLead.phone}`)
     .maybeSingle()
 
   let crmLeadId: string
@@ -224,6 +337,8 @@ async function manualPromotionFallback(
         notes: existing.notes 
           ? `${existing.notes}\n\n[From Dialer]\n${rawLead.notes || ''}`
           : rawLead.notes,
+        is_archived: false,
+        stage: existing.stage === 'new' ? 'contacted' : existing.stage,
         updated_at: new Date().toISOString(),
       })
       .eq('id', existing.id)
@@ -253,7 +368,8 @@ async function manualPromotionFallback(
         business_name: rawLead.business_name,
         notes: rawLead.notes,
         source: normalizeCrmSource(rawLead.source),
-        stage: 'new',
+        stage: 'contacted',
+        is_archived: false,
       })
       .select('id')
       .single()
