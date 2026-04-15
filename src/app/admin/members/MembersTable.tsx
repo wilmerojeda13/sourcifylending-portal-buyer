@@ -470,11 +470,12 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
 
             {/* Plan Tier selector */}
             <select
-              value={m.plan_tier || 'paid'}
+              value={m.plan_tier || ''}
               onChange={(e) => updatePlanTier(m.id, e.target.value as 'free' | 'paid')}
               disabled={saving === m.id + '_tier'}
               className="hidden md:block text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-1.5 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
             >
+              <option value="">Unset</option>
               <option value="paid">Paid</option>
               <option value="free">Free</option>
             </select>
