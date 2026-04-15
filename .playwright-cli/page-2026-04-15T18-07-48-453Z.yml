@@ -1,0 +1,49 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "SL SourcifyLending" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e7]: SL
+          - generic [ref=e8]: SourcifyLending
+        - generic [ref=e9]: Almost done!
+    - main [ref=e13]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - img [ref=e59]
+          - generic [ref=e62]: Your results are ready
+        - heading "Where should we send your analysis?" [level=2] [ref=e63]
+        - paragraph [ref=e64]: Enter your info to unlock your credit readiness report and program recommendation. We'll never spam you.
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - generic [ref=e67]: Full Name *
+            - textbox "Jane Smith" [active] [ref=e68]
+          - generic [ref=e69]:
+            - generic [ref=e70]: Email Address *
+            - textbox "jane@example.com" [ref=e71]
+          - generic [ref=e72]:
+            - generic [ref=e73]: Phone Number *
+            - textbox "(555) 000-0000" [ref=e74]
+          - generic [ref=e75]:
+            - paragraph [ref=e76]: SMS consent
+            - paragraph [ref=e77]: By submitting this form, you agree to receive text messages from SourcifyLending about your inquiry, account, and services. Message frequency varies. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.
+            - generic [ref=e78]:
+              - checkbox "I agree to receive SMS messages from SourcifyLending at the number I provided." [ref=e79]
+              - generic [ref=e80]: I agree to receive SMS messages from SourcifyLending at the number I provided.
+            - paragraph [ref=e81]:
+              - link "Privacy Policy" [ref=e82] [cursor=pointer]:
+                - /url: /privacy
+              - text: and
+              - link "Terms & Conditions" [ref=e83] [cursor=pointer]:
+                - /url: /terms
+            - paragraph [ref=e84]: "Disclosure version: 2026-04-02-v1"
+          - paragraph [ref=e89]: Complete the verification challenge before submitting.
+        - generic [ref=e90]:
+          - button "Back" [ref=e91] [cursor=pointer]:
+            - img [ref=e92]
+            - text: Back
+          - button "View My Results" [disabled] [ref=e94]:
+            - text: View My Results
+            - img [ref=e95]
+        - paragraph [ref=e97]: 🔒 Your information is private and never sold.
+  - alert [ref=e28]

@@ -1,0 +1,2 @@
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (140kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'C:\Users\abelf\OneDrive\Desktop\Apps\sourcifylending web portal app\.next\cache\webpack\client-development\0.pack.gz_' -> 'C:\Users\abelf\OneDrive\Desktop\Apps\sourcifylending web portal app\.next\cache\webpack\client-development\0.pack.gz'

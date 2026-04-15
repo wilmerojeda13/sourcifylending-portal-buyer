@@ -1,0 +1,11 @@
+[    1253ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    4395ms] [LOG] [Fast Refresh] done in 3147ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    5475ms] [ERROR] Refused to apply style from 'http://127.0.0.1:3000/_next/static/css/app/layout.css?v=1776222344347' because its MIME type ('text/html') is not a supported stylesheet MIME type, and strict MIME checking is enabled. @ http://127.0.0.1:3000/login:0
+[    5514ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/main-app.js?v=1776222344347:0
+[    5515ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/main-app.js?v=1776222344347' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/login:0
+[    5517ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/layout.js:0
+[    5518ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/layout.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/login:0
+[    5520ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app-pages-internals.js:0
+[    5520ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app-pages-internals.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/login:0
+[    5520ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/login/page.js:0
+[    5521ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/login/page.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/login:0

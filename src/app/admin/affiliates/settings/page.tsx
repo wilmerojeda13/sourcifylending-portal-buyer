@@ -301,7 +301,7 @@ export default function AffiliateSettingsPage() {
               {/* Rate Reference */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-                  <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-1">Legacy Referral</p>
+                  <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-1">Legacy Partner Referral</p>
                   <p className="font-bold text-gray-900 text-sm">10% Setup · 10% Recurring</p>
                   <p className="text-xs text-gray-500 mt-1">Historical referral-only records where SourcifyLending closed the deal</p>
                 </div>
@@ -314,7 +314,7 @@ export default function AffiliateSettingsPage() {
 
               <ToggleRow
                 label="Require Admin Approval for Legacy Closed Deals"
-                desc="When ON: legacy affiliate_closed records stay at 10% until an admin approves the designation. When OFF: the legacy 30% rate applies immediately."
+                desc="When ON: legacy closed records stay at 10% until an admin approves the designation. When OFF: the legacy 30% rate applies immediately."
                 enabled={globalSettings.require_approval_for_affiliate_closed}
                 onToggle={() => setGlobalSettings(g => ({ ...g, require_approval_for_affiliate_closed: !g.require_approval_for_affiliate_closed }))}
               />

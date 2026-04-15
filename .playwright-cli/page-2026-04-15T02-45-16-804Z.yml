@@ -1,0 +1,133 @@
+- generic [ref=e1]:
+  - generic [ref=e47]:
+    - complementary [ref=e48]:
+      - generic [ref=e49]:
+        - generic [ref=e51]:
+          - generic [ref=e53]: SL
+          - generic [ref=e54]:
+            - paragraph [ref=e55]: SourcifyLending
+            - generic [ref=e56]:
+              - paragraph [ref=e57]: Partner Portal
+              - generic [ref=e58]: Partner
+        - navigation [ref=e59]:
+          - link "Dashboard" [ref=e241] [cursor=pointer]:
+            - /url: /affiliate/dashboard
+            - img [ref=e242]
+            - generic [ref=e247]: Dashboard
+          - link "Clients" [ref=e248] [cursor=pointer]:
+            - /url: /affiliate/leads
+            - img [ref=e249]
+            - generic [ref=e252]: Clients
+            - img [ref=e253]
+          - link "Conversions" [ref=e255] [cursor=pointer]:
+            - /url: /affiliate/referrals
+            - img [ref=e256]
+            - generic [ref=e261]: Conversions
+          - link "Earnings" [ref=e262] [cursor=pointer]:
+            - /url: /affiliate/commissions
+            - img [ref=e263]
+            - generic [ref=e265]: Earnings
+          - link "Resources" [ref=e266] [cursor=pointer]:
+            - /url: /affiliate/resources
+            - img [ref=e267]
+            - generic [ref=e270]: Resources
+          - link "Training" [ref=e271] [cursor=pointer]:
+            - /url: /affiliate/training
+            - img [ref=e272]
+            - generic [ref=e275]: Training
+          - link "Account" [ref=e276] [cursor=pointer]:
+            - /url: /affiliate/account
+            - img [ref=e277]
+            - generic [ref=e280]: Account
+        - button "Sign Out" [ref=e101] [cursor=pointer]:
+          - img [ref=e102]
+          - generic [ref=e105]: Sign Out
+        - generic [ref=e106]:
+          - paragraph [ref=e107]: Demo Affiliate
+          - paragraph [ref=e108]: Partner-Assisted Sales
+    - main [ref=e109]:
+      - generic [ref=e281]:
+        - generic [ref=e282]:
+          - generic [ref=e283]:
+            - heading "Partner Clients" [level=1] [ref=e284]
+            - paragraph [ref=e285]: Add partner-assisted clients, send invites, and track their progress
+          - button "Add Prospect" [active] [ref=e286] [cursor=pointer]:
+            - img [ref=e287]
+            - text: Add Prospect
+        - generic [ref=e288]:
+          - generic [ref=e289]:
+            - generic [ref=e290]: "0"
+            - generic [ref=e291]: Total Prospects
+          - generic [ref=e292]:
+            - generic [ref=e293]: "0"
+            - generic [ref=e294]: Invite Sent
+          - generic [ref=e295]:
+            - generic [ref=e296]: "0"
+            - generic [ref=e297]: Active Clients
+        - generic [ref=e298]:
+          - img [ref=e299]
+          - generic [ref=e301]: "How this works: Add a client you are closing and onboarding, send them a personalized invite link, and keep them under your partner workspace. Partner compensation is tied to successfully collected setup fees and recurring subscription revenue."
+        - generic [ref=e302]:
+          - button "All" [ref=e303] [cursor=pointer]
+          - button "Lead Created" [ref=e304] [cursor=pointer]
+          - button "Invite Sent" [ref=e305] [cursor=pointer]
+          - button "Account Created" [ref=e306] [cursor=pointer]
+          - button "Active" [ref=e307] [cursor=pointer]
+          - button "Cancelled" [ref=e308] [cursor=pointer]
+        - generic [ref=e310]:
+          - img [ref=e311]
+          - paragraph [ref=e314]: No prospects yet
+          - paragraph [ref=e315]: Click "Add Prospect" to get started
+        - generic [ref=e317]:
+          - generic [ref=e318]:
+            - heading "Add Prospect" [level=2] [ref=e319]:
+              - img [ref=e320]
+              - text: Add Prospect
+            - button [ref=e323] [cursor=pointer]:
+              - img [ref=e324]
+          - generic [ref=e327]:
+            - generic [ref=e328]:
+              - generic [ref=e329]: Full Name *
+              - textbox "Jane Smith" [ref=e330]
+            - generic [ref=e331]:
+              - generic [ref=e332]: Email Address *
+              - generic [ref=e333]:
+                - img [ref=e334]
+                - textbox "jane@example.com" [ref=e337]
+            - generic [ref=e338]:
+              - generic [ref=e339]: Phone (optional)
+              - generic [ref=e340]:
+                - img [ref=e341]
+                - textbox "+1 (555) 000-0000" [ref=e343]
+            - generic [ref=e344]:
+              - generic [ref=e345]: Business Name (optional)
+              - generic [ref=e346]:
+                - img [ref=e347]
+                - textbox "Acme Corp" [ref=e351]
+            - generic [ref=e352]:
+              - generic [ref=e353]: Deal Type
+              - generic [ref=e354]:
+                - generic [ref=e355]: Partner-Assisted
+                - generic [ref=e356]: You close, onboard, and remain the frontline contact
+                - generic [ref=e357]: 80% setup + 20% recurring
+            - generic [ref=e358]:
+              - generic [ref=e360]:
+                - img [ref=e361]
+                - text: Notes
+                - generic [ref=e364]: (optional)
+              - textbox "Any context about this prospect..." [ref=e365]
+          - generic [ref=e366]:
+            - button "Cancel" [ref=e367] [cursor=pointer]
+            - button "Save Lead" [ref=e368] [cursor=pointer]
+            - button "Save & Send" [ref=e369] [cursor=pointer]:
+              - img [ref=e370]
+              - text: Save & Send
+  - generic [ref=e374]:
+    - img [ref=e376]
+    - generic [ref=e379]:
+      - paragraph [ref=e380]: Enable desktop notifications
+      - paragraph [ref=e381]: Get important portal updates while you are on another tab. Mobile continues to use in-app notifications and badges.
+      - generic [ref=e382]:
+        - button "Enable" [ref=e383] [cursor=pointer]
+        - button "Not now" [ref=e384] [cursor=pointer]
+  - alert [ref=e40]

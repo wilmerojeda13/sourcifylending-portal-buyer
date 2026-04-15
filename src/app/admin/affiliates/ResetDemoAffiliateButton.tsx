@@ -15,7 +15,7 @@ export default function ResetDemoAffiliateButton() {
   const [result, setResult] = useState<ResetResult | null>(null)
 
   const handleReset = async () => {
-    if (!confirm('Reset demo affiliate account? This will restore all sample referrals and commissions.')) return
+    if (!confirm('Reset demo partner account? This will restore all sample referrals and commissions.')) return
     setLoading(true)
     setResult(null)
     try {
@@ -35,9 +35,9 @@ export default function ResetDemoAffiliateButton() {
           <RefreshCw size={20} className="text-white" />
         </div>
         <div>
-          <h3 className="font-bold text-gray-900 text-sm">Reset Demo Affiliate</h3>
+          <h3 className="font-bold text-gray-900 text-sm">Reset Demo Partner</h3>
           <p className="text-xs text-gray-500 leading-snug">
-            Restore demo affiliate account (affiliate@sourcifylending.com) to original state with fresh sample data
+            Restore the demo partner account to its original state with fresh sample data
           </p>
         </div>
       </div>
@@ -50,7 +50,7 @@ export default function ResetDemoAffiliateButton() {
         {loading ? (
           <><Loader2 size={15} className="animate-spin" /> Resetting…</>
         ) : (
-          <><RefreshCw size={15} /> Reset Demo Affiliate</>
+          <><RefreshCw size={15} /> Reset Demo Partner</>
         )}
       </button>
 
@@ -69,7 +69,7 @@ export default function ResetDemoAffiliateButton() {
               <p className="text-gray-500 font-mono">{result.affiliate.email}</p>
               <p className="text-gray-400">
                 Code: <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-gray-700">{result.affiliate.referral_code}</code>
-                {' · '}Password: <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-gray-700">AffiliateDemo123!</code>
+                {' · '}Password: <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-gray-700">PartnerDemo123!</code>
               </p>
             </div>
           )}

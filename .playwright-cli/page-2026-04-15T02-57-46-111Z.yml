@@ -1,0 +1,57 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e6]: SL
+    - heading "Create Your Account" [level=1] [ref=e7]
+    - paragraph [ref=e8]: Start your credit-building journey
+  - generic [ref=e9]:
+    - button "Sign up with Google" [ref=e11] [cursor=pointer]:
+      - img [ref=e12]
+      - text: Sign up with Google
+    - generic [ref=e19]: or create with email
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]: Full Name
+        - textbox "Jane Smith" [ref=e24]
+      - generic [ref=e25]:
+        - generic [ref=e26]: Business Name
+        - textbox "Acme LLC" [ref=e27]
+      - generic [ref=e28]:
+        - generic [ref=e29]: Email Address
+        - textbox "you@company.com" [ref=e30]
+      - generic [ref=e31]:
+        - generic [ref=e32]: Password
+        - generic [ref=e33]:
+          - textbox "Minimum 8 characters" [ref=e34]
+          - button [ref=e35] [cursor=pointer]:
+            - img [ref=e36]
+      - paragraph [ref=e41]: Complete the verification challenge before submitting.
+      - generic [ref=e42]:
+        - paragraph [ref=e43]: SMS consent
+        - paragraph [ref=e44]: By submitting this form, you agree to receive text messages from SourcifyLending about your inquiry, account, and services. Message frequency varies. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.
+        - generic [ref=e45]:
+          - checkbox "I agree to receive SMS messages from SourcifyLending at the number I provided." [ref=e46]
+          - generic [ref=e47]: I agree to receive SMS messages from SourcifyLending at the number I provided.
+        - paragraph [ref=e48]:
+          - link "Privacy Policy" [ref=e49] [cursor=pointer]:
+            - /url: /privacy
+          - text: and
+          - link "Terms & Conditions" [ref=e50] [cursor=pointer]:
+            - /url: /terms
+        - paragraph [ref=e51]: "Disclosure version: 2026-04-02-v1"
+      - paragraph [ref=e52]: By creating an account, you agree that results are not guaranteed and this platform does not promise specific credit approvals, limits, or funding outcomes.
+      - button "Create Account" [disabled] [ref=e53]
+    - generic [ref=e54]:
+      - paragraph [ref=e55]:
+        - text: Already have an account?
+        - link "Sign in" [ref=e56] [cursor=pointer]:
+          - /url: /login
+      - paragraph [ref=e57]:
+        - link "Privacy Policy" [ref=e58] [cursor=pointer]:
+          - /url: /privacy
+        - text: and
+        - link "Terms & Conditions" [ref=e59] [cursor=pointer]:
+          - /url: /terms
+  - link "Back to home" [ref=e60] [cursor=pointer]:
+    - /url: /
+    - img [ref=e61]
+    - text: Back to home

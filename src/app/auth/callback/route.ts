@@ -136,6 +136,7 @@ export async function GET(request: NextRequest) {
                   .eq('status', 'active')
                   .single()
                 if (affiliate) {
+                  const now = new Date().toISOString()
                   const isSelfReferral =
                     affiliate.email.toLowerCase() === user.email?.toLowerCase() ||
                     (affiliate as { user_id?: string }).user_id === user.id
@@ -153,6 +154,7 @@ export async function GET(request: NextRequest) {
                   const { data: existingRef } = await svc
                     .from('affiliate_referrals').select('id')
                     .eq('affiliate_id', affiliate.id).eq('lead_email', user.email).maybeSingle()
+                  let referralId: string | null = existingRef?.id ?? null
                   if (!existingRef && !isRetroactive) {
                     const { data: newReferral } = await svc.from('affiliate_referrals').insert({
                       affiliate_id: affiliate.id, user_id: user.id,
@@ -161,8 +163,9 @@ export async function GET(request: NextRequest) {
                       is_self_referral: isSelfReferral, is_flagged: isSelfReferral,
                       flag_reason: isSelfReferral ? 'Self-referral detected at signup' : null,
                       deal_type: leadDealType, acquisition_path: 'partner_assisted',
-                      partner_relationship_started_at: new Date().toISOString(), onboarding_status: 'partner_closing',
-                    }).select('id').single()
+                        partner_relationship_started_at: new Date().toISOString(), onboarding_status: 'partner_closing',
+                      }).select('id').single()
+                    referralId = newReferral?.id ?? referralId
                     if (leadRecordId) {
                       await svc.from('affiliate_leads').update({
                         user_id: user.id, referral_id: newReferral?.id ?? null,
@@ -178,6 +181,41 @@ export async function GET(request: NextRequest) {
                       })
                     }
                   }
+
+                  const leadPayload = {
+                    affiliate_id: affiliate.id,
+                    user_id: user.id,
+                    referral_id: referralId,
+                    full_name: fullName,
+                    email: user.email,
+                    phone: user.user_metadata?.phone ?? null,
+                    business_name: user.user_metadata?.business_name ?? null,
+                    deal_type: leadDealType,
+                    acquisition_path: 'partner_assisted',
+                    onboarding_status: 'partner_closing',
+                    partner_relationship_started_at: now,
+                    account_created_at: now,
+                    converted_at: now,
+                    status: 'account_created',
+                    updated_at: now,
+                  }
+
+                  try {
+                    const { data: existingLead } = await svc
+                      .from('affiliate_leads')
+                      .select('id')
+                      .eq('affiliate_id', affiliate.id)
+                      .eq('email', user.email)
+                      .maybeSingle()
+
+                    if (existingLead?.id) {
+                      await svc.from('affiliate_leads')
+                        .update(leadPayload)
+                        .eq('id', existingLead.id)
+                    } else {
+                      await svc.from('affiliate_leads').insert(leadPayload)
+                    }
+                  } catch { /* keep auth flow resilient */ }
                 }
               } catch { /* never break auth */ }
             }

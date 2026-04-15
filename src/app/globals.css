@@ -144,6 +144,17 @@
 .dark .bg-white      { background-color: rgb(31 41 55);   } /* gray-800 */
 .dark .bg-gray-50    { background-color: rgb(17 24 39);   } /* gray-900 */
 .dark .bg-gray-100   { background-color: rgb(31 41 55);   } /* gray-800 */
+.dark .bg-indigo-50  { background-color: rgb(30 27 75);   } /* indigo-950 */
+.dark .bg-blue-50    { background-color: rgb(23 37 84);    } /* blue-950 */
+.dark .bg-green-50   { background-color: rgb(20 83 45);    } /* green-950 */
+.dark .bg-emerald-50 { background-color: rgb(6 78 59);     } /* emerald-950 */
+.dark .bg-amber-50   { background-color: rgb(69 26 3);     } /* amber-950 */
+.dark .bg-red-50     { background-color: rgb(69 10 10);    } /* red-950 */
+.dark .bg-purple-50  { background-color: rgb(59 7 100);    } /* purple-950 */
+
+/* Keep common hover fills from flashing bright white in dark mode */
+.dark .hover\:bg-gray-50:hover { background-color: rgb(31 41 55); }
+.dark .hover\:bg-gray-100:hover { background-color: rgb(55 65 81); }
 
 /* Borders */
 .dark .border-gray-100 { border-color: rgb(55 65 81);  } /* gray-700 */

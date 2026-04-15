@@ -1,0 +1,38 @@
+{
+  "generatedAt": "2026-04-15T15:36:31.541Z",
+  "activeCampaigns": [
+    {
+      "id": "1788ef4a-5d17-4005-8086-9f1c61814219",
+      "name": "SL Facebook leads non spanish",
+      "status": "active",
+      "lead_count": 947
+    },
+    {
+      "id": "d19d436e-1472-4d68-8bfd-1272c065bd9e",
+      "name": "SL Approvals Not Funded",
+      "status": "active",
+      "lead_count": 75
+    },
+    {
+      "id": "e463c885-134f-4913-8f59-a776e5fdb420",
+      "name": "SL Interested not funded",
+      "status": "active",
+      "lead_count": 240
+    }
+  ],
+  "counts": {
+    "totalRawLeads": 1000,
+    "totalCampaignLeadRows": 1262,
+    "totalPromotionLogs": 5,
+    "totalCrmLeads": 6110,
+    "visibleCrmLeads": 4,
+    "activeCampaignLeadRows": 1262,
+    "activeRawLeadsPreserved": 1153,
+    "visibleCrmPreserved": 4,
+    "rawLinkedToVisibleCrm": 4,
+    "totalPreservedRaw": 1157,
+    "legacyRawRowsToDelete": 999,
+    "campaignLeadRowsToDelete": 0,
+    "promotionLogRowsToDelete": 0
+  }
+}

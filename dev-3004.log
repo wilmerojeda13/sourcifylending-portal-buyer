@@ -1,0 +1,35 @@
+
+> sourcifylending-portal@0.1.0 dev
+> next dev -p 3004
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3004
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 3.5s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 1204ms (122 modules)
+ ○ Compiling /analyzer ...
+ ✓ Compiled /analyzer in 8.1s (699 modules)
+ GET /analyzer 200 in 9085ms
+ ✓ Compiled in 1008ms (357 modules)
+ ✓ Compiled in 4.5s (357 modules)
+ ✓ Compiled in 961ms (357 modules)
+ ✓ Compiled in 677ms (357 modules)
+ ✓ Compiled in 903ms (357 modules)
+ ✓ Compiled in 621ms (357 modules)
+ ✓ Compiled in 543ms (357 modules)
+ ✓ Compiled in 472ms (357 modules)
+ ✓ Compiled in 556ms (357 modules)
+ ✓ Compiled in 693ms (357 modules)
+ ✓ Compiled in 647ms (357 modules)
+ ✓ Compiled in 704ms (357 modules)
+ ✓ Compiled in 842ms (357 modules)
+ ✓ Compiled in 878ms (357 modules)
+ ✓ Compiled in 961ms (357 modules)
+ ✓ Compiled in 874ms (357 modules)
+ ✓ Compiled in 902ms (357 modules)
+ ✓ Compiled in 1008ms (357 modules)
+ ✓ Compiled in 1055ms (357 modules)
+ ✓ Compiled in 1760ms (357 modules)

@@ -1,0 +1,115 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e6]:
+          - generic [ref=e8]: SL
+          - generic [ref=e9]:
+            - paragraph [ref=e10]: SourcifyLending
+            - generic [ref=e11]:
+              - paragraph [ref=e12]: Partner Portal
+              - generic [ref=e13]: Partner
+        - navigation [ref=e14]:
+          - link "Dashboard" [ref=e15] [cursor=pointer]:
+            - /url: /affiliate/dashboard
+            - img [ref=e16]
+            - generic [ref=e21]: Dashboard
+          - link "Clients" [ref=e22] [cursor=pointer]:
+            - /url: /affiliate/leads
+            - img [ref=e23]
+            - generic [ref=e26]: Clients
+            - img [ref=e27]
+          - link "Conversions" [ref=e29] [cursor=pointer]:
+            - /url: /affiliate/referrals
+            - img [ref=e30]
+            - generic [ref=e35]: Conversions
+          - link "Earnings" [ref=e36] [cursor=pointer]:
+            - /url: /affiliate/commissions
+            - img [ref=e37]
+            - generic [ref=e39]: Earnings
+          - link "Resources" [ref=e40] [cursor=pointer]:
+            - /url: /affiliate/resources
+            - img [ref=e41]
+            - generic [ref=e44]: Resources
+          - link "Training" [ref=e45] [cursor=pointer]:
+            - /url: /affiliate/training
+            - img [ref=e46]
+            - generic [ref=e49]: Training
+          - link "Account" [ref=e50] [cursor=pointer]:
+            - /url: /affiliate/account
+            - img [ref=e51]
+            - generic [ref=e54]: Account
+        - button "Sign Out" [ref=e56] [cursor=pointer]:
+          - img [ref=e57]
+          - generic [ref=e60]: Sign Out
+        - generic [ref=e61]:
+          - paragraph [ref=e62]: Demo Affiliate
+          - paragraph [ref=e63]: Partner-Assisted Sales
+    - main [ref=e64]:
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - heading "Partner Clients" [level=1] [ref=e69]
+            - paragraph [ref=e70]: Add partner-assisted clients, send invites, and track their progress
+          - button "Add Prospect" [ref=e71] [cursor=pointer]:
+            - img [ref=e72]
+            - text: Add Prospect
+        - generic [ref=e176]:
+          - img [ref=e177]
+          - text: Failed to send email. Please try again.
+        - generic [ref=e73]:
+          - generic [ref=e74]:
+            - generic [ref=e75]: "2"
+            - generic [ref=e76]: Total Prospects
+          - generic [ref=e77]:
+            - generic [ref=e78]: "0"
+            - generic [ref=e79]: Invite Sent
+          - generic [ref=e80]:
+            - generic [ref=e81]: "0"
+            - generic [ref=e82]: Active Clients
+        - generic [ref=e83]:
+          - img [ref=e84]
+          - generic [ref=e86]: "How this works: Add a client you are closing and onboarding, send them a personalized invite link, and keep them under your partner workspace. Partner compensation is tied to successfully collected setup fees and recurring subscription revenue."
+        - generic [ref=e87]:
+          - button "All" [ref=e88] [cursor=pointer]
+          - button "Lead Created" [ref=e89] [cursor=pointer]
+          - button "Invite Sent" [ref=e90] [cursor=pointer]
+          - button "Account Created" [ref=e91] [cursor=pointer]
+          - button "Active" [ref=e92] [cursor=pointer]
+          - button "Cancelled" [ref=e93] [cursor=pointer]
+        - generic [ref=e95]:
+          - generic [ref=e101] [cursor=pointer]:
+            - generic [ref=e102]:
+              - generic [ref=e104]: E
+              - generic [ref=e105]:
+                - generic [ref=e106]: E2E Sync Client 2
+                - generic [ref=e107]: e2e-sync-20260414-02@gmail.com
+                - generic [ref=e108]:
+                  - img [ref=e109]
+                  - text: Sync Test LLC
+            - generic [ref=e114]: Lead Created
+            - generic [ref=e128]:
+              - generic [ref=e129]: Legacy Referral
+              - button "Send Invite" [ref=e130]:
+                - img [ref=e181]
+                - text: Send Invite
+              - button [ref=e134]:
+                - img [ref=e135]
+          - generic [ref=e139] [cursor=pointer]:
+            - generic [ref=e140]:
+              - generic [ref=e142]: E
+              - generic [ref=e143]:
+                - generic [ref=e144]: E2E Sync Lead
+                - generic [ref=e145]: e2e-sync-1776221477471@gmail.com
+                - generic [ref=e146]:
+                  - img [ref=e147]
+                  - text: Sync Test LLC
+            - generic [ref=e152]: Lead Created
+            - generic [ref=e166]:
+              - generic [ref=e167]: Legacy Referral
+              - button "Send Invite" [ref=e168]:
+                - img [ref=e169]
+                - text: Send Invite
+              - button [ref=e172]:
+                - img [ref=e173]
+  - alert [ref=e175]

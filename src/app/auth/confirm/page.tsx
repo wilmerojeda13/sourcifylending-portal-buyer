@@ -19,6 +19,14 @@ function AuthConfirmInner() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
+    const syncPartnerAttribution = async () => {
+      try {
+        await fetch('/api/auth/sync-partner-attribution', { method: 'POST' })
+      } catch {
+        // Keep auth confirmation resilient even if attribution sync fails.
+      }
+    }
+
     const hash = window.location.hash
     if (hash && hash.includes('access_token')) {
       // Implicit flow — magic link / email OTP tokens in hash fragment
@@ -34,7 +42,7 @@ function AuthConfirmInner() {
               console.error('setSession error:', error)
               router.replace(`/login?error=auth_confirm_failed`)
             } else {
-              router.replace(next)
+              void syncPartnerAttribution().finally(() => router.replace(next))
             }
           })
         return
@@ -51,7 +59,7 @@ function AuthConfirmInner() {
             console.error('exchangeCodeForSession error:', error)
             router.replace(`/login?error=auth_confirm_failed`)
           } else {
-            router.replace(next)
+            void syncPartnerAttribution().finally(() => router.replace(next))
           }
         })
       return

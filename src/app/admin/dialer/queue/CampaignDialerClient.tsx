@@ -82,6 +82,11 @@ function buildTextMessage(firstName: string) {
   return `Hey ${firstName}, this is Abel. Here's the link to set up your free account and take advantage of our free inquiry dispute tool: https://sourcifylending.com`
 }
 
+function buildPromoTextMessage(firstName: string) {
+  const safeFirstName = firstName?.trim() || 'there'
+  return `Hey ${safeFirstName}, this is Abel. You inquired with us about funding in the past. If you're still looking for funding, set up your free account here and take advantage of our free business analyzer and free inquiry dispute tool: https://sourcifylending.com`
+}
+
 const DIALER_FETCH_TIMEOUT_MS = 15000
 
 async function fetchJsonWithTimeout(url: string, init?: RequestInit, timeoutMs = DIALER_FETCH_TIMEOUT_MS) {
@@ -136,6 +141,76 @@ function CallWindowBadge({ lead }: { lead: RawLead }) {
     <span className="flex items-center gap-1 text-[11px] text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
       <Globe size={11} /> Unknown timezone
     </span>
+  )
+}
+
+function TextModal({
+  open,
+  title,
+  description,
+  text,
+  onTextChange,
+  onCopy,
+  onClose,
+}: {
+  open: boolean
+  title: string
+  description: string
+  text: string
+  onTextChange: (value: string) => void
+  onCopy: () => Promise<void>
+  onClose: () => void
+}) {
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6">
+      <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-950 shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-800 px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-100">{title}</p>
+            <p className="text-xs text-gray-400">{description}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-700"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="space-y-4 px-4 py-4">
+          <div>
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500">
+              Text message
+            </label>
+            <textarea
+              value={text}
+              onChange={e => onTextChange(e.target.value)}
+              rows={5}
+              className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:border-gray-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={onCopy}
+              disabled={!text}
+              className="flex min-w-[120px] items-center justify-center gap-1.5 rounded-xl bg-green-700 px-3 py-2 text-xs font-semibold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+            >
+              <Copy size={13} />
+              Copy Text
+            </button>
+            <button
+              onClick={onClose}
+              className="flex min-w-[92px] items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -274,8 +349,10 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   const [totalDialable, setTotalDialable] = useState(0)
   const [callsToday, setCallsToday]       = useState(0)
   const [campaignTotal, setCampaignTotal] = useState(0)
-  const [textModalOpen, setTextModalOpen] = useState(false)
-  const [textDraft, setTextDraft]         = useState('')
+  const [spokeTextModalOpen, setSpokeTextModalOpen] = useState(false)
+  const [spokeTextDraft, setSpokeTextDraft] = useState('')
+  const [promoTextModalOpen, setPromoTextModalOpen] = useState(false)
+  const [promoTextDraft, setPromoTextDraft] = useState('')
 
   // Session-level DNC guard: raw_lead IDs and phone numbers marked DNC this session.
   // Both refs survive load() calls so race conditions can't re-surface a blocked lead.
@@ -399,19 +476,27 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     toast.success('Phone number copied')
   }
 
-  function openTextModal() {
+  function openSpokeTextModal() {
     const lead = current
     if (!lead) return
 
-    setTextDraft(buildTextMessage(lead.raw_lead.first_name))
-    setTextModalOpen(true)
+    setSpokeTextDraft(buildTextMessage(lead.raw_lead.first_name))
+    setSpokeTextModalOpen(true)
   }
 
-  async function copyText() {
-    if (!textDraft) return
+  function openPromoTextModal() {
+    const lead = current
+    if (!lead) return
+
+    setPromoTextDraft(buildPromoTextMessage(lead.raw_lead.first_name))
+    setPromoTextModalOpen(true)
+  }
+
+  async function copyText(text: string, successMessage: string) {
+    if (!text) return
     try {
-      await navigator.clipboard.writeText(textDraft)
-      toast.success('Text copied')
+      await navigator.clipboard.writeText(text)
+      toast.success(successMessage)
     } catch {
       toast.error('Could not copy text')
     }
@@ -800,12 +885,20 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                     {copied ? 'Copied' : 'Copy'}
                   </button>
                   <button
-                    onClick={openTextModal}
+                    onClick={openSpokeTextModal}
                     disabled={!raw}
                     className="flex min-w-[92px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Send size={13} />
-                    Send Text
+                    Spoke Text
+                  </button>
+                  <button
+                    onClick={openPromoTextModal}
+                    disabled={!raw}
+                    className="flex min-w-[92px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Send size={13} />
+                    Promo Text
                   </button>
                   {raw.email && (
                     <button
@@ -960,14 +1053,18 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                       className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-xl hover:bg-green-700">
                       <Phone size={14} /> Dial
                     </button>
-                    <button onClick={copyPhone}
+                  <button onClick={copyPhone}
                       className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-gray-200 text-xs font-medium rounded-xl hover:bg-gray-600">
                       {copied ? <CheckCircle size={13} /> : <Copy size={13} />}
                       {copied ? 'Copied' : 'Copy'}
                     </button>
-                    <button onClick={openTextModal} disabled={!raw}
+                    <button onClick={openSpokeTextModal} disabled={!raw}
                       className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-gray-200 text-xs font-medium rounded-xl hover:bg-gray-600 disabled:opacity-50">
-                      <Send size={13} /> Text
+                      <Send size={13} /> Spoke Text
+                    </button>
+                    <button onClick={openPromoTextModal} disabled={!raw}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-gray-200 text-xs font-medium rounded-xl hover:bg-gray-600 disabled:opacity-50">
+                      <Send size={13} /> Promo Text
                     </button>
                     <button onClick={sendIntroEmail} disabled={!raw.email || emailSending}
                       className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 text-white text-xs font-semibold rounded-xl hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400">
@@ -1118,55 +1215,25 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
         </div>
       </div>
 
-      {textModalOpen && raw && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6">
-          <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-950 shadow-2xl">
-            <div className="flex items-center justify-between gap-3 border-b border-gray-800 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-gray-100">Send Text</p>
-                <p className="text-xs text-gray-400">Manual copy helper only</p>
-              </div>
-              <button
-                onClick={() => setTextModalOpen(false)}
-                className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-700"
-              >
-                Close
-              </button>
-            </div>
+      <TextModal
+        open={spokeTextModalOpen && Boolean(raw)}
+        title="Spoke Text"
+        description="Manual copy helper only"
+        text={spokeTextDraft}
+        onTextChange={setSpokeTextDraft}
+        onCopy={() => copyText(spokeTextDraft, 'Text copied')}
+        onClose={() => setSpokeTextModalOpen(false)}
+      />
 
-            <div className="space-y-4 px-4 py-4">
-              <div>
-                <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                  Text message
-                </label>
-                <textarea
-                  value={textDraft}
-                  onChange={e => setTextDraft(e.target.value)}
-                  rows={5}
-                  className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:border-gray-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={copyText}
-                  disabled={!textDraft}
-                  className="flex min-w-[120px] items-center justify-center gap-1.5 rounded-xl bg-green-700 px-3 py-2 text-xs font-semibold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
-                >
-                  <Copy size={13} />
-                  Copy Text
-                </button>
-                <button
-                  onClick={() => setTextModalOpen(false)}
-                  className="flex min-w-[92px] items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <TextModal
+        open={promoTextModalOpen && Boolean(raw)}
+        title="Promo Text"
+        description="Manual copy helper only"
+        text={promoTextDraft}
+        onTextChange={setPromoTextDraft}
+        onCopy={() => copyText(promoTextDraft, 'Text copied')}
+        onClose={() => setPromoTextModalOpen(false)}
+      />
 
     </div>
   )

@@ -63,15 +63,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const currentCampaignSet = new Set((campaignRows ?? []).map(r => r.raw_lead_id))
     const assignedSet = new Set((allCampaignRows ?? []).map(r => r.raw_lead_id))
 
+    // Campaign-local only: do not scan the global raw backlog here.
+    // If the queue is low, we only evaluate rows already belonging to this campaign.
     const { data: candidateRows, error: candidateErr } = await admin.supabase
-      .from('dialer_raw_leads')
-      .select('id, industry, business_name, created_at, stage')
-      .eq('is_archived', false)
-      .eq('do_not_call', false)
-      .is('promoted_to_crm_lead_id', null)
-      .is('last_call_at', null)
-      .order('created_at', { ascending: true })
-      .range(0, 5999)
+      .from('dialer_campaign_leads')
+      .select(`
+        raw_lead_id,
+        raw_lead:dialer_raw_leads!inner(
+          id, industry, business_name, created_at, stage
+        )
+      `)
+      .eq('campaign_id', campaignId)
+      .eq('status', 'new')
+      .is('last_called_at', null)
+      .order('sort_order', { ascending: true })
+      .range(0, 999999)
 
     if (candidateErr) {
       console.error('[Refill] Candidate query error:', candidateErr.message)
@@ -79,6 +85,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     const highPriorityCandidates = (candidateRows ?? [])
+      .map((row) => {
+        const rawLead = (row as unknown as {
+          raw_lead?: { id: string; industry?: string | null; business_name?: string | null; created_at?: string | null; stage?: string | null }
+        }).raw_lead
+        return {
+          id: rawLead?.id ?? row.raw_lead_id,
+          industry: rawLead?.industry ?? null,
+          business_name: rawLead?.business_name ?? null,
+          created_at: rawLead?.created_at ?? null,
+          stage: rawLead?.stage ?? null,
+        }
+      })
       .filter(row => {
         const industry = row.industry?.trim() || inferIndustryFromCompany(row.business_name)
         return Boolean(industry && PRIORITY_INDUSTRIES.includes(industry))

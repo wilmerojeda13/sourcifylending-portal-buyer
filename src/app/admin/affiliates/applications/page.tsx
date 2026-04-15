@@ -87,10 +87,10 @@ export default function AffiliateApplicationsPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6 text-gray-900 dark:text-gray-100 space-y-6">
       {/* Back nav */}
       <div className="flex items-center gap-2 text-sm text-gray-500">
-              <a href="/admin/affiliates" className="hover:text-green-700">Affiliates</a>
+              <a href="/admin/affiliates" className="hover:text-green-700">Partners</a>
         <span>/</span>
         <span className="text-gray-900 font-medium">Applications</span>
       </div>

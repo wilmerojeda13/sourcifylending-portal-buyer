@@ -1,0 +1,61 @@
+
+> sourcifylending-portal@0.1.0 dev
+> next dev -p 3003
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3003
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 4.3s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 918ms (122 modules)
+ ○ Compiling /analyzer ...
+ ✓ Compiled /analyzer in 7.4s (699 modules)
+ GET /analyzer 200 in 8343ms
+ ✓ Compiled in 1032ms (357 modules)
+ ✓ Compiled in 878ms (357 modules)
+ ✓ Compiled in 437ms (357 modules)
+ ✓ Compiled in 742ms (357 modules)
+ ✓ Compiled in 900ms (357 modules)
+ ✓ Compiled in 585ms (357 modules)
+ ✓ Compiled in 522ms (357 modules)
+ ✓ Compiled in 581ms (357 modules)
+ ✓ Compiled in 645ms (357 modules)
+ ✓ Compiled in 706ms (357 modules)
+ GET /analyzer 200 in 103ms
+ ✓ Compiled in 820ms (357 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1334ms (688 modules)
+ GET /_next/static/webpack/6f27e1cfcaa22d57.webpack.hot-update.json 404 in 1727ms
+ GET /analyzer 200 in 198ms
+ ✓ Compiled in 922ms (357 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 591ms (702 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 2.1s (915 modules)
+ GET /_next/static/css/app/layout.css?v=1776276784242 500 in 6067ms
+ GET /_next/static/css/app/layout.css?v=1776276784242 500 in 135ms
+ GET /_next/static/css/app/layout.css 500 in 5195ms
+ GET /_next/static/css/app/layout.css 500 in 135ms
+ GET /_next/static/css/app/layout.css?v=1776276790358 404 in 184ms
+ GET /_next/static/css/app/layout.css?v=1776276790358 404 in 65ms
+ ✓ Compiled in 5.6s (542 modules)
+ ✓ Compiled in 1501ms (542 modules)
+ ✓ Compiled in 737ms (542 modules)
+ ✓ Compiled in 914ms (542 modules)
+ ✓ Compiled in 660ms (542 modules)
+ ✓ Compiled in 598ms (542 modules)
+ ✓ Compiled in 605ms (542 modules)
+ ✓ Compiled in 789ms (542 modules)
+ ✓ Compiled in 714ms (542 modules)
+ ✓ Compiled in 765ms (542 modules)
+ ✓ Compiled in 927ms (542 modules)
+ ✓ Compiled in 962ms (542 modules)
+ ✓ Compiled in 903ms (542 modules)
+ ✓ Compiled in 623ms (542 modules)
+ ✓ Compiled in 585ms (542 modules)
+ ✓ Compiled in 1070ms (542 modules)
+ ✓ Compiled in 988ms (542 modules)
+ ✓ Compiled in 1979ms (542 modules)
+ ✓ Compiled in 761ms (542 modules)

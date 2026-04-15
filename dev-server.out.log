@@ -1,0 +1,52 @@
+
+> sourcifylending-portal@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 3s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 1714ms (122 modules)
+ ○ Compiling /admin/dialer/campaigns ...
+ ✓ Compiled /admin/dialer/campaigns in 7s (806 modules)
+ GET /admin/dialer/campaigns 307 in 8007ms
+ ✓ Compiled in 987ms (377 modules)
+ ○ Compiling /login ...
+ ✓ Compiled /login in 4.7s (817 modules)
+ GET /login 200 in 4937ms
+ ✓ Compiled in 2.1s (384 modules)
+ ✓ Compiled in 661ms (384 modules)
+ ✓ Compiled in 518ms (384 modules)
+ ✓ Compiled in 523ms (384 modules)
+ ✓ Compiled in 3.2s (384 modules)
+ ✓ Compiled in 996ms (384 modules)
+ ✓ Compiled in 1176ms (384 modules)
+ ✓ Compiled in 608ms (384 modules)
+ ✓ Compiled in 635ms (384 modules)
+ ✓ Compiled in 688ms (384 modules)
+ ✓ Compiled in 895ms (384 modules)
+ ✓ Compiled in 824ms (384 modules)
+ ✓ Compiled in 829ms (384 modules)
+ ✓ Compiled in 987ms (384 modules)
+ ✓ Compiled in 1602ms (384 modules)
+ ✓ Compiled in 5.3s (384 modules)
+ ✓ Compiled in 868ms (384 modules)
+ ✓ Compiled in 834ms (384 modules)
+ ✓ Compiled in 878ms (384 modules)
+ ✓ Compiled in 833ms (384 modules)
+ ✓ Compiled in 613ms (384 modules)
+ ✓ Compiled in 818ms (384 modules)
+ ✓ Compiled in 615ms (384 modules)
+ ✓ Compiled in 682ms (384 modules)
+ ✓ Compiled in 730ms (384 modules)
+ ✓ Compiled in 860ms (384 modules)
+ ✓ Compiled in 1038ms (384 modules)
+ ✓ Compiled in 931ms (384 modules)
+ ✓ Compiled in 776ms (384 modules)
+ ✓ Compiled in 1132ms (384 modules)
+ ✓ Compiled in 524ms (384 modules)
+ ✓ Compiled in 1055ms (384 modules)
+ ✓ Compiled in 1813ms (384 modules)

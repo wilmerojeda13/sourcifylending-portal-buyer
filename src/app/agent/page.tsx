@@ -8,6 +8,7 @@ import { getProgramShortLabel } from '@/lib/utils'
 import type { ChatMessage, UserProfile } from '@/types'
 import { v4 as uuidv4 } from 'uuid'
 import { useBusinessContext } from '@/lib/use-business-context'
+import { canAccessFeature } from '@/lib/feature-entitlements'
 
 const QUICK_PROMPTS = [
   "I'm lost — what do I do next?",
@@ -64,9 +65,8 @@ function AgentPage() {
       ])
 
       setProfile(p)
-      // Free users with active subscription are considered active. Paid users need active/trialing.
-      const isFreeUser = p?.plan_tier === 'free'
-      const active = isFreeUser || p?.subscription_status === 'active' || p?.subscription_status === 'trialing'
+      // Only active paid subscriptions can access AI Agent
+      const active = p?.subscription_status === 'active' || p?.subscription_status === 'trialing'
       setIsActive(active)
 
       const convData = convRes.ok ? await convRes.json() : null
@@ -205,6 +205,9 @@ function AgentPage() {
 
   const hasHistory = messages.length > 1
 
+  // Free users cannot access AI Agent
+  const canAccessAgent = canAccessFeature(profile?.plan_tier, profile?.subscription_status, 'ai_agent')
+
   return (
     <PortalLayout
       userName={profile?.full_name || ''}
@@ -213,8 +216,40 @@ function AgentPage() {
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
+      planTier={profile?.plan_tier}
+      subscriptionStatus={profile?.subscription_status}
     >
-      <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)]">
+      {!canAccessAgent && !initializing && (
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] gap-6 px-4">
+          <div className="text-center max-w-md">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+              <Bot size={32} className="text-green-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              AI Agent Upgrade Required
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              The AI Fulfillment Agent is available on our paid plans. Upgrade to access AI-powered guidance for your credit journey.
+            </p>
+            <div className="flex flex-col gap-3">
+              <a
+                href="/billing"
+                className="inline-flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors"
+              >
+                View Paid Plans
+              </a>
+              <a
+                href="/dashboard"
+                className="inline-flex items-center justify-center px-6 py-3 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                Back to Dashboard
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+      {canAccessAgent && (
+        <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)]">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 shrink-0">
           <div>
@@ -358,6 +393,7 @@ function AgentPage() {
           </p>
         )}
       </div>
+      )}
     </PortalLayout>
   )
 }

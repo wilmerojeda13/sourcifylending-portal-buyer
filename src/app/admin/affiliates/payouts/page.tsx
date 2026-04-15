@@ -71,7 +71,7 @@ export default function AdminPayoutsPage() {
   useEffect(() => { fetchPayouts() }, [fetchPayouts])
 
   async function handleRunPayouts() {
-    if (!confirm('Run payouts now for all eligible affiliates?')) return
+    if (!confirm('Run payouts now for all eligible partners?')) return
     setRunning(true)
     setRunResults(null)
     setRunSummary(null)

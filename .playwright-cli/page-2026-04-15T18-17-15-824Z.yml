@@ -1,0 +1,23 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "SL SourcifyLending" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e7]: SL
+          - generic [ref=e8]: SourcifyLending
+        - generic [ref=e9]: 1 / 11
+    - main [ref=e13]:
+      - generic [ref=e15]:
+        - generic [ref=e17]: Question 1 of 11
+        - heading "Business Name" [level=2] [ref=e18]
+        - paragraph [ref=e19]: Legal name of your business
+        - textbox "Acme LLC" [active] [ref=e20]
+        - generic [ref=e21]:
+          - button "Back" [disabled] [ref=e22]:
+            - img [ref=e23]
+            - text: Back
+          - button "Next" [disabled] [ref=e25]:
+            - text: Next
+            - img [ref=e26]
+  - alert [ref=e28]

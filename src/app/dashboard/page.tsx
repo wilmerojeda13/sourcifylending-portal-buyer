@@ -29,12 +29,12 @@ export default async function DashboardPage() {
     activePrograms: portalPrograms,
   } = await requirePortalPageContext()
 
-  // ── Prospect path ─────────────────────────────────────────────────────────
-  if (profile?.account_state === 'prospect') {
+  // ── Prospect path or free user path ──────────────────────────────────────
+  if (profile?.account_state === 'prospect' || profile?.plan_tier === 'free') {
     return (
         <PortalLayout
         userName={profile.full_name || authUser.email || 'Client'}
-        programLabel="Free Prospect Account"
+        programLabel={profile?.plan_tier === 'free' ? 'Free Plan' : 'Free Prospect Account'}
         notificationCount={notificationCount}
         assignedProgram={profile.assigned_program}
         portalBlocked={profile.portal_blocked}
@@ -42,6 +42,8 @@ export default async function DashboardPage() {
         isAdmin={profile.is_admin}
         accountState="prospect"
         allPrograms={portalPrograms}
+        planTier={profile?.plan_tier}
+        subscriptionStatus={profile?.subscription_status}
       >
         <ProspectDashboard profile={profile as UserProfile} />
       </PortalLayout>
@@ -69,6 +71,8 @@ export default async function DashboardPage() {
         accountState="active_member"
         demoSecondaryProgram={(profile as any)?.demo_secondary_program ?? null}
         allPrograms={portalPrograms}
+        planTier={profile?.plan_tier}
+        subscriptionStatus={profile?.subscription_status}
       >
         <UnderwritingGateBanner
           program={profile?.assigned_program ?? 'program_b'}
@@ -104,7 +108,7 @@ export default async function DashboardPage() {
   const memberPrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   // Free users are active if subscription_status is 'active'. Paid users need 'active' or 'trialing'.
-  const isFreeUser = profile?.plan_tier === 'free'
+  const isFreeUser = (profile?.plan_tier as string) === 'free'
   const isActive = isFreeUser || profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
   const isPaidAndInactive = !isFreeUser && !isActive
 
@@ -220,6 +224,8 @@ export default async function DashboardPage() {
       uwNextDueAt={profile?.underwriting_next_due_at ?? null}
       demoSecondaryProgram={(profile as any)?.demo_secondary_program ?? null}
       allPrograms={memberPrograms}
+      planTier={profile?.plan_tier}
+      subscriptionStatus={profile?.subscription_status}
     >
       {/* Welcome Gate — first-login service agreement (chargeback protection) */}
       {needsWelcomeGate && (

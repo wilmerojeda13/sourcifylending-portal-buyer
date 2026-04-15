@@ -438,7 +438,7 @@ export default function AffiliateDetailPage() {
                                 </div>
                               ) : (
                                 <span className="inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-gray-100 text-gray-500">
-                                  Legacy Referral · 10%
+                                  Legacy Partner Referral · 10%
                                 </span>
                               )}
                             </td>

@@ -1,0 +1,94 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e46]:
+    - complementary [ref=e47]:
+      - generic [ref=e48]:
+        - generic [ref=e50]:
+          - generic [ref=e52]: SL
+          - generic [ref=e53]:
+            - paragraph [ref=e54]: SourcifyLending
+            - generic [ref=e55]:
+              - paragraph [ref=e56]: Partner Portal
+              - generic [ref=e57]: Partner
+        - navigation [ref=e58]:
+          - link "Dashboard" [ref=e240] [cursor=pointer]:
+            - /url: /affiliate/dashboard
+            - img [ref=e241]
+            - generic [ref=e246]: Dashboard
+          - link "Clients" [ref=e247] [cursor=pointer]:
+            - /url: /affiliate/leads
+            - img [ref=e248]
+            - generic [ref=e251]: Clients
+            - img [ref=e252]
+          - link "Conversions" [ref=e254] [cursor=pointer]:
+            - /url: /affiliate/referrals
+            - img [ref=e255]
+            - generic [ref=e260]: Conversions
+          - link "Earnings" [ref=e261] [cursor=pointer]:
+            - /url: /affiliate/commissions
+            - img [ref=e262]
+            - generic [ref=e264]: Earnings
+          - link "Resources" [ref=e265] [cursor=pointer]:
+            - /url: /affiliate/resources
+            - img [ref=e266]
+            - generic [ref=e269]: Resources
+          - link "Training" [ref=e270] [cursor=pointer]:
+            - /url: /affiliate/training
+            - img [ref=e271]
+            - generic [ref=e274]: Training
+          - link "Account" [ref=e275] [cursor=pointer]:
+            - /url: /affiliate/account
+            - img [ref=e276]
+            - generic [ref=e279]: Account
+        - button "Sign Out" [ref=e100] [cursor=pointer]:
+          - img [ref=e101]
+          - generic [ref=e104]: Sign Out
+        - generic [ref=e105]:
+          - paragraph [ref=e106]: Demo Affiliate
+          - paragraph [ref=e107]: Partner-Assisted Sales
+    - main [ref=e108]:
+      - generic [ref=e280]:
+        - generic [ref=e281]:
+          - generic [ref=e282]:
+            - heading "Partner Clients" [level=1] [ref=e283]
+            - paragraph [ref=e284]: Add partner-assisted clients, send invites, and track their progress
+          - button "Add Prospect" [ref=e285] [cursor=pointer]:
+            - img [ref=e286]
+            - text: Add Prospect
+        - generic [ref=e287]:
+          - generic [ref=e288]:
+            - generic [ref=e289]: "1"
+            - generic [ref=e290]: Total Prospects
+          - generic [ref=e291]:
+            - generic [ref=e292]: "0"
+            - generic [ref=e293]: Invite Sent
+          - generic [ref=e294]:
+            - generic [ref=e295]: "0"
+            - generic [ref=e296]: Active Clients
+        - generic [ref=e297]:
+          - img [ref=e298]
+          - generic [ref=e300]: "How this works: Add a client you are closing and onboarding, send them a personalized invite link, and keep them under your partner workspace. Partner compensation is tied to successfully collected setup fees and recurring subscription revenue."
+        - generic [ref=e301]:
+          - button "All" [ref=e302] [cursor=pointer]
+          - button "Lead Created" [ref=e303] [cursor=pointer]
+          - button "Invite Sent" [ref=e304] [cursor=pointer]
+          - button "Account Created" [ref=e305] [cursor=pointer]
+          - button "Active" [ref=e306] [cursor=pointer]
+          - button "Cancelled" [ref=e307] [cursor=pointer]
+        - generic [ref=e312] [cursor=pointer]:
+          - generic [ref=e313]:
+            - generic [ref=e315]: E
+            - generic [ref=e316]:
+              - generic [ref=e317]: E2E Sync Lead
+              - generic [ref=e318]: e2e-sync-1776221477471@gmail.com
+              - generic [ref=e319]:
+                - img [ref=e320]
+                - text: Sync Test LLC
+          - generic [ref=e325]: Lead Created
+          - generic [ref=e339]:
+            - generic [ref=e340]: Legacy Referral
+            - button "Send Invite" [ref=e341]:
+              - img [ref=e342]
+              - text: Send Invite
+            - button [ref=e345]:
+              - img [ref=e346]
+  - alert [ref=e40]

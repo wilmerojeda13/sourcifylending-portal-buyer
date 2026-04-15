@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useBusinessContext } from '@/lib/use-business-context'
+import type { PlanTier, SubscriptionStatus } from '@/types'
 
 const BASE_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -54,6 +55,10 @@ interface PortalLayoutProps {
   demoSecondaryProgram?: string | null
   /** All active program_codes for this user (enables multi-program nav + switcher) */
   allPrograms?: string[]
+  /** User's plan tier (free or paid) - controls feature access */
+  planTier?: PlanTier | null
+  /** User's subscription status - controls access to paid features */
+  subscriptionStatus?: SubscriptionStatus | null
 }
 
 export default function PortalLayout({
@@ -70,6 +75,8 @@ export default function PortalLayout({
   uwNextDueAt,
   demoSecondaryProgram,
   allPrograms,
+  planTier,
+  subscriptionStatus,
 }: PortalLayoutProps) {
   const uwReviewDue = !!uwNextDueAt && new Date(uwNextDueAt) < new Date()
   const isProspect = accountState === 'prospect'
@@ -88,14 +95,17 @@ export default function PortalLayout({
   const hasB = assignedProgram === 'program_b'
   const isMultiProgram = enrolledPrograms.filter(p => p !== 'program_c').length > 1
 
+  // Free users also get the limited nav (same as prospects)
+  const isFreeUser = planTier === 'free'
+
   // ── Program-aware sidebar nav ──────────────────────────────────────────────
-  // Prospects get a minimal nav. Active members get program-specific items:
+  // Free users and prospects get a minimal nav. Active members get program-specific items:
   //   Program A  → Credit Optimization, Credit Disputes
   //   Program B  → Biz Credit Setup, Biz Credit Monitoring, Biz Resources
   //   Program C  → base items only (no program-specific extras)
   //   All active → Opportunities, Funding Results, Credit Disputes, AI Credits, Reports, Billing, Support
   //   Delegate   → same as active member but Billing is hidden
-  const sidebarNavItems = isProspect
+  const sidebarNavItems = isProspect || isFreeUser
     ? PROSPECT_NAV_ITEMS
     : [
         ...BASE_NAV_ITEMS.slice(0, 4), // Dashboard, AI Agent, Documents, Progress

@@ -53,7 +53,7 @@ function DealTypeBadge({ dealType }: { dealType: string }) {
 
   return dealType === 'affiliate_closed'
     ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 uppercase">Legacy Closed · 30%</span>
-    : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase">Legacy Referral · 10%</span>
+    : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase">Legacy Partner Referral · 10%</span>
 }
 
 function fmtDate(s: string | null) {
@@ -187,7 +187,7 @@ export default function AdminLeadsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  {['Lead', 'Business', 'Affiliate', 'Deal Type', 'Status', 'Invite Sent', 'Account Created', 'Created'].map(h => (
+                  {['Lead', 'Business', 'Partner', 'Deal Type', 'Status', 'Invite Sent', 'Account Created', 'Created'].map(h => (
                     <th key={h} className="text-left text-xs font-semibold text-gray-500 px-4 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>

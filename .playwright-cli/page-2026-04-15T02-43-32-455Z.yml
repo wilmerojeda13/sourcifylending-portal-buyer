@@ -1,0 +1,40 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e6]: SL
+      - heading "SourcifyLending" [level=1] [ref=e7]
+      - paragraph [ref=e8]: Partner Portal
+    - generic [ref=e9]:
+      - heading "Partner Login" [level=2] [ref=e10]
+      - paragraph [ref=e11]: Sign in to your partner account
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: Email address
+          - textbox "you@example.com" [ref=e15]
+        - generic [ref=e16]:
+          - generic [ref=e17]: Password
+          - generic [ref=e18]:
+            - textbox "••••••••" [ref=e19]
+            - button [ref=e20] [cursor=pointer]:
+              - img [ref=e21]
+        - link "Forgot password?" [ref=e25] [cursor=pointer]:
+          - /url: /forgot-password
+        - button "Sign In" [ref=e26] [cursor=pointer]:
+          - img [ref=e27]
+          - text: Sign In
+    - button "👁 View Demo Account" [ref=e31] [cursor=pointer]
+    - generic [ref=e32]:
+      - paragraph [ref=e33]:
+        - text: Want to become a partner?
+        - link "Contact us" [ref=e34] [cursor=pointer]:
+          - /url: mailto:abel@sourcifylending.com
+      - paragraph [ref=e35]:
+        - link "Apply to become a partner →" [ref=e36] [cursor=pointer]:
+          - /url: /affiliate/signup
+      - paragraph [ref=e37]:
+        - link "Privacy Policy" [ref=e38] [cursor=pointer]:
+          - /url: /privacy
+        - text: and
+        - link "Terms & Conditions" [ref=e39] [cursor=pointer]:
+          - /url: /terms
+  - alert [ref=e40]

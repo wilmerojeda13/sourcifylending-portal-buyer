@@ -154,7 +154,7 @@ export default function AffiliateTrainingAdminClient({ initialVideos }: { initia
               <input type="checkbox" id="aff_published" checked={editing.is_published ?? false}
                 onChange={e => setEditing(p => ({ ...p, is_published: e.target.checked }))}
                 className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-              <label htmlFor="aff_published" className="text-sm font-medium text-gray-700">Published (visible to affiliates)</label>
+              <label htmlFor="aff_published" className="text-sm font-medium text-gray-700">Published (visible to partners)</label>
             </div>
           </div>
           {error && <p className="text-red-600 text-xs">{error}</p>}

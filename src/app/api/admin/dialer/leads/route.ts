@@ -15,6 +15,40 @@ async function assertAdmin() {
   return { supabase, userId: user.id }
 }
 
+async function fetchAllCampaignRawLeadIds(supabase: Awaited<ReturnType<typeof createServiceClient>>) {
+  const { data: activeCampaigns, error: campaignError } = await supabase
+    .from('dialer_campaigns')
+    .select('id')
+    .eq('status', 'active')
+
+  if (campaignError) throw campaignError
+
+  const activeCampaignIds = (activeCampaigns ?? []).map((row) => row.id as string)
+  if (activeCampaignIds.length === 0) return []
+
+  const rawLeadIds: string[] = []
+  const pageSize = 1000
+  let offset = 0
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('dialer_campaign_leads')
+      .select('raw_lead_id')
+      .in('campaign_id', activeCampaignIds)
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1)
+
+    if (error) throw error
+
+    const rows = data ?? []
+    rawLeadIds.push(...rows.map((row) => row.raw_lead_id as string))
+    if (rows.length < pageSize) break
+    offset += pageSize
+  }
+
+  return Array.from(new Set(rawLeadIds))
+}
+
 const DIALER_STAGES = ['new', 'contacted', 'interested', 'callback', 'follow_up', 'qualified', 'promoted', 'dnc', 'closed_lost'] as const
 type DialerStage = typeof DIALER_STAGES[number]
 
@@ -40,6 +74,11 @@ export async function GET(req: NextRequest) {
 
   if (stage && stage !== 'all') {
     query = query.eq('stage', stage)
+  }
+
+  if (stage === 'high_priority') {
+    const activeRawLeadIds = await fetchAllCampaignRawLeadIds(admin.supabase)
+    query = query.in('id', activeRawLeadIds)
   }
 
   if (search?.trim()) {

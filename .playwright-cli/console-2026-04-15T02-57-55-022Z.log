@@ -1,0 +1,8 @@
+[    2269ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/ov1/4078184686:1776218951:JtwjygA34ZFe21sEQ0oiH_nJJ7v4xQyG0Ldd4T_w4Ew/9ec7af8108a4a391/cER.T5YdEqlvdlOKydFLr28zHubFDkr3TX40Q7V8Abk-1776221875-1.2.1.1-LV2GqUGhdkDfwsF_7A8mGyVWZB0rho0OpXBtzfiTCK1bCSQkiRSN5bFN21EKrWm.:0
+[    2272ms] Uncaught TurnstileError: [Cloudflare Turnstile] Error: 110200.
+    at v (https://challenges.cloudflare.com/turnstile/v0/api.js:0:10921)
+    at L (https://challenges.cloudflare.com/turnstile/v0/api.js:0:40039)
+[    2310ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    2677ms] [LOG] [Fast Refresh] done in 368ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    3309ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[   66332ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/affiliate/leads/e6bc4431-e2af-4c8a-bcab-9bff5bdc753b/invite:0

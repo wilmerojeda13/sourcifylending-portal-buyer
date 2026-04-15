@@ -200,7 +200,10 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <PortalLayout>
+      <PortalLayout
+        planTier={profile?.plan_tier}
+        subscriptionStatus={profile?.subscription_status}
+      >
         <div className="animate-pulse space-y-4">
           <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
           <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-2xl" />
@@ -221,6 +224,8 @@ export default function BillingPage() {
         isAdmin={profile?.is_admin}
         isDelegate={true}
         allPrograms={activePrograms}
+        planTier={profile?.plan_tier}
+        subscriptionStatus={profile?.subscription_status}
       >
         <div className="flex flex-col items-center justify-center py-16 text-center px-4">
           <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-4">
@@ -256,6 +261,8 @@ export default function BillingPage() {
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
       allPrograms={activePrograms}
+      planTier={profile?.plan_tier}
+      subscriptionStatus={profile?.subscription_status}
     >
       <div className="mb-6">
         <h1 className="page-title flex items-center gap-2">
