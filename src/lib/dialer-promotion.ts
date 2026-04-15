@@ -72,56 +72,63 @@ export async function promoteToCrm(
     throw new Error(`Raw lead not found: ${input.rawLeadId}`)
   }
 
-  // 2. Idempotency check
-  if (rawLead.promoted_to_crm_lead_id) {
-    return {
-      crmLeadId: rawLead.promoted_to_crm_lead_id,
+  // 2. Idempotency check - if already promoted, we still apply workflow state
+  const alreadyPromoted = !!rawLead.promoted_to_crm_lead_id
+  const crmLeadIdFromPromotion = rawLead.promoted_to_crm_lead_id
+
+  // 3. If not already promoted, perform the promotion
+  let promotionResult: PromotionResult
+
+  if (!alreadyPromoted) {
+    // Check for existing CRM lead by phone (duplicate prevention)
+    let existingCrmLeadId: string | null = null
+    if (rawLead.phone_e164) {
+      const { data: existing } = await supabase
+        .from('crm_leads')
+        .select('id')
+        .eq('phone_e164', rawLead.phone_e164)
+        .maybeSingle<{ id: string }>()
+
+      if (existing) {
+        existingCrmLeadId = existing.id
+      }
+    }
+
+    // Use RPC for atomic promotion (handles race conditions)
+    const { data: result, error: rpcError } = await supabase.rpc('promote_raw_lead_to_crm', {
+      p_raw_lead_id: input.rawLeadId,
+      p_trigger: input.trigger,
+      p_user_id: input.userId,
+      p_first_name: rawLead.first_name || '',
+      p_last_name: rawLead.last_name || '',
+      p_phone: rawLead.phone,
+      p_phone_e164: rawLead.phone_e164 || rawLead.phone,
+      p_email: rawLead.email || null,
+      p_business_name: rawLead.business_name || null,
+      p_notes: rawLead.notes || null,
+      p_source: normalizeCrmSource(rawLead.source),
+    })
+
+    if (rpcError) {
+      // Fallback: manual promotion if RPC fails
+      promotionResult = await manualPromotionFallback(supabase, rawLead, input)
+    } else {
+      // RPC returns tuple: (crm_lead_id, merged, already_promoted)
+      const [crmLeadId, merged, wasAlreadyPromoted] = result as [string, boolean, boolean]
+      promotionResult = { crmLeadId, merged, alreadyPromoted: wasAlreadyPromoted }
+    }
+  } else {
+    // Lead already promoted - just return the existing CRM lead ID
+    promotionResult = {
+      crmLeadId: crmLeadIdFromPromotion!,
       merged: false,
       alreadyPromoted: true,
     }
   }
 
-  // 3. Check for existing CRM lead by phone (duplicate prevention)
-  let existingCrmLeadId: string | null = null
-  if (rawLead.phone_e164) {
-    const { data: existing } = await supabase
-      .from('crm_leads')
-      .select('id')
-      .eq('phone_e164', rawLead.phone_e164)
-      .maybeSingle<{ id: string }>()
-    
-    if (existing) {
-      existingCrmLeadId = existing.id
-    }
-  }
-
-  // 4. Use RPC for atomic promotion (handles race conditions)
-  const { data: result, error: rpcError } = await supabase.rpc('promote_raw_lead_to_crm', {
-    p_raw_lead_id: input.rawLeadId,
-    p_trigger: input.trigger,
-    p_user_id: input.userId,
-    p_first_name: rawLead.first_name || '',
-    p_last_name: rawLead.last_name || '',
-    p_phone: rawLead.phone,
-    p_phone_e164: rawLead.phone_e164 || rawLead.phone,
-    p_email: rawLead.email || null,
-    p_business_name: rawLead.business_name || null,
-    p_notes: rawLead.notes || null,
-    p_source: normalizeCrmSource(rawLead.source),
-  })
-
-  let promotionResult: PromotionResult
-  if (rpcError) {
-    // Fallback: manual promotion if RPC fails
-    promotionResult = await manualPromotionFallback(supabase, rawLead, input)
-  } else {
-    // RPC returns tuple: (crm_lead_id, merged, already_promoted)
-    const [crmLeadId, merged, alreadyPromoted] = result as [string, boolean, boolean]
-    promotionResult = { crmLeadId, merged, alreadyPromoted }
-  }
-
   // Apply workflow state: patch CRM lead fields + create follow-up/callback task
-  if (!promotionResult.alreadyPromoted && input.workflowState) {
+  // Always apply workflow state, even for already-promoted leads, to sync latest dialer disposition
+  if (input.workflowState) {
     await applyWorkflowState(supabase, promotionResult.crmLeadId, input.workflowState, input.userId)
   }
 
