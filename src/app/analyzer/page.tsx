@@ -87,6 +87,7 @@ export default function AnalyzerPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [result, setResult] = useState<AnalyzerApiResult | null>(null)
   const [loading, setLoading] = useState(false)
+  const [hasTrackedAnalyzerStart, setHasTrackedAnalyzerStart] = useState(false)
 
   // Logged-in user state
   const [loggedInUser, setLoggedInUser] = useState<{ name: string; email: string; assignedProgram?: string } | null>(null)
@@ -857,4 +858,3 @@ function AnalyzerResults({
     </div>
   )
 }
-  const [hasTrackedAnalyzerStart, setHasTrackedAnalyzerStart] = useState(false)
