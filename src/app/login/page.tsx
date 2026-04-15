@@ -1,13 +1,25 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import { redirect } from 'next/navigation'
 import LoginForm from './LoginForm'
+import { createClient } from '@/lib/supabase/server'
+import { normalizeNextPath } from '@/lib/auth-routing'
+
+export const dynamic = 'force-dynamic'
 
 interface PageProps {
-  searchParams: Promise<{ error?: string; email?: string }>
+  searchParams: Promise<{ error?: string; email?: string; next?: string }>
 }
 
 export default async function LoginPage({ searchParams }: PageProps) {
-  const { error, email } = await searchParams
+  const { error, email, next } = await searchParams
+  const nextPath = normalizeNextPath(next)
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    redirect('/portal')
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
@@ -31,7 +43,14 @@ export default async function LoginPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        <LoginForm />
+        {error === 'oauth_callback_failed' && (
+          <div className="mb-5 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">
+            <p className="font-semibold mb-1">Google sign-in could not finish</p>
+            <p>The callback did not complete. Please try again.</p>
+          </div>
+        )}
+
+        <LoginForm nextPath={nextPath} />
 
         <Link href="/" className="mt-6 flex items-center justify-center gap-1.5 text-sm text-gray-400 hover:text-gray-600">
           <ArrowLeft size={14} /> Back to home

@@ -9,6 +9,7 @@ const AIActivityFeed = dynamicImport(() => import('@/components/dashboard/AIActi
 const WelcomeGateWrapper = dynamicImport(() => import('@/components/dashboard/WelcomeGateWrapper'), { ssr: false })
 import PaymentAlertBanner, { type PaymentAlert } from '@/components/dashboard/PaymentAlertBanner'
 import { getProgramShortLabel, getReadinessColor, formatDate } from '@/lib/utils'
+import { getAccountEntitlements } from '@/lib/account-state'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/Badge'
 import { requirePortalPageContext } from '@/lib/business-context'
@@ -27,7 +28,7 @@ export default async function DashboardPage() {
     activeProfile: profile,
     notificationCount,
     activePrograms: portalPrograms,
-  } = await requirePortalPageContext()
+  } = await requirePortalPageContext('/dashboard')
 
   // ── Prospect path or free user path ──────────────────────────────────────
   if (profile?.account_state === 'prospect' || profile?.plan_tier === 'free') {
@@ -107,10 +108,11 @@ export default async function DashboardPage() {
   const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
   const memberPrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
-  // Free users are active if subscription_status is 'active'. Paid users need 'active' or 'trialing'.
-  const isFreeUser = (profile?.plan_tier as string) === 'free'
-  const isActive = isFreeUser || profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
-  const isPaidAndInactive = !isFreeUser && !isActive
+  // Normalize account state from plan_tier, subscription_status, and account_state
+  const entitlements = getAccountEntitlements(profile?.plan_tier, profile?.subscription_status, profile?.account_state)
+  const isFreeUser = entitlements.access_state === 'free_active'
+  const isActive = entitlements.access_state === 'free_active' || entitlements.access_state === 'paid_active'
+  const isPaidAndInactive = entitlements.access_state === 'paid_inactive'
 
   // ── Underwriting countdown — only for programs A & B with a current review ─
   const showUWCountdown =

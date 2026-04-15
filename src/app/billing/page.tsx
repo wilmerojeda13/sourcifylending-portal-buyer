@@ -4,6 +4,7 @@ import PortalLayout from '@/components/layout/PortalLayout'
 import BusinessManagementCard from '@/components/member/BusinessManagementCard'
 import { createClient } from '@/lib/supabase/client'
 import { getProgramShortLabel } from '@/lib/utils'
+import { getAccountEntitlements } from '@/lib/account-state'
 import { StatusBadge } from '@/components/ui/Badge'
 import { formatPricingLabel, getProgramPricing, normalizeAcquisitionPath } from '@/lib/partner-program'
 import { useBusinessContext } from '@/lib/use-business-context'
@@ -136,9 +137,10 @@ export default function BillingPage() {
     }
   }, [])
 
-  // Free users with active subscription are considered active. Paid users need active/trialing status.
-  const isFreeUser = profile?.plan_tier === 'free'
-  const isActive = isFreeUser || profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+  // Normalize account state from plan_tier, subscription_status, and account_state
+  const entitlements = getAccountEntitlements(profile?.plan_tier, profile?.subscription_status, profile?.account_state)
+  const isFreeUser = entitlements.access_state === 'free_active'
+  const isActive = entitlements.access_state === 'free_active' || entitlements.access_state === 'paid_active'
   const acquisitionPath = normalizeAcquisitionPath(profile?.acquisition_path)
   const canManageBilling = isActive && !!stripeCustomerId && !isFreeUser
   const availableAddOns = getAvailableAddOns(memberships)

@@ -7,7 +7,7 @@ import { requirePortalPageContext } from '@/lib/business-context'
 import { redirect } from 'next/navigation'
 
 export default async function CreditOptimizationPage() {
-  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext('/credit-optimization')
   const [
     { data: tasks },
   ] = await Promise.all([

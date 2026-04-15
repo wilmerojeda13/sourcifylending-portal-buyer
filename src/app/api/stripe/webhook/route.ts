@@ -107,6 +107,7 @@ async function activateUser(
   await upsertMembership(supabase, userId, program, subscriptionId)
 
   // 3. Update profile — also promote prospect → active_member on upgrade
+  // Ensure plan_tier is set to 'paid' for users completing paid checkout
   await supabase.from('profiles').update({
     subscription_status: 'active',
     assigned_program: program,
@@ -115,6 +116,7 @@ async function activateUser(
     current_stage: PROGRAM_STAGES[program],
     progress_percentage: 0,
     account_state: 'active_member',
+    plan_tier: 'paid',
     updated_at: new Date().toISOString(),
   }).eq('id', userId)
 
@@ -279,6 +281,18 @@ export async function POST(req: NextRequest) {
 
       // ── Add-on membership (Program C added to existing A or B) ────────────
       if (sessionType === 'add_membership') {
+        // Guard: only allow add_membership if user has active paid subscription
+        const { data: existingSub } = await supabase
+          .from('subscriptions')
+          .select('id, status')
+          .eq('user_id', userId)
+          .maybeSingle()
+
+        if (!existingSub || (existingSub.status !== 'active' && existingSub.status !== 'trialing')) {
+          console.log(`[STRIPE-WEBHOOK] Blocking add_membership for user ${userId}: no active paid subscription`)
+          break
+        }
+
         const subscriptionId = session.subscription as string
         const sub = await stripe.subscriptions.retrieve(subscriptionId)
         const periodEnd = new Date(sub.current_period_end * 1000).toISOString()
@@ -405,6 +419,18 @@ export async function POST(req: NextRequest) {
       const userId = sub.metadata?.user_id
       if (!userId) break
 
+      // Guard: only process subscription updates if subscription record exists in our DB
+      const { data: existingSub } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('stripe_subscription_id', sub.id)
+        .maybeSingle()
+
+      if (!existingSub) {
+        console.log(`[STRIPE-WEBHOOK] Ignoring subscription update: no matching subscription record for ${sub.id}`)
+        break
+      }
+
       const status = (sub.status === 'active' || sub.status === 'trialing')
         ? sub.status
         : 'inactive'
@@ -447,6 +473,18 @@ export async function POST(req: NextRequest) {
       const sub    = event.data.object as Stripe.Subscription
       const userId = sub.metadata?.user_id
       if (!userId) break
+
+      // Guard: only process subscription deletions if subscription record exists in our DB
+      const { data: existingSub } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('stripe_subscription_id', sub.id)
+        .maybeSingle()
+
+      if (!existingSub) {
+        console.log(`[STRIPE-WEBHOOK] Ignoring subscription deletion: no matching subscription record for ${sub.id}`)
+        break
+      }
 
       // Mark the specific membership row as canceled (matched by stripe_subscription_id)
       await supabase.from('memberships').update({

@@ -30,6 +30,20 @@ export async function POST(req: NextRequest) {
     const serviceClient = await createServiceClient()
     const now = new Date().toISOString()
 
+    // Guard: prevent granting paid access to free plan users
+    const { data: targetUser } = await serviceClient
+      .from('profiles')
+      .select('plan_tier, full_name')
+      .eq('id', userId)
+      .single()
+
+    if (targetUser?.plan_tier === 'free') {
+      return NextResponse.json(
+        { error: 'Cannot grant paid access to free plan users. Upgrade user to paid plan first.' },
+        { status: 403 }
+      )
+    }
+
     // Update profile with access grant audit trail
     const updatePayload: Record<string, unknown> = {
       access_granted_by: user.id,

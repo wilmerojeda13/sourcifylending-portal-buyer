@@ -13,8 +13,9 @@ export async function POST(req: NextRequest) {
     const { data: adminCheck } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
     if (!adminCheck?.is_admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const { user_id, subscription_status, assigned_program, notes } = await req.json() as {
+    const { user_id, plan_tier, subscription_status, assigned_program, notes } = await req.json() as {
       user_id: string
+      plan_tier?: 'free' | 'paid'
       subscription_status?: SubscriptionStatus
       assigned_program?: ProgramId | null
       notes?: string
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
 
     // Update profile
     const profileUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    if (plan_tier !== undefined) profileUpdate.plan_tier = plan_tier
     if (subscription_status !== undefined) profileUpdate.subscription_status = subscription_status
     if (assigned_program !== undefined) profileUpdate.assigned_program = assigned_program
 

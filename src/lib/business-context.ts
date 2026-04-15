@@ -208,16 +208,16 @@ export function isSameBusinessSelection(context: BusinessContext, businessId: st
   return context.businesses.some((business) => business.id === businessId)
 }
 
-export async function requirePortalPageContext() {
+export async function requirePortalPageContext(nextPath = '/portal') {
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) {
-    redirect('/login')
+    redirect(`/sign-in?next=${encodeURIComponent(nextPath)}`)
   }
 
   const context = await getBusinessContext()
   if (!context) {
-    redirect('/login')
+    redirect(`/sign-in?next=${encodeURIComponent(nextPath)}`)
   }
 
   const supabase = await createServiceClient()

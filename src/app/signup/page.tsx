@@ -105,7 +105,7 @@ export default function SignupPage() {
           <p className="text-gray-500 text-sm mb-6">
             Check your email for a confirmation link, then sign in to access your portal.
           </p>
-          <Link href="/login" className="btn-primary w-full py-3.5">
+          <Link href="/sign-in" className="btn-primary w-full py-3.5">
             Go to Sign In
           </Link>
         </div>
@@ -126,7 +126,7 @@ export default function SignupPage() {
 
         <div className="card shadow-sm">
           {/* Google OAuth */}
-          <GoogleSignInButton redirectTo="/dashboard" label="Sign up with Google" />
+          <GoogleSignInButton redirectTo="/portal" label="Sign up with Google" />
 
           <div className="flex items-center gap-3 my-4">
             <div className="flex-1 h-px bg-gray-100" />
@@ -226,7 +226,7 @@ export default function SignupPage() {
           <div className="mt-5 pt-5 border-t border-gray-100 text-center">
             <p className="text-sm text-gray-500">
               Already have an account?{' '}
-              <Link href="/login" className="text-green-600 font-semibold hover:text-green-700">
+              <Link href="/sign-in" className="text-green-600 font-semibold hover:text-green-700">
                 Sign in
               </Link>
             </p>

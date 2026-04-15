@@ -20,6 +20,20 @@ export async function POST(req: NextRequest) {
 
     if (!user_id) return NextResponse.json({ error: 'user_id required' }, { status: 400 })
 
+    // Guard: prevent canceling subscription for free plan users
+    const { data: targetUser } = await supabase
+      .from('profiles')
+      .select('plan_tier')
+      .eq('id', user_id)
+      .single()
+
+    if (targetUser?.plan_tier === 'free') {
+      return NextResponse.json(
+        { error: 'Cannot cancel subscription for free plan users.' },
+        { status: 400 }
+      )
+    }
+
     // Cancel in Stripe if we have a subscription ID
     if (stripe_subscription_id) {
       await stripe.subscriptions.cancel(stripe_subscription_id)

@@ -6,7 +6,7 @@ import { requirePortalPageContext } from '@/lib/business-context'
 export const dynamic = 'force-dynamic'
 
 export default async function BusinessCreditSetupPage() {
-  const { activeProfile: profile, activePrograms } = await requirePortalPageContext()
+  const { activeProfile: profile, activePrograms } = await requirePortalPageContext('/business-credit-setup')
 
   return (
     <PortalLayout

@@ -6,7 +6,7 @@ import TrainingClient from './TrainingClient'
 import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function TrainingPage() {
-  const { authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
+  const { authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext('/training')
   const serviceClient = await createServiceClient()
 
   const [videosResult] = await Promise.all([

@@ -4,7 +4,7 @@ import ROITrackerClient from './ROITrackerClient'
 import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function ROIPage() {
-  const { activeProfile: profile, activePrograms } = await requirePortalPageContext()
+  const { activeProfile: profile, activePrograms } = await requirePortalPageContext('/roi')
 
   return (
     <PortalLayout

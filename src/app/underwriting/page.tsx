@@ -9,7 +9,7 @@ import type { UserProfile } from '@/types'
 import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function UnderwritingPage() {
-  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext('/underwriting')
 
   // ── Access rules ──────────────────────────────────────────────────────────
   // Prospects have no underwriting

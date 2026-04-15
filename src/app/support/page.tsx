@@ -5,7 +5,7 @@ import SupportInboxClient from './SupportInboxClient'
 import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function SupportPage() {
-  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext('/support')
 
   const [messagesResult] = await Promise.all([
     supabase

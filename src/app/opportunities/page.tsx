@@ -8,7 +8,7 @@ import type { AccountOpportunity } from '@/types'
 import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function OpportunitiesPage() {
-  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext('/opportunities')
 
   // ── Underwriting gate — must have a current (non-expired) review to see opportunities ──
   const uwNextDue = profile?.underwriting_next_due_at

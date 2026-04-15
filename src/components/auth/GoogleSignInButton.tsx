@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { buildOAuthCallbackUrl, normalizeNextPath } from '@/lib/auth-routing'
 
 interface Props {
   redirectTo?: string
@@ -9,7 +10,7 @@ interface Props {
 }
 
 export default function GoogleSignInButton({
-  redirectTo = '/dashboard',
+  redirectTo = '/portal',
   label = 'Continue with Google',
 }: Props) {
   const [loading, setLoading] = useState(false)
@@ -19,8 +20,7 @@ export default function GoogleSignInButton({
     setLoading(true)
     setError(null)
     const supabase = createClient()
-    const appOrigin = window.location.origin.replace(/\/$/, '')
-    const nextPath = redirectTo.startsWith('/') ? redirectTo : '/dashboard'
+    const nextPath = normalizeNextPath(redirectTo)
 
     // Timeout guard — if Supabase doesn't redirect within 8 s, reset so user can retry
     const timeout = new Promise<{ error: Error }>(resolve =>
@@ -30,10 +30,10 @@ export default function GoogleSignInButton({
       supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${appOrigin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
+          redirectTo: buildOAuthCallbackUrl(window.location.origin, nextPath),
           queryParams: {
             access_type: 'offline',
-            prompt: 'select_account',
+            prompt: 'consent select_account',
           },
         },
       }),

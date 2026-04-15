@@ -179,7 +179,7 @@ export default function PortalLayout({
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/sign-in')
   }
 
   const handleSwitchProgram = async () => {
@@ -370,7 +370,7 @@ export default function PortalLayout({
           {isDemo && (
             <span className="text-[9px] font-bold px-1 py-0.5 bg-amber-100 text-amber-700 rounded-full uppercase shrink-0">Demo</span>
           )}
-          {isProspect && (
+          {(isProspect || isFreeUser) && (
             <span className="text-[9px] font-bold px-1 py-0.5 bg-green-100 text-green-700 rounded-full uppercase shrink-0">Free</span>
           )}
           {isDelegate && (
@@ -378,7 +378,7 @@ export default function PortalLayout({
           )}
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-          {isDemo ? 'Demo Account' : isDelegate ? 'Delegate Access' : isProspect ? 'Free Prospect Account' : 'Client Account'}
+          {isDemo ? 'Demo Account' : isDelegate ? 'Delegate Access' : isFreeUser ? 'Free Plan Account' : isProspect ? 'Free Prospect Account' : 'Client Account'}
         </p>
       </div>
     </div>

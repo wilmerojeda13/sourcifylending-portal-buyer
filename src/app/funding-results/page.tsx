@@ -5,7 +5,7 @@ import FundingResultsClient from './FundingResultsClient'
 import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function FundingResultsPage() {
-  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext('/funding-results')
 
   const [{ data: approvals }] = await Promise.all([
     supabase

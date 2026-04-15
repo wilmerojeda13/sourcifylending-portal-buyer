@@ -80,7 +80,7 @@ const RESOURCE_SECTIONS = [
 ]
 
 export default async function BusinessResourcesPage() {
-  const { activeProfile: profile, activePrograms } = await requirePortalPageContext()
+  const { activeProfile: profile, activePrograms } = await requirePortalPageContext('/business-resources')
 
   return (
     <PortalLayout

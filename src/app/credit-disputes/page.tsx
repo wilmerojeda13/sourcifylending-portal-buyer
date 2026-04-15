@@ -5,7 +5,7 @@ import CreditDisputesClient from './CreditDisputesClient'
 import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function CreditDisputesPage() {
-  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext('/credit-disputes')
   const prospectMode = profile?.account_state === 'prospect'
 
   const [{ data: disputes }] = await Promise.all([

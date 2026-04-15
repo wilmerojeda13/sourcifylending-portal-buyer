@@ -44,7 +44,7 @@ async function markOneRead(formData: FormData) {
 }
 
 export default async function NotificationsPage() {
-  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, activePrograms, notificationCount } = await requirePortalPageContext()
+  const { supabase, authUser: user, activeBusinessId, activeProfile: profile, activePrograms, notificationCount } = await requirePortalPageContext('/notifications')
 
   const [{ data: notifications }] = await Promise.all([
     supabase

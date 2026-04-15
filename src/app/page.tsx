@@ -19,7 +19,7 @@ export default function HomePage() {
           <Link href="/pricing" className="brand-link text-xs sm:text-sm font-medium px-2 sm:px-3 py-2 whitespace-nowrap">
             Pricing
           </Link>
-          <Link href="/login" className="brand-link text-xs sm:text-sm font-medium px-2 sm:px-3 py-2 whitespace-nowrap hidden sm:inline">
+          <Link href="/sign-in" className="brand-link text-xs sm:text-sm font-medium px-2 sm:px-3 py-2 whitespace-nowrap hidden sm:inline">
             Sign In
           </Link>
           <Link href="/analyzer" className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-2 sm:py-2.5 whitespace-nowrap">
@@ -46,7 +46,7 @@ export default function HomePage() {
           <Link href="/analyzer" className="btn-primary text-base px-8 py-4">
             Free Analyzer <ArrowRight size={18} />
           </Link>
-          <Link href="/login" className="btn-secondary text-base px-8 py-4">
+          <Link href="/sign-in" className="btn-secondary text-base px-8 py-4">
             Sign Into Portal
           </Link>
         </div>
@@ -269,7 +269,7 @@ export default function HomePage() {
           <div className="flex flex-wrap items-center gap-5 text-sm text-gray-400">
             <Link href="/analyzer" className="brand-link-muted">Free Analyzer</Link>
             <Link href="/pricing" className="brand-link-muted">Pricing</Link>
-            <Link href="/login" className="brand-link-muted">Client Login</Link>
+            <Link href="/sign-in" className="brand-link-muted">Client Login</Link>
             <Link href="/privacy" className="brand-link-muted">Privacy</Link>
             <Link href="/terms" className="brand-link-muted">Terms</Link>
             <Link href="/partners" className="font-medium text-green-600 transition-colors hover:text-green-700">

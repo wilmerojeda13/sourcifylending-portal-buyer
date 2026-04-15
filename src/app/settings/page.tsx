@@ -5,7 +5,7 @@ import SettingsClient from './SettingsClient'
 import { requirePortalPageContext } from '@/lib/business-context'
 
 export default async function SettingsPage() {
-  const { authUser: user, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext()
+  const { authUser: user, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext('/settings')
 
   return (
     <PortalLayout

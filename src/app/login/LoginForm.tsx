@@ -6,8 +6,13 @@ import toast from 'react-hot-toast'
 import { createClient } from '@/lib/supabase/client'
 import GoogleSignInButton from '@/components/auth/GoogleSignInButton'
 import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
+import { normalizeNextPath } from '@/lib/auth-routing'
 
-export default function LoginForm() {
+interface LoginFormProps {
+  nextPath?: string
+}
+
+export default function LoginForm({ nextPath = '/portal' }: LoginFormProps) {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -43,13 +48,13 @@ export default function LoginForm() {
       body: JSON.stringify({ event_type: 'login' }),
     }).catch(() => {})
 
-    window.location.href = '/dashboard'
+    window.location.href = normalizeNextPath(nextPath)
   }
 
   return (
     <div className="card shadow-sm">
       {/* Google OAuth */}
-      <GoogleSignInButton redirectTo="/dashboard" />
+      <GoogleSignInButton redirectTo={normalizeNextPath(nextPath)} />
 
       <div className="flex items-center gap-3 my-4">
         <div className="flex-1 h-px bg-gray-100" />
