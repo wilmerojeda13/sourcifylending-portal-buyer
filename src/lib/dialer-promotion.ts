@@ -20,6 +20,12 @@ type PromotionResult = {
   alreadyPromoted: boolean
 }
 
+type PromotionRpcRow = {
+  crm_lead_id?: string
+  merged?: boolean
+  already_promoted?: boolean
+}
+
 const CRM_SOURCE_VALUES = new Set([
   'manual',
   'analyzer',
@@ -99,9 +105,7 @@ export async function promoteToCrm(
       // Fallback: manual promotion if RPC fails
       promotionResult = await manualPromotionFallback(supabase, rawLead, input)
     } else {
-      // RPC returns tuple: (crm_lead_id, merged, already_promoted)
-      const [crmLeadId, merged, wasAlreadyPromoted] = result as [string, boolean, boolean]
-      promotionResult = { crmLeadId, merged, alreadyPromoted: wasAlreadyPromoted }
+      promotionResult = parsePromotionRpcResult(result)
     }
   } else {
     // Lead already promoted - verify the linked CRM lead still exists and is visible.
@@ -131,6 +135,44 @@ export async function promoteToCrm(
   })
 
   return promotionResult
+}
+
+export function parsePromotionRpcResult(result: unknown): PromotionResult {
+  const row = Array.isArray(result)
+    ? result[0]
+    : result
+
+  if (!row) {
+    throw new Error('Promotion RPC returned no result row')
+  }
+
+  if (typeof row === 'object' && row !== null) {
+    const typedRow = row as PromotionRpcRow & {
+      crm_lead_id?: string
+      merged?: boolean
+      already_promoted?: boolean
+    }
+    const crmLeadId = typedRow.crm_lead_id ?? (row as { id?: string }).id
+    if (!crmLeadId) {
+      throw new Error('Promotion RPC returned a row without crm_lead_id')
+    }
+
+    return {
+      crmLeadId,
+      merged: Boolean(typedRow.merged),
+      alreadyPromoted: Boolean(typedRow.already_promoted),
+    }
+  }
+
+  if (Array.isArray(result) && result.length >= 1 && typeof result[0] === 'string') {
+    return {
+      crmLeadId: result[0],
+      merged: Boolean(result[1]),
+      alreadyPromoted: Boolean(result[2]),
+    }
+  }
+
+  throw new Error('Promotion RPC returned an unsupported result shape')
 }
 
 /**

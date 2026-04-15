@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { promoteToCrm } from '@/lib/dialer-promotion'
+import { parsePromotionRpcResult, promoteToCrm } from '@/lib/dialer-promotion'
 
 type Row = Record<string, any>
 type Tables = Record<string, Row[]>
@@ -159,4 +159,24 @@ test('promotion fallback unarchives merged CRM leads and keeps them visible', as
   assert.equal(mock.tables.crm_leads[0].is_archived, false)
   assert.equal(mock.tables.crm_leads[0].stage, 'qualified')
   assert.equal(mock.tables.crm_leads[0].last_call_outcome, 'qualified')
+})
+
+test('promotion RPC result parser accepts Supabase row objects and tuples', () => {
+  assert.deepEqual(
+    parsePromotionRpcResult([{ crm_lead_id: 'crm-123', merged: true, already_promoted: false }]),
+    {
+      crmLeadId: 'crm-123',
+      merged: true,
+      alreadyPromoted: false,
+    },
+  )
+
+  assert.deepEqual(
+    parsePromotionRpcResult(['crm-456', false, true]),
+    {
+      crmLeadId: 'crm-456',
+      merged: false,
+      alreadyPromoted: true,
+    },
+  )
 })
