@@ -17,7 +17,7 @@ export default async function AdminMembersPage() {
   const [{ data: profiles }, { data: subscriptions }, { data: allMemberships }, { data: businessMemberships }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, email, business_name, subscription_status, assigned_program, current_stage, portal_blocked, suspicious_signup, suspicious_signup_reason, signup_risk_score, is_demo, created_at')
+      .select('id, full_name, email, business_name, plan_tier, subscription_status, assigned_program, current_stage, portal_blocked, suspicious_signup, suspicious_signup_reason, signup_risk_score, is_demo, created_at')
       .order('created_at', { ascending: false }),
     supabase
       .from('subscriptions')
@@ -58,6 +58,7 @@ export default async function AdminMembersPage() {
       full_name: p.full_name ?? '',
       email: p.email ?? '',
       business_name: p.business_name ?? null,
+      plan_tier: p.plan_tier as 'free' | 'paid' | null ?? null,
       subscription_status: p.subscription_status ?? 'inactive',
       assigned_program: p.assigned_program ?? null,
       active_programs: membershipMap.get(p.id) ?? [],

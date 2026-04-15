@@ -11,6 +11,7 @@ interface MemberRow {
   email: string
   business_name: string | null
   business_count: number
+  plan_tier: 'free' | 'paid' | null
   subscription_status: string
   assigned_program: ProgramId | null
   active_programs: string[]
@@ -41,6 +42,7 @@ const PROGRAM_SHORT: Record<string, string> = {
 
 const STATUS_OPTIONS: SubscriptionStatus[] = ['active', 'trialing', 'past_due', 'canceled', 'inactive']
 const PROGRAM_OPTIONS: (ProgramId | '')[] = ['', 'program_a', 'program_b', 'program_c']
+const PLAN_TIER_OPTIONS: ('free' | 'paid')[] = ['free', 'paid']
 
 const STATUS_DOT: Record<string, string> = {
   active:   'bg-green-500',
@@ -69,7 +71,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
 
   // Create user modal
   const [showCreate, setShowCreate] = useState(false)
-  const [createForm, setCreateForm] = useState<{ full_name: string; email: string; assigned_program: string; subscription_status: string }>({ full_name: '', email: '', assigned_program: '', subscription_status: 'inactive' })
+  const [createForm, setCreateForm] = useState<{ full_name: string; email: string; assigned_program: string; plan_tier: 'free' | 'paid'; subscription_status: string }>({ full_name: '', email: '', assigned_program: '', plan_tier: 'paid', subscription_status: 'inactive' })
   const [creating, setCreating] = useState(false)
   const [createResult, setCreateResult] = useState<{ temp_password: string } | null>(null)
   const [createError, setCreateError] = useState('')
@@ -85,6 +87,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
         body: JSON.stringify({
           full_name: createForm.full_name,
           email: createForm.email,
+          plan_tier: createForm.plan_tier,
           assigned_program: createForm.assigned_program || null,
           subscription_status: createForm.subscription_status,
         }),
@@ -98,6 +101,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
           email: createForm.email,
           business_name: null,
           business_count: 1,
+          plan_tier: createForm.plan_tier,
           subscription_status: createForm.subscription_status,
         assigned_program: (createForm.assigned_program as ProgramId) || null,
         active_programs: [],
@@ -122,7 +126,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
 
   function closeCreateModal() {
     setShowCreate(false)
-    setCreateForm({ full_name: '', email: '', assigned_program: '', subscription_status: 'inactive' })
+    setCreateForm({ full_name: '', email: '', assigned_program: '', plan_tier: 'paid', subscription_status: 'inactive' })
     setCreateResult(null)
     setCreateError('')
   }
@@ -206,7 +210,24 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
     }
   }
 
-async function cancelSubscription(userId: string, stripeSubId: string | null) {
+  async function updatePlanTier(userId: string, planTier: 'free' | 'paid') {
+    setSaving(userId + '_tier')
+    try {
+      const res = await fetch('/api/admin/update-membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, plan_tier: planTier }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      setRows((prev) => prev.map((r) => r.id === userId ? { ...r, plan_tier: planTier } : r))
+    } catch {
+      alert('Plan tier update failed')
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  async function cancelSubscription(userId: string, stripeSubId: string | null) {
     if (!confirm('Cancel this subscription? This cannot be undone.')) return
     setCanceling(userId)
     try {
@@ -298,6 +319,17 @@ async function cancelSubscription(userId: string, stripeSubId: string | null) {
                     placeholder="john@example.com"
                     className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-400"
                   />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 block mb-1">Plan Tier</label>
+                  <select
+                    value={createForm.plan_tier}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, plan_tier: e.target.value as 'free' | 'paid' }))}
+                    className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-400"
+                  >
+                    <option value="paid">Paid</option>
+                    <option value="free">Free</option>
+                  </select>
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 block mb-1">Program (optional)</label>
@@ -435,6 +467,17 @@ async function cancelSubscription(userId: string, stripeSubId: string | null) {
                 </span>
               )}
             </div>
+
+            {/* Plan Tier selector */}
+            <select
+              value={m.plan_tier || 'paid'}
+              onChange={(e) => updatePlanTier(m.id, e.target.value as 'free' | 'paid')}
+              disabled={saving === m.id + '_tier'}
+              className="hidden md:block text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-1.5 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
+            >
+              <option value="paid">Paid</option>
+              <option value="free">Free</option>
+            </select>
 
             {/* Status selector */}
             <select
