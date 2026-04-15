@@ -65,15 +65,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const phones = validLeads.map(l => l.phone.trim())
 
-  // Find raw leads that already exist by phone
+  // Find raw leads that already exist by phone (including DNC status)
   const { data: existing } = await admin.supabase
     .from('dialer_raw_leads')
-    .select('id, phone')
+    .select('id, phone, do_not_call')
     .in('phone', phones)
 
-  const existingByPhone = new Map((existing ?? []).map(r => [r.phone, r.id]))
-  const toInsert = validLeads.filter(l => !existingByPhone.has(l.phone.trim()))
-  const skipped  = validLeads.length - toInsert.length
+  const existingByPhone = new Map((existing ?? []).map(r => [r.phone, { id: r.id, isdnc: r.do_not_call }]))
+
+  // Filter out DNC leads
+  const toInsert = validLeads.filter(l => {
+    const existing = existingByPhone.get(l.phone.trim())
+    if (existing && existing.isdnc) {
+      const leadId = `${l.first_name} ${l.last_name || ''}`.trim()
+      addRejection(rejections, leadId, 'EXISTING_DNC', `Lead is marked Do Not Call`)
+      return false
+    }
+    return !existing // Only insert if doesn't exist at all
+  })
+  const skipped  = validLeads.length - toInsert.length - rejections.length
 
   // Insert new raw leads
   let newIds: string[] = []
@@ -94,10 +104,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     newIds = (inserted ?? []).map(r => r.id)
   }
 
-  // Collect ALL raw_lead ids to add to campaign
+  // Collect ALL raw_lead ids to add to campaign (excluding DNC)
   const existingIds = validLeads
-    .filter(l => existingByPhone.has(l.phone.trim()))
-    .map(l => existingByPhone.get(l.phone.trim())!)
+    .filter(l => {
+      const existing = existingByPhone.get(l.phone.trim())
+      return existing && !existing.isdnc
+    })
+    .map(l => existingByPhone.get(l.phone.trim())!.id)
   const allRawIds = [...existingIds, ...newIds]
 
   // Upsert into campaign (duplicate phone in same campaign is silently skipped)
