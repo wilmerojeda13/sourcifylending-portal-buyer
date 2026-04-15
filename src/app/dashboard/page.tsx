@@ -103,7 +103,10 @@ export default async function DashboardPage() {
   const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
   const memberPrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
-  const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+  // Free users are active if subscription_status is 'active'. Paid users need 'active' or 'trialing'.
+  const isFreeUser = profile?.plan_tier === 'free'
+  const isActive = isFreeUser || profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+  const isPaidAndInactive = !isFreeUser && !isActive
 
   // ── Underwriting countdown — only for programs A & B with a current review ─
   const showUWCountdown =
@@ -227,8 +230,8 @@ export default async function DashboardPage() {
         />
       )}
 
-      {/* Subscription Locked Banner */}
-      {!isActive && (
+      {/* Subscription Locked Banner — only for paid users who are inactive */}
+      {isPaidAndInactive && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
           <Lock size={18} className="text-amber-600 mt-0.5 shrink-0" />
           <div className="flex-1">
@@ -239,6 +242,22 @@ export default async function DashboardPage() {
           </div>
           <Link href="/billing" className="shrink-0 text-xs font-semibold text-amber-700 bg-amber-100 px-3 py-1.5 rounded-lg hover:bg-amber-200 transition-colors">
             Reactivate
+          </Link>
+        </div>
+      )}
+
+      {/* Free Plan Active Banner */}
+      {isFreeUser && isActive && (
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
+          <CheckCircle size={18} className="text-green-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="font-semibold text-green-800 text-sm">Free Plan Active</p>
+            <p className="text-xs text-green-600 mt-0.5">
+              You have access to the free credit dispute tool. Upgrade to unlock full program access with task roadmap, AI agent, and document manager.
+            </p>
+          </div>
+          <Link href="/billing" className="shrink-0 text-xs font-semibold text-green-700 bg-green-100 px-3 py-1.5 rounded-lg hover:bg-green-200 transition-colors">
+            Upgrade
           </Link>
         </div>
       )}

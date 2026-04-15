@@ -64,7 +64,9 @@ function AgentPage() {
       ])
 
       setProfile(p)
-      const active = p?.subscription_status === 'active' || p?.subscription_status === 'trialing'
+      // Free users with active subscription are considered active. Paid users need active/trialing.
+      const isFreeUser = p?.plan_tier === 'free'
+      const active = isFreeUser || p?.subscription_status === 'active' || p?.subscription_status === 'trialing'
       setIsActive(active)
 
       const convData = convRes.ok ? await convRes.json() : null

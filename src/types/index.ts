@@ -71,6 +71,7 @@ export interface UserProfile {
   next_task_id: string | null
   progress_percentage: number
   subscription_status: SubscriptionStatus
+  plan_tier: PlanTier
   portal_blocked: boolean
   is_demo: boolean
   is_admin: boolean
@@ -164,6 +165,7 @@ export interface UnderwritingReview {
 
 // ─── Subscription ─────────────────────────────────────────────────────────────
 export type SubscriptionStatus = 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing'
+export type PlanTier = 'free' | 'paid'
 
 export interface Subscription {
   id: string

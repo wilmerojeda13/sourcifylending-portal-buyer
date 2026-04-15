@@ -46,6 +46,7 @@ function normalizeMemberProfile(profile: Record<string, unknown>): UserProfile &
     next_task_id: typeof profile.next_task_id === 'string' ? profile.next_task_id : null,
     progress_percentage: typeof profile.progress_percentage === 'number' ? profile.progress_percentage : 0,
     subscription_status: (typeof profile.subscription_status === 'string' ? profile.subscription_status : 'inactive') as SubscriptionStatus,
+    plan_tier: (typeof profile.plan_tier === 'string' && (profile.plan_tier === 'free' || profile.plan_tier === 'paid') ? profile.plan_tier : 'free') as any,
     portal_blocked: Boolean(profile.portal_blocked),
     is_demo: Boolean(profile.is_demo),
     is_admin: Boolean(profile.is_admin),

@@ -136,9 +136,11 @@ export default function BillingPage() {
     }
   }, [])
 
-  const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+  // Free users with active subscription are considered active. Paid users need active/trialing status.
+  const isFreeUser = profile?.plan_tier === 'free'
+  const isActive = isFreeUser || profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
   const acquisitionPath = normalizeAcquisitionPath(profile?.acquisition_path)
-  const canManageBilling = isActive && !!stripeCustomerId
+  const canManageBilling = isActive && !!stripeCustomerId && !isFreeUser
   const availableAddOns = getAvailableAddOns(memberships)
 
   const allPrograms = memberships.map((m) => m.program_code).filter(Boolean)
@@ -280,6 +282,30 @@ export default function BillingPage() {
               <p className="mt-1 text-sm leading-relaxed text-amber-800 dark:text-amber-300">
                 This business needs its own subscription before portal tools unlock. One paid subscription only applies to one business under the current plan structure.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Free Plan Status ──────────────────────────────────────────────── */}
+      {isFreeUser && (
+        <div className="mb-6">
+          <h2 className="section-title mb-3">Current Plan</h2>
+          <div className="card border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center shrink-0">
+                  <CheckCircle size={18} className="text-green-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">Free Plan</p>
+                  <p className="text-green-600 font-bold text-sm">No payment required</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Access to free credit dispute tool</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <StatusBadge status="active" />
+              </div>
             </div>
           </div>
         </div>
@@ -442,8 +468,8 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* ── Inactive: Reactivate / Subscribe CTA ──────────────────────────── */}
-      {!isActive && program && (
+      {/* ── Inactive Paid: Reactivate / Subscribe CTA ──────────────────────────── */}
+      {!isActive && !isFreeUser && program && (
         <div className="card bg-gradient-to-br from-green-600 to-green-800 border-0 text-white mb-6">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
@@ -474,7 +500,7 @@ export default function BillingPage() {
       )}
 
       {/* ── No program: full plan selector ────────────────────────────────── */}
-      {!isActive && !program && (
+      {!isActive && !isFreeUser && !program && (
         <div className="space-y-4">
           <div className="text-center mb-2">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Choose Your Program</h2>
