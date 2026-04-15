@@ -133,6 +133,7 @@ export default function MemberDetail({
   // ── Profile form ──
   const [form, setForm] = useState({
     subscription_status: profile.subscription_status,
+    plan_tier: profile.plan_tier ?? '',
     assigned_program: profile.assigned_program ?? '',
     current_stage: profile.current_stage ?? '',
     readiness_status: profile.readiness_status ?? '',
@@ -352,6 +353,7 @@ export default function MemberDetail({
         body: JSON.stringify({
           user_id: profile.id,
           subscription_status: form.subscription_status,
+          plan_tier: form.plan_tier || null,
           assigned_program: form.assigned_program || null,
           current_stage: form.current_stage || null,
           readiness_status: form.readiness_status || null,
@@ -888,6 +890,19 @@ export default function MemberDetail({
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                       >
                         {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Plan Tier</label>
+                      <select
+                        value={form.plan_tier}
+                        onChange={(e) => setForm((p) => ({ ...p, plan_tier: e.target.value as 'free' | 'paid' | '' }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="">Unset</option>
+                        <option value="free">Free</option>
+                        <option value="paid">Paid</option>
                       </select>
                     </div>
 
