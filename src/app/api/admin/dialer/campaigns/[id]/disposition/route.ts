@@ -218,12 +218,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     } catch (err) {
       console.error('[Campaign Disposition] Promotion failed:', err)
+      const status = typeof err === 'object' && err !== null && (err as { code?: string }).code === 'duplicate_conflict'
+        ? 409
+        : 500
       return NextResponse.json(
         {
           error: err instanceof Error ? err.message : 'CRM promotion failed',
           promotion: { outcome: 'promotion_failed' satisfies PromotionOutcome },
         },
-        { status: 500 },
+        { status },
       )
     }
   }

@@ -128,11 +128,11 @@ test('promotion fallback unarchives merged CRM leads and keeps them visible', as
       {
         id: 'crm-1',
         first_name: 'Jane',
-        last_name: 'Old',
+        last_name: 'Prospect',
         phone: '+15551234567',
         phone_e164: '+15551234567',
         email: null,
-        business_name: null,
+        business_name: 'Acme LLC',
         notes: 'Existing CRM note',
         source: 'manual',
         stage: 'new',
@@ -159,6 +159,53 @@ test('promotion fallback unarchives merged CRM leads and keeps them visible', as
   assert.equal(mock.tables.crm_leads[0].is_archived, false)
   assert.equal(mock.tables.crm_leads[0].stage, 'qualified')
   assert.equal(mock.tables.crm_leads[0].last_call_outcome, 'qualified')
+})
+
+test('promotion rejects same-phone CRM leads when identity mismatches', async () => {
+  const mock = createMockSupabase({
+    dialer_raw_leads: [
+      {
+        id: 'raw-1',
+        first_name: 'Ryan',
+        last_name: 'Gray',
+        phone: '(678) 769-2017',
+        phone_e164: '+16787692017',
+        email: null,
+        business_name: 'Gray Interior Construction',
+        notes: 'Dialer note',
+        source: 'manual',
+        promoted_to_crm_lead_id: null,
+      },
+    ],
+    crm_leads: [
+      {
+        id: 'crm-1',
+        first_name: 'Ryan',
+        last_name: 'Jones',
+        phone: '(678) 769-2017',
+        phone_e164: '+16787692017',
+        email: null,
+        business_name: 'Different Business',
+        notes: 'Existing CRM note',
+        source: 'manual',
+        stage: 'new',
+        is_archived: false,
+      },
+    ],
+  })
+
+  await assert.rejects(
+    () => promoteToCrm(mock as any, {
+      rawLeadId: 'raw-1',
+      trigger: 'qualified',
+      userId: 'admin-1',
+    }),
+    (err: any) => err?.code === 'duplicate_conflict' && /matches the phone number but not the identity/i.test(err.message),
+  )
+
+  assert.equal(mock.tables.dialer_raw_leads[0].promoted_to_crm_lead_id, null)
+  assert.equal(mock.tables.crm_leads[0].first_name, 'Ryan')
+  assert.equal(mock.tables.crm_leads[0].last_name, 'Jones')
 })
 
 test('promotion RPC result parser accepts Supabase row objects and tuples', () => {

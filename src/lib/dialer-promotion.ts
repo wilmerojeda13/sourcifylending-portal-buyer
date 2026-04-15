@@ -1,4 +1,5 @@
 import type { createServiceClient } from '@/lib/supabase/server'
+import { normalizePhoneE164, normalizeText } from '@/lib/crm-unified-search'
 
 type ServiceClient = Awaited<ReturnType<typeof createServiceClient>>
 
@@ -24,6 +25,10 @@ type PromotionRpcRow = {
   crm_lead_id?: string
   merged?: boolean
   already_promoted?: boolean
+}
+
+class PromotionConflictError extends Error {
+  code = 'duplicate_conflict'
 }
 
 const CRM_SOURCE_VALUES = new Set([
@@ -86,27 +91,7 @@ export async function promoteToCrm(
   let promotionResult: PromotionResult
 
   if (!alreadyPromoted) {
-    // Use RPC for atomic promotion (handles race conditions)
-    const { data: result, error: rpcError } = await supabase.rpc('promote_raw_lead_to_crm', {
-      p_raw_lead_id: input.rawLeadId,
-      p_trigger: input.trigger,
-      p_user_id: input.userId,
-      p_first_name: rawLead.first_name || '',
-      p_last_name: rawLead.last_name || '',
-      p_phone: rawLead.phone,
-      p_phone_e164: rawLead.phone_e164 || rawLead.phone,
-      p_email: rawLead.email || null,
-      p_business_name: rawLead.business_name || null,
-      p_notes: rawLead.notes || null,
-      p_source: normalizeCrmSource(rawLead.source),
-    })
-
-    if (rpcError) {
-      // Fallback: manual promotion if RPC fails
-      promotionResult = await manualPromotionFallback(supabase, rawLead, input)
-    } else {
-      promotionResult = parsePromotionRpcResult(result)
-    }
+    promotionResult = await safePromotionFallback(supabase, rawLead, input)
   } else {
     // Lead already promoted - verify the linked CRM lead still exists and is visible.
     // If the link is stale, recover by re-running the merge/create fallback path.
@@ -118,7 +103,7 @@ export async function promoteToCrm(
         alreadyPromoted: true,
       }
     } else {
-      promotionResult = await manualPromotionFallback(supabase, rawLead, input)
+      promotionResult = await safePromotionFallback(supabase, rawLead, input)
     }
   }
 
@@ -233,9 +218,9 @@ async function verifyPromotedLeadLink(
   const [{ data: crmLead }, { data: rawLeadRow }] = await Promise.all([
     supabase
       .from('crm_leads')
-      .select('id, stage, is_archived')
+      .select('id, first_name, last_name, business_name, email, stage, is_archived')
       .eq('id', expectedCrmLeadId)
-      .maybeSingle<{ id: string; stage: string | null; is_archived: boolean }>(),
+      .maybeSingle<{ id: string; first_name: string | null; last_name: string | null; business_name: string | null; email: string | null; stage: string | null; is_archived: boolean }>(),
     supabase
       .from('dialer_raw_leads')
       .select('promoted_to_crm_lead_id')
@@ -243,7 +228,11 @@ async function verifyPromotedLeadLink(
       .maybeSingle<{ promoted_to_crm_lead_id: string | null }>(),
   ])
 
-  return !!crmLead && !crmLead.is_archived && rawLeadRow?.promoted_to_crm_lead_id === expectedCrmLeadId
+  if (!crmLead || rawLeadRow?.promoted_to_crm_lead_id !== expectedCrmLeadId) {
+    return false
+  }
+
+  return isLikelySamePerson(rawLead, crmLead) && !crmLead.is_archived
 }
 
 async function ensurePromotedLeadVisible(
@@ -352,44 +341,51 @@ export function shouldAutoPromote(dispositionKey: string): boolean {
 /**
  * Fallback promotion logic (used if RPC fails)
  */
-async function manualPromotionFallback(
+async function safePromotionFallback(
   supabase: ServiceClient,
   rawLead: RawLead,
   input: { rawLeadId: string; trigger: string; userId: string }
 ): Promise<PromotionResult> {
-  // Check for existing CRM lead
-  const { data: existing } = await supabase
-    .from('crm_leads')
-    .select('id, first_name, last_name, email, business_name, notes, source, stage')
-    .or(`phone_e164.eq.${rawLead.phone_e164 || rawLead.phone},phone.eq.${rawLead.phone}`)
-    .maybeSingle()
+  const candidates = await findPotentialCrmMatches(supabase, rawLead)
+  const safeCandidate = selectSafeCrmMatch(rawLead, candidates)
+  const conflictingCandidates = candidates.filter((candidate) => samePhone(rawLead, candidate) && !isLikelySamePerson(rawLead, candidate))
+
+  if (!safeCandidate && conflictingCandidates.length > 0) {
+    const top = conflictingCandidates[0]
+    throw new PromotionConflictError(
+      `Duplicate conflict: existing CRM lead ${top.id} matches the phone number but not the identity (${top.first_name ?? ''} ${top.last_name ?? ''} / ${top.business_name ?? ''}). Review required before promoting.`
+    )
+  }
 
   let crmLeadId: string
   let merged = false
 
-  if (existing) {
-    // Merge with existing
+  if (safeCandidate) {
     const { data: updated, error: updateError } = await supabase
       .from('crm_leads')
       .update({
-        first_name: rawLead.first_name || existing.first_name,
-        last_name: rawLead.last_name || existing.last_name,
-        email: rawLead.email || existing.email,
-        business_name: rawLead.business_name || existing.business_name,
-        notes: existing.notes 
-          ? `${existing.notes}\n\n[From Dialer]\n${rawLead.notes || ''}`
+        first_name: rawLead.first_name || safeCandidate.first_name,
+        last_name: rawLead.last_name || safeCandidate.last_name,
+        email: rawLead.email || safeCandidate.email,
+        business_name: rawLead.business_name || safeCandidate.business_name,
+        notes: safeCandidate.notes
+          ? `${safeCandidate.notes}\n\n[From Dialer]\n${rawLead.notes || ''}`
           : rawLead.notes,
+        phone: safeCandidate.phone || rawLead.phone,
+        phone_e164: safeCandidate.phone_e164 || rawLead.phone_e164 || normalizePhoneE164(rawLead.phone),
+        source: safeCandidate.source && safeCandidate.source !== 'manual'
+          ? safeCandidate.source
+          : normalizeCrmSource(rawLead.source),
         is_archived: false,
-        stage: existing.stage === 'new' ? 'contacted' : existing.stage,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', existing.id)
+      .eq('id', safeCandidate.id)
       .select('id')
       .single()
 
     if (updateError || !updated?.id) {
       throw new Error(
-        `Dialer promotion fallback could not merge CRM lead ${existing.id}: ${
+        `Dialer promotion could not merge CRM lead ${safeCandidate.id}: ${
           updateError?.message ?? 'missing updated row'
         }`
       )
@@ -398,14 +394,13 @@ async function manualPromotionFallback(
     crmLeadId = updated.id
     merged = true
   } else {
-    // Create new CRM lead
     const { data: created, error: createError } = await supabase
       .from('crm_leads')
       .insert({
         first_name: rawLead.first_name || '',
         last_name: rawLead.last_name || '',
         phone: rawLead.phone,
-        phone_e164: rawLead.phone_e164 || rawLead.phone,
+        phone_e164: rawLead.phone_e164 || normalizePhoneE164(rawLead.phone),
         email: rawLead.email,
         business_name: rawLead.business_name,
         notes: rawLead.notes,
@@ -418,7 +413,7 @@ async function manualPromotionFallback(
 
     if (createError || !created?.id) {
       throw new Error(
-        `Dialer promotion fallback could not create CRM lead: ${
+        `Dialer promotion could not create CRM lead: ${
           createError?.message ?? 'missing created row'
         }`
       )
@@ -456,4 +451,142 @@ async function manualPromotionFallback(
     merged,
     alreadyPromoted: false,
   }
+}
+
+async function findPotentialCrmMatches(
+  supabase: ServiceClient,
+  rawLead: RawLead,
+): Promise<Array<{
+  id: string
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  business_name: string | null
+  notes: string | null
+  source: string | null
+  stage: string | null
+  is_archived: boolean
+  phone: string | null
+  phone_e164: string | null
+  updated_at: string | null
+}>> {
+  const normalizedPhone = normalizePhoneE164(rawLead.phone)
+  const queries = [
+    supabase
+      .from('crm_leads')
+      .select('id, first_name, last_name, email, business_name, notes, source, stage, is_archived, phone, phone_e164, updated_at')
+      .eq('phone', rawLead.phone),
+    supabase
+      .from('crm_leads')
+      .select('id, first_name, last_name, email, business_name, notes, source, stage, is_archived, phone, phone_e164, updated_at')
+      .eq('phone_e164', rawLead.phone),
+  ]
+
+  if (normalizedPhone !== rawLead.phone) {
+    queries.push(
+      supabase
+        .from('crm_leads')
+        .select('id, first_name, last_name, email, business_name, notes, source, stage, is_archived, phone, phone_e164, updated_at')
+        .eq('phone', normalizedPhone),
+      supabase
+        .from('crm_leads')
+        .select('id, first_name, last_name, email, business_name, notes, source, stage, is_archived, phone, phone_e164, updated_at')
+        .eq('phone_e164', normalizedPhone),
+    )
+  }
+
+  const results = await Promise.all(queries)
+  const byId = new Map<string, {
+    id: string
+    first_name: string | null
+    last_name: string | null
+    email: string | null
+    business_name: string | null
+    notes: string | null
+    source: string | null
+    stage: string | null
+    is_archived: boolean
+    phone: string | null
+    phone_e164: string | null
+    updated_at: string | null
+  }>()
+
+  for (const { data } of results) {
+    for (const candidate of data ?? []) {
+      byId.set(candidate.id, candidate)
+    }
+  }
+
+  return Array.from(byId.values())
+}
+
+function samePhone(
+  rawLead: RawLead,
+  candidate: { phone: string | null; phone_e164: string | null }
+): boolean {
+  const rawPhone = normalizePhoneE164(rawLead.phone)
+  const rawPhoneDigits = rawLead.phone.replace(/\D/g, '')
+  const candidatePhone = candidate.phone ? normalizePhoneE164(candidate.phone) : ''
+  const candidatePhoneDigits = candidate.phone ? candidate.phone.replace(/\D/g, '') : ''
+  const candidateE164 = candidate.phone_e164 ? normalizePhoneE164(candidate.phone_e164) : ''
+
+  return [
+    rawLead.phone,
+    rawPhone,
+    rawPhoneDigits,
+  ].filter(Boolean).some((value) => value === candidate.phone || value === candidateE164 || value === candidatePhone || value === candidatePhoneDigits)
+}
+
+function isLikelySamePerson(
+  rawLead: RawLead,
+  candidate: {
+    first_name: string | null
+    last_name: string | null
+    business_name: string | null
+    email: string | null
+  }
+): boolean {
+  const rawFirst = normalizeText(rawLead.first_name)
+  const rawLast = normalizeText(rawLead.last_name)
+  const candFirst = normalizeText(candidate.first_name)
+  const candLast = normalizeText(candidate.last_name)
+  const rawBusiness = normalizeText(rawLead.business_name)
+  const candBusiness = normalizeText(candidate.business_name)
+  const rawEmail = normalizeText(rawLead.email)
+  const candEmail = normalizeText(candidate.email)
+
+  const nameMatches = rawFirst === candFirst && rawLast === candLast
+  const businessMatches = !rawBusiness || !candBusiness || rawBusiness === candBusiness
+  const emailMatches = !rawEmail || !candEmail || rawEmail === candEmail
+
+  return nameMatches && businessMatches && emailMatches
+}
+
+function selectSafeCrmMatch(
+  rawLead: RawLead,
+  candidates: Array<{
+    id: string
+    first_name: string | null
+    last_name: string | null
+    email: string | null
+    business_name: string | null
+    notes: string | null
+    source: string | null
+    stage: string | null
+    is_archived: boolean
+    phone: string | null
+    phone_e164: string | null
+    updated_at: string | null
+  }>
+) {
+  const safeMatches = candidates.filter((candidate) => isLikelySamePerson(rawLead, candidate))
+  if (safeMatches.length === 0) return null
+
+  return safeMatches.sort((a, b) => {
+    const archivedScore = Number(a.is_archived) - Number(b.is_archived)
+    if (archivedScore !== 0) return archivedScore
+    const updatedA = a.updated_at ? Date.parse(a.updated_at) : 0
+    const updatedB = b.updated_at ? Date.parse(b.updated_at) : 0
+    return updatedB - updatedA
+  })[0] ?? null
 }
