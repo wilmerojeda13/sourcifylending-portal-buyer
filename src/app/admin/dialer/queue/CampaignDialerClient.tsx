@@ -82,6 +82,29 @@ function buildTextMessage(firstName: string) {
   return `Hey ${firstName}, this is Abel. Here's the link to set up your free account and take advantage of our free inquiry dispute tool: https://sourcifylending.com`
 }
 
+const DIALER_FETCH_TIMEOUT_MS = 15000
+
+async function fetchJsonWithTimeout(url: string, init?: RequestInit, timeoutMs = DIALER_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error((json as { error?: string }).error ?? `Request failed (${res.status})`)
+    }
+    return json
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Request timed out')
+    }
+    throw err
+  } finally {
+    window.clearTimeout(timeout)
+  }
+}
+
 // ─── Dispositions ────────────────────────────────────────────────────────────
 const DISPOSITIONS = [
   { outcome: 'no_answer',      label: 'No Answer',      icon: PhoneMissed,   color: 'bg-gray-800 text-gray-200 hover:bg-gray-700',    next: 'attempted'    },
@@ -253,7 +276,6 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   const [campaignTotal, setCampaignTotal] = useState(0)
   const [textModalOpen, setTextModalOpen] = useState(false)
   const [textDraft, setTextDraft]         = useState('')
-  const [refilling, setRefilling]         = useState(false)
 
   // Session-level DNC guard: raw_lead IDs and phone numbers marked DNC this session.
   // Both refs survive load() calls so race conditions can't re-surface a blocked lead.
@@ -280,12 +302,11 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   // Silent background refresh without loading spinner (used after disposition)
   const refreshQueue = useCallback(async (filter: string) => {
     try {
-      const [camRes, leadsRes, statsRes] = await Promise.all([
-        fetch(`/api/admin/dialer/campaigns/${campaignId}`),
-        fetch(`/api/admin/dialer/campaigns/${campaignId}/leads?${filter === 'dialable' ? 'dialable=1' : `status=${filter}`}`),
-        fetch(`/api/admin/dialer/campaigns/${campaignId}/stats`),
+      const [camJson, leadsJson, statsJson] = await Promise.all([
+        fetchJsonWithTimeout(`/api/admin/dialer/campaigns/${campaignId}`),
+        fetchJsonWithTimeout(`/api/admin/dialer/campaigns/${campaignId}/leads?${filter === 'dialable' ? 'dialable=1' : `status=${filter}`}`),
+        fetchJsonWithTimeout(`/api/admin/dialer/campaigns/${campaignId}/stats`),
       ])
-      const [camJson, leadsJson, statsJson] = await Promise.all([camRes.json(), leadsRes.json(), statsRes.json()])
       const cam: Campaign | null = camJson.campaign ?? null
       setCampaign(cam)
       // Filter out any leads DNC'd this session + phone numbers globally DNC'd
@@ -323,12 +344,11 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     setNote('')
     setCallbackAt('')
     try {
-      const [camRes, leadsRes, statsRes] = await Promise.all([
-        fetch(`/api/admin/dialer/campaigns/${campaignId}`),
-        fetch(`/api/admin/dialer/campaigns/${campaignId}/leads?${filter === 'dialable' ? 'dialable=1' : `status=${filter}`}`),
-        fetch(`/api/admin/dialer/campaigns/${campaignId}/stats`),
+      const [camJson, leadsJson, statsJson] = await Promise.all([
+        fetchJsonWithTimeout(`/api/admin/dialer/campaigns/${campaignId}`),
+        fetchJsonWithTimeout(`/api/admin/dialer/campaigns/${campaignId}/leads?${filter === 'dialable' ? 'dialable=1' : `status=${filter}`}`),
+        fetchJsonWithTimeout(`/api/admin/dialer/campaigns/${campaignId}/stats`),
       ])
-      const [camJson, leadsJson, statsJson] = await Promise.all([camRes.json(), leadsRes.json(), statsRes.json()])
       const cam: Campaign | null = camJson.campaign ?? null
       setCampaign(cam)
       // Filter out any leads DNC'd this session (guards against race conditions
@@ -353,8 +373,10 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
           : (sc[filter] ?? 0)
         setTotalDialable(t)
       }
-    } catch {
-      toast.error('Failed to load queue')
+    } catch (error) {
+      console.error('Failed to load queue:', error)
+      setQueue([])
+      toast.error(error instanceof Error ? error.message : 'Failed to load queue')
     } finally {
       setLoading(false)
     }
@@ -591,24 +613,6 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     setIndex(i => i + 1)
   }
 
-  // ── Auto-refill when queue runs low ───────────────────────────────────────
-  useEffect(() => {
-    if (!loading && !refilling && statusFilter === 'high_priority' && queue.length < 50) {
-      // Trigger refill for high priority when running low
-      setRefilling(true)
-      fetch(`/api/admin/dialer/campaigns/${campaignId}/refill`, { method: 'POST' })
-        .then(r => r.json())
-        .then(d => {
-          if (d.added > 0) {
-            toast(`🔄 +${d.added} fresh leads added`, { icon: undefined, duration: 3000 })
-            load(statusFilter)
-          }
-        })
-        .catch(() => {})
-        .finally(() => setRefilling(false))
-    }
-  }, [loading, queue.length, statusFilter, campaignId, refilling, load])
-
   // ── Queue complete screen ──────────────────────────────────────────────────
   // Batch exhausted — automatically reload to get the next batch from the remaining pool
   if (!loading && batchSize > 0 && index >= batchSize && done < total) {
@@ -616,34 +620,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     return null
   }
 
-  // INFINITE FEED: Show loading state if refilling, otherwise check if truly complete
-  if (!loading && !refilling && (batchSize === 0 || done >= total || index >= batchSize)) {
-    // Trigger one more refill check before showing complete
-    if (statusFilter === 'high_priority') {
-      setRefilling(true)
-      fetch(`/api/admin/dialer/campaigns/${campaignId}/refill`, { method: 'POST' })
-        .then(r => r.json())
-        .then(d => {
-          if (d.added > 0) {
-            load(statusFilter)
-          } else {
-            // Truly complete - no more leads in database
-            setRefilling(false)
-          }
-        })
-        .catch(() => setRefilling(false))
-      
-      // Show loading state while checking
-      return (
-        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
-          <Loader2 size={52} className="animate-spin text-indigo-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-100 mb-1">Loading More Fresh Leads...</h2>
-          <p className="text-gray-400 mb-1">Scanning database for high-priority leads</p>
-          {campaign && <p className="text-sm text-gray-400 mb-8">Campaign: {campaign.name}</p>}
-        </div>
-      )
-    }
-
+  if (!loading && (batchSize === 0 || done >= total || index >= batchSize)) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
         <CheckCircle2 size={52} className="text-green-500 mb-4" />
@@ -678,51 +655,11 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     )
   }
 
-  // Show refilling state
-  if (refilling) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
-        <Loader2 size={52} className="animate-spin text-indigo-500 mb-4" />
-        <h2 className="text-2xl font-bold text-gray-100 mb-1">Loading More Fresh Leads...</h2>
-        <p className="text-gray-400 mb-1">Scanning 6,000+ database for high-priority leads</p>
-        {campaign && <p className="text-sm text-gray-400 mb-8">Campaign: {campaign.name}</p>}
-        <button 
-          onClick={() => { setRefilling(false); load(statusFilter); }}
-          className="px-4 py-2 bg-gray-800 text-gray-300 text-sm rounded-xl hover:bg-gray-700"
-        >
-          Cancel & Reload
-        </button>
-      </div>
-    )
-  }
-
   if (loading) return (
     <div className="flex-1 flex items-center justify-center py-20">
       <Loader2 size={28} className="animate-spin text-gray-400" />
     </div>
   )
-
-  // FORCE REFILL - LIVE DEPLOYMENT 2026-04-13
-  async function forceRefill() {
-    setRefilling(true)
-    try {
-      const res = await fetch(`/api/admin/dialer/campaigns/${campaignId}/refill`, { method: 'POST' })
-      const data = await res.json()
-      if (data.added > 0) {
-        toast.success(`🔄 +${data.added} fresh leads added`)
-        load(statusFilter)
-      } else if (data.fresh_remaining > 0) {
-        toast(`Queue has ${data.fresh_remaining} leads remaining`)
-        load(statusFilter)
-      } else {
-        toast.error('No more leads available in database')
-      }
-    } catch (err) {
-      toast.error('Refill failed - try again')
-    } finally {
-      setRefilling(false)
-    }
-  }
 
   if (queue.length === 0) return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 text-center py-20">
@@ -732,19 +669,9 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       </h3>
       <p className="text-sm text-gray-400 mb-2">Try a different filter or add more leads.</p>
       {statusFilter === 'high_priority' && (
-        <p className="text-xs text-indigo-400 mb-4">6,000+ leads in database - Force Refill to pull more</p>
+        <p className="text-xs text-indigo-400 mb-4">High Priority is scoped to this campaign only.</p>
       )}
       <div className="flex gap-3 flex-wrap justify-center">
-        {statusFilter === 'high_priority' && (
-          <button 
-            onClick={forceRefill}
-            disabled={refilling}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-500 disabled:opacity-50 flex items-center gap-2"
-          >
-            {refilling ? <Loader2 size={14} className="animate-spin" /> : '⚡'}
-            {refilling ? 'Refilling...' : 'Force Refill'}
-          </button>
-        )}
         {FILTER_OPTIONS.filter(f => f.key !== statusFilter).map(f => (
           <button key={f.key} onClick={() => setStatusFilter(f.key)}
             className="px-4 py-2 bg-gray-800 border border-gray-700 text-gray-400 text-sm rounded-xl hover:bg-gray-700">

@@ -136,8 +136,6 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
   const [adding, setAdding]             = useState(false)
   const [rawSearch, setRawSearch]       = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const autoRefillInFlight = useRef(false)
-  const autoRefillSignature = useRef<string | null>(null)
 
   // Pagination
   const PAGE_SIZE = 100
@@ -191,37 +189,6 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
   const load = useCallback(() => loadPage(0, statusFilter), [loadPage, statusFilter])
 
   useEffect(() => { loadPage(0, 'all') }, [loadPage])
-
-  useEffect(() => {
-    if (loading || statusFilter !== 'high_priority') return
-    const freshCount = campaign?.status_counts?.new ?? 0
-    const signature = `${campaignId}:high_priority:${freshCount}`
-    if (freshCount >= 10 || autoRefillInFlight.current || autoRefillSignature.current === signature) return
-
-    autoRefillSignature.current = signature
-    autoRefillInFlight.current = true
-    ;(async () => {
-      try {
-        const res = await fetch(`/api/admin/dialer/campaigns/${campaignId}/refill`, { method: 'POST' })
-        const json = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(json.error ?? 'Auto refill failed')
-        if ((json.added ?? 0) > 0) {
-          toast.success(`Auto-refilled ${json.added} high-priority leads`)
-        }
-        await loadPage(0, 'high_priority')
-      } catch (error) {
-        console.error('Auto refill failed:', error)
-      } finally {
-        autoRefillInFlight.current = false
-      }
-    })()
-  }, [campaignId, campaign?.status_counts?.new, loadPage, loading, statusFilter])
-
-  useEffect(() => {
-    if (statusFilter !== 'high_priority' || loading || (campaign?.status_counts?.new ?? 0) >= 10) {
-      autoRefillSignature.current = null
-    }
-  }, [campaign?.status_counts?.new, loading, statusFilter])
 
   async function loadAllFilteredIds(): Promise<string[]> {
     const p = new URLSearchParams({ ids_only: '1' })
