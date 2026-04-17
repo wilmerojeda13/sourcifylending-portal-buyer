@@ -17,7 +17,7 @@ export async function POST() {
     // Fetch user profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('assigned_program, account_state')
+      .select('assigned_program, member_status')
       .eq('id', context.activeBusinessId)
       .single()
 

@@ -10,7 +10,7 @@ interface ClientRow {
   full_name: string
   email: string
   business_name: string | null
-  subscription_status: string
+  billing_status: string
   assigned_program: string | null
   current_stage: string | null
   progress: number
@@ -172,8 +172,8 @@ function ClientTableRow({
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">{client.business_name}</p>
             )}
             <div className="flex items-center gap-1 mt-0.5">
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${STATUS_COLORS[client.subscription_status] ?? 'bg-gray-100 text-gray-500'}`}>
-                {client.subscription_status}
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${STATUS_COLORS[client.billing_status] ?? 'bg-gray-100 text-gray-500'}`}>
+                {client.billing_status}
               </span>
               {client.portal_blocked && (
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase bg-red-100 text-red-600">Blocked</span>
@@ -304,8 +304,8 @@ function ClientMobileCard({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${STATUS_COLORS[client.subscription_status] ?? 'bg-gray-100 text-gray-500'}`}>
-          {client.subscription_status}
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${STATUS_COLORS[client.billing_status] ?? 'bg-gray-100 text-gray-500'}`}>
+          {client.billing_status}
         </span>
         {client.portal_blocked && (
           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase bg-red-100 text-red-600">Blocked</span>

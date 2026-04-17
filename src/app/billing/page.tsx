@@ -184,7 +184,7 @@ export default function BillingPage() {
   }, [])
 
   // Normalize account state from plan_tier, subscription_status, and account_state
-  const entitlements = getAccountEntitlements(profile?.plan_tier, profile?.subscription_status, profile?.account_state)
+  const entitlements = getAccountEntitlements(profile?.feature_tier, profile?.billing_status, profile?.member_status)
   const isFreeUser = entitlements.access_state === 'free_active'
   const isActive = entitlements.access_state === 'free_active' || entitlements.access_state === 'paid_active'
   const acquisitionPath = normalizeAcquisitionPath(profile?.acquisition_path)
@@ -370,8 +370,8 @@ export default function BillingPage() {
   if (loading) {
     return (
       <PortalLayout
-        planTier={profile?.plan_tier}
-        subscriptionStatus={profile?.subscription_status}
+        planTier={profile?.feature_tier}
+        subscriptionStatus={profile?.billing_status}
       >
         <div className="animate-pulse space-y-4">
           <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
@@ -393,8 +393,8 @@ export default function BillingPage() {
         isAdmin={profile?.is_admin}
         isDelegate={true}
         allPrograms={activePrograms}
-        planTier={profile?.plan_tier}
-        subscriptionStatus={profile?.subscription_status}
+        planTier={profile?.feature_tier}
+        subscriptionStatus={profile?.billing_status}
       >
         <div className="flex flex-col items-center justify-center py-16 text-center px-4">
           <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-4">
@@ -432,8 +432,8 @@ export default function BillingPage() {
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
       allPrograms={activePrograms}
-      planTier={profile?.plan_tier}
-      subscriptionStatus={profile?.subscription_status}
+      planTier={profile?.feature_tier}
+      subscriptionStatus={profile?.billing_status}
     >
       <div className="mb-6">
         <h1 className="page-title flex items-center gap-2">
@@ -663,7 +663,7 @@ export default function BillingPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <StatusBadge status={profile?.subscription_status || 'active'} />
+              <StatusBadge status={profile?.billing_status || 'active'} />
               {canManageBilling && (
                 <button
                   onClick={handlePortal}
@@ -862,11 +862,11 @@ export default function BillingPage() {
                     setDestructiveAction('cancel')
                     setDestructiveInput('')
                   }}
-                  disabled={cancelingMembership || profile?.subscription_status === 'canceled'}
+                  disabled={cancelingMembership || profile?.billing_status === 'canceled'}
                   className="mt-4 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
                 >
                   {cancelingMembership ? <Loader2 size={14} className="animate-spin" /> : <BanIcon size={14} />}
-                  {profile?.subscription_status === 'canceled' ? 'Already Canceled' : 'Cancel Membership'}
+                  {profile?.billing_status === 'canceled' ? 'Already Canceled' : 'Cancel Membership'}
                 </button>
               </div>
             </div>
@@ -883,10 +883,10 @@ export default function BillingPage() {
             </div>
             <div className="flex-1">
               <h3 className="font-bold text-white text-lg mb-1">
-                {profile?.subscription_status === 'canceled' ? 'Reactivate Your Membership' : 'Start Your Program'}
+                {profile?.billing_status === 'canceled' ? 'Reactivate Your Membership' : 'Start Your Program'}
               </h3>
               <p className="text-green-200 text-sm mb-5 leading-relaxed">
-                {profile?.subscription_status === 'canceled'
+                {profile?.billing_status === 'canceled'
                   ? `Your progress is saved. Reactivate to continue from Stage: ${profile?.current_stage || 'where you left off'}.`
                   : `Subscribe to unlock full AI fulfillment, task tracking, document management, and reports for ${getProgramShortLabel(program)}.`
                 }

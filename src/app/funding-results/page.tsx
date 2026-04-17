@@ -24,14 +24,14 @@ export default async function FundingResultsPage() {
       portalBlocked={profile?.portal_blocked ?? false}
       isDemo={profile?.is_demo ?? false}
       isAdmin={profile?.is_admin ?? false}
-      accountState={profile?.account_state ?? 'active_member'}
+      accountState={profile?.member_status ?? 'active_member'}
       allPrograms={activePrograms}
     >
       <FundingResultsClient
         initialApprovals={approvals ?? []}
         startDate={profile?.created_at ?? null}
         assignedProgram={profile?.assigned_program ?? null}
-        clientStatus={profile?.subscription_status ?? null}
+        clientStatus={profile?.billing_status ?? null}
         initialFundingGoal={(profile as any)?.funding_goal_amount ?? null}
       />
     </PortalLayout>

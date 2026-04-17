@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const supabase = await createServiceClient()
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, full_name, email, business_name, plan_tier, subscription_status, assigned_program')
+      .select('id, full_name, email, business_name, feature_tier, billing_status, assigned_program')
       .eq('id', context.activeBusinessId)
       .single()
 
@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
         full_name: profile.full_name ?? null,
         email: profile.email ?? null,
         business_name: profile.business_name ?? null,
-        plan_tier: profile.plan_tier ?? null,
-        subscription_status: profile.subscription_status ?? null,
+        plan_tier: profile.feature_tier ?? null,
+        subscription_status: profile.billing_status ?? null,
         assigned_program: profile.assigned_program ?? null,
       },
       sendEmail: true,

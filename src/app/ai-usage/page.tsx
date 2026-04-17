@@ -27,7 +27,7 @@ interface UsageData {
   profile: {
     assigned_program: string | null
     ai_suspended: boolean
-    subscription_status: string | null
+    billing_status: string | null
   } | null
   balance: UserAIBalance | null
   program_limits: AIProgramLimits | null
@@ -226,8 +226,8 @@ function AIUsageInner() {
   const purchasedRemaining = usageData?.purchased_credits_remaining ?? 0
   const creditPacks = usageData?.credit_packs ?? []
   const isActiveMember =
-    usageData?.profile?.subscription_status === 'active' ||
-    usageData?.profile?.subscription_status === 'trialing'
+    usageData?.profile?.billing_status === 'active' ||
+    usageData?.profile?.billing_status === 'trialing'
 
   const monthlyPct = balance && limits
     ? Math.min(100, Math.round((balance.credits_used / limits.monthly_credits) * 100))

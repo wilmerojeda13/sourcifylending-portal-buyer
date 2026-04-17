@@ -17,7 +17,7 @@ export default async function SettingsPage() {
       isDemo={profile?.is_demo ?? false}
       isAdmin={profile?.is_admin ?? false}
       isDelegate={(profile as unknown as Record<string, unknown>)?.is_delegate as boolean ?? false}
-      accountState={profile?.account_state ?? 'active_member'}
+      accountState={profile?.member_status ?? 'active_member'}
       allPrograms={activePrograms}
     >
       <SettingsClient

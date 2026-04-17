@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
 
     // 3. Business rule guards
-    if (profile.account_state === 'prospect') {
+    if (profile.member_status === 'prospect') {
       return NextResponse.json({ error: 'Prospects do not require underwriting' }, { status: 400 })
     }
     if (!profile.assigned_program || profile.assigned_program === 'program_c') {
@@ -365,7 +365,7 @@ export async function GET() {
 
     const isExpired = underwrtingIsExpired(profile?.underwriting_next_due_at ?? null)
     const needsUnderwriting =
-      profile?.account_state === 'active_member' &&
+      profile?.member_status === 'active_member' &&
       (profile?.assigned_program === 'program_a' || profile?.assigned_program === 'program_b') &&
       isExpired
 

@@ -23,11 +23,11 @@ export async function POST(req: NextRequest) {
     // Guard: prevent canceling subscription for free plan users
     const { data: targetUser } = await supabase
       .from('profiles')
-      .select('plan_tier')
+      .select('feature_tier')
       .eq('id', user_id)
       .single()
 
-    if (targetUser?.plan_tier === 'free') {
+    if (targetUser?.feature_tier === 'free') {
       return NextResponse.json(
         { error: 'Cannot cancel subscription for free plan users.' },
         { status: 400 }
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     await supabase
       .from('profiles')
-      .update({ subscription_status: 'canceled', updated_at: new Date().toISOString() })
+      .update({ billing_status: 'canceled', updated_at: new Date().toISOString() })
       .eq('id', user_id)
 
     await logActivity(user_id, 'subscription_canceled', {

@@ -55,9 +55,9 @@ function toAccessibleBusiness(profile: MinimalProfile, row?: MembershipRow): Acc
     label: labelForProfile(profile),
     program: profile.assigned_program,
     role: row?.role ?? 'owner',
-    account_state: profile.account_state,
-    plan_tier: profile.plan_tier ?? 'free',
-    subscription_status: profile.subscription_status,
+    account_state: profile.member_status,
+    plan_tier: profile.feature_tier ?? 'free',
+    subscription_status: profile.billing_status,
     portal_blocked: profile.portal_blocked,
     is_default: row?.is_default ?? false,
   }
@@ -75,12 +75,12 @@ async function loadMembershipRows(userId: string) {
       full_name,
       business_name,
       assigned_program,
-      account_state,
-      plan_tier,
+      member_status,
+      feature_tier,
       portal_blocked,
       is_demo,
       is_admin,
-      subscription_status
+      billing_status
     )
   `
 

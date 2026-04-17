@@ -831,9 +831,9 @@ export async function POST(req: NextRequest) {
   if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = await createServiceClient()
   const entitlements = getAccountEntitlements(
-    context.activeProfile.plan_tier,
-    context.activeProfile.subscription_status,
-    context.activeProfile.account_state
+    context.activeProfile.feature_tier,
+    context.activeProfile.billing_status,
+    context.activeProfile.member_status
   )
   const isFreeAccount = entitlements.access_state === 'free_active'
   const isPaidAccount = entitlements.access_state === 'paid_active'

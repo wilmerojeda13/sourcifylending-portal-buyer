@@ -1,6 +1,8 @@
 // ─── Programs ─────────────────────────────────────────────────────────────────
 export type ProgramId = 'program_a' | 'program_b' | 'program_c'
-export type AccountState = 'prospect' | 'active_member'
+export type MemberStatus = 'prospect' | 'active_member'
+// Backwards compatibility alias
+export type AccountState = MemberStatus
 
 export interface Program {
   id: ProgramId
@@ -70,8 +72,8 @@ export interface UserProfile {
   current_stage: string | null
   next_task_id: string | null
   progress_percentage: number
-  subscription_status: SubscriptionStatus
-  plan_tier: PlanTier
+  billing_status: BillingStatus
+  feature_tier: FeatureTier
   portal_blocked: boolean
   is_demo: boolean
   is_admin: boolean
@@ -90,7 +92,7 @@ export interface UserProfile {
   ai_custom_heavy_limit: number | null
   ai_access_notes: string | null
   // Prospect / free account
-  account_state: AccountState
+  member_status: MemberStatus
   lead_id: string | null
   latest_analyzer_result: AnalyzerResult | null
   analyzed_at: string | null
@@ -164,15 +166,18 @@ export interface UnderwritingReview {
 }
 
 // ─── Subscription ─────────────────────────────────────────────────────────────
-export type SubscriptionStatus = 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing'
-export type PlanTier = 'free' | 'paid'
+export type BillingStatus = 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing'
+export type FeatureTier = 'free' | 'paid'
+// Backwards compatibility aliases
+export type SubscriptionStatus = BillingStatus
+export type PlanTier = FeatureTier
 
 export interface Subscription {
   id: string
   user_id: string
   stripe_subscription_id: string | null
   stripe_customer_id: string | null
-  status: SubscriptionStatus
+  status: BillingStatus
   program: ProgramId | null
   acquisition_path: 'self_serve' | 'partner_assisted'
   assigned_partner_affiliate_id: string | null
@@ -189,9 +194,9 @@ export interface AccessibleBusiness {
   label: string
   program: ProgramId | null
   role: 'owner' | 'admin' | 'member' | 'delegate'
-  account_state: AccountState
-  plan_tier: PlanTier
-  subscription_status: SubscriptionStatus
+  member_status: MemberStatus
+  feature_tier: FeatureTier
+  billing_status: BillingStatus
   portal_blocked: boolean
   is_default: boolean
 }

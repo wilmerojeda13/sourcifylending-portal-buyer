@@ -66,7 +66,7 @@ function AgentPage() {
 
       setProfile(p)
       // Only active paid subscriptions can access AI Agent
-      const active = p?.subscription_status === 'active' || p?.subscription_status === 'trialing'
+      const active = p?.billing_status === 'active' || p?.billing_status === 'trialing'
       setIsActive(active)
 
       const convData = convRes.ok ? await convRes.json() : null
@@ -206,7 +206,7 @@ function AgentPage() {
   const hasHistory = messages.length > 1
 
   // Free users cannot access AI Agent
-  const canAccessAgent = canAccessFeature(profile?.plan_tier, profile?.subscription_status, 'ai_agent')
+  const canAccessAgent = canAccessFeature(profile?.feature_tier, profile?.billing_status, 'ai_agent')
 
   return (
     <PortalLayout
@@ -216,8 +216,8 @@ function AgentPage() {
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
-      planTier={profile?.plan_tier}
-      subscriptionStatus={profile?.subscription_status}
+      planTier={profile?.feature_tier}
+      subscriptionStatus={profile?.billing_status}
     >
       {!canAccessAgent && !initializing && (
         <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] gap-6 px-4">

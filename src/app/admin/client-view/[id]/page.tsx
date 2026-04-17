@@ -163,8 +163,8 @@ export default async function AdminClientViewPage({ params }: { params: Promise<
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${STATUS_COLORS[profile.subscription_status] ?? 'bg-gray-100 text-gray-500'}`}>
-                    {profile.subscription_status}
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${STATUS_COLORS[profile.billing_status] ?? 'bg-gray-100 text-gray-500'}`}>
+                    {profile.billing_status}
                   </span>
                   {profile.portal_blocked && (
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase bg-red-100 text-red-600">

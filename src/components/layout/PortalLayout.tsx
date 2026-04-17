@@ -151,12 +151,12 @@ export default function PortalLayout({
 
   const currentBusiness = businesses.find((business) => business.id === activeBusinessId) ?? null
   const currentBusinessFree = currentBusiness
-    ? currentBusiness.plan_tier === 'free'
+    ? currentBusiness.feature_tier === 'free'
     : isFreeUser
   const currentBusinessPaid = currentBusinessFree
     ? true
     : currentBusiness
-      ? currentBusiness.subscription_status === 'active' || currentBusiness.subscription_status === 'trialing'
+      ? currentBusiness.billing_status === 'active' || currentBusiness.billing_status === 'trialing'
       : accountState === 'active_member'
   const subscriptionGateAllowedPaths = new Set(['/dashboard', '/billing', '/funding-results', '/support', '/settings', '/training', '/notifications'])
   const prospectInquiryDisputesPath = isProspect && pathname === '/credit-disputes'

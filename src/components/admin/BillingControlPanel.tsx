@@ -17,8 +17,8 @@ interface BillingData {
     full_name: string
     email: string
     assigned_program: ProgramId | null
-    subscription_status: string
-    account_state: string
+    billing_status: string
+    member_status: string
   }
   subscription: {
     id: string
@@ -376,7 +376,7 @@ export default function BillingControlPanel({ userId }: Props) {
   if (!data) return <div className="text-sm text-gray-500 py-8">Failed to load billing data.</div>
 
   const { profile, subscription, arrangement, payment_records, program_info, total_paid } = data
-  const isActive = subscription?.access_status === 'active' || profile.subscription_status === 'active'
+  const isActive = subscription?.access_status === 'active' || profile.billing_status === 'active'
   const program = profile.assigned_program
   const setupStandard = program_info?.setupFee ?? subscription?.setup_fee_standard ?? 0
   const setupPaid = subscription?.setup_fee_paid ?? 0

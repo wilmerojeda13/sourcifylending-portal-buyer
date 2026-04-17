@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     // Get profiles for email/name, filter out users who have since upgraded
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, email, full_name, subscription_status')
+      .select('id, email, full_name, billing_status')
       .in('id', userIds)
       .eq('subscription_status', 'inactive')
 
@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
 
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, email, full_name, subscription_status, assigned_program')
+      .select('id, email, full_name, billing_status, assigned_program')
       .in('id', userIds)
       .eq('subscription_status', 'active')
 

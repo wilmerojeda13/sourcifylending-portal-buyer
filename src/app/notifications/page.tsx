@@ -80,7 +80,7 @@ export default async function NotificationsPage() {
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
-      accountState={profile?.account_state === 'prospect' ? 'prospect' : 'active_member'}
+      accountState={profile?.member_status === 'prospect' ? 'prospect' : 'active_member'}
       allPrograms={activePrograms}
     >
       <div className="max-w-2xl mx-auto space-y-5">

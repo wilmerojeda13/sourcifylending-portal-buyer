@@ -231,7 +231,7 @@ export async function POST(req: NextRequest) {
 
     const { data: existingProfile } = await supabase
       .from('profiles')
-      .select('id, full_name, business_name, account_state, lead_id')
+      .select('id, full_name, business_name, member_status, lead_id')
       .eq('email', normalizedEmail)
       .maybeSingle()
 
@@ -370,7 +370,7 @@ export async function POST(req: NextRequest) {
         message: `A known member completed the free analyzer again. Their admin profile was refreshed instead of creating a duplicate lead.`,
         metadata: {
           email: normalizedEmail,
-          account_state: existingProfile.account_state,
+          account_state: existingProfile.member_status,
           ...(existingLead?.id ? { lead_id: existingLead.id } : {}),
           readiness_score: result.readiness_score,
           estimated_funding_range: result.estimated_funding_range,

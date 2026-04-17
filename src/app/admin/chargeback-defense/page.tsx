@@ -10,7 +10,7 @@ interface UserRow {
   email: string
   business_name: string | null
   assigned_program: ProgramId | null
-  subscription_status: string
+  billing_status: string
   created_at: string
 }
 
@@ -58,7 +58,7 @@ async function loadData() {
     { data: docData },
     { data: reportData },
   ] = await Promise.all([
-    supabase.from('profiles').select('id,full_name,email,business_name,assigned_program,subscription_status,created_at').order('created_at', { ascending: false }),
+    supabase.from('profiles').select('id,full_name,email,business_name,assigned_program,billing_status,created_at').order('created_at', { ascending: false }),
     supabase.from('subscriptions').select('user_id,stripe_subscription_id,stripe_customer_id,status,program,current_period_end,updated_at'),
     supabase.from('agreements').select('user_id,program,agreement_version,accepted_at,ip_address,user_agent').order('accepted_at', { ascending: false }),
     supabase.from('activity_logs').select('user_id,event_type,event_data,ip_address,created_at').order('created_at', { ascending: false }),
@@ -155,13 +155,13 @@ export default async function ChargebackDefensePage() {
                     </div>
                     <div className="mt-1 flex items-center gap-2 flex-wrap">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        profile.subscription_status === 'active' ? 'bg-green-100 text-green-700' :
-                        profile.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-700' :
-                        profile.subscription_status === 'canceled' ? 'bg-red-100 text-red-600' :
-                        profile.subscription_status === 'past_due' ? 'bg-amber-100 text-amber-700' :
+                        profile.billing_status === 'active' ? 'bg-green-100 text-green-700' :
+                        profile.billing_status === 'trialing' ? 'bg-blue-100 text-blue-700' :
+                        profile.billing_status === 'canceled' ? 'bg-red-100 text-red-600' :
+                        profile.billing_status === 'past_due' ? 'bg-amber-100 text-amber-700' :
                         'bg-gray-100 text-gray-500'
                       }`}>
-                        {profile.subscription_status}
+                        {profile.billing_status}
                       </span>
                       {profile.assigned_program && (
                         <span className="text-xs text-gray-500">{getProgramShortLabel(profile.assigned_program)}</span>

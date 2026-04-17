@@ -13,13 +13,13 @@ export async function POST(req: NextRequest) {
     // ── Guard: must be an active member ────────────────────────────────────────
     const { data: profile } = await supabase
       .from('profiles')
-      .select('subscription_status, assigned_program')
+      .select('billing_status, assigned_program')
       .eq('id', user.id)
       .single()
 
     const isActive =
-      profile?.subscription_status === 'active' ||
-      profile?.subscription_status === 'trialing'
+      profile?.billing_status === 'active' ||
+      profile?.billing_status === 'trialing'
 
     if (!isActive) {
       return NextResponse.json(

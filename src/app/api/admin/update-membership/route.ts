@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
 
     // Update profile
     const profileUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() }
-    if (plan_tier !== undefined) profileUpdate.plan_tier = plan_tier
-    if (subscription_status !== undefined) profileUpdate.subscription_status = subscription_status
+    if (plan_tier !== undefined) profileUpdate.feature_tier = plan_tier
+    if (subscription_status !== undefined) profileUpdate.billing_status = subscription_status
     if (assigned_program !== undefined) profileUpdate.assigned_program = assigned_program
 
     const { error: profileError } = await supabase

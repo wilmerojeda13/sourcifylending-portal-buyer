@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { syncActiveBusinessProfile, syncEditableBusinessProfile } from '@/lib/admin-business-sync'
-import type { ProgramId, SubscriptionStatus, ReadinessStatus } from '@/types'
+import type { ProgramId, BillingStatus, ReadinessStatus } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,13 +81,13 @@ export async function PATCH(req: NextRequest) {
       entity_type?: string | null
       industry?: string | null
       // Program / subscription
-      plan_tier?: 'free' | 'paid'
-      subscription_status?: SubscriptionStatus
+      feature_tier?: 'free' | 'paid'
+      billing_status?: BillingStatus
       assigned_program?: ProgramId | null
       current_stage?: string | null
       readiness_status?: ReadinessStatus | null
       progress_percentage?: number
-      account_state?: string
+      member_status?: string
       nsf_flag?: boolean
       portal_blocked?: boolean
       suspicious_signup?: boolean
@@ -100,7 +100,7 @@ export async function PATCH(req: NextRequest) {
     if (!user_id) return NextResponse.json({ error: 'user_id required' }, { status: 400 })
 
     // Fetch current profile for downgrade detection
-    const { data: currentProfile } = await supabase.from('profiles').select('plan_tier').eq('id', user_id).single()
+    const { data: currentProfile } = await supabase.from('profiles').select('feature_tier').eq('id', user_id).single()
 
     // Handle email change — must update Supabase Auth AND profiles
     if (email !== undefined) {
@@ -118,13 +118,13 @@ export async function PATCH(req: NextRequest) {
     if (fields.business_age !== undefined) update.business_age = fields.business_age
     if (fields.entity_type !== undefined) update.entity_type = fields.entity_type
     if (fields.industry !== undefined) update.industry = fields.industry
-    if (fields.plan_tier !== undefined) update.plan_tier = fields.plan_tier
-    if (fields.subscription_status !== undefined) update.subscription_status = fields.subscription_status
+    if (fields.feature_tier !== undefined) update.feature_tier = fields.feature_tier
+    if (fields.billing_status !== undefined) update.billing_status = fields.billing_status
     if (fields.assigned_program !== undefined) update.assigned_program = fields.assigned_program
     if (fields.current_stage !== undefined) update.current_stage = fields.current_stage
     if (fields.readiness_status !== undefined) update.readiness_status = fields.readiness_status
     if (fields.progress_percentage !== undefined) update.progress_percentage = fields.progress_percentage
-    if (fields.account_state !== undefined) update.account_state = fields.account_state
+    if (fields.member_status !== undefined) update.member_status = fields.member_status
     if (fields.nsf_flag !== undefined) update.nsf_flag = fields.nsf_flag
     if (fields.portal_blocked !== undefined) update.portal_blocked = fields.portal_blocked
     if (fields.suspicious_signup !== undefined) update.suspicious_signup = fields.suspicious_signup
@@ -140,10 +140,10 @@ export async function PATCH(req: NextRequest) {
     if (updateError) throw updateError
 
     const membershipFieldsChanged =
-      fields.subscription_status !== undefined ||
+      fields.billing_status !== undefined ||
       fields.assigned_program !== undefined ||
-      fields.plan_tier !== undefined ||
-      fields.account_state !== undefined
+      fields.feature_tier !== undefined ||
+      fields.member_status !== undefined
 
     if (membershipFieldsChanged) {
       await syncEditableBusinessProfile(supabase, user_id, update)
@@ -153,7 +153,7 @@ export async function PATCH(req: NextRequest) {
     // ─── Downgrade to Free: Preserve All User Work ──────────────────────────────────
     // When downgrading from paid to free, lock access but preserve all work data
     // (tasks, documents, progress, program memberships). User can resume when they re-upgrade.
-    if (fields.plan_tier === 'free' && currentProfile?.plan_tier === 'paid') {
+    if (fields.feature_tier === 'free' && currentProfile?.feature_tier === 'paid') {
       update.portal_blocked = true
       // All tasks will be marked 'locked' by application logic, but remain queryable
       // Documents remain preserved and queryable, just become read-only
@@ -163,18 +163,18 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Sync subscriptions table if status changed
-    if (fields.subscription_status !== undefined) {
+    if (fields.billing_status !== undefined) {
       const { data: existingSub } = await supabase.from('subscriptions').select('id').eq('user_id', user_id).single()
       if (existingSub) {
         await supabase.from('subscriptions').update({
-          status: fields.subscription_status,
+          status: fields.billing_status,
           ...(fields.assigned_program !== undefined ? { program: fields.assigned_program } : {}),
           updated_at: new Date().toISOString(),
         }).eq('user_id', user_id)
       } else {
         await supabase.from('subscriptions').insert({
           user_id,
-          status: fields.subscription_status,
+          status: fields.billing_status,
           program: fields.assigned_program ?? null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),

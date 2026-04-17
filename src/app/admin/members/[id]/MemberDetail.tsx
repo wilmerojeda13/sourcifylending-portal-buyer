@@ -11,7 +11,7 @@ import {
 import BillingControlPanel from '@/components/admin/BillingControlPanel'
 import type {
   UserProfile, Task, Document, ActivityLog, ContactNote, Ticket,
-  ProgramId, SubscriptionStatus, ReadinessStatus, TicketStatus, TicketPriority,
+  ProgramId, BillingStatus, FeatureTier, MemberStatus, ReadinessStatus, TicketStatus, TicketPriority,
 } from '@/types'
 import { getProgramShortLabel } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -45,8 +45,8 @@ interface Props {
     industry: string | null
     role: string
     is_default: boolean
-    account_state: string
-    subscription_status: string
+    member_status: string
+    billing_status: string
     assigned_program: string | null
     portal_blocked: boolean
     created_at: string | null
@@ -58,7 +58,7 @@ interface Props {
 type ActiveTab = 'overview' | 'notes' | 'tickets' | 'ai' | 'billing'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const STATUS_OPTIONS: SubscriptionStatus[] = ['active', 'trialing', 'past_due', 'canceled', 'inactive']
+const STATUS_OPTIONS: BillingStatus[] = ['active', 'trialing', 'past_due', 'canceled', 'inactive']
 const PROGRAM_OPTIONS: (ProgramId | '')[] = ['', 'program_a', 'program_b', 'program_c']
 const READINESS_OPTIONS: (ReadinessStatus | '')[] = ['', 'Ready', 'Conditionally Ready', 'Not Ready']
 const TICKET_STATUSES: TicketStatus[] = ['open', 'in_progress', 'resolved', 'closed']
@@ -132,8 +132,8 @@ export default function MemberDetail({
 
   // ── Profile form ──
   const [form, setForm] = useState<{
-    subscription_status: SubscriptionStatus
-    plan_tier: 'free' | 'paid' | null
+    billing_status: BillingStatus
+    feature_tier: 'free' | 'paid' | null
     assigned_program: '' | ProgramId
     current_stage: string
     readiness_status: ReadinessStatus | ''
@@ -141,8 +141,8 @@ export default function MemberDetail({
     admin_notes: string
     portal_blocked: boolean
   }>({
-    subscription_status: profile.subscription_status,
-    plan_tier: profile.plan_tier as 'free' | 'paid' | null,
+    billing_status: profile.billing_status,
+    feature_tier: profile.feature_tier as 'free' | 'paid' | null,
     assigned_program: profile.assigned_program ?? '',
     current_stage: profile.current_stage ?? '',
     readiness_status: profile.readiness_status ?? '',
@@ -255,7 +255,7 @@ export default function MemberDetail({
     business_age:  profile.business_age ?? '',
     entity_type:   profile.entity_type ?? '',
     industry:      profile.industry ?? '',
-    account_state: profile.account_state ?? 'prospect',
+    member_status: profile.member_status ?? 'prospect',
     nsf_flag:      profile.nsf_flag ?? false,
   })
   const [savingInfo, setSavingInfo] = useState(false)
@@ -361,8 +361,8 @@ export default function MemberDetail({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: profile.id,
-          subscription_status: form.subscription_status,
-          plan_tier: form.plan_tier || null,
+          billing_status: form.billing_status,
+          feature_tier: form.feature_tier || null,
           assigned_program: form.assigned_program || null,
           current_stage: form.current_stage || null,
           readiness_status: form.readiness_status || null,
@@ -411,7 +411,7 @@ export default function MemberDetail({
         }),
       })
       if (!res.ok) throw new Error('Failed')
-      setForm((prev) => ({ ...prev, subscription_status: 'canceled' }))
+      setForm((prev) => ({ ...prev, billing_status: 'canceled' }))
       toast.success('Subscription canceled')
     } catch {
       toast.error('Cancellation failed')
@@ -448,7 +448,7 @@ export default function MemberDetail({
       })
       if (!res.ok) throw new Error('Failed')
       setAccessGranted(true)
-      setForm(prev => ({ ...prev, subscription_status: 'active' }))
+      setForm(prev => ({ ...prev, billing_status: 'active' }))
       toast.success('Portal access granted — logged with your admin name and timestamp')
     } catch {
       toast.error('Failed to grant access')
@@ -753,8 +753,8 @@ export default function MemberDetail({
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${statusColors[form.subscription_status] ?? 'bg-gray-100 text-gray-500'}`}>
-              {form.subscription_status}
+            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${statusColors[form.billing_status] ?? 'bg-gray-100 text-gray-500'}`}>
+              {form.billing_status}
             </span>
             {form.portal_blocked && (
               <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 flex items-center gap-1">
@@ -905,8 +905,8 @@ export default function MemberDetail({
                       </div>
                     </div>
                     <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Account State</div>
-                      <div className="mt-1 text-gray-900 font-medium">{infoForm.account_state.replace(/_/g, ' ')}</div>
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Member Status</div>
+                      <div className="mt-1 text-gray-900 font-medium">{infoForm.member_status.replace(/_/g, ' ')}</div>
                     </div>
                     <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
                       <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Acquisition</div>
@@ -943,7 +943,7 @@ export default function MemberDetail({
                   <h2 className="font-bold text-gray-900 mb-4">Profile & Subscription</h2>
 
                   {/* Downgraded User Info Banner */}
-                  {form.plan_tier === 'free' && (form.subscription_status === 'canceled' || form.subscription_status === 'past_due' || form.subscription_status === 'inactive') && (
+                  {form.feature_tier === 'free' && (form.billing_status === 'canceled' || form.billing_status === 'past_due' || form.billing_status === 'inactive') && (
                     <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
                       <div className="flex items-start gap-3">
                         <CheckCircle size={18} className="text-amber-700 mt-0.5 flex-shrink-0" />
@@ -962,10 +962,10 @@ export default function MemberDetail({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Subscription Status</label>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Billing Status</label>
                       <select
-                        value={form.subscription_status}
-                        onChange={(e) => setForm((p) => ({ ...p, subscription_status: e.target.value as SubscriptionStatus }))}
+                        value={form.billing_status}
+                        onChange={(e) => setForm((p) => ({ ...p, billing_status: e.target.value as BillingStatus }))}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                       >
                         {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -973,10 +973,10 @@ export default function MemberDetail({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Plan Tier</label>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Feature Tier</label>
                       <select
-                        value={form.plan_tier ?? ''}
-                        onChange={(e) => setForm((p) => ({ ...p, plan_tier: e.target.value === '' ? null : (e.target.value as 'free' | 'paid') }))}
+                        value={form.feature_tier ?? ''}
+                        onChange={(e) => setForm((p) => ({ ...p, feature_tier: e.target.value === '' ? null : (e.target.value as 'free' | 'paid') }))}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                       >
                         <option value="">Unset</option>
@@ -1079,7 +1079,7 @@ export default function MemberDetail({
                       {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                       Save Changes
                     </button>
-                    {subscription?.stripe_subscription_id && form.subscription_status !== 'canceled' && (
+                    {subscription?.stripe_subscription_id && form.billing_status !== 'canceled' && (
                       <button
                         onClick={cancelSubscription}
                         disabled={canceling}
@@ -1173,10 +1173,10 @@ export default function MemberDetail({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Account State</label>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Member Status</label>
                       <select
-                        value={infoForm.account_state}
-                        onChange={(e) => setInfoForm((p) => ({ ...p, account_state: e.target.value as UserProfile['account_state'] }))}
+                        value={infoForm.member_status}
+                        onChange={(e) => setInfoForm((p) => ({ ...p, member_status: e.target.value as UserProfile['member_status'] }))}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                       >
                         <option value="prospect">Prospect</option>
@@ -1849,7 +1849,7 @@ export default function MemberDetail({
                           <p className="truncate text-sm font-semibold text-gray-900">{business.label}</p>
                           <div className="mt-1 space-y-1 text-[11px] text-gray-500">
                             <p>
-                              {business.role} · {business.account_state.replace('_', ' ')} · subscription {business.subscription_status}
+                              {business.role} · {business.member_status.replace('_', ' ')} · billing {business.billing_status}
                             </p>
                             <p>
                               Status: {business.business_status} · Program: {business.assigned_program ? getProgramShortLabel(business.assigned_program as ProgramId) : 'None selected'}
@@ -1884,7 +1884,7 @@ export default function MemberDetail({
                         </div>
                       </div>
                       <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400">
-                        <span>{business.subscription_status === 'active' || business.subscription_status === 'trialing' ? 'Paid business' : 'Unpaid business'}</span>
+                        <span>{business.billing_status === 'active' || business.billing_status === 'trialing' ? 'Paid business' : 'Unpaid business'}</span>
                         <span className="font-medium text-green-700">Open business record →</span>
                       </div>
                     </Link>

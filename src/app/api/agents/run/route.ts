@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     const supabase = await createServiceClient()
     const { data: profile } = await supabase
       .from('profiles')
-      .select('is_admin, account_state, is_demo, assigned_program')
+      .select('is_admin, member_status, is_demo, assigned_program')
       .eq('id', user.id)
       .single()
 

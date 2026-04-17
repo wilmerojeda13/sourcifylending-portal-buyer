@@ -44,7 +44,7 @@ export default async function AdminHubPage() {
   const [{ data: profiles }, { data: recentActivity }, { count: unreadNotifCount }, { data: businessMemberships }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, email, business_name, subscription_status, assigned_program, portal_blocked, created_at')
+      .select('id, full_name, email, business_name, billing_status, assigned_program, portal_blocked, created_at')
       .order('created_at', { ascending: false }),
     supabase
       .from('activity_logs')
@@ -65,10 +65,10 @@ export default async function AdminHubPage() {
 
   const stats = {
     total: all.length,
-    active: all.filter((p) => p.subscription_status === 'active').length,
-    trialing: all.filter((p) => p.subscription_status === 'trialing').length,
-    inactive: all.filter((p) => p.subscription_status === 'inactive').length,
-    canceled: all.filter((p) => p.subscription_status === 'canceled').length,
+    active: all.filter((p) => p.billing_status === 'active').length,
+    trialing: all.filter((p) => p.billing_status === 'trialing').length,
+    inactive: all.filter((p) => p.billing_status === 'inactive').length,
+    canceled: all.filter((p) => p.billing_status === 'canceled').length,
     blocked: all.filter((p) => p.portal_blocked).length,
     program_a: all.filter((p) => p.assigned_program === 'program_a').length,
     program_b: all.filter((p) => p.assigned_program === 'program_b').length,
@@ -339,12 +339,12 @@ export default async function AdminHubPage() {
                     </span>
                   )}
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
-                    p.subscription_status === 'active' ? 'bg-green-100 text-green-700' :
-                    p.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-700' :
-                    p.subscription_status === 'canceled' ? 'bg-red-100 text-red-600' :
+                    p.billing_status === 'active' ? 'bg-green-100 text-green-700' :
+                    p.billing_status === 'trialing' ? 'bg-blue-100 text-blue-700' :
+                    p.billing_status === 'canceled' ? 'bg-red-100 text-red-600' :
                     'bg-gray-100 text-gray-500'
                   }`}>
-                    {p.subscription_status}
+                    {p.billing_status}
                   </span>
                   <span className="text-xs text-gray-400">
                     {new Date(p.created_at).toLocaleDateString()}

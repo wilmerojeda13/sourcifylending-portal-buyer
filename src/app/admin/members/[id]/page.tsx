@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import MemberDetail from './MemberDetail'
 import Link from 'next/link'
-import type { AccountState, ProgramId, ReadinessStatus, SubscriptionStatus, UserProfile } from '@/types'
+import type { BillingStatus, FeatureTier, MemberStatus, ProgramId, ReadinessStatus, UserProfile } from '@/types'
 
 type ManagedBusinessRecord = {
   id: string
@@ -11,8 +11,8 @@ type ManagedBusinessRecord = {
   entity_type: string | null
   industry: string | null
   assigned_program: string | null
-  subscription_status: string | null
-  account_state: string | null
+  billing_status: string | null
+  member_status: string | null
   portal_blocked: boolean | null
   created_at: string | null
 }
@@ -45,8 +45,8 @@ function normalizeMemberProfile(profile: Record<string, unknown>): UserProfile &
     current_stage: typeof profile.current_stage === 'string' ? profile.current_stage : null,
     next_task_id: typeof profile.next_task_id === 'string' ? profile.next_task_id : null,
     progress_percentage: typeof profile.progress_percentage === 'number' ? profile.progress_percentage : 0,
-    subscription_status: (typeof profile.subscription_status === 'string' ? profile.subscription_status : 'inactive') as SubscriptionStatus,
-    plan_tier: (typeof profile.plan_tier === 'string' && (profile.plan_tier === 'free' || profile.plan_tier === 'paid') ? profile.plan_tier : 'free') as any,
+    billing_status: (typeof profile.billing_status === 'string' ? profile.billing_status : 'inactive') as BillingStatus,
+    feature_tier: (typeof profile.feature_tier === 'string' && (profile.feature_tier === 'free' || profile.feature_tier === 'paid') ? profile.feature_tier : 'free') as FeatureTier,
     portal_blocked: Boolean(profile.portal_blocked),
     is_demo: Boolean(profile.is_demo),
     is_admin: Boolean(profile.is_admin),
@@ -57,7 +57,7 @@ function normalizeMemberProfile(profile: Record<string, unknown>): UserProfile &
     ai_custom_daily_cap: typeof profile.ai_custom_daily_cap === 'number' ? profile.ai_custom_daily_cap : null,
     ai_custom_heavy_limit: typeof profile.ai_custom_heavy_limit === 'number' ? profile.ai_custom_heavy_limit : null,
     ai_access_notes: typeof profile.ai_access_notes === 'string' ? profile.ai_access_notes : null,
-    account_state: (typeof profile.account_state === 'string' ? profile.account_state : 'prospect') as AccountState,
+    member_status: (typeof profile.member_status === 'string' ? profile.member_status : 'prospect') as MemberStatus,
     lead_id: typeof profile.lead_id === 'string' ? profile.lead_id : null,
     latest_analyzer_result: profile.latest_analyzer_result && typeof profile.latest_analyzer_result === 'object' ? profile.latest_analyzer_result as UserProfile['latest_analyzer_result'] : null,
     analyzed_at: typeof profile.analyzed_at === 'string' ? profile.analyzed_at : null,
@@ -143,8 +143,8 @@ export default async function AdminMemberDetailPage({ params }: { params: Promis
         entity_type,
         industry,
         assigned_program,
-        subscription_status,
-        account_state,
+        billing_status,
+        member_status,
         portal_blocked,
         created_at
       )
@@ -200,16 +200,16 @@ export default async function AdminMemberDetailPage({ params }: { params: Promis
       industry: record.industry?.trim() || null,
       role: membership.role as string,
       is_default: Boolean(membership.is_default),
-      account_state: record.account_state ?? 'prospect',
-      subscription_status: record.subscription_status ?? 'inactive',
+      member_status: record.member_status ?? 'prospect',
+      billing_status: record.billing_status ?? 'inactive',
       assigned_program: record.assigned_program,
       portal_blocked: Boolean(record.portal_blocked),
       created_at: record.created_at,
       is_current: record.id === id,
       business_status: (
-        (record.subscription_status === 'active' || record.subscription_status === 'trialing')
+        (record.billing_status === 'active' || record.billing_status === 'trialing')
           ? 'active'
-          : record.account_state === 'active_member'
+          : record.member_status === 'active_member'
             ? 'inactive'
             : 'pending'
       ) as 'active' | 'inactive' | 'pending',

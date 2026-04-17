@@ -13,7 +13,7 @@ export default async function UnderwritingPage() {
 
   // ── Access rules ──────────────────────────────────────────────────────────
   // Prospects have no underwriting
-  if (!profile || profile.account_state === 'prospect') redirect('/dashboard')
+  if (!profile || profile.member_status === 'prospect') redirect('/dashboard')
 
   // Program C skips underwriting
   if (profile.assigned_program === 'program_c') redirect('/dashboard')

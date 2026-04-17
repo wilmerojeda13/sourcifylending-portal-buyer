@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     // Get profile to know the program
     const { data: profile } = await supabase
       .from('profiles')
-      .select('assigned_program, plan_tier')
+      .select('assigned_program, feature_tier')
       .eq('id', user_id)
       .single()
 
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     // Update profile subscription_status
     const profileUpdate = {
       subscription_status: newSubStatus,
-      plan_tier: deactivate ? (profile?.plan_tier ?? 'free') : 'paid',
+      plan_tier: deactivate ? (profile?.feature_tier ?? 'free') : 'paid',
       updated_at: new Date().toISOString(),
     }
 

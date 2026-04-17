@@ -27,7 +27,7 @@ export default async function TrainingPage() {
       portalBlocked={profile?.portal_blocked ?? false}
       isDemo={profile?.is_demo ?? false}
       isAdmin={profile?.is_admin ?? false}
-      accountState={profile?.account_state ?? 'active_member'}
+      accountState={profile?.member_status ?? 'active_member'}
       allPrograms={activePrograms}
     >
       <TrainingClient

@@ -34,11 +34,11 @@ export async function POST(req: NextRequest) {
     // Guard: prevent granting paid access to free plan users
     const { data: targetUser } = await serviceClient
       .from('profiles')
-      .select('plan_tier, full_name')
+      .select('feature_tier, full_name')
       .eq('id', userId)
       .single()
 
-    if (targetUser?.plan_tier === 'free') {
+    if (targetUser?.feature_tier === 'free') {
       return NextResponse.json(
         { error: 'Cannot grant paid access to free plan users. Upgrade user to paid plan first.' },
         { status: 403 }

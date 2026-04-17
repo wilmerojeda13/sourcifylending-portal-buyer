@@ -27,9 +27,9 @@ export default function BusinessManagementCard() {
 
   const currentBusiness = businesses.find((business) => business.id === activeBusinessId) ?? null
   const currentBusinessStatusLabel = currentBusiness
-    ? currentBusiness.plan_tier === 'free'
+    ? currentBusiness.feature_tier === 'free'
       ? 'Free Plan Active'
-      : currentBusiness.subscription_status === 'active' || currentBusiness.subscription_status === 'trialing'
+      : currentBusiness.billing_status === 'active' || currentBusiness.billing_status === 'trialing'
         ? 'Active'
         : 'Subscription Required'
     : 'Pending'
@@ -51,7 +51,7 @@ export default function BusinessManagementCard() {
         body: JSON.stringify({ business_id: businessId }),
       })
       await refreshBusinesses()
-      if (targetBusiness && targetBusiness.plan_tier !== 'free' && !['active', 'trialing'].includes(targetBusiness.subscription_status)) {
+      if (targetBusiness && targetBusiness.feature_tier !== 'free' && !['active', 'trialing'].includes(targetBusiness.billing_status)) {
         router.push('/billing?subscription_required=1')
       } else {
         router.refresh()
@@ -145,9 +145,9 @@ export default function BusinessManagementCard() {
             {businesses.map((business: AccessibleBusiness) => (
               <option key={business.id} value={business.id}>
                 {business.label}
-                {business.plan_tier === 'free'
+                {business.feature_tier === 'free'
                   ? ' — Free Plan Active'
-                  : !['active', 'trialing'].includes(business.subscription_status)
+                  : !['active', 'trialing'].includes(business.billing_status)
                     ? ' — Subscription Required'
                     : ''}
               </option>

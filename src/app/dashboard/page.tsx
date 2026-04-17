@@ -35,11 +35,11 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
   } = await requirePortalPageContext(nextPath)
 
   // ── Prospect path or free user path ──────────────────────────────────────
-  if (profile?.account_state === 'prospect' || profile?.plan_tier === 'free') {
+  if (profile?.member_status === 'prospect' || profile?.feature_tier === 'free') {
     return (
         <PortalLayout
         userName={profile.full_name || authUser.email || 'Client'}
-        programLabel={profile?.plan_tier === 'free' ? 'Free Plan' : 'Free Prospect Account'}
+        programLabel={profile?.feature_tier === 'free' ? 'Free Plan' : 'Free Prospect Account'}
         notificationCount={notificationCount}
         assignedProgram={profile.assigned_program}
         portalBlocked={profile.portal_blocked}
@@ -47,8 +47,8 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
         isAdmin={profile.is_admin}
         accountState="prospect"
         allPrograms={portalPrograms}
-        planTier={profile?.plan_tier}
-        subscriptionStatus={profile?.subscription_status}
+        planTier={profile?.feature_tier}
+        subscriptionStatus={profile?.billing_status}
       >
         <ProspectDashboard profile={profile as UserProfile} />
       </PortalLayout>
@@ -59,7 +59,7 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
   const uwNextDue = profile?.underwriting_next_due_at
   const needsUnderwriting =
     !profile?.is_demo &&
-    profile?.account_state === 'active_member' &&
+    profile?.member_status === 'active_member' &&
     (profile?.assigned_program === 'program_a' || profile?.assigned_program === 'program_b') &&
     (!uwNextDue || new Date(uwNextDue) < new Date())
 
@@ -76,8 +76,8 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
         accountState="active_member"
         demoSecondaryProgram={(profile as any)?.demo_secondary_program ?? null}
         allPrograms={portalPrograms}
-        planTier={profile?.plan_tier}
-        subscriptionStatus={profile?.subscription_status}
+        planTier={profile?.feature_tier}
+        subscriptionStatus={profile?.billing_status}
       >
         <UnderwritingGateBanner
           program={profile?.assigned_program ?? 'program_b'}
@@ -113,7 +113,7 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
   const memberPrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   // Normalize account state from plan_tier, subscription_status, and account_state
-  const entitlements = getAccountEntitlements(profile?.plan_tier, profile?.subscription_status, profile?.account_state)
+  const entitlements = getAccountEntitlements(profile?.feature_tier, profile?.billing_status, profile?.member_status)
   const isFreeUser = entitlements.access_state === 'free_active'
   const isActive = entitlements.access_state === 'free_active' || entitlements.access_state === 'paid_active'
   const isPaidAndInactive = entitlements.access_state === 'paid_inactive'
@@ -214,7 +214,7 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
   // ── Welcome Gate — show once to all non-demo active members who haven't signed ─
   const needsWelcomeGate =
     !profile?.is_demo &&
-    profile?.account_state === 'active_member' &&
+    profile?.member_status === 'active_member' &&
     !(profile as any)?.welcome_agreement_signed_at
 
   return (
@@ -230,8 +230,8 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
       uwNextDueAt={profile?.underwriting_next_due_at ?? null}
       demoSecondaryProgram={(profile as any)?.demo_secondary_program ?? null}
       allPrograms={memberPrograms}
-      planTier={profile?.plan_tier}
-      subscriptionStatus={profile?.subscription_status}
+      planTier={profile?.feature_tier}
+      subscriptionStatus={profile?.billing_status}
     >
       {/* Welcome Gate — first-login service agreement (chargeback protection) */}
       {needsWelcomeGate && (
@@ -460,14 +460,14 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
           <div className="card">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Subscription</p>
             <div className="flex items-center gap-2 mb-2">
-              <StatusBadge status={isFreeUser ? 'free_active' : (profile?.subscription_status || 'inactive')} />
+              <StatusBadge status={isFreeUser ? 'free_active' : (profile?.billing_status || 'inactive')} />
             </div>
             <p className="text-xs text-gray-400">
               {isFreeUser
                 ? 'Free access active'
-                : profile?.subscription_status === 'active'
+                : profile?.billing_status === 'active'
                 ? 'Full access active'
-                : profile?.subscription_status === 'trialing'
+                : profile?.billing_status === 'trialing'
                 ? 'Trial period active'
                 : 'Limited access'}
             </p>
@@ -477,7 +477,7 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
               </Link>
             ) : !isActive && (
               <Link href="/billing" className="mt-3 btn-primary text-xs w-full py-2.5">
-                {profile?.subscription_status === 'canceled' ? 'Reactivate' : 'Subscribe Now'}
+                {profile?.billing_status === 'canceled' ? 'Reactivate' : 'Subscribe Now'}
               </Link>
             )}
           </div>

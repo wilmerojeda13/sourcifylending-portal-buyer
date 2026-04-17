@@ -20,8 +20,8 @@ export default async function CreditOptimizationPage() {
   }
 
   const isActive =
-    profile?.subscription_status === 'active' ||
-    profile?.subscription_status === 'trialing'
+    profile?.billing_status === 'active' ||
+    profile?.billing_status === 'trialing'
 
   const nextTask = tasks?.find((t) => t.status === 'pending') ?? null
 

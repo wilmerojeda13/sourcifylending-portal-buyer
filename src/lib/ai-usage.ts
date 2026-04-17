@@ -98,7 +98,7 @@ export async function checkAIUsage(
     const { data: profile } = await supabase
       .from('profiles')
       .select(
-        'assigned_program, ai_suspended, ai_custom_monthly_credits, ai_custom_daily_cap, ai_custom_heavy_limit, subscription_status'
+        'assigned_program, ai_suspended, ai_custom_monthly_credits, ai_custom_daily_cap, ai_custom_heavy_limit, billing_status'
       )
       .eq('id', userId)
       .single()
@@ -263,8 +263,8 @@ export async function checkAIUsage(
     // ── 8. Monthly credits exhausted or daily/heavy cap hit — try purchased ──
     // Load the oldest active purchased credit bucket with enough remaining credits.
     const isActiveMember =
-      profile.subscription_status === 'active' ||
-      profile.subscription_status === 'trialing'
+      profile.billing_status === 'active' ||
+      profile.billing_status === 'trialing'
 
     if (isActiveMember) {
       const { data: purchasedBuckets } = await supabase

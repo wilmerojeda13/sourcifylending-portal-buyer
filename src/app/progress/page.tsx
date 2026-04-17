@@ -74,7 +74,7 @@ function ProgressPage() {
       const uwNextDue = p?.underwriting_next_due_at
       const needsUW =
         !p?.is_demo &&
-        p?.account_state === 'active_member' &&
+        p?.member_status === 'active_member' &&
         (p?.assigned_program === 'program_a' || p?.assigned_program === 'program_b') &&
         (!uwNextDue || new Date(uwNextDue) < new Date())
       if (needsUW) {

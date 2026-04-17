@@ -21,7 +21,7 @@ export async function GET(
 
     const [profileRes, subRes, arrangementRes, recordsRes] = await Promise.all([
       supabase.from('profiles')
-        .select('id, full_name, email, assigned_program, subscription_status, account_state')
+        .select('id, full_name, email, assigned_program, billing_status, member_status')
         .eq('id', userId).single(),
       supabase.from('subscriptions')
         .select('*')

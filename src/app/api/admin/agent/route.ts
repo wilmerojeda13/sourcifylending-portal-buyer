@@ -321,7 +321,7 @@ async function executeTool(
     if (name === 'search_members') {
       let query = supabase
         .from('profiles')
-        .select('id, full_name, email, business_name, assigned_program, subscription_status, current_stage, created_at')
+        .select('id, full_name, email, business_name, assigned_program, billing_status, current_stage, created_at')
         .eq('is_admin', false)
 
       if (input.program) query = query.eq('assigned_program', input.program)
@@ -587,7 +587,7 @@ async function executeTool(
       try {
         const [profilesResult, tasksResult, activityResult] = await Promise.all([
           supabase.from('profiles')
-            .select('id, full_name, subscription_status, current_stage, progress_percentage, portal_blocked, created_at')
+            .select('id, full_name, billing_status, current_stage, progress_percentage, portal_blocked, created_at')
             .eq('is_admin', false)
             .eq('is_demo', false),
           supabase.from('tasks').select('user_id, status'),
@@ -621,7 +621,7 @@ async function executeTool(
         let atRisk = 0, needsAttention = 0, good = 0
 
         for (const p of profiles) {
-          const isActive = ['active','trialing'].includes(p.subscription_status ?? '')
+          const isActive = ['active','trialing'].includes(p.billing_status ?? '')
           const lastActivity = activityMap.get(p.id)
           const lastMs = lastActivity ? new Date(lastActivity).getTime() : null
           const daysSince = lastMs ? (now - lastMs) / DAY_MS : null
@@ -641,7 +641,7 @@ async function executeTool(
         const completedTasks = tasks.filter(t => t.status === 'completed').length
         const completionRate = totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : '0.0'
 
-        const activeMembers = profiles.filter(p => ['active','trialing'].includes(p.subscription_status ?? '')).length
+        const activeMembers = profiles.filter(p => ['active','trialing'].includes(p.billing_status ?? '')).length
         const blockedCount  = profiles.filter(p => p.portal_blocked).length
 
         return JSON.stringify({
@@ -682,7 +682,7 @@ export async function POST(req: NextRequest) {
       if (context_type === 'member') {
         const { data: m } = await supabase
           .from('profiles')
-          .select('id, full_name, email, business_name, assigned_program, subscription_status, current_stage, admin_notes, readiness_status, uw_risk_score, uw_approval_likelihood, underwriting_completed_at, underwriting_next_due_at, portal_blocked, created_at')
+          .select('id, full_name, email, business_name, assigned_program, billing_status, current_stage, admin_notes, readiness_status, uw_risk_score, uw_approval_likelihood, underwriting_completed_at, underwriting_next_due_at, portal_blocked, created_at')
           .eq('id', context_id)
           .single()
         if (m) {
@@ -693,7 +693,7 @@ ID: ${m.id}
 Email: ${m.email ?? 'N/A'}
 Business: ${m.business_name ?? 'N/A'}
 Program: ${m.assigned_program ?? 'None'}
-Status: ${m.subscription_status ?? 'N/A'}
+Status: ${m.billing_status ?? 'N/A'}
 Stage: ${m.current_stage ?? 'N/A'}
 Readiness: ${m.readiness_status ?? 'N/A'}
 Risk Score: ${m.uw_risk_score ?? 'N/A'}
@@ -789,7 +789,7 @@ Created: ${vc.created_at ? new Date(vc.created_at).toLocaleDateString() : 'N/A'}
   // ─── Load live context snapshot ───────────────────────────────────────────
   const [leadsResult, membersResult, followUpsResult, supportResult, subsResult, affiliatesResult] = await Promise.all([
     supabase.from('crm_leads').select('stage, do_not_call, follow_up_at').eq('is_archived', false),
-    supabase.from('profiles').select('subscription_status, assigned_program').eq('is_admin', false),
+    supabase.from('profiles').select('billing_status, assigned_program').eq('is_admin', false),
     supabase.from('crm_leads').select('first_name, last_name, phone, follow_up_at, stage')
       .eq('is_archived', false).eq('do_not_call', false)
       .lte('follow_up_at', new Date().toISOString()).not('follow_up_at', 'is', null)
@@ -807,7 +807,7 @@ Created: ${vc.created_at ? new Date(vc.created_at).toLocaleDateString() : 'N/A'}
   const affiliates  = affiliatesResult.data ?? []
 
   const stageCount  = leads.reduce<Record<string, number>>((a, l) => { a[l.stage]=(a[l.stage]??0)+1; return a }, {})
-  const activeCount = members.filter(m => m.subscription_status === 'active' || m.subscription_status === 'trialing').length
+  const activeCount = members.filter(m => m.billing_status === 'active' || m.billing_status === 'trialing').length
   const pastDueCount = subs.filter(s => s.billing_status === 'past_due').length
   const activeSubCount = subs.filter(s => s.access_status === 'active').length
   const activeAffCount = affiliates.filter(a => a.status === 'active').length

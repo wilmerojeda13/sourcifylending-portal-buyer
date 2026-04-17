@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import type { ProgramId, SubscriptionStatus } from '@/types'
+import type { ProgramId, BillingStatus } from '@/types'
 import { Loader2, Plus, X } from 'lucide-react'
 
 interface MemberRow {
@@ -11,12 +11,12 @@ interface MemberRow {
   email: string
   business_name: string | null
   business_count: number
-  plan_tier: string
-  subscription_status: string
+  feature_tier: string
+  billing_status: string
   assigned_program: ProgramId | null
   active_programs: string[]
   current_stage: string | null
-  account_state: string
+  member_status: string
   portal_blocked: boolean
   suspicious_signup: boolean
   suspicious_signup_reason: string | null
@@ -29,7 +29,7 @@ interface MemberRow {
   current_period_end: string | null
 }
 
-const STATUS_OPTIONS: SubscriptionStatus[] = ['active', 'trialing', 'past_due', 'canceled', 'inactive']
+const STATUS_OPTIONS: BillingStatus[] = ['active', 'trialing', 'past_due', 'canceled', 'inactive']
 
 const STATUS_DOT: Record<string, string> = {
   active: 'bg-green-500',
@@ -61,7 +61,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
 
   // Create user modal
   const [showCreate, setShowCreate] = useState(false)
-  const [createForm, setCreateForm] = useState<{ full_name: string; email: string; assigned_program: string; plan_tier: 'free' | 'paid'; subscription_status: string }>({ full_name: '', email: '', assigned_program: '', plan_tier: 'free', subscription_status: 'inactive' })
+  const [createForm, setCreateForm] = useState<{ full_name: string; email: string; assigned_program: string; feature_tier: 'free' | 'paid'; billing_status: string }>({ full_name: '', email: '', assigned_program: '', feature_tier: 'free', billing_status: 'inactive' })
   const [creating, setCreating] = useState(false)
   const [createResult, setCreateResult] = useState<{ temp_password: string } | null>(null)
   const [createError, setCreateError] = useState('')
@@ -78,8 +78,8 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
           full_name: createForm.full_name,
           email: createForm.email,
           assigned_program: createForm.assigned_program || null,
-          plan_tier: createForm.plan_tier,
-          subscription_status: createForm.subscription_status,
+          feature_tier: createForm.feature_tier,
+          billing_status: createForm.billing_status,
         }),
       })
       const data = await res.json()
@@ -92,9 +92,9 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
           email: createForm.email,
           business_name: null,
           business_count: 1,
-          plan_tier: 'free',
-          account_state: 'prospect',
-          subscription_status: createForm.subscription_status,
+          feature_tier: 'free',
+          member_status: 'prospect',
+          billing_status: createForm.billing_status,
           assigned_program: (createForm.assigned_program as ProgramId) || null,
           active_programs: [],
           current_stage: null,
@@ -120,7 +120,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
 
   function closeCreateModal() {
     setShowCreate(false)
-    setCreateForm({ full_name: '', email: '', assigned_program: '', plan_tier: 'free', subscription_status: 'inactive' })
+    setCreateForm({ full_name: '', email: '', assigned_program: '', feature_tier: 'free', billing_status: 'inactive' })
     setCreateResult(null)
     setCreateError('')
   }
@@ -128,7 +128,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
   const filtered = rows.filter((m) => {
     const q = search.toLowerCase()
     const matchSearch = !q || m.full_name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q) || (m.business_name ?? '').toLowerCase().includes(q)
-    const matchStatus = !filterStatus || m.subscription_status === filterStatus
+    const matchStatus = !filterStatus || m.billing_status === filterStatus
     const matchRisk =
       !filterRisk ||
       (filterRisk === 'suspicious' && m.suspicious_signup) ||
@@ -201,10 +201,10 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 block mb-1">Plan Tier</label>
+                  <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 block mb-1">Feature Tier</label>
                   <select
-                    value={createForm.plan_tier}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, plan_tier: e.target.value as 'free' | 'paid' }))}
+                    value={createForm.feature_tier}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, feature_tier: e.target.value as 'free' | 'paid' }))}
                     className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-400"
                   >
                     <option value="free">Free</option>
@@ -212,10 +212,10 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 block mb-1">Subscription Status</label>
+                  <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 block mb-1">Billing Status</label>
                   <select
-                    value={createForm.subscription_status}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, subscription_status: e.target.value }))}
+                    value={createForm.billing_status}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, billing_status: e.target.value }))}
                     className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-400"
                   >
                     {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -287,7 +287,7 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
             className="group block rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 transition-colors hover:border-green-300 hover:bg-green-50/30 dark:hover:border-green-700 dark:hover:bg-green-950/20 focus:outline-none focus:ring-2 focus:ring-green-500"
           >
             <div className="flex items-start gap-3">
-              <div className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[m.subscription_status] ?? 'bg-gray-400'}`} />
+              <div className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[m.billing_status] ?? 'bg-gray-400'}`} />
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -308,11 +308,11 @@ export default function MembersTable({ members }: { members: MemberRow[] }) {
               </div>
 
               <div className="mt-2 flex shrink-0 flex-wrap items-center gap-1.5 sm:mt-0 sm:justify-end">
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${PLAN_BADGE[m.plan_tier] ?? PLAN_BADGE.unset}`}>
-                  {m.plan_tier === 'paid' ? 'Paid' : m.plan_tier === 'free' ? 'Free' : 'Unset'}
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${PLAN_BADGE[m.feature_tier] ?? PLAN_BADGE.unset}`}>
+                  {m.feature_tier === 'paid' ? 'Paid' : m.feature_tier === 'free' ? 'Free' : 'Unset'}
                 </span>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_BADGE[m.subscription_status] ?? STATUS_BADGE.inactive}`}>
-                  {m.subscription_status === 'active' || m.subscription_status === 'trialing' ? 'Active' : m.subscription_status === 'past_due' ? 'Past due' : m.subscription_status === 'canceled' ? 'Canceled' : 'Inactive'}
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_BADGE[m.billing_status] ?? STATUS_BADGE.inactive}`}>
+                  {m.billing_status === 'active' || m.billing_status === 'trialing' ? 'Active' : m.billing_status === 'past_due' ? 'Past due' : m.billing_status === 'canceled' ? 'Canceled' : 'Inactive'}
                 </span>
                 {m.portal_blocked && (
                   <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-300">

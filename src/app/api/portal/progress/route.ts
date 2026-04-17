@@ -21,7 +21,7 @@ export async function GET() {
 
   const membershipPrograms = (membershipsResult?.data ?? []).map((membership: { program_code: string }) => membership.program_code).filter(Boolean)
   const activePrograms = membershipPrograms.length > 0 ? membershipPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
-  const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+  const isActive = profile?.billing_status === 'active' || profile?.billing_status === 'trialing'
 
   return NextResponse.json({
     profile,

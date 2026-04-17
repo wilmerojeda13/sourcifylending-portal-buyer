@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
       opportunities = opps ?? []
     }
 
-    const isActive = profile?.subscription_status === 'active' || profile?.subscription_status === 'trialing'
+    const isActive = profile?.billing_status === 'active' || profile?.billing_status === 'trialing'
 
     // Compute total approved funding
     const CREDIT_ACCOUNT_TYPES = ['0% APR Card', 'Business Credit Card', 'Vendor Account', 'Store Account', 'Fleet Account', 'Line of Credit']

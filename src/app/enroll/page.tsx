@@ -174,7 +174,7 @@ export default function EnrollPage() {
     ? `$${pricing.setupFeeCents / 100} setup + $${pricing.monthlyFeeCents / 100}/month`
     : `$${pricing.monthlyFeeCents / 100}/month`
   const agreementText = buildAgreementText(acquisitionPath, program)
-  const isActive = profile.subscription_status === 'active' || profile.subscription_status === 'trialing'
+  const isActive = profile.billing_status === 'active' || profile.billing_status === 'trialing'
 
   if (isActive) {
     return (

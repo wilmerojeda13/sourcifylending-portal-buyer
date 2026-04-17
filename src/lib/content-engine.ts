@@ -2137,7 +2137,7 @@ export async function refreshDerivedContentAttribution() {
       ? supabase.from('crm_leads').select('id, strategy_call_booked, converted_to_client').in('id', leadIds)
       : Promise.resolve({ data: [], error: null }),
     userIds.length > 0
-      ? supabase.from('profiles').select('id, subscription_status').in('id', userIds)
+      ? supabase.from('profiles').select('id, billing_status').in('id', userIds)
       : Promise.resolve({ data: [], error: null }),
     partnerApplicationIds.length > 0
       ? supabase.from('affiliate_applications').select('id, email, status').in('id', partnerApplicationIds)
@@ -2154,7 +2154,7 @@ export async function refreshDerivedContentAttribution() {
 
   const bookedLeadIds = new Set((crmLeadsRes.data ?? []).filter((lead) => lead.strategy_call_booked).map((lead) => lead.id))
   const paidLeadIds = new Set((crmLeadsRes.data ?? []).filter((lead) => lead.converted_to_client).map((lead) => lead.id))
-  const paidSignupUserIds = new Set((profilesRes.data ?? []).filter((profile) => ['active', 'trialing'].includes(profile.subscription_status || '')).map((profile) => profile.id))
+  const paidSignupUserIds = new Set((profilesRes.data ?? []).filter((profile) => ['active', 'trialing'].includes(profile.billing_status || '')).map((profile) => profile.id))
   const affiliateIdByEmail = new Map(
     ((affiliatesRes.data ?? []) as AffiliateRow[])
       .filter((row) => row.email)
@@ -2200,7 +2200,7 @@ export async function refreshDerivedContentAttribution() {
         page_id: event.page_id,
         event_type: 'paid_client',
         related_record_id: event.related_record_id,
-        metadata: { derived_from: 'profiles.subscription_status' },
+        metadata: { derived_from: 'profiles.billing_status' },
         occurred_at: new Date().toISOString(),
       }, { onConflict: 'page_id,event_type,related_record_id' }).then(() => {})
       paidClients += 1

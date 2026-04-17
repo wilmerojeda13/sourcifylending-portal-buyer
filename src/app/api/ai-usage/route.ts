@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     // Get profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('assigned_program, ai_suspended, ai_custom_monthly_credits, ai_custom_daily_cap, ai_custom_heavy_limit, subscription_status')
+      .select('assigned_program, ai_suspended, ai_custom_monthly_credits, ai_custom_daily_cap, ai_custom_heavy_limit, billing_status')
       .eq('id', user.id)
       .single()
 
@@ -64,8 +64,8 @@ export async function GET(req: NextRequest) {
 
     // Available credit packs (for buy-more CTA)
     const isActive =
-      profile?.subscription_status === 'active' ||
-      profile?.subscription_status === 'trialing'
+      profile?.billing_status === 'active' ||
+      profile?.billing_status === 'trialing'
 
     let creditPacks: unknown[] = []
     if (isActive) {
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
       profile: {
         assigned_program: profile?.assigned_program,
         ai_suspended: profile?.ai_suspended,
-        subscription_status: profile?.subscription_status,
+        subscription_status: profile?.billing_status,
       },
       balance,
       program_limits: programLimits,

@@ -37,7 +37,7 @@ export default async function AdminOperationsPage() {
   const [profilesRes, tasksRes, activityRes, fundingRes, assignmentsRes, businessMembershipsRes] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, email, business_name, subscription_status, assigned_program, current_stage, progress_percentage, portal_blocked, is_demo, created_at')
+      .select('id, full_name, email, business_name, billing_status, assigned_program, current_stage, progress_percentage, portal_blocked, is_demo, created_at')
       .order('created_at', { ascending: false }),
     supabase.from('tasks').select('user_id, status'),
     supabase
@@ -104,7 +104,7 @@ export default async function AdminOperationsPage() {
     const joinedMs = new Date(p.created_at).getTime()
     const daysSinceJoined = (now - joinedMs) / DAY_MS
 
-    const isActiveSubscription = ['active', 'trialing'].includes(p.subscription_status ?? '')
+    const isActiveSubscription = ['active', 'trialing'].includes(p.billing_status ?? '')
 
     let health_status: 'good' | 'needs_attention' | 'at_risk' = 'good'
     if (
@@ -124,7 +124,7 @@ export default async function AdminOperationsPage() {
       full_name: p.full_name ?? '',
       email: p.email ?? '',
       business_name: p.business_name ?? null,
-      subscription_status: p.subscription_status ?? 'inactive',
+      billing_status: p.billing_status ?? 'inactive',
       assigned_program: p.assigned_program ?? null,
       current_stage: p.current_stage ?? null,
       progress,

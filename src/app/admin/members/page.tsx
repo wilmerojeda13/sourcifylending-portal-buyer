@@ -17,7 +17,7 @@ export default async function AdminMembersPage() {
   const [{ data: profiles }, { data: subscriptions }, { data: allMemberships }, { data: businessMemberships }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, email, business_name, plan_tier, account_state, subscription_status, assigned_program, current_stage, portal_blocked, suspicious_signup, suspicious_signup_reason, signup_risk_score, is_demo, created_at')
+      .select('id, full_name, email, business_name, feature_tier, member_status, billing_status, assigned_program, current_stage, portal_blocked, suspicious_signup, suspicious_signup_reason, signup_risk_score, is_demo, created_at')
       .order('created_at', { ascending: false }),
     supabase
       .from('subscriptions')
@@ -58,9 +58,9 @@ export default async function AdminMembersPage() {
       full_name: p.full_name ?? '',
       email: p.email ?? '',
       business_name: p.business_name ?? null,
-      plan_tier: p.plan_tier ?? 'free',
-      account_state: p.account_state ?? 'prospect',
-      subscription_status: p.subscription_status ?? 'inactive',
+      feature_tier: p.feature_tier ?? 'free',
+      member_status: p.member_status ?? 'prospect',
+      billing_status: p.billing_status ?? 'inactive',
       assigned_program: p.assigned_program ?? null,
       active_programs: membershipMap.get(p.id) ?? [],
       current_stage: p.current_stage ?? null,
@@ -80,10 +80,10 @@ export default async function AdminMembersPage() {
 
   const stats = {
     total: members.length,
-    active: members.filter((m) => m.subscription_status === 'active').length,
-    trialing: members.filter((m) => m.subscription_status === 'trialing').length,
-    canceled: members.filter((m) => m.subscription_status === 'canceled').length,
-    inactive: members.filter((m) => m.subscription_status === 'inactive').length,
+    active: members.filter((m) => m.billing_status === 'active').length,
+    trialing: members.filter((m) => m.billing_status === 'trialing').length,
+    canceled: members.filter((m) => m.billing_status === 'canceled').length,
+    inactive: members.filter((m) => m.billing_status === 'inactive').length,
     blocked: members.filter((m) => m.portal_blocked).length,
     suspicious: members.filter((m) => m.suspicious_signup).length,
   }

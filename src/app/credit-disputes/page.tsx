@@ -9,7 +9,7 @@ import Link from 'next/link'
 
 export default async function CreditDisputesPage() {
   const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext('/credit-disputes')
-  const entitlements = getAccountEntitlements(profile?.plan_tier, profile?.subscription_status, profile?.account_state)
+  const entitlements = getAccountEntitlements(profile?.feature_tier, profile?.billing_status, profile?.member_status)
   const isFreeFlow = entitlements.access_state === 'free_active'
   const isPaidFlow = entitlements.access_state === 'paid_active'
 
@@ -37,7 +37,7 @@ export default async function CreditDisputesPage() {
       portalBlocked={profile?.portal_blocked ?? false}
       isDemo={profile?.is_demo ?? false}
       isAdmin={profile?.is_admin ?? false}
-      accountState={profile?.account_state ?? 'active_member'}
+      accountState={profile?.member_status ?? 'active_member'}
       allPrograms={activePrograms}
     >
       {isFreeFlow ? (

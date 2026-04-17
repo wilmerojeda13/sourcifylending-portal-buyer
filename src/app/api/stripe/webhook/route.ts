@@ -456,11 +456,11 @@ export async function POST(req: NextRequest) {
           prevStatus && prevStatus !== 'active' && prevStatus !== 'trialing') {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('plan_tier, portal_blocked')
+          .select('feature_tier, portal_blocked')
           .eq('id', userId)
           .maybeSingle()
 
-        if (profile?.plan_tier === 'free') {
+        if (profile?.feature_tier === 'free') {
           // User was downgraded to free and is now re-upgrading
           // Restore plan_tier and unlock access to all preserved work
           await supabase.from('profiles').update({

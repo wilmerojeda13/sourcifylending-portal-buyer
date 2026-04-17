@@ -15,7 +15,7 @@ export async function applyMembershipChange(
   const [{ data: profile, error: profileError }, { data: subscription, error: subscriptionError }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('full_name, email, business_name, assigned_program, plan_tier, subscription_status, account_state')
+      .select('full_name, email, business_name, assigned_program, feature_tier, billing_status, member_status')
       .eq('id', businessProfileId)
       .single(),
     supabase
@@ -37,16 +37,16 @@ export async function applyMembershipChange(
 
   const profileUpdate = isDowngrade
     ? {
-        plan_tier: 'free' as const,
-        subscription_status: 'inactive' as const,
-        account_state: 'prospect' as const,
+        feature_tier: 'free' as const,
+        billing_status: 'inactive' as const,
+        member_status: 'prospect' as const,
         assigned_program: null,
         updated_at: now,
       }
     : {
-        plan_tier: 'paid' as const,
-        subscription_status: 'canceled' as const,
-        account_state: 'active_member' as const,
+        feature_tier: 'paid' as const,
+        billing_status: 'canceled' as const,
+        member_status: 'active_member' as const,
         updated_at: now,
       }
 
@@ -116,11 +116,11 @@ export async function applyMembershipChange(
       full_name: profile?.full_name ?? null,
       email: profile?.email ?? null,
       business_name: profile?.business_name ?? null,
-      previous_plan_tier: profile?.plan_tier ?? null,
-      previous_subscription_status: profile?.subscription_status ?? null,
+      previous_plan_tier: profile?.feature_tier ?? null,
+      previous_subscription_status: profile?.billing_status ?? null,
       previous_assigned_program: profile?.assigned_program ?? null,
-      new_plan_tier: profileUpdate.plan_tier,
-      new_subscription_status: profileUpdate.subscription_status,
+      new_plan_tier: profileUpdate.feature_tier,
+      new_subscription_status: profileUpdate.billing_status,
       new_assigned_program: profileUpdate.assigned_program ?? null,
     },
     sendEmail: true,
