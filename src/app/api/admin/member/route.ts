@@ -115,6 +115,7 @@ export async function PATCH(req: NextRequest) {
     if (fields.business_age !== undefined) update.business_age = fields.business_age
     if (fields.entity_type !== undefined) update.entity_type = fields.entity_type
     if (fields.industry !== undefined) update.industry = fields.industry
+    if (fields.plan_tier !== undefined) update.plan_tier = fields.plan_tier
     if (fields.subscription_status !== undefined) update.subscription_status = fields.subscription_status
     if (fields.assigned_program !== undefined) update.assigned_program = fields.assigned_program
     if (fields.current_stage !== undefined) update.current_stage = fields.current_stage
