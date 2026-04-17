@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { PROGRAM_INFO } from '@/lib/stripe'
+import { syncActiveBusinessProfile, syncEditableBusinessProfile } from '@/lib/admin-business-sync'
 import type { ProgramId } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
     // Get profile to know the program
     const { data: profile } = await supabase
       .from('profiles')
-      .select('assigned_program')
+      .select('assigned_program, plan_tier')
       .eq('id', user_id)
       .single()
 
@@ -47,10 +48,19 @@ export async function POST(req: NextRequest) {
     const programInfo = program ? PROGRAM_INFO[program] : null
 
     // Update profile subscription_status
+    const profileUpdate = {
+      subscription_status: newSubStatus,
+      plan_tier: deactivate ? (profile?.plan_tier ?? 'free') : 'paid',
+      updated_at: new Date().toISOString(),
+    }
+
     await supabase
       .from('profiles')
-      .update({ subscription_status: newSubStatus, updated_at: new Date().toISOString() })
+      .update(profileUpdate)
       .eq('id', user_id)
+
+    await syncEditableBusinessProfile(supabase, user_id, profileUpdate)
+    await syncActiveBusinessProfile(supabase, user_id)
 
     // Upsert subscription record
     const { data: existingSub } = await supabase

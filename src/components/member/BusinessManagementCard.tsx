@@ -27,12 +27,14 @@ export default function BusinessManagementCard() {
 
   const currentBusiness = businesses.find((business) => business.id === activeBusinessId) ?? null
   const currentBusinessStatusLabel = currentBusiness
-    ? currentBusiness.subscription_status === 'active' || currentBusiness.subscription_status === 'trialing'
-      ? 'Active'
-      : 'Subscription Required'
+    ? currentBusiness.plan_tier === 'free'
+      ? 'Free Plan Active'
+      : currentBusiness.subscription_status === 'active' || currentBusiness.subscription_status === 'trialing'
+        ? 'Active'
+        : 'Subscription Required'
     : 'Pending'
   const currentBusinessStatusClassName =
-    currentBusinessStatusLabel === 'Active'
+    currentBusinessStatusLabel === 'Active' || currentBusinessStatusLabel === 'Free Plan Active'
       ? 'border-green-500/30 bg-green-500/10 text-green-300'
       : currentBusinessStatusLabel === 'Pending'
         ? 'border-sky-500/30 bg-sky-500/10 text-sky-300'
@@ -49,7 +51,7 @@ export default function BusinessManagementCard() {
         body: JSON.stringify({ business_id: businessId }),
       })
       await refreshBusinesses()
-      if (targetBusiness && !['active', 'trialing'].includes(targetBusiness.subscription_status)) {
+      if (targetBusiness && targetBusiness.plan_tier !== 'free' && !['active', 'trialing'].includes(targetBusiness.subscription_status)) {
         router.push('/billing?subscription_required=1')
       } else {
         router.refresh()
@@ -142,7 +144,12 @@ export default function BusinessManagementCard() {
           >
             {businesses.map((business: AccessibleBusiness) => (
               <option key={business.id} value={business.id}>
-                {business.label}{!['active', 'trialing'].includes(business.subscription_status) ? ' — Subscription Required' : ''}
+                {business.label}
+                {business.plan_tier === 'free'
+                  ? ' — Free Plan Active'
+                  : !['active', 'trialing'].includes(business.subscription_status)
+                    ? ' — Subscription Required'
+                    : ''}
               </option>
             ))}
           </select>

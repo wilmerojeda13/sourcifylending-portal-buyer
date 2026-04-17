@@ -44,7 +44,7 @@ interface ProspectDashboardProps {
 }
 
 export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
-  const BOOKING_URL = process.env.NEXT_PUBLIC_BOOKING_URL || null
+  const BOOKING_URL = 'https://calendar.app.google/PGkzpGXXjRHkLHTEA'
 
   const result = profile.latest_analyzer_result
   const readiness = profile.readiness_status
@@ -76,7 +76,7 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <Sparkles size={16} className="text-green-200" />
-            <span className="text-xs font-bold uppercase tracking-wide text-green-200">Free Prospect Account</span>
+            <span className="text-xs font-bold uppercase tracking-wide text-green-200">Free Member Account</span>
           </div>
           <p className="font-bold text-lg">Unlock Full Program Access</p>
           <p className="text-green-200 text-sm mt-0.5">
@@ -97,7 +97,7 @@ export default function ProspectDashboard({ profile }: ProspectDashboardProps) {
               rel="noopener noreferrer"
               className="bg-green-500/30 border border-green-400/40 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-green-500/50 transition-colors flex items-center gap-1.5 justify-center"
             >
-              <CalendarDays size={14} /> Book a Strategy Call
+              <CalendarDays size={14} /> Book on Google Calendar
             </a>
           )}
         </div>

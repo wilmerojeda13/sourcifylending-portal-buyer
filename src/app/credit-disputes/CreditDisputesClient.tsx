@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   ShieldCheck, Plus, Clock, CheckCircle2, AlertTriangle, FileText,
   Send, ChevronDown, ChevronUp, Copy, XCircle, ExternalLink, Loader2
@@ -53,6 +54,12 @@ const DISPUTE_TYPE_INFO: Record<string, { laws: string; tip: string }> = {
   },
 }
 
+const OPTION_BASE = 'p-3 rounded-xl border-2 text-sm font-semibold text-left transition-all duration-150'
+const OPTION_INACTIVE = 'border-slate-700/80 text-slate-200/90 bg-slate-900/30 hover:border-emerald-400/70 hover:bg-slate-800/70 hover:text-white'
+const OPTION_ACTIVE = 'border-emerald-400 bg-emerald-900/45 text-emerald-50 shadow-[0_0_0_1px_rgba(74,222,128,0.15),inset_0_1px_0_rgba(255,255,255,0.06)]'
+const CONTINUE_BUTTON = 'flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors shadow-sm'
+const NOTICE_PANEL = 'rounded-2xl border border-red-500/30 bg-red-950/35 px-4 py-3 text-sm leading-relaxed text-red-100'
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   'Draft':              { label: 'Draft',              color: 'bg-gray-100 text-gray-600',   icon: FileText },
   'Generated':          { label: 'Generated',          color: 'bg-blue-100 text-blue-700',   icon: FileText },
@@ -67,7 +74,7 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000)
 }
 
-export default function CreditDisputesClient({ initialDisputes, prospectMode = false }: { initialDisputes: Dispute[]; prospectMode?: boolean }) {
+export default function CreditDisputesClient({ initialDisputes, prospectMode = false, documentsUploadedCount = 0 }: { initialDisputes: Dispute[]; prospectMode?: boolean; documentsUploadedCount?: number }) {
   const [disputes, setDisputes] = useState<Dispute[]>(initialDisputes)
   const [showForm, setShowForm] = useState(false)
   const [step, setStep] = useState<Step>(1)
@@ -86,7 +93,10 @@ export default function CreditDisputesClient({ initialDisputes, prospectMode = f
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [escalationLoading, setEscalationLoading] = useState<string | null>(null)
   const [escalationLetter, setEscalationLetter] = useState<{ id: string; text: string } | null>(null)
+  const router = useRouter()
   const inquiryOnlyMode = prospectMode
+  const isPaidWorkflow = !inquiryOnlyMode
+  const canOpenPaidBuilder = !isPaidWorkflow || documentsUploadedCount > 0
 
   const activeDisputes = disputes.filter(d => ['Sent', 'Under Investigation', 'Escalated'].includes(d.status))
   const deadlineSoon = activeDisputes.filter(d => d.investigation_deadline && daysUntil(d.investigation_deadline) <= 7)
@@ -177,30 +187,52 @@ export default function CreditDisputesClient({ initialDisputes, prospectMode = f
           <div className="flex items-center gap-2 mb-1">
             <ShieldCheck size={20} className="text-green-600" />
             <h1 className="text-2xl font-bold text-gray-900">
-              {inquiryOnlyMode ? 'Free Inquiry Dispute Tool' : 'Credit Dispute Management'}
+              {inquiryOnlyMode ? 'Free Inquiry Dispute Tool' : 'Paid Dispute Builder'}
             </h1>
           </div>
           <p className="text-sm text-gray-500 max-w-xl">
             {inquiryOnlyMode
               ? 'Generate hard inquiry dispute letters for inquiries you believe are unauthorized or inaccurate, then track them from one place.'
-              : 'Generate FCRA-compliant dispute letters, track your disputes, and manage investigation deadlines from one place.'}
+              : 'Upload first, then use the paid dispute builder to organize AI-assisted review and draft disputes for inquiries, collections, and other paid items.'}
           </p>
         </div>
         <button
-          onClick={() => { resetForm(); setShowForm(true) }}
-          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shrink-0"
+          onClick={() => {
+            if (isPaidWorkflow && !canOpenPaidBuilder) {
+              router.push('/documents')
+              return
+            }
+            resetForm(); setShowForm(true)
+          }}
+          className={`flex items-center gap-2 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shrink-0 ${
+            isPaidWorkflow && !canOpenPaidBuilder
+              ? 'bg-slate-700 hover:bg-slate-600'
+              : 'bg-green-600 hover:bg-green-700'
+          }`}
         >
-          <Plus size={16} /> {inquiryOnlyMode ? 'New Inquiry Dispute' : 'New Dispute'}
+          <Plus size={16} /> {inquiryOnlyMode ? 'New Inquiry Dispute' : (documentsUploadedCount > 0 ? 'Build Dispute' : 'Upload Report First')}
         </button>
       </div>
 
       {/* Compliance notice */}
-      <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 text-xs text-amber-700 leading-relaxed">
-        <strong>Informational Tool:</strong> Dispute tools are provided to help consumers exercise their rights under the Fair Credit Reporting Act. SourcifyLending does not provide credit repair services.
+      <div className={NOTICE_PANEL}>
+        <strong className="font-semibold text-red-50">Informational Tool:</strong>{' '}
+        Dispute tools are provided to help consumers exercise their rights under the Fair Credit Reporting Act. SourcifyLending does not provide credit repair services.
         {inquiryOnlyMode && (
-          <span className="block mt-1">Free accounts can generate hard inquiry dispute letters only.</span>
+          <span className="mt-1 block text-red-100/90">Free accounts can generate hard inquiry dispute letters only.</span>
+        )}
+        {!inquiryOnlyMode && (
+          <span className="mt-1 block text-red-100/90">
+            Paid users can work on inquiries, collections, and other dispute items after uploading report and support documents.
+          </span>
         )}
       </div>
+
+      {!inquiryOnlyMode && documentsUploadedCount === 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Upload your credit report and supporting documents in <button onClick={() => router.push('/documents')} className="font-semibold underline underline-offset-2">Documents</button> before starting the AI-assisted paid dispute workflow.
+        </div>
+      )}
 
       {/* Deadline alerts */}
       {deadlineSoon.length > 0 && (
@@ -242,13 +274,13 @@ export default function CreditDisputesClient({ initialDisputes, prospectMode = f
                 <div className="grid grid-cols-2 gap-3">
                   {BUREAUS.map(b => (
                     <button key={b} onClick={() => setBureau(b)}
-                      className={`p-3 rounded-xl border-2 text-sm font-semibold transition-all ${bureau === b ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:border-green-300'}`}>
+                      className={`${OPTION_BASE} ${bureau === b ? OPTION_ACTIVE : OPTION_INACTIVE}`}>
                       {b}
                     </button>
                   ))}
                 </div>
                 <button disabled={!bureau} onClick={() => setStep(2)}
-                  className="w-full mt-2 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">
+                  className={`w-full mt-2 ${CONTINUE_BUTTON}`}>
                   Continue →
                 </button>
               </>
@@ -268,8 +300,8 @@ export default function CreditDisputesClient({ initialDisputes, prospectMode = f
                       Only hard inquiry disputes are available on the free account.
                     </p>
                     <div className="flex gap-3 mt-2">
-                      <button onClick={() => setStep(1)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors">← Back</button>
-                      <button onClick={() => setStep(3)} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Continue →</button>
+                      <button onClick={() => setStep(1)} className="flex-1 border border-slate-700 text-slate-200 text-sm font-semibold py-2.5 rounded-xl bg-slate-900/40 hover:bg-slate-800/70 transition-colors">← Back</button>
+                      <button onClick={() => setStep(3)} className={`flex-1 ${CONTINUE_BUTTON}`}>Continue →</button>
                     </div>
                   </>
                 ) : (
@@ -278,7 +310,7 @@ export default function CreditDisputesClient({ initialDisputes, prospectMode = f
                     <div className="grid grid-cols-2 gap-3">
                       {DISPUTE_TYPES.map(t => (
                         <button key={t} onClick={() => setDisputeType(t)}
-                          className={`p-3 rounded-xl border-2 text-sm font-semibold text-left transition-all ${disputeType === t ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:border-green-300'}`}>
+                          className={`${OPTION_BASE} ${disputeType === t ? OPTION_ACTIVE : OPTION_INACTIVE}`}>
                           {t}
                         </button>
                       ))}
@@ -291,8 +323,8 @@ export default function CreditDisputesClient({ initialDisputes, prospectMode = f
                       </div>
                     )}
                     <div className="flex gap-3 mt-2">
-                      <button onClick={() => setStep(1)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors">← Back</button>
-                      <button disabled={!disputeType} onClick={() => disputeType === 'Collection Account' ? setStep(2.5) : setStep(3)} className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Continue →</button>
+                      <button onClick={() => setStep(1)} className="flex-1 border border-slate-700 text-slate-200 text-sm font-semibold py-2.5 rounded-xl bg-slate-900/40 hover:bg-slate-800/70 transition-colors">← Back</button>
+                      <button disabled={!disputeType} onClick={() => disputeType === 'Collection Account' ? setStep(2.5) : setStep(3)} className={`flex-1 ${CONTINUE_BUTTON}`}>Continue →</button>
                     </div>
                   </>
                 )}
@@ -306,7 +338,7 @@ export default function CreditDisputesClient({ initialDisputes, prospectMode = f
                 <div className="grid grid-cols-1 gap-3">
                   {COLLECTION_RECIPIENTS.map(r => (
                     <button key={r} onClick={() => setRecipientType(r)}
-                      className={`p-3 rounded-xl border-2 text-sm font-semibold text-left transition-all ${recipientType === r ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600 hover:border-green-300'}`}>
+                      className={`${OPTION_BASE} ${recipientType === r ? OPTION_ACTIVE : OPTION_INACTIVE}`}>
                       <span>{r}</span>
                       <span className="block text-xs font-normal text-gray-400 mt-0.5">
                         {r === 'Credit Bureau' && 'FCRA §§ 611, 607, 623 — reinvestigation request'}
@@ -317,8 +349,8 @@ export default function CreditDisputesClient({ initialDisputes, prospectMode = f
                   ))}
                 </div>
                 <div className="flex gap-3 mt-2">
-                  <button onClick={() => setStep(2)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors">← Back</button>
-                  <button disabled={!recipientType} onClick={() => setStep(3)} className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Continue →</button>
+                  <button onClick={() => setStep(2)} className="flex-1 border border-slate-700 text-slate-200 text-sm font-semibold py-2.5 rounded-xl bg-slate-900/40 hover:bg-slate-800/70 transition-colors">← Back</button>
+                  <button disabled={!recipientType} onClick={() => setStep(3)} className={`flex-1 ${CONTINUE_BUTTON}`}>Continue →</button>
                 </div>
               </>
             )}
@@ -350,14 +382,14 @@ export default function CreditDisputesClient({ initialDisputes, prospectMode = f
                     className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 resize-none transition-all" />
                 </div>
                 {formError && (
-                  <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
-                    <XCircle size={14} className="text-red-500" />
-                    <p className="text-xs text-red-700">{formError}</p>
+                  <div className="flex items-center gap-2 rounded-xl border border-red-500/25 bg-red-950/35 px-3 py-2">
+                    <XCircle size={14} className="text-red-300" />
+                    <p className="text-xs text-red-100">{formError}</p>
                   </div>
                 )}
                 <div className="flex gap-3">
-                  <button onClick={() => setStep(2)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors">← Back</button>
-                  <button onClick={handleGenerate} disabled={submitting} className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2">
+                  <button onClick={() => setStep(2)} className="flex-1 border border-slate-700 text-slate-200 text-sm font-semibold py-2.5 rounded-xl bg-slate-900/40 hover:bg-slate-800/70 transition-colors">← Back</button>
+                  <button onClick={handleGenerate} disabled={submitting} className={`flex-1 ${CONTINUE_BUTTON} flex items-center justify-center gap-2`}>
                     {submitting ? <><Loader2 size={15} className="animate-spin" /> Generating…</> : inquiryOnlyMode ? 'Generate Inquiry Letter' : 'Generate Letter'}
                   </button>
                 </div>
@@ -402,11 +434,11 @@ export default function CreditDisputesClient({ initialDisputes, prospectMode = f
 
                 {newDisputeId && (
                   <button onClick={() => { markSent(newDisputeId); setShowForm(false); resetForm() }}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2">
+                    className={`w-full ${CONTINUE_BUTTON} flex items-center justify-center gap-2`}>
                     <Send size={15} /> I&apos;ve Sent This Letter — Mark as Sent
                   </button>
                 )}
-                <button onClick={() => { setShowForm(false); resetForm() }} className="w-full border border-gray-200 text-gray-600 text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+                <button onClick={() => { setShowForm(false); resetForm() }} className="w-full border border-slate-700 text-slate-200 text-sm font-semibold py-2.5 rounded-xl bg-slate-900/40 hover:bg-slate-800/70 transition-colors">
                   Save for Later
                 </button>
               </>

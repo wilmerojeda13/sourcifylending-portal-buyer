@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
       entity_type: entityType || null,
       industry: industry || null,
       phone: (context.viewerProfile as unknown as Record<string, unknown>)?.phone ?? null,
+      plan_tier: 'free',
       account_state: 'prospect',
       subscription_status: 'inactive',
       progress_percentage: 0,

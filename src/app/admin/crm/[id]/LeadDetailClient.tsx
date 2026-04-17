@@ -259,6 +259,38 @@ function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text).then(() => toast.success('Copied to clipboard')).catch(() => toast.error('Failed to copy'))
 }
 
+function isMobileDialDevice() {
+  if (typeof navigator === 'undefined') return false
+  return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+}
+
+function buildDialTarget(number: string) {
+  if (isMobileDialDevice()) {
+    return {
+      href: `tel:${number}`,
+      target: undefined as string | undefined,
+      copiedMessage: null as string | null,
+    }
+  }
+
+  return {
+    href: `https://voice.google.com/calls?a=${encodeURIComponent(`nc,${number}`)}`,
+    target: '_blank',
+    copiedMessage: `Opening Google Voice · ${number} copied`,
+  }
+}
+
+function getDialNumber(lead: CRMLead) {
+  const raw = (lead.phone_e164 || lead.phone || '').trim()
+  if (!raw) return null
+  const digits = raw.replace(/[^\d]/g, '')
+  if (digits.length < 7) return null
+  if (raw.startsWith('+')) return `+${digits}`
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
+  return `+${digits}`
+}
+
 function buildCallabilityLabel(lead: CRMLead) {
   if (lead.call_window_status === 'callable_now') return 'Callable Now'
   if (lead.call_window_status === 'blocked_by_timezone') return `Blocked Until ${lead.blocked_until_label ?? ''}`.trim()
@@ -539,12 +571,13 @@ export default function LeadDetailClient({
   const [selectedDispositionKey, setSelectedDispositionKey] = useState<string | null>(null)
   const [savingDisposition, setSavingDisposition] = useState(false)
   const [dispositionError, setDispositionError] = useState<string | null>(null)
-  const [authorizingCall, setAuthorizingCall] = useState(false)
   const [smsReplyBody, setSmsReplyBody] = useState('')
   const [sendingSmsReply, setSendingSmsReply] = useState(false)
   const [duplicateLeads, setDuplicateLeads] = useState<Array<{ id: string; first_name: string; last_name: string; stage: string }>>([])
   const [duplicatesLoaded, setDuplicatesLoaded] = useState(false)
   const autoOpenBooking = useRef(false)
+  const dialNumber = getDialNumber(lead)
+  const dialTarget = dialNumber ? buildDialTarget(dialNumber) : null
   const [editForm, setEditForm] = useState({
     first_name: initialLead.first_name,
     last_name: initialLead.last_name,
@@ -737,31 +770,6 @@ export default function LeadDetailClient({
       toast.error('Failed to send text reply')
     } finally {
       setSendingSmsReply(false)
-    }
-  }
-
-  async function authorizeDial() {
-    setAuthorizingCall(true)
-    try {
-      const response = await fetch('/api/admin/crm/dial', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lead_id: lead.id }),
-      })
-      const json = await response.json()
-      if (!response.ok || !json.allowed) {
-        if (json.call_window_message) {
-          setLead((current) => ({ ...current, ...json }))
-        }
-        toast.error(json.error ?? 'This number is blocked.')
-        return
-      }
-      setLead((current) => ({ ...current, ...json }))
-      window.open(`tel:${json.phone_e164 || lead.phone}`, '_blank')
-    } catch {
-      toast.error('Unable to verify the calling window.')
-    } finally {
-      setAuthorizingCall(false)
     }
   }
 
@@ -988,6 +996,14 @@ export default function LeadDetailClient({
             <ChevronDown size={18} className="rotate-90" /> <span className="hidden sm:inline">Leads</span>
           </Link>
           <div className="flex items-center gap-2">
+            <Link
+              href="/admin/dialer"
+              className="flex h-8 items-center gap-1 rounded-lg border border-gray-200 px-2.5 text-xs font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200"
+            >
+              <ExternalLink size={12} />
+              <span className="hidden sm:inline">Open Dialer</span>
+              <span className="sm:hidden">Dialer</span>
+            </Link>
             <button
               onClick={toggleDNC}
               className={cn(
@@ -1067,31 +1083,69 @@ export default function LeadDetailClient({
                   {lead.lead_temperature && <span className="capitalize">{lead.lead_temperature}</span>}
                   <span className="flex items-center gap-1"><Tag size={11} /> {lead.source}</span>
                 </div>
-              </div>
             </div>
-            <div className="hidden shrink-0 flex-wrap gap-1.5 sm:flex">
-              <button onClick={authorizeDial} disabled={authorizingCall || lead.call_window_status === 'blocked_by_timezone' || lead.call_window_status === 'unknown_timezone'} className={cn('flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60', authorizingCall ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700')}>
-                {authorizingCall ? <Loader2 size={13} className="animate-spin" /> : <Phone size={13} />} Call
-              </button>
+          </div>
+          <div className="hidden shrink-0 flex-wrap gap-1.5 sm:flex">
+              {dialTarget ? (
+                <a
+                  href={dialTarget.href}
+                  target={dialTarget.target}
+                  rel={dialTarget.target ? 'noopener noreferrer' : undefined}
+                  onClick={() => {
+                    if (!dialTarget.target) return
+                    navigator.clipboard.writeText(dialNumber ?? '').catch(() => {})
+                    toast.success(dialTarget.copiedMessage ?? 'Opening dialer')
+                  }}
+                  className="flex items-center gap-1 rounded-lg bg-green-600 px-2.5 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+                >
+                  <Phone size={13} />
+                  Call
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  title="No valid phone number available"
+                  className="flex items-center gap-1 rounded-lg bg-gray-300 px-2.5 py-1.5 text-sm font-semibold text-gray-600 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-700 dark:text-gray-300"
+                >
+                  <Phone size={13} />
+                  Call
+                </button>
+              )}
               {lead.email && <button onClick={() => setShowEmail(true)} className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"><Mail size={13} /> Email</button>}
               <button onClick={() => void openBookDemoModal()} disabled={loadingBookingLead || !lead.id} className="flex items-center gap-1 rounded-lg bg-purple-600 px-2.5 py-1.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"><CalendarPlus size={13} /> Demo</button>
               <button type="button" onClick={() => { setSelectedDispositionKey(null); setDispositionError(null); setShowDisposition(true) }} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-semibold text-gray-700 hover:border-green-300 hover:text-green-700 dark:border-gray-700 dark:text-gray-200">
                 <PhoneCall size={13} /> Disposition
               </button>
-            </div>
+          </div>
           </div>
           <div className="mt-3 grid gap-2 sm:hidden">
-            <button
-              onClick={authorizeDial}
-              disabled={authorizingCall || lead.call_window_status === 'blocked_by_timezone' || lead.call_window_status === 'unknown_timezone'}
-              className={cn(
-                'flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-                authorizingCall ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700',
-              )}
-            >
-              {authorizingCall ? <Loader2 size={14} className="animate-spin" /> : <Phone size={14} />}
-              Call
-            </button>
+            {dialTarget ? (
+              <a
+                href={dialTarget.href}
+                target={dialTarget.target}
+                rel={dialTarget.target ? 'noopener noreferrer' : undefined}
+                onClick={() => {
+                  if (!dialTarget.target) return
+                  navigator.clipboard.writeText(dialNumber ?? '').catch(() => {})
+                  toast.success(dialTarget.copiedMessage ?? 'Opening dialer')
+                }}
+                className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-green-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+              >
+                <Phone size={14} />
+                Call
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                title="No valid phone number available"
+                className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-gray-300 px-3 text-sm font-semibold text-gray-600 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-700 dark:text-gray-300"
+              >
+                <Phone size={14} />
+                Call
+              </button>
+            )}
             <div className={cn('grid gap-2', lead.email ? 'grid-cols-2' : 'grid-cols-1')}>
               <button
                 type="button"
@@ -1518,9 +1572,25 @@ export default function LeadDetailClient({
 
       <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white/95 px-3 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:hidden">
         <div className="flex gap-2">
-          <button onClick={authorizeDial} disabled={authorizingCall} className={cn('flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold', authorizingCall ? 'bg-gray-300' : 'bg-green-600 text-white')}>
-            {authorizingCall ? <Loader2 size={16} className="animate-spin" /> : <Phone size={16} />} Call
-          </button>
+          {dialTarget ? (
+            <a
+              href={dialTarget.href}
+              target={dialTarget.target}
+              rel={dialTarget.target ? 'noopener noreferrer' : undefined}
+              onClick={() => {
+                if (!dialTarget.target) return
+                navigator.clipboard.writeText(dialNumber ?? '').catch(() => {})
+                toast.success(dialTarget.copiedMessage ?? 'Opening dialer')
+              }}
+              className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-green-600 text-sm font-semibold text-white"
+            >
+              <Phone size={16} /> Call
+            </a>
+          ) : (
+            <button type="button" disabled title="No valid phone number available" className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-300 text-sm font-semibold text-gray-600 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-700 dark:text-gray-300">
+              <Phone size={16} /> Call
+            </button>
+          )}
           {lead.email && <button onClick={() => setShowEmail(true)} className="btn-secondary flex h-10 flex-1 items-center justify-center gap-1.5 text-sm font-semibold"><Mail size={16} /> Email</button>}
           <button onClick={() => void openBookDemoModal()} disabled={loadingBookingLead || !lead.id} className="btn-secondary flex h-10 flex-1 items-center justify-center gap-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"><CalendarPlus size={16} /> Demo</button>
         </div>

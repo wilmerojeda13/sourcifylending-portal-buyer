@@ -24,7 +24,7 @@ const PLANS = [
       card: 'border border-gray-200 bg-white',
       badge: 'bg-gray-100 text-gray-600',
       price: 'text-gray-900',
-      cta: 'btn-secondary w-full',
+      cta: 'btn-primary w-full',
     },
   },
   {
@@ -46,10 +46,10 @@ const PLANS = [
     href: '/analyzer',
     footer: 'First month due at signup · Cancel anytime',
     style: {
-      card: 'border border-green-200 bg-white',
-      badge: 'bg-green-50 text-green-700',
-      price: 'text-gray-900',
-      cta: 'btn-secondary w-full',
+      card: 'border-2 border-green-500 bg-green-700',
+      badge: 'bg-green-500 text-white',
+      price: 'text-white',
+      cta: 'bg-white/10 hover:bg-white/20 text-white font-semibold px-5 py-3 rounded-xl border border-white/20 transition-colors duration-150 inline-flex items-center justify-center gap-2 text-sm w-full',
     },
   },
   {
@@ -96,10 +96,10 @@ const PLANS = [
     href: '/analyzer',
     footer: 'First month due at signup · Cancel anytime',
     style: {
-      card: 'border-2 border-green-600 bg-green-600',
-      badge: 'bg-green-500 text-white',
+      card: 'border-2 border-slate-700 bg-slate-900',
+      badge: 'bg-slate-700 text-white',
       price: 'text-white',
-      cta: 'bg-white hover:bg-green-50 text-green-700 font-semibold px-5 py-3 rounded-xl border border-white/20 transition-colors duration-150 inline-flex items-center justify-center gap-2 text-sm w-full',
+      cta: 'bg-slate-800 hover:bg-slate-700 text-white font-semibold px-5 py-3 rounded-xl border border-white/10 transition-colors duration-150 inline-flex items-center justify-center gap-2 text-sm w-full',
     },
   },
 ] as const
@@ -124,13 +124,13 @@ const PLAN_GUIDE = [
     step: '1',
     label: 'Free',
     desc: 'Run the analyzer and get an instant snapshot of where your business stands.',
-    color: 'bg-gray-100 text-gray-600',
+    color: 'bg-green-700 text-white',
   },
   {
     step: '2',
     label: 'Program C',
     desc: 'Stay visible with ongoing monitoring and know your funding readiness at all times.',
-    color: 'bg-green-50 text-green-700',
+    color: 'bg-green-700 text-white',
   },
   {
     step: '3',
@@ -215,7 +215,7 @@ export default function PricingPage() {
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
           {PLANS.map((plan) => {
-            const isDark = plan.id === 'program_a'
+            const isDark = plan.id === 'program_a' || plan.id === 'program_c'
             return (
               <div key={plan.id} className={`rounded-2xl p-6 flex flex-col ${plan.style.card}`}>
 
@@ -303,7 +303,7 @@ export default function PricingPage() {
               </div>
               <Link
                 href={BUNDLE.href}
-                className="bg-white hover:bg-green-50 text-green-700 font-semibold px-6 py-3 rounded-xl border border-white/20 transition-colors duration-150 inline-flex items-center justify-center gap-2 text-sm w-full md:w-auto"
+              className="bg-slate-900 hover:bg-slate-800 text-white font-semibold px-6 py-3 rounded-xl border border-slate-700 transition-colors duration-150 inline-flex items-center justify-center gap-2 text-sm w-full md:w-auto"
               >
                 {BUNDLE.cta} <ArrowRight size={15} />
               </Link>
@@ -408,7 +408,7 @@ export default function PricingPage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/analyzer"
-              className="bg-white hover:bg-green-50 text-green-700 font-semibold px-8 py-4 rounded-xl transition-colors duration-150 inline-flex items-center justify-center gap-2 text-base"
+              className="bg-slate-900 hover:bg-slate-800 text-white font-semibold px-8 py-4 rounded-xl transition-colors duration-150 inline-flex items-center justify-center gap-2 text-base"
             >
               Run Free Analyzer <ArrowRight size={18} />
             </Link>

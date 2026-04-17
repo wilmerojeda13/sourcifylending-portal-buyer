@@ -7,6 +7,7 @@ import {
   ThumbsUp, ThumbsDown, Voicemail, PhoneMissed, PhoneOff,
   CalendarPlus, Ban, Clock, ArrowRight, Copy, AlertTriangle,
   CheckCircle, Globe, Send, Mail, Pencil, ChevronDown, ChevronUp,
+  ChevronLeft, Search, X, MapPin, Hash,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getIndustryBadge } from '@/lib/dialer-industry'
@@ -214,6 +215,176 @@ function TextModal({
   )
 }
 
+function LeadSearchModal({
+  open,
+  loading,
+  query,
+  onQueryChange,
+  results,
+  selectedLeadId,
+  onSelectLead,
+  onClose,
+  onJumpToLead,
+}: {
+  open: boolean
+  loading: boolean
+  query: string
+  onQueryChange: (value: string) => void
+  results: CampaignLead[]
+  selectedLeadId: string | null
+  onSelectLead: (leadId: string) => void
+  onClose: () => void
+  onJumpToLead: (leadId: string) => void
+}) {
+  if (!open) return null
+
+  const selectedLead = results.find(l => l.id === selectedLeadId) ?? null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6">
+      <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-gray-800 bg-gray-950 shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-800 px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-100">Find Lead</p>
+            <p className="text-xs text-gray-400">Search the active campaign and inspect a lead</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200 hover:bg-gray-700"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="grid gap-4 px-4 py-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-3">
+            <label className="block text-[11px] font-medium uppercase tracking-wide text-gray-500">
+              Search
+            </label>
+            <div className="flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2.5">
+              <Search size={14} className="shrink-0 text-gray-400" />
+              <input
+                value={query}
+                onChange={e => onQueryChange(e.target.value)}
+                placeholder="Name, phone, business, email"
+                className="w-full bg-transparent text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="max-h-[48svh] space-y-2 overflow-y-auto pr-1">
+              {loading ? (
+                <div className="rounded-xl border border-gray-800 bg-gray-900 px-4 py-6 text-sm text-gray-400">
+                  Loading leads…
+                </div>
+              ) : results.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-800 bg-gray-900 px-4 py-6 text-sm text-gray-400">
+                  No leads match this search.
+                </div>
+              ) : (
+                results.map(lead => {
+                  const raw = lead.raw_lead
+                  const selected = selectedLeadId === lead.id
+                  return (
+                    <button
+                      key={lead.id}
+                      onClick={() => onSelectLead(lead.id)}
+                      className={cn(
+                        'w-full rounded-xl border px-3 py-3 text-left transition-colors',
+                        selected
+                          ? 'border-green-500/40 bg-green-500/10'
+                          : 'border-gray-800 bg-gray-900 hover:border-gray-700 hover:bg-gray-900/80',
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-gray-100">
+                            {raw.first_name} {raw.last_name ?? ''}
+                          </p>
+                          <p className="mt-0.5 truncate text-xs text-gray-400">
+                            {raw.phone} {raw.business_name ? `· ${raw.business_name}` : ''}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-gray-700 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+                          {lead.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-800 bg-gray-900 p-4">
+            {selectedLead ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Selected Lead</p>
+                  <h3 className="mt-1 text-lg font-semibold text-gray-100">
+                    {selectedLead.raw_lead.first_name} {selectedLead.raw_lead.last_name ?? ''}
+                  </h3>
+                </div>
+                <div className="space-y-2 text-sm text-gray-300">
+                  <p className="flex items-center gap-2">
+                    <Phone size={13} className="shrink-0 text-green-400" />
+                    {selectedLead.raw_lead.phone}
+                  </p>
+                  {selectedLead.raw_lead.business_name && (
+                    <p className="flex items-center gap-2">
+                      <Building2 size={13} className="shrink-0 text-gray-400" />
+                      {selectedLead.raw_lead.business_name}
+                    </p>
+                  )}
+                  {selectedLead.raw_lead.email && (
+                    <p className="flex items-center gap-2">
+                      <Mail size={13} className="shrink-0 text-gray-400" />
+                      {selectedLead.raw_lead.email}
+                    </p>
+                  )}
+                  <p className="flex items-center gap-2">
+                    <MapPin size={13} className="shrink-0 text-gray-400" />
+                    Status: {selectedLead.status.replace(/_/g, ' ')}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Hash size={13} className="shrink-0 text-gray-400" />
+                    Lead ID: {selectedLead.raw_lead_id}
+                  </p>
+                </div>
+                {selectedLead.raw_lead.notes && (
+                  <div className="rounded-xl border border-amber-800 bg-amber-950/30 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-400">Lead Notes</p>
+                    <p className="mt-1 text-sm leading-relaxed text-amber-200 whitespace-pre-wrap">
+                      {selectedLead.raw_lead.notes}
+                    </p>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => onJumpToLead(selectedLead.id)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-green-700 px-3 py-2 text-xs font-semibold text-white hover:bg-green-600"
+                  >
+                    Jump to Lead
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-800 px-4 py-8 text-sm text-gray-400">
+                Pick a lead to preview their details here.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const DEFAULT_SCRIPT = `Hey, is this {first_name}? Great. My name is Abel with SourcifyLending.com. The reason I'm calling is because it looks like your business had inquired for funding in the past. Just wanted to see if you already found the funding you were seeking, or did you ever find a solution?
 
 THE PIVOT: Well, the reason I'm reaching out is because on average, I help my clients get anywhere from $50,000 to $100,000 in 0% interest business funding—or business credit cards from places like Chase or Bank of America. Just wanted to see if you had a quick minute to run it by you and see if we're a good fit?
@@ -353,6 +524,11 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   const [spokeTextDraft, setSpokeTextDraft] = useState('')
   const [promoTextModalOpen, setPromoTextModalOpen] = useState(false)
   const [promoTextDraft, setPromoTextDraft] = useState('')
+  const [leadSearchOpen, setLeadSearchOpen] = useState(false)
+  const [leadSearchLoading, setLeadSearchLoading] = useState(false)
+  const [leadSearchQuery, setLeadSearchQuery] = useState('')
+  const [leadSearchResults, setLeadSearchResults] = useState<CampaignLead[]>([])
+  const [leadSearchSelectedId, setLeadSearchSelectedId] = useState<string | null>(null)
 
   // Session-level DNC guard: raw_lead IDs and phone numbers marked DNC this session.
   // Both refs survive load() calls so race conditions can't re-surface a blocked lead.
@@ -412,6 +588,23 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     } catch {
       // Silent fail - don't block UX on background refresh
       console.error('Background queue refresh failed')
+    }
+  }, [campaignId])
+
+  const loadAllCampaignLeads = useCallback(async () => {
+    setLeadSearchLoading(true)
+    try {
+      const p = new URLSearchParams({ limit: '999999' })
+      const res = await fetchJsonWithTimeout(`/api/admin/dialer/campaigns/${campaignId}/leads?${p}`)
+      const leads = (res.leads ?? []) as CampaignLead[]
+      setLeadSearchResults(leads)
+      setLeadSearchSelectedId(prev => prev ?? leads[0]?.id ?? null)
+      return leads
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to load campaign leads')
+      return []
+    } finally {
+      setLeadSearchLoading(false)
     }
   }, [campaignId])
 
@@ -499,6 +692,30 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
       toast.success(successMessage)
     } catch {
       toast.error('Could not copy text')
+    }
+  }
+
+  async function openLeadSearch() {
+    setLeadSearchOpen(true)
+    if (leadSearchResults.length === 0) {
+      await loadAllCampaignLeads()
+    }
+  }
+
+  function jumpToLead(leadId: string) {
+    const queuedIndex = queue.findIndex(item => item.id === leadId)
+    if (queuedIndex >= 0) {
+      setIndex(queuedIndex)
+      setLeadSearchOpen(false)
+      toast.success('Lead loaded')
+      return
+    }
+
+    const lead = leadSearchResults.find(item => item.id === leadId)
+    if (lead) {
+      setLeadSearchSelectedId(leadId)
+      toast('Lead is not in the current queue, but its details are visible here.', { icon: 'ℹ' })
+      return
     }
   }
 
@@ -877,6 +1094,13 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                 </button>
 
                 <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/admin/dialer/campaigns/${campaignId}`}
+                    className="flex min-w-[92px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700"
+                  >
+                    <ChevronLeft size={13} />
+                    Back
+                  </Link>
                   <button
                     onClick={copyPhone}
                     className="flex min-w-[92px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700"
@@ -899,6 +1123,13 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                   >
                     <Send size={13} />
                     Promo Text
+                  </button>
+                  <button
+                    onClick={openLeadSearch}
+                    className="flex min-w-[92px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-700"
+                  >
+                    <Search size={13} />
+                    Find Lead
                   </button>
                   {raw.email && (
                     <button
@@ -1058,6 +1289,10 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                       {copied ? <CheckCircle size={13} /> : <Copy size={13} />}
                       {copied ? 'Copied' : 'Copy'}
                     </button>
+                    <Link href={`/admin/dialer/campaigns/${campaignId}`}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-gray-200 text-xs font-medium rounded-xl hover:bg-gray-600">
+                      <ChevronLeft size={13} /> Back
+                    </Link>
                     <button onClick={openSpokeTextModal} disabled={!raw}
                       className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-gray-200 text-xs font-medium rounded-xl hover:bg-gray-600 disabled:opacity-50">
                       <Send size={13} /> Spoke Text
@@ -1065,6 +1300,10 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                     <button onClick={openPromoTextModal} disabled={!raw}
                       className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-gray-200 text-xs font-medium rounded-xl hover:bg-gray-600 disabled:opacity-50">
                       <Send size={13} /> Promo Text
+                    </button>
+                    <button onClick={openLeadSearch}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-gray-200 text-xs font-medium rounded-xl hover:bg-gray-600">
+                      <Search size={13} /> Find Lead
                     </button>
                     <button onClick={sendIntroEmail} disabled={!raw.email || emailSending}
                       className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 text-white text-xs font-semibold rounded-xl hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400">
@@ -1233,6 +1472,33 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
         onTextChange={setPromoTextDraft}
         onCopy={() => copyText(promoTextDraft, 'Text copied')}
         onClose={() => setPromoTextModalOpen(false)}
+      />
+
+      <LeadSearchModal
+        open={leadSearchOpen}
+        loading={leadSearchLoading}
+        query={leadSearchQuery}
+        onQueryChange={setLeadSearchQuery}
+        results={
+          leadSearchQuery.trim()
+            ? leadSearchResults.filter(lead => {
+                const q = leadSearchQuery.trim().toLowerCase()
+                const raw = lead.raw_lead
+                return [
+                  raw.first_name,
+                  raw.last_name ?? '',
+                  raw.phone,
+                  raw.phone_e164 ?? '',
+                  raw.email ?? '',
+                  raw.business_name ?? '',
+                ].some(value => String(value).toLowerCase().includes(q))
+              })
+            : leadSearchResults
+        }
+        selectedLeadId={leadSearchSelectedId}
+        onSelectLead={setLeadSearchSelectedId}
+        onClose={() => setLeadSearchOpen(false)}
+        onJumpToLead={jumpToLead}
       />
 
     </div>

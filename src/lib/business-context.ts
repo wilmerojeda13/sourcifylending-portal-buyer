@@ -24,6 +24,7 @@ export interface AccessibleBusiness {
   program: ProgramId | null
   role: 'owner' | 'admin' | 'member' | 'delegate'
   account_state: AccountState
+  plan_tier: 'free' | 'paid'
   subscription_status: SubscriptionStatus
   portal_blocked: boolean
   is_default: boolean
@@ -55,6 +56,7 @@ function toAccessibleBusiness(profile: MinimalProfile, row?: MembershipRow): Acc
     program: profile.assigned_program,
     role: row?.role ?? 'owner',
     account_state: profile.account_state,
+    plan_tier: profile.plan_tier ?? 'free',
     subscription_status: profile.subscription_status,
     portal_blocked: profile.portal_blocked,
     is_default: row?.is_default ?? false,
@@ -74,6 +76,7 @@ async function loadMembershipRows(userId: string) {
       business_name,
       assigned_program,
       account_state,
+      plan_tier,
       portal_blocked,
       is_demo,
       is_admin,
@@ -126,6 +129,36 @@ export async function getBusinessContext(preferredBusinessId?: string | null): P
     .eq('id', user.id)
     .single<MinimalProfile>()
   viewerProfile = viewerProfileResult.data
+
+  if (!viewerProfile) {
+    const fullName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || ''
+    const now = new Date().toISOString()
+
+    const { error: bootstrapError } = await serviceClient.from('profiles').upsert({
+      id: user.id,
+      email: user.email ?? '',
+      full_name: fullName,
+      plan_tier: 'free',
+      subscription_status: 'inactive',
+      account_state: 'prospect',
+      acquisition_path: 'self_serve',
+      progress_percentage: 0,
+      nsf_flag: false,
+      portal_blocked: false,
+      created_at: now,
+      updated_at: now,
+    })
+
+    if (!bootstrapError) {
+      const { data: bootstrapProfile } = await serviceClient
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single<MinimalProfile>()
+
+      viewerProfile = bootstrapProfile ?? null
+    }
+  }
 
   if (!viewerProfile) return null
 

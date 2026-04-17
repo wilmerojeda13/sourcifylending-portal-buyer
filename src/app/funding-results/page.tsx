@@ -31,6 +31,8 @@ export default async function FundingResultsPage() {
         initialApprovals={approvals ?? []}
         startDate={profile?.created_at ?? null}
         assignedProgram={profile?.assigned_program ?? null}
+        clientStatus={profile?.subscription_status ?? null}
+        initialFundingGoal={(profile as any)?.funding_goal_amount ?? null}
       />
     </PortalLayout>
   )

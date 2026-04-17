@@ -7,11 +7,13 @@ import { buildOAuthCallbackUrl, normalizeNextPath } from '@/lib/auth-routing'
 interface Props {
   redirectTo?: string
   label?: string
+  keepSignedIn?: boolean
 }
 
 export default function GoogleSignInButton({
   redirectTo = '/portal',
   label = 'Continue with Google',
+  keepSignedIn = true,
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -19,7 +21,7 @@ export default function GoogleSignInButton({
   const handleGoogleSignIn = async () => {
     setLoading(true)
     setError(null)
-    const supabase = createClient()
+    const supabase = createClient({ keepSignedIn })
     const nextPath = normalizeNextPath(redirectTo)
 
     // Timeout guard — if Supabase doesn't redirect within 8 s, reset so user can retry

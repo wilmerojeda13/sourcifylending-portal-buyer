@@ -22,6 +22,7 @@ export const NON_TERMINAL_OUTCOMES = new Set([
   'Follow Up',
   'Interested',
   'Booked Call',
+  'Demo No Show',
   'Decision Maker',
   'Gatekeeper',
   'Send Link',

@@ -25,7 +25,7 @@ export async function ensureSignupCrmLead({
   email: string
   businessName?: string | null
   phone?: string | null
-  source: 'email_password' | 'google_oauth' | 'create_prospect'
+  source: 'email_password' | 'google_oauth' | 'create_prospect' | 'admin_manual'
   suspicious: boolean
   riskScore?: number | null
   reasons?: string[]

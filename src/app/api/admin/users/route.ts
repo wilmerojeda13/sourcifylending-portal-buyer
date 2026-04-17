@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { ensureSignupCrmLead } from '@/lib/signup-crm'
 
 async function verifyAdmin() {
   const authClient = await createClient()
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     id: userId,
     full_name,
     email,
-    plan_tier: plan_tier || 'paid',
+    plan_tier: plan_tier || 'free',
     assigned_program: assigned_program || null,
     subscription_status: subscription_status || 'inactive',
     created_at: new Date().toISOString(),
@@ -53,6 +54,28 @@ export async function POST(req: NextRequest) {
     // Auth user was created but profile failed — clean up
     await supabase.auth.admin.deleteUser(userId)
     return NextResponse.json({ error: 'Failed to create profile: ' + profileError.message }, { status: 500 })
+  }
+
+  try {
+    const crmLead = await ensureSignupCrmLead({
+      supabase,
+      userId,
+      fullName: full_name,
+      email,
+      businessName: null,
+      source: 'admin_manual',
+      suspicious: false,
+    })
+
+    await supabase
+      .from('profiles')
+      .update({
+        lead_id: crmLead.leadId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+  } catch (crmError) {
+    console.error('[admin/users] CRM lead sync failed', crmError)
   }
 
   return NextResponse.json({ user_id: userId, temp_password: tempPassword })

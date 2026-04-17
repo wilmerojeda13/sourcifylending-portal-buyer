@@ -190,6 +190,7 @@ export interface AccessibleBusiness {
   program: ProgramId | null
   role: 'owner' | 'admin' | 'member' | 'delegate'
   account_state: AccountState
+  plan_tier: PlanTier
   subscription_status: SubscriptionStatus
   portal_blocked: boolean
   is_default: boolean

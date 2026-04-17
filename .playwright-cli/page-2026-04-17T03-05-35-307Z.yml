@@ -1,0 +1,50 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e6]: SL
+      - heading "Sign In" [level=1] [ref=e7]
+      - paragraph [ref=e8]: Access your SourcifyLending portal
+    - generic [ref=e9]:
+      - button "Continue with Google" [ref=e11] [cursor=pointer]:
+        - img [ref=e12]
+        - text: Continue with Google
+      - generic [ref=e19]: or
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - generic [ref=e23]: Email Address
+          - textbox "you@company.com" [ref=e24]
+        - generic [ref=e25]:
+          - generic [ref=e26]: Password
+          - generic [ref=e27]:
+            - textbox "••••••••" [ref=e28]
+            - button [ref=e29] [cursor=pointer]:
+              - img [ref=e30]
+        - generic [ref=e33]:
+          - checkbox "Keep Me Signed In Stay logged in on this device for faster access." [checked] [ref=e34]
+          - generic [ref=e35]:
+            - generic [ref=e36]: Keep Me Signed In
+            - generic [ref=e37]: Stay logged in on this device for faster access.
+        - button "Sign In" [ref=e38] [cursor=pointer]
+      - generic [ref=e39]:
+        - paragraph [ref=e40]:
+          - text: Don't have an account?
+          - link "Create one" [ref=e41] [cursor=pointer]:
+            - /url: /signup
+        - paragraph [ref=e42]:
+          - link "Forgot your password?" [ref=e43] [cursor=pointer]:
+            - /url: /forgot-password
+        - paragraph [ref=e44]:
+          - text: New here?
+          - link "Run the free analyzer first" [ref=e45] [cursor=pointer]:
+            - /url: /analyzer
+        - paragraph [ref=e46]:
+          - link "Privacy Policy" [ref=e47] [cursor=pointer]:
+            - /url: /privacy
+          - text: and
+          - link "Terms & Conditions" [ref=e48] [cursor=pointer]:
+            - /url: /terms
+    - link "Back to home" [ref=e49] [cursor=pointer]:
+      - /url: /
+      - img [ref=e50]
+      - text: Back to home
+  - alert [ref=e52]

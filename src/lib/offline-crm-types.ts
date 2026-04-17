@@ -22,6 +22,7 @@ export type OfflineCallOutcome =
   | 'Follow Up'
   | 'Interested'
   | 'Booked Call'
+  | 'Demo No Show'
   | 'Closed Won'
   | 'Closed Lost'
 

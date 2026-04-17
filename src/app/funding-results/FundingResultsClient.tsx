@@ -28,6 +28,8 @@ interface Props {
   initialApprovals: Outcome[]
   startDate: string | null
   assignedProgram: string | null
+  clientStatus?: string | null
+  initialFundingGoal?: number | null
 }
 
 // ─── Program-aware outcome types ──────────────────────────────────────────────
@@ -117,13 +119,17 @@ const EMPTY_FORM = {
   mark_for_reattempt: false,
 }
 
-export default function FundingResultsClient({ initialApprovals, startDate, assignedProgram }: Props) {
+export default function FundingResultsClient({ initialApprovals, startDate, assignedProgram, clientStatus, initialFundingGoal }: Props) {
   const [outcomes, setOutcomes] = useState<Outcome[]>(initialApprovals)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [fundingGoal, setFundingGoal] = useState<number | null>(initialFundingGoal ?? null)
+  const [fundingGoalInput, setFundingGoalInput] = useState<string>(fundingGoal ? String(fundingGoal) : '')
+  const [savingGoal, setSavingGoal] = useState(false)
+  const [goalError, setGoalError] = useState<string | null>(null)
 
   // Resolve which program key governs the outcome type list
   const activeProgramKey: string | null = assignedProgram
@@ -132,6 +138,10 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
       : form.program_type === 'Program C' ? 'program_c'
       : null)
   const outcomeTypes = getOutcomeTypes(activeProgramKey)
+
+  // Feature eligibility: Funding Goal feature only for active Program A/B clients
+  const isEligibleForGoal = assignedProgram && ['program_a', 'program_b'].includes(assignedProgram) &&
+    (clientStatus === 'active' || clientStatus === 'trialing')
 
   // ─── Metrics ────────────────────────────────────────────────────────────────
   const approvedOnly = outcomes.filter(o => o.status === 'Approved')
@@ -144,6 +154,10 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
   const approvalRate = outcomes.length > 0
     ? Math.round((approvedOnly.length / outcomes.length) * 100)
     : null
+
+  // ─── Funding Goal Metrics ───────────────────────────────────────────────────
+  const remainingToGoal = fundingGoal && fundingGoal > 0 ? Math.max(fundingGoal - totalApproved, 0) : 0
+  const progressPercent = fundingGoal && fundingGoal > 0 ? Math.min((totalApproved / fundingGoal) * 100, 100) : 0
 
   const setField = <K extends keyof typeof EMPTY_FORM>(k: K, v: typeof EMPTY_FORM[K]) =>
     setForm(f => ({ ...f, [k]: v }))
@@ -199,6 +213,60 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
 
   const isCreditType = CREDIT_OUTCOME_TYPES.has(form.approval_type)
 
+  const saveGoal = async () => {
+    setGoalError(null)
+    const goalValue = fundingGoalInput.trim()
+
+    if (!goalValue) {
+      // Clear goal
+      setSavingGoal(true)
+      try {
+        const res = await fetch('/api/funding-approvals', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fundingGoal: null }),
+        })
+        if (!res.ok) {
+          const data = await res.json()
+          setGoalError(data.error || 'Failed to save.')
+          return
+        }
+        setFundingGoal(null)
+        setFundingGoalInput('')
+      } catch {
+        setGoalError('Something went wrong.')
+      } finally {
+        setSavingGoal(false)
+      }
+      return
+    }
+
+    const parsed = parseFloat(goalValue)
+    if (isNaN(parsed) || parsed < 0) {
+      setGoalError('Enter a valid amount.')
+      return
+    }
+
+    setSavingGoal(true)
+    try {
+      const res = await fetch('/api/funding-approvals', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fundingGoal: parsed }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setGoalError(data.error || 'Failed to save.')
+        return
+      }
+      setFundingGoal(parsed)
+    } catch {
+      setGoalError('Something went wrong.')
+    } finally {
+      setSavingGoal(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -233,6 +301,93 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
           </p>
         )}
       </div>
+
+      {/* Funding Goal Section — only for eligible clients */}
+      {isEligibleForGoal && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+              Funding Goal <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">(optional)</span>
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Set the minimum funding amount you want to reach. We'll help you track progress toward your target.
+            </p>
+            <div className="flex items-end gap-2 mb-3">
+              <div className="flex-1">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    value={fundingGoalInput}
+                    onChange={(e) => { setFundingGoalInput(e.target.value); setGoalError(null) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveGoal() }}
+                    placeholder="e.g. 100000"
+                    min="0"
+                    step="1"
+                    className="w-full pl-7 pr-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={saveGoal}
+                disabled={savingGoal}
+                className="flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap"
+              >
+                {savingGoal ? <Loader2 size={14} className="animate-spin" /> : 'Save'}
+              </button>
+              {fundingGoal && (
+                <button
+                  onClick={() => { setFundingGoalInput(''); setGoalError(null) }}
+                  className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-2 py-1"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Error message */}
+            {goalError && (
+              <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-xl px-3 py-2 mb-3">
+                <XCircle size={13} className="text-red-500" />
+                <p className="text-xs text-red-700 dark:text-red-400">{goalError}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Goal progress — show only if goal is set */}
+          {fundingGoal && fundingGoal > 0 && (
+            <div className="space-y-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl px-3 py-2.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Funding Goal</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">{formatMoney(fundingGoal)}</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl px-3 py-2.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Achieved</p>
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatMoney(totalApproved)}</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl px-3 py-2.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Remaining</p>
+                  <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{formatMoney(remainingToGoal)}</p>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-300">Progress to Goal</p>
+                  <p className="text-xs font-bold text-gray-900 dark:text-white">{Math.round(progressPercent)}%</p>
+                </div>
+                <div className="w-full h-3 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-green-500 to-green-600 transition-all duration-300"
+                    style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Metrics grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">

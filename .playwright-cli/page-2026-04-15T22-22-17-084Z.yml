@@ -1,0 +1,43 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e6]: SL
+    - heading "Sign In" [level=1] [ref=e7]
+    - paragraph [ref=e8]: Access your SourcifyLending portal
+  - generic [ref=e9]:
+    - button "Continue with Google" [active] [ref=e11] [cursor=pointer]:
+      - img [ref=e12]
+      - text: Continue with Google
+    - generic [ref=e19]: or
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]: Email Address
+        - textbox "you@company.com" [ref=e24]
+      - generic [ref=e25]:
+        - generic [ref=e26]: Password
+        - generic [ref=e27]:
+          - textbox "••••••••" [ref=e28]
+          - button [ref=e29] [cursor=pointer]:
+            - img [ref=e30]
+      - button "Sign In" [ref=e33] [cursor=pointer]
+    - generic [ref=e34]:
+      - paragraph [ref=e35]:
+        - text: Don't have an account?
+        - link "Create one" [ref=e36] [cursor=pointer]:
+          - /url: /signup
+      - paragraph [ref=e37]:
+        - link "Forgot your password?" [ref=e38] [cursor=pointer]:
+          - /url: /forgot-password
+      - paragraph [ref=e39]:
+        - text: New here?
+        - link "Run the free analyzer first" [ref=e40] [cursor=pointer]:
+          - /url: /analyzer
+      - paragraph [ref=e41]:
+        - link "Privacy Policy" [ref=e42] [cursor=pointer]:
+          - /url: /privacy
+        - text: and
+        - link "Terms & Conditions" [ref=e43] [cursor=pointer]:
+          - /url: /terms
+  - link "Back to home" [ref=e44] [cursor=pointer]:
+    - /url: /
+    - img [ref=e45]
+    - text: Back to home

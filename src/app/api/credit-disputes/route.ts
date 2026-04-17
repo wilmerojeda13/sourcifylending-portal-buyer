@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getBusinessContext } from '@/lib/business-context'
 import { logMemoryEvent } from '@/lib/ai-memory'
+import { getAccountEntitlements } from '@/lib/account-state'
 
 // ─── Legal basis definitions ──────────────────────────────────────────────────
 
@@ -470,6 +471,104 @@ DISCLAIMER
 This draft dispute letter is provided for informational purposes to help consumers understand and exercise their rights under applicable consumer protection laws. It does not constitute legal advice or legal representation. SourcifyLending is not a credit repair organization and does not guarantee any particular outcome from submitting this or any dispute letter.`
 }
 
+function generateGuidedInquiryLetter(p: {
+  fullName: string
+  date: string
+  bureau: string
+  inquiryCompany: string
+  inquiryDate: string
+  reason: string
+  userStatement: string
+  supportingDocuments: string[]
+}): string {
+  const addr = BUREAU_ADDRESSES[p.bureau] ?? p.bureau
+  const documents = p.supportingDocuments.length > 0
+    ? p.supportingDocuments.map((doc) => `   • ${doc}`).join('\n')
+    : '   • [Attach any supporting documents you want to keep with your records]'
+
+  const reasonBlock: Record<string, string> = {
+    'I do not recognize this inquiry':
+      'I do not recognize this inquiry and dispute that it was furnished or reported with a valid permissible purpose.',
+    'I did not authorize this inquiry':
+      'I did not authorize this inquiry and dispute that any permissible purpose existed for the pull.',
+    'This inquiry appears duplicated':
+      'This inquiry appears more than once on my consumer report and should be reviewed for duplication or duplicate reporting.',
+    'This inquiry information is inaccurate':
+      'The inquiry information appears inaccurate based on the details I provided below and should be corrected or deleted if it cannot be verified.',
+    'This inquiry is related to identity theft or fraud':
+      'I believe this inquiry may be related to identity theft or fraud and should be investigated under the applicable identity theft protections.',
+  }
+
+  return `${p.fullName}
+[Your Mailing Address]
+[City, State, ZIP]
+
+${p.date}
+
+${addr}
+
+Re: Formal Dispute of Hard Inquiry
+    Pursuant to the Fair Credit Reporting Act, 15 U.S.C. §§ 1681b, 1681e(b), and 1681i
+
+Dear ${p.bureau} Dispute Department,
+
+Pursuant to my rights under the Fair Credit Reporting Act ("FCRA"), 15 U.S.C. § 1681 et seq., I am formally disputing the hard inquiry identified below. I believe this inquiry was reported inaccurately and/or without a permissible purpose.
+
+Inquiry being disputed:
+Company: ${p.inquiryCompany}
+Date: ${p.inquiryDate}
+
+Reason for dispute:
+${reasonBlock[p.reason] ?? p.reason}
+
+User statement / notes:
+${p.userStatement}
+
+─────────────────────────────────────
+LEGAL BASIS
+─────────────────────────────────────
+This dispute is submitted under the following provisions of the Fair Credit Reporting Act:
+
+   • FCRA § 604 / 15 U.S.C. § 1681b — Permissible purposes for consumer reports
+   • FCRA § 607(b) / 15 U.S.C. § 1681e(b) — Reasonable procedures to assure maximum possible accuracy
+   • FCRA § 611 / 15 U.S.C. § 1681i — Procedure in case of disputed accuracy
+${p.reason === 'This inquiry is related to identity theft or fraud'
+    ? '   • FCRA § 605B / 15 U.S.C. § 1681c-2 — Block of information resulting from identity theft\n'
+    : ''}
+
+Under FCRA § 604 / 15 U.S.C. § 1681b, a consumer reporting agency may furnish a consumer report only for a permissible purpose. Under FCRA § 607(b) / 15 U.S.C. § 1681e(b), consumer reporting agencies must follow reasonable procedures to assure the maximum possible accuracy of the information they report. Under FCRA § 611 / 15 U.S.C. § 1681i, disputed information must be reinvestigated and deleted or corrected if it cannot be verified.
+
+─────────────────────────────────────
+REQUESTED ACTION
+─────────────────────────────────────
+I respectfully request that you:
+
+1. Investigate whether the entity that caused this inquiry had a permissible purpose under FCRA § 604 / 15 U.S.C. § 1681b.
+2. Verify the reporting basis, date, and accuracy of the inquiry information shown on my consumer report.
+3. Correct or delete the inquiry if it is inaccurate, incomplete, cannot be verified, or was furnished without a permissible purpose.
+4. Provide written confirmation of the results of your investigation, including the name and contact information of the entity that initiated the inquiry.
+5. If this dispute involves identity theft or fraud, apply the protections available under FCRA § 605B / 15 U.S.C. § 1681c-2 as applicable.
+
+Supporting documents:
+${documents}
+
+Please send written confirmation of the outcome of your investigation to the address on file.
+
+Sincerely,
+
+
+${p.fullName}
+[Your Mailing Address]
+[City, State, ZIP]
+[Phone: ___________________]
+[Email: ___________________]
+
+─────────────────────────────────────
+DISCLAIMER
+─────────────────────────────────────
+This draft dispute letter is provided for informational purposes to help consumers prepare a dispute letter for an inquiry they believe is inaccurate or unauthorized. It does not constitute legal advice or legal representation. SourcifyLending is not a credit repair organization and does not guarantee any particular outcome from submitting this or any dispute letter.`
+}
+
 function generateObsoleteLetter(p: {
   fullName: string; date: string; bureau: string
   itemDisputed: string; incorrectInfo: string; correctInfo: string
@@ -731,45 +830,85 @@ export async function POST(req: NextRequest) {
   const context = await getBusinessContext()
   if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = await createServiceClient()
-  const isProspect = context.activeProfile.account_state === 'prospect'
+  const entitlements = getAccountEntitlements(
+    context.activeProfile.plan_tier,
+    context.activeProfile.subscription_status,
+    context.activeProfile.account_state
+  )
+  const isFreeAccount = entitlements.access_state === 'free_active'
+  const isPaidAccount = entitlements.access_state === 'paid_active'
 
   const body = await req.json()
-  const { bureau, dispute_type, recipient_type, item_disputed, incorrect_information, correct_information } = body
+  const {
+    bureau,
+    dispute_type,
+    recipient_type,
+    item_disputed,
+    incorrect_information,
+    correct_information,
+    workflow,
+    inquiry_company,
+    inquiry_date,
+    inquiry_reason,
+    user_statement,
+    supporting_documents,
+  } = body
 
-  if (!bureau || !dispute_type || !item_disputed || !incorrect_information || !correct_information) {
-    return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
-  }
+  const guidedInquiryRequested = workflow === 'guided_inquiry' || (!!inquiry_company && !!inquiry_date)
 
-  const requestedDisputeType = String(dispute_type).trim()
-  if (isProspect && requestedDisputeType.toLowerCase() !== 'hard inquiry') {
-    return NextResponse.json({ error: 'Prospect accounts can only create Hard Inquiry disputes.' }, { status: 403 })
+  if (isFreeAccount) {
+    if (!bureau || !inquiry_company || !inquiry_date || !inquiry_reason || !user_statement || !guidedInquiryRequested) {
+      return NextResponse.json({ error: 'Free inquiry disputes require bureau, inquiry company, inquiry date, reason, and user statement.' }, { status: 400 })
+    }
+  } else if (isPaidAccount) {
+    if (!bureau || !dispute_type || !item_disputed || !incorrect_information || !correct_information) {
+      return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
+    }
+  } else {
+    return NextResponse.json({ error: 'Paid membership is inactive. Reactivate to use dispute tools.' }, { status: 403 })
   }
 
   const fullName = context.activeProfile.full_name ?? context.viewerProfile.full_name ?? 'Consumer'
   const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 
-  const { letter, legalBasis } = generateDisputeLetter({
-    fullName,
-    bureau,
-    disputeType: isProspect ? 'Hard Inquiry' : requestedDisputeType,
-    recipientType: isProspect ? undefined : recipient_type,
-    itemDisputed: item_disputed,
-    incorrectInformation: incorrect_information,
-    correctInformation: correct_information,
-    date: dateStr,
-  })
-
   const now = new Date().toISOString()
+  const letterResult = isFreeAccount
+    ? {
+        letter: generateGuidedInquiryLetter({
+          fullName,
+          date: dateStr,
+          bureau,
+          inquiryCompany: String(inquiry_company).trim(),
+          inquiryDate: new Date(inquiry_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          reason: String(inquiry_reason).trim(),
+          userStatement: String(user_statement).trim(),
+          supportingDocuments: Array.isArray(supporting_documents)
+            ? supporting_documents.map((doc) => String(doc).trim()).filter(Boolean)
+            : [],
+        }),
+        legalBasis: getLegalBasis('hard inquiry'),
+      }
+    : generateDisputeLetter({
+        fullName,
+        bureau,
+        disputeType: String(dispute_type).trim(),
+        recipientType: recipient_type,
+        itemDisputed: item_disputed,
+        incorrectInformation: incorrect_information,
+        correctInformation: correct_information,
+        date: dateStr,
+      })
+
   const { data: dispute, error } = await supabase
     .from('credit_disputes')
     .insert({
       user_id: context.activeBusinessId,
       bureau,
-      dispute_type: isProspect ? 'Hard Inquiry' : requestedDisputeType,
-      item_disputed,
-      incorrect_information,
-      correct_information,
-      generated_letter: letter,
+      dispute_type: isFreeAccount ? 'Hard Inquiry' : String(dispute_type).trim(),
+      item_disputed: isFreeAccount ? String(inquiry_company).trim() : item_disputed,
+      incorrect_information: isFreeAccount ? String(inquiry_reason).trim() : incorrect_information,
+      correct_information: isFreeAccount ? String(user_statement).trim() : correct_information,
+      generated_letter: letterResult.letter,
       status: 'Generated',
       date_generated: now,
       created_at: now,
@@ -780,9 +919,15 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  logMemoryEvent(context.activeBusinessId, 'dispute_generated', `Dispute letter generated for ${bureau}`, `${isProspect ? 'Hard Inquiry' : requestedDisputeType}: ${item_disputed}`, dispute.id)
+  logMemoryEvent(
+    context.activeBusinessId,
+    'dispute_generated',
+    `Dispute letter generated for ${bureau}`,
+    `${isFreeAccount ? 'Hard Inquiry' : String(dispute_type).trim()}: ${isFreeAccount ? String(inquiry_company).trim() : item_disputed}`,
+    dispute.id
+  )
 
-  return NextResponse.json({ dispute, legal_basis: legalBasis }, { status: 201 })
+  return NextResponse.json({ dispute, legal_basis: letterResult.legalBasis }, { status: 201 })
 }
 
 // ─── PATCH — update status / escalation ──────────────────────────────────────

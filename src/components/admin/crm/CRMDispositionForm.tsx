@@ -27,6 +27,7 @@ type UIDisposition = {
 const UI_DISPOSITIONS: readonly UIDisposition[] = [
   { key: 'interested', label: 'Interested', icon: ThumbsUp, color: 'bg-green-600 hover:bg-green-700 text-white' },
   { key: 'appointment_set', label: 'Appointment Set', icon: CalendarPlus, color: 'bg-purple-600 hover:bg-purple-700 text-white' },
+  { key: 'demo_no_show', label: 'Demo No Show', icon: PhoneMissed, color: 'bg-slate-700 hover:bg-slate-800 text-white' },
   { key: 'follow_up', label: 'Follow Up', icon: Clock3, color: 'bg-blue-600 hover:bg-blue-700 text-white', needsFollowUp: true },
   { key: 'call_back', label: 'Call Back', icon: Clock3, color: 'bg-cyan-600 hover:bg-cyan-700 text-white', needsFollowUp: true },
   { key: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'bg-amber-600 hover:bg-amber-700 text-white' },

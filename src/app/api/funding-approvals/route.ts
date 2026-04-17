@@ -73,14 +73,30 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ approval }, { status: 201 })
 }
 
-// ─── PATCH — update an existing approval record ───────────────────────────────
+// ─── PATCH — update an existing approval record OR funding goal ─────────────
 export async function PATCH(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { id, ...fields } = body
+  const { id, fundingGoal, ...fields } = body
+
+  // Special case: update funding goal on profile
+  if (fundingGoal !== undefined && !id) {
+    const goalAmount = fundingGoal ? parseFloat(String(fundingGoal)) : null
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ funding_goal_amount: goalAmount, updated_at: new Date().toISOString() })
+      .eq('id', user.id)
+      .select('funding_goal_amount')
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ fundingGoal: data?.funding_goal_amount })
+  }
+
+  // Update approval record
   if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 })
 
   const allowed = ['program_type', 'approval_type', 'issuer_name', 'account_name',

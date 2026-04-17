@@ -75,14 +75,15 @@ export async function GET(request: NextRequest) {
     }
   )
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code)
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code)
   if (error) {
     console.error('[auth/callback] exchangeCodeForSession failed', error)
     return NextResponse.redirect(`${appOrigin}/sign-in?error=oauth_callback_failed&next=${encodeURIComponent(next)}`)
   }
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = data.user ?? data.session?.user
   if (!user) {
+    console.error('[auth/callback] exchangeCodeForSession returned no user', data)
     return NextResponse.redirect(`${appOrigin}/sign-in?error=oauth_callback_failed&next=${encodeURIComponent(next)}`)
   }
 
@@ -114,6 +115,7 @@ export async function GET(request: NextRequest) {
       id: user.id,
       email: user.email ?? '',
       full_name: fullName,
+      plan_tier: 'free',
       subscription_status: 'inactive',
       account_state: 'prospect',
       acquisition_path: 'self_serve',

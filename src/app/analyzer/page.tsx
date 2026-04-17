@@ -526,7 +526,7 @@ function AnalyzerResults({
   const [signupConsent, setSignupConsent] = useState(false)
   const [signupTurnstileToken, setSignupTurnstileToken] = useState('')
 
-  const BOOKING_URL = process.env.NEXT_PUBLIC_BOOKING_URL || null
+  const BOOKING_URL = 'https://calendar.app.google/PGkzpGXXjRHkLHTEA'
 
   // Save analyzer context to sessionStorage so it can be claimed after OAuth redirect
   const saveAnalyzerToSession = () => {
@@ -827,13 +827,13 @@ function AnalyzerResults({
                   className="card border border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-700 hover:bg-green-50/30 dark:hover:bg-green-950/30 transition-all group text-center py-5"
                 >
                   <CalendarDays size={22} className="text-green-600 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                  <p className="font-bold text-gray-900 dark:text-white text-sm">Book a Strategy Call</p>
+                  <p className="font-bold text-gray-900 dark:text-white text-sm">Book on Google Calendar</p>
                   <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">Talk to an advisor about your results</p>
                 </a>
               ) : (
                 <div className="card border border-gray-200 dark:border-gray-700 text-center py-5">
                   <CalendarDays size={22} className="text-gray-300 mx-auto mb-2" />
-                  <p className="font-bold text-gray-400 text-sm">Strategy Call</p>
+                  <p className="font-bold text-gray-400 text-sm">Google Calendar</p>
                   <p className="text-xs text-gray-400 mt-1">Coming soon</p>
                 </div>
               )}

@@ -762,7 +762,7 @@ export async function syncSignupLeadLifecycle(opts: {
   email: string
   phone?: string | null
   businessName?: string | null
-  source: string
+  source: 'email_password' | 'google_oauth' | 'create_prospect' | 'admin_manual'
   suspicious: boolean
   riskScore?: number | null
   reasons?: string[]

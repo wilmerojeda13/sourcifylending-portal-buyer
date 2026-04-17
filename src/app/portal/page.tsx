@@ -1,2 +1,7 @@
 export const dynamic = 'force-dynamic'
-export { default } from '../dashboard/page'
+
+import DashboardPage from '../dashboard/page'
+
+export default function PortalPage() {
+  return <DashboardPage nextPath="/portal" />
+}

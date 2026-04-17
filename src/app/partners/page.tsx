@@ -134,7 +134,7 @@ export default function PartnersPage() {
             <h3 className="font-bold text-green-900 mb-3 text-sm">What happens next</h3>
             <ul className="space-y-2 text-sm text-green-800">
               <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> Our team reviews your application</li>
-              <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> If approved, you'll receive login credentials for your partner portal</li>
+              <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> If approved, you&apos;ll receive login credentials for your partner portal</li>
               <li className="flex items-start gap-2"><CheckCircle size={14} className="mt-0.5 shrink-0" /> We&apos;ll confirm how you add, onboard, and support partner-assisted clients</li>
             </ul>
           </div>
@@ -146,13 +146,13 @@ export default function PartnersPage() {
         <>
           {/* Hero */}
           <section className="max-w-4xl mx-auto px-6 pt-16 pb-14 text-center">
-            <div className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <Star size={14} />
+            <div className="inline-flex items-center gap-2 rounded-full border border-green-600 bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm mb-6">
+              <Star size={14} className="text-white" />
               SourcifyLending Partner Program
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6">
               Close and onboard clients.<br />
-              <span className="text-green-600">Run your client book on SourcifyLending.</span>
+              <span className="text-green-700">Run your client book on SourcifyLending.</span>
             </h1>
             <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10">
               This is a true partner-assisted model, not a passive referral program. Partners bring in the client,
@@ -182,7 +182,7 @@ export default function PartnersPage() {
               ].map(s => (
                 <div key={s.label}>
                   <p className="text-3xl font-bold text-white mb-1">{s.value}</p>
-                  <p className="text-green-200 text-sm">{s.label}</p>
+                  <p className="text-white/90 text-sm">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -309,8 +309,8 @@ export default function PartnersPage() {
           {/* Free access incentive */}
           <section className="bg-gray-50 py-16 px-6">
             <div className="max-w-3xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-                <Star size={14} />
+              <div className="inline-flex items-center gap-2 rounded-full border border-green-600 bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm mb-6">
+                <Star size={14} className="text-white" />
                 Performance Incentive
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Unlock Free Program B Access</h2>
@@ -326,7 +326,7 @@ export default function PartnersPage() {
                   { number: 'Free', label: 'Program B access unlocked', icon: Star },
                 ].map(({ number, label, icon: Icon }) => (
                   <div key={label} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-                    <p className="text-3xl font-bold text-green-600 mb-1">{number}</p>
+                    <p className="text-3xl font-bold text-green-700 mb-1">{number}</p>
                     <p className="text-sm text-gray-500">{label}</p>
                   </div>
                 ))}
@@ -533,7 +533,7 @@ export default function PartnersPage() {
                       />
                       <span className="text-sm text-gray-600 leading-relaxed">
                         I agree to the SourcifyLending Partner Program terms. I understand that partners may not
-                        promise approvals, guarantee funding amounts, or misrepresent SourcifyLending's services.
+                        promise approvals, guarantee funding amounts, or misrepresent SourcifyLending&apos;s services.
                         I will use only approved marketing language. I understand that partner compensation is earned
                         only on partner-assisted clients I close and onboard, and only on successfully collected revenue.
                         SourcifyLending may suspend or terminate partner access at any time for violations.

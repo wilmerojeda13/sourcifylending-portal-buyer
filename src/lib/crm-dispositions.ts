@@ -6,9 +6,9 @@ import {
 import { probabilityFromTemperature } from '@/lib/crm'
 import { appendCrmActivity, createCrmAuditLog } from '@/lib/crm-audit'
 import { assignCrmTags } from '@/lib/crm-tags'
-import { isMissingRelationError } from '@/lib/supabase-schema'
 import { promoteToCrm, shouldAutoPromote } from '@/lib/dialer-promotion'
 import { recordCallLog } from '@/lib/call-logs'
+import { sendDemoNoShowRescheduleEmail } from '@/lib/email'
 
 /**
  * Check if disposition should conditionally promote (e.g., 'interested' only if follow-up scheduled)
@@ -53,6 +53,11 @@ export const CRM_DISPOSITIONS: readonly CRMDispositionEntry[] = [
     outcome: 'Booked Call',
     stage: 'qualified',
     appointment: true,
+  },
+  {
+    key: 'demo_no_show',
+    label: 'Demo No Show',
+    outcome: 'Demo No Show',
   },
   {
     key: 'follow_up',
@@ -223,16 +228,18 @@ export async function applyCrmDisposition(
 
   const { data: lead, error: leadError } = await supabase
     .from('crm_leads')
-    .select('id, first_name, last_name, business_name, lead_temperature, assigned_to_user_id, assigned_to_name')
+    .select('id, first_name, last_name, email, business_name, lead_temperature, assigned_to_user_id, assigned_to_name, last_call_outcome')
     .eq('id', effectiveLeadId)
     .single<{
       id: string
       first_name: string
       last_name: string
+      email: string | null
       business_name: string | null
       lead_temperature: 'cold' | 'warm' | 'hot' | null
       assigned_to_user_id: string | null
       assigned_to_name: string | null
+      last_call_outcome: string | null
     }>()
 
   if (leadError || !lead) {
@@ -249,16 +256,21 @@ export async function applyCrmDisposition(
   )
 
   if (input.callId) {
-    await recordCallLog(supabase, {
-      id: input.callId,
-      leadId: effectiveLeadId,
-      rawLeadId: input.fromRawLeadId ?? null,
-      sourceSystem: 'crm',
-      timestamp: nowIso,
-      durationSeconds: 0,
-      disposition: definition.key,
-      repUserId: input.actorUserId ?? null,
-    })
+    try {
+      await recordCallLog(supabase, {
+        id: input.callId,
+        leadId: effectiveLeadId,
+        rawLeadId: input.fromRawLeadId ?? null,
+        sourceSystem: 'crm',
+        timestamp: nowIso,
+        durationSeconds: 0,
+        disposition: definition.key,
+        repUserId: input.actorUserId ?? null,
+      })
+    } catch (error) {
+      console.error('[Disposition] Call log write failed:', error)
+      warnings.push('call_log_create_failed')
+    }
   }
 
   const leadUpdate: Record<string, unknown> = {
@@ -286,14 +298,18 @@ export async function applyCrmDisposition(
 
   if (updateError) throw updateError
 
-  // DEBUGGING: Verify the disposition was actually saved
-  // This prevents silent drift where the update appears to succeed but data is wrong
+  // Verify the saved row, but do not fail the disposition if a downstream
+  // trigger or sync process rewrites this value. The disposition update is the
+  // primary action; related tracking should degrade into warnings.
   if (updatedLead && updatedLead.last_call_outcome !== definition.outcome) {
-    console.error('[Disposition] CRITICAL: Disposition mismatch!')
-    console.error('[Disposition] Expected:', definition.outcome)
-    console.error('[Disposition] Got:', updatedLead.last_call_outcome)
-    console.error('[Disposition] Full updated record:', updatedLead)
-    throw new Error(`Disposition sync verification failed: expected '${definition.outcome}' but got '${updatedLead.last_call_outcome}'`)
+    const mismatchWarning = `Disposition sync mismatch: expected '${definition.outcome}' but got '${updatedLead.last_call_outcome}'`
+    console.warn('[Disposition] ' + mismatchWarning, {
+      leadId: effectiveLeadId,
+      expected: definition.outcome,
+      actual: updatedLead.last_call_outcome,
+      updatedLead,
+    })
+    warnings.push('disposition_sync_mismatch')
   }
 
   let updatedCall: Record<string, unknown> | null = null
@@ -383,11 +399,7 @@ export async function applyCrmDisposition(
         code: taskError.code,
         details: taskError.details,
       })
-      if (isMissingRelationError(taskError, 'crm_tasks')) {
-        warnings.push('crm_tasks_unavailable')
-      } else {
-        throw taskError
-      }
+      warnings.push('crm_tasks_create_failed')
     } else {
       console.log('[Disposition] Task created successfully:', { taskId: task?.id })
     }
@@ -402,45 +414,71 @@ export async function applyCrmDisposition(
   }
 
   // appendCrmActivity now returns { success: boolean; warning?: string }
-  const activityResult = await appendCrmActivity(supabase, {
-    leadId: effectiveLeadId,
-    type: 'disposition',
-    body: `${definition.label}${trimmedNote ? ` — ${trimmedNote}` : ''}`,
-    metadata: {
-      disposition: definition.outcome,
-      disposition_key: definition.key,
-      note: trimmedNote,
-      follow_up_at: input.followUpAt || null,
-      call_id: input.callId || null,
-      raw_lead_id: input.fromRawLeadId || null,
-      task_id: followUpTask?.id ?? null,
-    },
-    createdBy: input.actorName,
-  })
-  if (!activityResult.success && activityResult.warning) {
-    warnings.push(activityResult.warning)
+  try {
+    const activityResult = await appendCrmActivity(supabase, {
+      leadId: effectiveLeadId,
+      type: 'disposition',
+      body: `${definition.label}${trimmedNote ? ` — ${trimmedNote}` : ''}`,
+      metadata: {
+        disposition: definition.outcome,
+        disposition_key: definition.key,
+        note: trimmedNote,
+        follow_up_at: input.followUpAt || null,
+        call_id: input.callId || null,
+        raw_lead_id: input.fromRawLeadId || null,
+        task_id: followUpTask?.id ?? null,
+      },
+      createdBy: input.actorName,
+    })
+    if (!activityResult.success && activityResult.warning) {
+      warnings.push(activityResult.warning)
+    }
+  } catch (error) {
+    console.error('[Disposition] Activity write failed:', error)
+    warnings.push('crm_activities_create_failed')
   }
 
   // createCrmAuditLog now returns { success: boolean; warning?: string }
-  const auditResult = await createCrmAuditLog(supabase, {
-    actionType: 'disposition_changed',
-    entityType: 'lead',
-    entityIds: [effectiveLeadId],
-    summary: `${definition.label} set for ${leadName}`,
-    details: {
-      disposition: definition.outcome,
-      note: trimmedNote,
-      follow_up_at: input.followUpAt || null,
-      call_id: input.callId || null,
-      task_id: followUpTask?.id ?? null,
-      raw_lead_id: input.fromRawLeadId || null,
-      promotion: promotionResult,
-    },
-    performedByUserId: input.actorUserId || null,
-    performedByName: input.actorName,
-  })
-  if (!auditResult.success && auditResult.warning) {
-    warnings.push(auditResult.warning)
+  try {
+    const auditResult = await createCrmAuditLog(supabase, {
+      actionType: 'disposition_changed',
+      entityType: 'lead',
+      entityIds: [effectiveLeadId],
+      summary: `${definition.label} set for ${leadName}`,
+      details: {
+        disposition: definition.outcome,
+        note: trimmedNote,
+        follow_up_at: input.followUpAt || null,
+        call_id: input.callId || null,
+        task_id: followUpTask?.id ?? null,
+        raw_lead_id: input.fromRawLeadId || null,
+        promotion: promotionResult,
+      },
+      performedByUserId: input.actorUserId || null,
+      performedByName: input.actorName,
+    })
+    if (!auditResult.success && auditResult.warning) {
+      warnings.push(auditResult.warning)
+    }
+  } catch (error) {
+    console.error('[Disposition] Audit log write failed:', error)
+    warnings.push('crm_audit_logs_create_failed')
+  }
+
+  if (definition.key === 'demo_no_show' && lead.email && lead.last_call_outcome !== definition.outcome) {
+    const emailResult = await sendDemoNoShowRescheduleEmail({
+      toEmail: lead.email,
+      toName: leadName,
+      businessName: lead.business_name,
+    })
+    if (!emailResult.success) {
+      warnings.push('demo_no_show_reschedule_email_failed')
+      console.error('[Disposition] Demo no-show reschedule email failed:', {
+        leadId: effectiveLeadId,
+        email: lead.email,
+        error: emailResult.error,
+      })
+    }
   }
 
   if (isDNCDisposition(definition.outcome)) {
@@ -461,14 +499,8 @@ export async function applyCrmDisposition(
           createdByName: input.actorName,
         })
       } catch (error) {
-        if (
-          isMissingRelationError(error as { code?: string | null; message?: string | null; details?: string | null }, 'crm_tag_links')
-          || isMissingRelationError(error as { code?: string | null; message?: string | null; details?: string | null }, 'crm_tags')
-        ) {
-          warnings.push('crm_tags_unavailable')
-        } else {
-          throw error
-        }
+        console.error('[Disposition] Tag assignment failed:', error)
+        warnings.push('crm_tags_update_failed')
       }
     }
   }

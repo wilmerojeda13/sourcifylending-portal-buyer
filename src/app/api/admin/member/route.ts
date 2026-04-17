@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
+import { syncActiveBusinessProfile, syncEditableBusinessProfile } from '@/lib/admin-business-sync'
 import type { ProgramId, SubscriptionStatus, ReadinessStatus } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -80,6 +81,7 @@ export async function PATCH(req: NextRequest) {
       entity_type?: string | null
       industry?: string | null
       // Program / subscription
+      plan_tier?: 'free' | 'paid'
       subscription_status?: SubscriptionStatus
       assigned_program?: ProgramId | null
       current_stage?: string | null
@@ -132,6 +134,17 @@ export async function PATCH(req: NextRequest) {
       .eq('id', user_id)
 
     if (updateError) throw updateError
+
+    const membershipFieldsChanged =
+      fields.subscription_status !== undefined ||
+      fields.assigned_program !== undefined ||
+      fields.plan_tier !== undefined ||
+      fields.account_state !== undefined
+
+    if (membershipFieldsChanged) {
+      await syncEditableBusinessProfile(supabase, user_id, update)
+      await syncActiveBusinessProfile(supabase, user_id)
+    }
 
     // Sync subscriptions table if status changed
     if (fields.subscription_status !== undefined) {

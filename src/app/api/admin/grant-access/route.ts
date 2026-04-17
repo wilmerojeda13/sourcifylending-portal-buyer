@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
+import { syncActiveBusinessProfile, syncEditableBusinessProfile } from '@/lib/admin-business-sync'
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
       access_granted_by: user.id,
       access_granted_at: now,
       access_granted_by_name: adminProfile.full_name || user.email,
+      plan_tier: 'paid',
       account_state: 'active_member',
       subscription_status: 'active',
       updated_at: now,
@@ -67,6 +69,9 @@ export async function POST(req: NextRequest) {
       console.error('[GrantAccess] Profile update error:', error)
       return NextResponse.json({ error: 'Failed to grant access' }, { status: 500 })
     }
+
+    await syncEditableBusinessProfile(serviceClient, userId, updatePayload)
+    await syncActiveBusinessProfile(serviceClient, userId)
 
     // Log activity on admin's account
     await logActivity(user.id, 'admin_granted_access', {

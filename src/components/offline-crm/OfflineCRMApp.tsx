@@ -10,9 +10,10 @@ import type { OfflineCall, OfflineCallOutcome, OfflineLead, OfflineLeadStage, Of
 import OfflineCRMNav from '@/components/offline-crm/OfflineCRMNav'
 
 const STAGES: OfflineLeadStage[] = ['new', 'contacted', 'interested', 'callback', 'follow_up', 'qualified', 'demo_held', 'active_client', 'closed_lost']
-const DISPOSITIONS: { outcome: OfflineCallOutcome; stage: OfflineLeadStage; label: string }[] = [
+const DISPOSITIONS: { outcome: OfflineCallOutcome; stage: OfflineLeadStage | null; label: string }[] = [
   { outcome: 'Interested', stage: 'interested', label: 'Interested' },
   { outcome: 'Booked Call', stage: 'qualified', label: 'Booked Call' },
+  { outcome: 'Demo No Show', stage: null, label: 'Demo No Show' },
   { outcome: 'Left Voicemail', stage: 'contacted', label: 'Voicemail' },
   { outcome: 'No Answer', stage: 'contacted', label: 'No Answer' },
   { outcome: 'Call Back Later', stage: 'callback', label: 'Call Back Later' },
@@ -228,9 +229,23 @@ export default function OfflineCRMApp() {
     await refresh()
   }, [refresh])
 
-  const logDisposition = useCallback(async (outcome: OfflineCallOutcome, stage: OfflineLeadStage) => {
+  const logDisposition = useCallback(async (outcome: OfflineCallOutcome, stage: OfflineLeadStage | null) => {
     if (!selectedLead) return
     const now = new Date().toISOString()
+    const leadPatch: Partial<OfflineLead> = {
+      last_contacted_at: now,
+      last_call_at: now,
+      last_call_outcome: outcome,
+      latest_call_note: callNote || null,
+      follow_up_at: followUpDraft ? new Date(followUpDraft).toISOString() : null,
+      callback_due_at: followUpDraft ? new Date(followUpDraft).toISOString() : null,
+      strategy_call_booked: outcome === 'Booked Call',
+      converted_to_client: outcome === 'Closed Won',
+      notes: callNote ? [selectedLead.notes, callNote].filter(Boolean).join('\n\n') : selectedLead.notes,
+    }
+    if (stage) {
+      leadPatch.stage = stage
+    }
     await queueCallWithLeadUpdate({
       id: createLocalId('call'),
       lead_id: selectedLead.id,
@@ -258,18 +273,7 @@ export default function OfflineCRMApp() {
       server_updated_at: null,
       conflict_note: null,
       client_mutation_id: crypto.randomUUID(),
-    }, {
-      stage,
-      last_contacted_at: now,
-      last_call_at: now,
-      last_call_outcome: outcome,
-      latest_call_note: callNote || null,
-      follow_up_at: followUpDraft ? new Date(followUpDraft).toISOString() : null,
-      callback_due_at: followUpDraft ? new Date(followUpDraft).toISOString() : null,
-      strategy_call_booked: outcome === 'Booked Call',
-      converted_to_client: outcome === 'Closed Won',
-      notes: callNote ? [selectedLead.notes, callNote].filter(Boolean).join('\n\n') : selectedLead.notes,
-    })
+    }, leadPatch)
     setCallNote('')
     await refresh()
   }, [callNote, followUpDraft, meta?.admin_name, meta?.admin_user_id, refresh, selectedLead])

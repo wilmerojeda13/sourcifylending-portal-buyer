@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe'
 import { PROGRAM_INFO } from '@/lib/stripe'
+import { syncActiveBusinessProfile, syncEditableBusinessProfile } from '@/lib/admin-business-sync'
 import type { ProgramId } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -186,8 +187,16 @@ export async function POST(req: NextRequest) {
 
       await supabase.from('profiles').update({
         subscription_status: 'active',
+        plan_tier: 'paid',
         updated_at: new Date().toISOString(),
       }).eq('id', user_id)
+
+      await syncEditableBusinessProfile(supabase, user_id, {
+        subscription_status: 'active',
+        plan_tier: 'paid',
+        updated_at: new Date().toISOString(),
+      })
+      await syncActiveBusinessProfile(supabase, user_id)
 
       result = { stripe_subscription_id: subscription.id }
     }

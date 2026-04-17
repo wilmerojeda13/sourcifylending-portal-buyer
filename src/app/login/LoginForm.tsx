@@ -17,13 +17,14 @@ export default function LoginForm({ nextPath = '/portal' }: LoginFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
+  const [keepSignedIn, setKeepSignedIn] = useState(true)
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
-    const supabase = createClient()
+    const supabase = createClient({ keepSignedIn })
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
@@ -54,7 +55,7 @@ export default function LoginForm({ nextPath = '/portal' }: LoginFormProps) {
   return (
     <div className="card shadow-sm">
       {/* Google OAuth */}
-      <GoogleSignInButton redirectTo={normalizeNextPath(nextPath)} />
+      <GoogleSignInButton redirectTo={normalizeNextPath(nextPath)} keepSignedIn={keepSignedIn} />
 
       <div className="flex items-center gap-3 my-4">
         <div className="flex-1 h-px bg-gray-100" />
@@ -96,6 +97,21 @@ export default function LoginForm({ nextPath = '/portal' }: LoginFormProps) {
             </button>
           </div>
         </div>
+
+        <label className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-left">
+          <input
+            type="checkbox"
+            checked={keepSignedIn}
+            onChange={(e) => setKeepSignedIn(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-gray-900">Keep Me Signed In</span>
+            <span className="block text-xs leading-5 text-gray-500">
+              Stay logged in on this device for faster access.
+            </span>
+          </span>
+        </label>
 
         <button type="submit" className="btn-primary w-full py-3.5" disabled={loading}>
           {loading ? 'Signing in…' : 'Sign In'}

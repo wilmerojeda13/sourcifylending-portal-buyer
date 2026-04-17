@@ -1,0 +1,117 @@
+
+> sourcifylending-portal@0.1.0 dev
+> next dev --port 3005
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3005
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 4.6s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 1281ms (122 modules)
+ ○ Compiling /sign-in ...
+ ✓ Compiled /sign-in in 8.9s (730 modules)
+ GET /sign-in 200 in 9869ms
+ ✓ Compiled in 1022ms (335 modules)
+ GET /sign-in 200 in 262ms
+ GET /sign-in 200 in 119ms
+ GET /sign-in 200 in 122ms
+ ✓ Compiled in 9.1s (335 modules)
+ ○ Compiling /portal ...
+ ✓ Compiled /portal in 3.9s (958 modules)
+ GET /portal 307 in 4766ms
+ GET /sign-in?next=%2Fportal 200 in 164ms
+   Reload env: .env.local
+ ✓ Compiled in 12.3s (949 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1872ms (816 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 5.7s (1043 modules)
+ GET /sign-in?next=%2Fportal 404 in 7081ms
+ ✓ Compiled in 10.5s (618 modules)
+ ✓ Compiled in 1240ms (618 modules)
+ ○ Compiling /_not-found ...
+ GET /sign-in?next=%2Fportal 200 in 2748ms
+ ✓ Compiled /_not-found in 3.3s (1057 modules)
+ ✓ Compiled in 12.2s (1054 modules)
+ ✓ Compiled in 2.1s (1054 modules)
+ ✓ Compiled in 4.4s (1054 modules)
+ ✓ Compiled in 1340ms (618 modules)
+ ✓ Compiled in 10.1s (618 modules)
+ ✓ Compiled in 1130ms (618 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1850ms (1043 modules)
+ GET /sign-in?next=%2Fportal 200 in 585ms
+ ✓ Compiled in 4.5s (618 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1173ms (1043 modules)
+ GET /_next/static/webpack/20e9a7f29e462715.webpack.hot-update.json 404 in 1966ms
+ GET /sign-in?next=%2Fportal 200 in 483ms
+ ✓ Compiled in 1201ms (620 modules)
+ GET /_next/static/webpack/0e3357669149085e.webpack.hot-update.json 404 in 121ms
+ GET /sign-in?next=%2Fportal 200 in 155ms
+ ✓ Compiled in 13.7s (618 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 2.4s (1043 modules)
+ GET /_next/static/webpack/51e3ba0354a10cb8.webpack.hot-update.json 404 in 2867ms
+ GET /sign-in?next=%2Fportal 200 in 174ms
+ ✓ Compiled in 2.5s (620 modules)
+ ✓ Compiled in 6.3s (618 modules)
+ ✓ Compiled in 1008ms (618 modules)
+ GET /sign-in?next=%2Fportal 200 in 568ms
+ ✓ Compiled in 2s (618 modules)
+ ✓ Compiled in 871ms (618 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 716ms (1043 modules)
+ GET /_next/static/webpack/6f2ff027f6bb3d1b.webpack.hot-update.json 404 in 1054ms
+ GET /sign-in?next=%2Fportal 200 in 197ms
+ ✓ Compiled in 1651ms (618 modules)
+ ✓ Compiled in 1108ms (618 modules)
+ ✓ Compiled in 1008ms (618 modules)
+ ✓ Compiled in 866ms (618 modules)
+ ✓ Compiled in 4.8s (618 modules)
+ ✓ Compiled in 1371ms (618 modules)
+ ✓ Compiled in 3.7s (618 modules)
+ ✓ Compiled in 1410ms (618 modules)
+ ✓ Compiled in 1178ms (618 modules)
+ ✓ Compiled in 7.2s (618 modules)
+ ✓ Compiled in 1054ms (618 modules)
+ ✓ Compiled in 11.6s (1176 modules)
+ ✓ Compiled in 1553ms (618 modules)
+ ✓ Compiled /_not-found in 334ms (1043 modules)
+ GET /sign-in?next=%2Fportal 200 in 419ms
+ ✓ Compiled in 2.6s (1162 modules)
+ ✓ Compiled in 1257ms (618 modules)
+ ✓ Compiled in 1133ms (618 modules)
+ ✓ Compiled in 1217ms (618 modules)
+ ✓ Compiled in 1037ms (618 modules)
+ ✓ Compiled in 949ms (618 modules)
+ ✓ Compiled in 6s (618 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 2.6s (1043 modules)
+ GET /_next/static/css/app/layout.css?v=1776306767146 500 in 2809ms
+ GET /_next/static/css/app/layout.css?v=1776306767146 500 in 23ms
+ ✓ Compiled in 1415ms (618 modules)
+ GET /sign-in?next=%2Fportal 500 in 69ms
+ ✓ Compiled /_not-found in 460ms (1043 modules)
+ GET /_next/static/chunks/fallback/webpack.js 500 in 727ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 709ms
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 690ms
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 689ms
+ GET /_next/static/chunks/fallback/main.js 500 in 714ms
+ ✓ Compiled in 1523ms (618 modules)
+ ✓ Compiled in 7.9s (618 modules)
+ ✓ Compiled in 1319ms (618 modules)
+ ✓ Compiled in 1356ms (618 modules)
+ ✓ Compiled in 1008ms (618 modules)
+ ✓ Compiled in 971ms (618 modules)
+ ✓ Compiled in 1548ms (618 modules)
+ ✓ Compiled in 973ms (618 modules)
+ ✓ Compiled in 5.6s (618 modules)
+ ✓ Compiled in 1215ms (618 modules)
+ ✓ Compiled in 978ms (618 modules)
+ ✓ Compiled in 5s (618 modules)
+ ✓ Compiled in 2.5s (1040 modules)
+ ✓ Compiled in 1002ms (618 modules)
+ ✓ Compiled in 7.2s (618 modules)

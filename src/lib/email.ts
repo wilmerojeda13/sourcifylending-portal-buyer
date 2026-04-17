@@ -15,7 +15,9 @@ function getResend(): Resend {
 // Always use the verified subdomain — sourcifylending.com is NOT verified in Resend
 const FROM_ADDRESS = 'SourcifyLending <no-reply@ai.sourcifylending.com>'
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://sourcifylending.com'
+const DEMO_RESCHEDULE_LINK = 'https://calendar.app.google/ELRdbfukLHNBiiWy7'
 export const DIALER_INTRO_EMAIL_SUBJECT = 'Set up your free SourcifyLending account'
+export const DEMO_NO_SHOW_RESCHEDULE_SUBJECT = 'Let’s reschedule your demo'
 
 const PROGRAM_LABELS: Record<string, string> = {
   program_a: 'Program A — 0% Intro APR Card Strategy',
@@ -108,6 +110,282 @@ export async function sendDialerIntroEmail({
     if (!response.ok) {
       const errorText = await response.text()
       return { success: false, error: errorText || `Resend request failed with status ${response.status}` }
+    }
+
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+export async function sendDemoNoShowRescheduleEmail({
+  toEmail,
+  toName,
+  businessName,
+}: {
+  toEmail: string
+  toName: string
+  businessName?: string | null
+}): Promise<{ success: boolean; error?: string }> {
+  if (!process.env.RESEND_API_KEY) {
+    return { success: false, error: 'Email not configured' }
+  }
+
+  const firstName = toName.split(' ')[0] || 'there'
+  const businessLine = businessName?.trim()
+    ? `<p style="margin:0 0 16px;color:#6b7280;font-size:15px;line-height:1.7;">We missed your scheduled demo for <strong style="color:#111827;">${businessName.trim()}</strong>.</p>`
+    : `<p style="margin:0 0 16px;color:#6b7280;font-size:15px;line-height:1.7;">We missed your scheduled demo and want to get you back on the calendar.</p>`
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Let's reschedule your demo</title>
+</head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background:#16a34a;padding:32px 40px;text-align:center;">
+              <span style="color:#ffffff;font-weight:800;font-size:22px;">SourcifyLending</span>
+              <p style="color:#bbf7d0;font-size:13px;margin:8px 0 0 0;">Demo reschedule</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 40px;">
+              <h1 style="margin:0 0 12px 0;font-size:24px;font-weight:800;color:#111827;">
+                Hi ${firstName}, let’s get your demo back on the calendar.
+              </h1>
+              ${businessLine}
+              <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.7;">
+                If the timing changed or you had trouble making it, pick a new slot here and we’ll pick things up from there.
+              </p>
+              <div style="text-align:center;">
+                <a href="${DEMO_RESCHEDULE_LINK}"
+                  style="display:inline-block;background:#16a34a;color:#ffffff;font-weight:700;font-size:15px;
+                         padding:14px 36px;border-radius:12px;text-decoration:none;letter-spacing:0.2px;">
+                  Reschedule Your Demo →
+                </a>
+              </div>
+              <p style="margin:18px 0 0 0;color:#9ca3af;font-size:12px;line-height:1.6;text-align:center;">
+                If the button does not open correctly, use this link:<br />
+                <a href="${DEMO_RESCHEDULE_LINK}" style="color:#16a34a;word-break:break-all;">${DEMO_RESCHEDULE_LINK}</a>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                © ${new Date().getFullYear()} SourcifyLending
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+  try {
+    const { error } = await getResend().emails.send({
+      from: FROM_ADDRESS,
+      to: toEmail,
+      subject: DEMO_NO_SHOW_RESCHEDULE_SUBJECT,
+      html,
+      tags: [
+        { name: 'source', value: 'crm_demo_no_show' },
+        { name: 'recipient', value: toEmail },
+      ],
+    })
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+export type DemoBookingEmailStage = 'confirmation' | 'reminder_24h' | 'reminder_3h' | 'reminder_10m'
+
+const DEMO_BOOKING_RESCHEDULE_LINK = 'https://calendar.app.google/ELRdbfukLHNBiiWy7'
+
+function formatDemoBookingDate(startAt: string, timezone?: string | null) {
+  const date = new Date(startAt)
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: timezone || 'America/New_York',
+    timeZoneName: 'short',
+  }).format(date)
+}
+
+function buildDemoBookingEmail({
+  stage,
+  firstName,
+  businessName,
+  startAt,
+  timezone,
+}: {
+  stage: DemoBookingEmailStage
+  firstName: string
+  businessName?: string | null
+  startAt: string
+  timezone?: string | null
+}) {
+  const when = formatDemoBookingDate(startAt, timezone)
+  const businessLine = businessName?.trim()
+    ? `<p style="margin:0 0 16px;color:#6b7280;font-size:15px;line-height:1.7;">Demo for <strong style="color:#111827;">${businessName.trim()}</strong> is scheduled for <strong style="color:#111827;">${when}</strong>.</p>`
+    : `<p style="margin:0 0 16px;color:#6b7280;font-size:15px;line-height:1.7;">Your demo is scheduled for <strong style="color:#111827;">${when}</strong>.</p>`
+
+  const content = {
+    confirmation: {
+      subject: `Your demo is booked for ${when} — SourcifyLending`,
+      eyebrow: 'Demo confirmed',
+      headline: `You’re booked, ${firstName}.`,
+      body: `Thanks for scheduling your demo. If anything changes, use the reschedule link below so we can keep your spot organized. If you can still make it, just show up at the scheduled time and we’ll take it from there.`,
+      cta: 'Reschedule if needed',
+    },
+    reminder_24h: {
+      subject: 'Your demo is tomorrow — SourcifyLending',
+      eyebrow: '24-hour reminder',
+      headline: `Your demo is tomorrow, ${firstName}.`,
+      body: `A quick reminder that your demo is coming up tomorrow. If you need to move it, use the reschedule link now so we can update the calendar. If you’re all set, we’ll see you then.`,
+      cta: 'Reschedule now',
+    },
+    reminder_3h: {
+      subject: 'Your demo is in 3 hours — SourcifyLending',
+      eyebrow: '3-hour reminder',
+      headline: `Your demo is coming up soon, ${firstName}.`,
+      body: `We’re getting close. If you need a different time, reschedule now. If you’re still good for the call, we’ll see you shortly.`,
+      cta: 'Keep / reschedule',
+    },
+    reminder_10m: {
+      subject: 'Your demo starts in 10 minutes — SourcifyLending',
+      eyebrow: '10-minute reminder',
+      headline: `Your demo starts in 10 minutes, ${firstName}.`,
+      body: `Final reminder: your demo is about to start. If you need to move it, use the link below immediately. Otherwise, we’ll see you in a few minutes.`,
+      cta: 'Reschedule now',
+    },
+  }[stage]
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>${content.subject}</title></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background:#16a34a;padding:30px 40px;text-align:center;">
+              <p style="margin:0;color:#bbf7d0;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:700;">${content.eyebrow}</p>
+              <h1 style="margin:10px 0 0;color:#ffffff;font-size:24px;font-weight:800;">SourcifyLending Demo</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 40px;">
+              <h2 style="margin:0 0 12px 0;font-size:24px;font-weight:800;color:#111827;">${content.headline}</h2>
+              ${businessLine}
+              <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.7;">${content.body}</p>
+              <div style="text-align:center;margin:28px 0 8px;">
+                <a href="${DEMO_BOOKING_RESCHEDULE_LINK}" style="display:inline-block;background:#16a34a;color:#ffffff;font-weight:700;font-size:15px;padding:14px 34px;border-radius:12px;text-decoration:none;">${content.cta} →</a>
+              </div>
+              <p style="margin:16px 0 0;color:#9ca3af;font-size:12px;line-height:1.6;text-align:center;">
+                Demo time: <strong style="color:#6b7280;">${when}</strong><br />
+                Reschedule link: <a href="${DEMO_BOOKING_RESCHEDULE_LINK}" style="color:#16a34a;word-break:break-all;">${DEMO_BOOKING_RESCHEDULE_LINK}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+  const text = [
+    `Hi ${firstName},`,
+    businessName?.trim() ? `Demo for ${businessName.trim()} is scheduled for ${when}.` : `Your demo is scheduled for ${when}.`,
+    content.body,
+    `Reschedule: ${DEMO_BOOKING_RESCHEDULE_LINK}`,
+  ].join('\n\n')
+
+  return { subject: content.subject, html, text }
+}
+
+export async function sendDemoBookingEmail({
+  stage,
+  toEmail,
+  toName,
+  businessName,
+  startAt,
+  timezone,
+  scheduledAt,
+}: {
+  stage: DemoBookingEmailStage
+  toEmail: string
+  toName: string
+  businessName?: string | null
+  startAt: string
+  timezone?: string | null
+  scheduledAt?: string
+}): Promise<{ success: boolean; error?: string; emailId?: string }> {
+  if (!process.env.RESEND_API_KEY) {
+    return { success: false, error: 'Email not configured' }
+  }
+
+  const firstName = toName.split(' ')[0] || 'there'
+  const email = buildDemoBookingEmail({
+    stage,
+    firstName,
+    businessName,
+    startAt,
+    timezone,
+  })
+
+  try {
+    const { data, error } = await getResend().emails.send({
+      from: FROM_ADDRESS,
+      to: toEmail,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+      scheduledAt,
+      tags: [
+        { name: 'source', value: `crm_demo_booking_${stage}` },
+        { name: 'recipient', value: toEmail },
+      ],
+    })
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, emailId: data?.id }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+export async function cancelDemoBookingScheduledEmail(emailId: string): Promise<{ success: boolean; error?: string }> {
+  if (!process.env.RESEND_API_KEY) {
+    return { success: false, error: 'Email not configured' }
+  }
+
+  try {
+    const { error } = await getResend().emails.cancel(emailId)
+    if (error) {
+      return { success: false, error: error.message }
     }
 
     return { success: true }

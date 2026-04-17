@@ -127,6 +127,7 @@ const DISPOSITION_FILTER_OPTIONS = [
   { value: 'Interested', label: 'Interested' },
   { value: 'Appointment Set', label: 'Appointment Set' },
   { value: 'Booked Call', label: 'Booked Call' },
+  { value: 'Demo No Show', label: 'Demo No Show' },
   { value: 'Follow Up', label: 'Follow Up' },
   { value: 'Call Back', label: 'Call Back' },
   { value: 'Call Back Later', label: 'Call Back Later' },
@@ -1134,7 +1135,11 @@ export default function CRMClient() {
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Link href="/admin/dialer" className="btn-secondary inline-flex h-8.5 items-center gap-1.5 px-3 text-sm">
+                <ChevronRight size={14} className="rotate-180" />
+                <span>Open Dialer</span>
+              </Link>
               <button onClick={()=>setShowNew(true)} className="btn-primary h-8.5 px-3 sm:px-4 flex items-center gap-1.5 text-sm shrink-0">
                 <Plus size={15}/> <span>Add Lead</span>
               </button>

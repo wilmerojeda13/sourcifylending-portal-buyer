@@ -30,16 +30,16 @@ export default function HomePage() {
 
       {/* Hero */}
       <section className="max-w-4xl mx-auto px-6 pt-16 pb-20 text-center">
-        <div className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-          <Bot size={16} />
+        <div className="inline-flex items-center gap-2 rounded-full border border-green-600 bg-green-700 px-4 py-2 text-sm font-semibold text-white shadow-sm mb-6">
+          <Bot size={16} className="text-white" />
           AI-Powered Credit Fulfillment Platform
         </div>
         <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6">
           Build Business Credit<br />
-          <span className="text-green-600">With AI Guiding Every Step</span>
+          <span className="text-white">With AI Guiding Every Step</span>
         </h1>
         <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10">
-          SourcifyLending's AI fulfillment agent manages your entire credit-building journey —
+          SourcifyLending&apos;s AI fulfillment agent manages your entire credit-building journey —
           from initial analysis to tradeline reporting, card acquisition, and funding readiness.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -146,8 +146,8 @@ export default function HomePage() {
             <div className="grid grid-cols-1 md:grid-cols-2">
               {/* Left — copy */}
               <div className="p-8 sm:p-10 flex flex-col justify-center">
-                <span className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold mb-5 w-fit">
-                  <Users size={13} />
+                <span className="inline-flex items-center gap-2 rounded-full border border-green-600 bg-green-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm mb-5 w-fit">
+                  <Users size={13} className="text-white" />
                   Partner Program
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 leading-snug">
@@ -166,10 +166,10 @@ export default function HomePage() {
                     <p className="text-xl font-bold text-gray-900">80%</p>
                     <p className="text-xs text-gray-500 mt-0.5">Collected setup fee payout</p>
                   </div>
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-3">
-                    <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1">Monthly Revenue</p>
-                    <p className="text-xl font-bold text-green-700">20%</p>
-                    <p className="text-xs text-green-600 mt-0.5">Successful collected recurring revenue</p>
+                  <div className="rounded-xl border border-green-500 bg-green-700 p-3 shadow-sm">
+                    <p className="text-[10px] font-bold text-white/85 uppercase tracking-wide mb-1">Monthly Revenue</p>
+                    <p className="text-xl font-bold text-white">20%</p>
+                    <p className="text-xs text-white/80 mt-0.5">Successful collected recurring revenue</p>
                   </div>
                 </div>
 
@@ -229,13 +229,13 @@ export default function HomePage() {
                       <Icon size={18} className="text-white" />
                     </div>
                     <div>
-                      <p className="text-green-200 text-xs mb-0.5">{label}</p>
+                      <p className="text-white/90 text-xs mb-0.5">{label}</p>
                       <p className="text-white font-bold text-lg leading-tight">{value}</p>
-                      <p className="text-green-300 text-xs">{sub}</p>
+                      <p className="text-white/75 text-xs">{sub}</p>
                     </div>
                   </div>
                 ))}
-                <p className="text-green-300 text-xs mt-2">
+                <p className="text-white/75 text-xs mt-2">
                   Partner compensation is earned only on partner-assisted clients you close and onboard. No payout on failed, refunded, disputed, or reversed payments.
                 </p>
               </div>
@@ -247,11 +247,11 @@ export default function HomePage() {
       {/* CTA */}
       <section className="bg-green-600 py-14 px-6 text-center">
         <div className="max-w-2xl mx-auto">
-          <Shield size={36} className="text-green-200 mx-auto mb-4" />
+          <Shield size={36} className="text-white mx-auto mb-4" />
           <h2 className="text-3xl font-bold text-white mb-3">
             Find Out Where You Stand — Free
           </h2>
-          <p className="text-green-200 mb-8 text-lg">
+          <p className="text-white/90 mb-8 text-lg">
             Complete the 12-question analyzer and get your program recommendation in under 3 minutes.
           </p>
           <Link href="/analyzer" className="inline-flex items-center gap-2 bg-white text-green-600 font-bold px-8 py-4 rounded-xl hover:bg-green-50 transition-colors text-base">

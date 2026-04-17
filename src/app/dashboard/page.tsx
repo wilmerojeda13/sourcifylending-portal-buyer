@@ -20,7 +20,11 @@ import {
   TrendingUp, FileText, Bell, Lock, DollarSign
 } from 'lucide-react'
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+  nextPath?: string
+}
+
+export default async function DashboardPage({ nextPath = '/dashboard' }: DashboardPageProps = {}) {
   const {
     supabase,
     authUser,
@@ -28,7 +32,7 @@ export default async function DashboardPage() {
     activeProfile: profile,
     notificationCount,
     activePrograms: portalPrograms,
-  } = await requirePortalPageContext('/dashboard')
+  } = await requirePortalPageContext(nextPath)
 
   // ── Prospect path or free user path ──────────────────────────────────────
   if (profile?.account_state === 'prospect' || profile?.plan_tier === 'free') {
@@ -456,16 +460,22 @@ export default async function DashboardPage() {
           <div className="card">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Subscription</p>
             <div className="flex items-center gap-2 mb-2">
-              <StatusBadge status={profile?.subscription_status || 'inactive'} />
+              <StatusBadge status={isFreeUser ? 'free_active' : (profile?.subscription_status || 'inactive')} />
             </div>
             <p className="text-xs text-gray-400">
-              {profile?.subscription_status === 'active'
+              {isFreeUser
+                ? 'Free access active'
+                : profile?.subscription_status === 'active'
                 ? 'Full access active'
                 : profile?.subscription_status === 'trialing'
                 ? 'Trial period active'
                 : 'Limited access'}
             </p>
-            {!isActive && (
+            {isFreeUser ? (
+              <Link href="/billing" className="mt-3 btn-primary text-xs w-full py-2.5">
+                Upgrade
+              </Link>
+            ) : !isActive && (
               <Link href="/billing" className="mt-3 btn-primary text-xs w-full py-2.5">
                 {profile?.subscription_status === 'canceled' ? 'Reactivate' : 'Subscribe Now'}
               </Link>

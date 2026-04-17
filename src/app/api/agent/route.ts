@@ -162,6 +162,16 @@ export async function POST(req: NextRequest) {
     }, 0)
     const formatMoney = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 
+    // Funding goal context (for Program A/B active clients only)
+    const fundingGoalAmount = (profile as any)?.funding_goal_amount ?? null
+    const isEligibleForGoal = assignedProgram && ['program_a', 'program_b'].includes(assignedProgram) && isActive
+    const fundingGoalContext = isEligibleForGoal && fundingGoalAmount && fundingGoalAmount > 0 ? {
+      fundingGoal: fundingGoalAmount,
+      totalFunded: totalFundingApproved,
+      remainingToGoal: Math.max(fundingGoalAmount - totalFundingApproved, 0),
+      progressPercent: Math.min((totalFundingApproved / fundingGoalAmount) * 100, 100),
+    } : null
+
     const completedTasks = tasks?.filter((t) => t.status === 'completed') || []
     const pendingTasks = tasks?.filter((t) => t.status === 'pending') || []
     const overdueTasks = tasks?.filter((t) => t.status === 'overdue') || []
@@ -201,6 +211,15 @@ STANDARD RESPONSE FORMAT (for instructional replies):
 
 [One closing line only if it adds value]
 
+FUNDING GOAL BEHAVIOR (when a goal is set):
+- Acknowledge the client's funding target as their goal
+- State the current progress and remaining gap
+- Prioritize actions that improve approval strength, credit profile, utilization, trade history, lender fit, documentation readiness, or application strategy
+- Give practical, realistic, legal next steps only
+- Never guarantee funding or credit outcomes
+- Never invent lender rules or external research unless an actual tool performed it
+- If data is incomplete, say what's missing and give best-informed next actions
+
 ${page_context?.label ? `════════════════════════════════════════
 CURRENT PAGE CONTEXT
 ════════════════════════════════════════
@@ -230,6 +249,10 @@ FUNDING SECURED: ${totalFundingApproved > 0 ? formatMoney(totalFundingApproved) 
 ${approvedFunding && approvedFunding.length > 0
   ? approvedFunding.slice(0, 3).map(a => `- ${a.issuer_name}: ${a.approved_limit ?? a.approved_amount ?? 0}`).join('\n')
   : ''}
+
+${fundingGoalContext ? `FUNDING GOAL: ${formatMoney(fundingGoalContext.fundingGoal)}
+Status: ${formatMoney(fundingGoalContext.totalFunded)} achieved (${Math.round(fundingGoalContext.progressPercent)}%)
+Remaining to goal: ${formatMoney(fundingGoalContext.remainingToGoal)}` : ''}
 
 ACTIVE DISPUTES:
 ${activeDisputes && activeDisputes.length > 0
@@ -298,7 +321,9 @@ ${assignedProgram === 'program_a' ? `PROGRAM A — Personal Credit Optimization:
 - If readiness = "Not Ready": fix blockers first (utilization, inquiries, derogatory items). Do NOT push card applications.
 - If readiness = "Conditionally Ready": name the exact conditions to resolve.
 - If readiness = "Ready": direct to matching card from AVAILABLE OPPORTUNITIES with tracked link.
-- Never push applications when client is not ready.` : ''}
+- Never push applications when client is not ready.
+${fundingGoalContext ? `- FUNDING GOAL MODE: Client has a funding target of ${formatMoney(fundingGoalContext.fundingGoal)}. They've secured ${formatMoney(fundingGoalContext.totalFunded)} so far (${Math.round(fundingGoalContext.progressPercent)}% progress).
+  Help them identify practical next actions to close the ${formatMoney(fundingGoalContext.remainingToGoal)} gap. Prioritize actions that improve credit profile strength, utilization, approval odds, and lender fit. Never guarantee funding.` : ''}` : ''}
 
 ${assignedProgram === 'program_b' ? `PROGRAM B — Business Credit Builder:
 - Focus: BUSINESS credit ONLY. No personal credit scores, no personal assessments.
@@ -309,7 +334,9 @@ ${assignedProgram === 'program_b' ? `PROGRAM B — Business Credit Builder:
 - Fleet/Gas: Shell, WEX cards reporting to business bureaus
 - Cash Credit: Business cards with no personal guarantee (Brex, Ramp)
 - Funding: Lines of credit, business loans
-- When asked "what's next?": check Current Stage and Next Task above, respond with the next BUSINESS credit step only.` : ''}
+- When asked "what's next?": check Current Stage and Next Task above, respond with the next BUSINESS credit step only.
+${fundingGoalContext ? `- FUNDING GOAL MODE: Client has a funding target of ${formatMoney(fundingGoalContext.fundingGoal)}. They've secured ${formatMoney(fundingGoalContext.totalFunded)} so far (${Math.round(fundingGoalContext.progressPercent)}% progress).
+  Help them identify practical next actions to close the ${formatMoney(fundingGoalContext.remainingToGoal)} gap. Prioritize actions that improve business credit profile, strengthen trade history, and improve approval odds. Never guarantee funding.` : ''}` : ''}
 
 ${assignedProgram === 'program_c' ? `PROGRAM C — Capital Monitoring:
 - Focus: monitoring alerts, bureau status, credit health tracking

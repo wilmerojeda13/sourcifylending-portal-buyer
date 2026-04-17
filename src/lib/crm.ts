@@ -12,6 +12,7 @@ export const CRM_CALL_OUTCOMES = [
   'Interested',
   'Appointment Set',
   'Booked Call',
+  'Demo No Show',
   'Closed Won',
   'Closed Lost',
 ] as const
@@ -44,6 +45,7 @@ export function outcomeToStage(outcome: CRMCallOutcome): string | null {
     'Interested': 'Connected',
     'Appointment Set': 'Strategy Call Booked',
     'Booked Call': 'Strategy Call Booked',
+    'Demo No Show': null,
     'Closed Won': 'Won',
     'Closed Lost': 'Lost',
   }
@@ -65,6 +67,7 @@ export function outcomeToLegacyStage(outcome: CRMCallOutcome): string | null {
     'Interested': 'interested',
     'Appointment Set': 'qualified',
     'Booked Call': 'qualified',
+    'Demo No Show': null,
     'Closed Won': 'active_client',
     'Closed Lost': 'closed_lost',
   }

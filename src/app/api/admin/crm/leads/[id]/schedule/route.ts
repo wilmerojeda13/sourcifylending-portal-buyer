@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { cancelDemoBookingScheduledEmail, sendDemoBookingEmail } from '@/lib/email'
 
 async function assertAdmin() {
   const authClient = await createClient()
@@ -40,6 +41,10 @@ function buildGoogleCalendarUrl(params: {
   return url.toString()
 }
 
+function buildSequenceKey(leadId: string, slotStart: string, durationMinutes: number) {
+  return `${leadId}:${slotStart}:${durationMinutes}`
+}
+
 async function createLocalBooking(
   supabase: Awaited<ReturnType<typeof createServiceClient>>,
   lead: Record<string, any>,
@@ -65,6 +70,139 @@ async function createLocalBooking(
     details: description,
   })
 
+  const sequenceKey = buildSequenceKey(String(lead.id), body.slot_start, body.duration_minutes)
+  const nowIso = new Date().toISOString()
+  const leadEmail = typeof lead.email === 'string' ? lead.email.trim() : ''
+  const bookingStart = new Date(body.slot_start)
+  const reminderSchedule = [
+    { key: 'reminder_24h_email_id', offsetMs: 24 * 60 * 60 * 1000 },
+    { key: 'reminder_3h_email_id', offsetMs: 3 * 60 * 60 * 1000 },
+    { key: 'reminder_10m_email_id', offsetMs: 10 * 60 * 1000 },
+  ] as const
+
+  const { data: previousSequences } = await supabase
+    .from('demo_booking_sequences')
+    .select('confirmation_email_id, reminder_24h_email_id, reminder_3h_email_id, reminder_10m_email_id')
+    .eq('lead_id', lead.id)
+    .is('canceled_at', null)
+
+  for (const previous of previousSequences ?? []) {
+    const emailIds = [
+      previous.confirmation_email_id,
+      previous.reminder_24h_email_id,
+      previous.reminder_3h_email_id,
+      previous.reminder_10m_email_id,
+    ].filter((value): value is string => Boolean(value))
+
+    for (const emailId of emailIds) {
+      const cancelResult = await cancelDemoBookingScheduledEmail(emailId)
+      if (!cancelResult.success) {
+        console.warn('[crm schedule] could not cancel prior scheduled demo email', { emailId, error: cancelResult.error })
+      }
+    }
+  }
+
+  await supabase
+    .from('demo_booking_sequences')
+    .update({ canceled_at: nowIso })
+    .eq('lead_id', lead.id)
+    .is('canceled_at', null)
+
+  let confirmationWarning: string | null = null
+  if (!leadEmail) {
+    confirmationWarning = 'Lead email missing; demo reminders were not enrolled.'
+  } else {
+    const { data: sequence, error: sequenceError } = await supabase
+      .from('demo_booking_sequences')
+      .upsert({
+        sequence_key: sequenceKey,
+        lead_id: lead.id,
+        lead_email: leadEmail,
+        lead_first_name: typeof lead.first_name === 'string' ? lead.first_name : null,
+        lead_last_name: typeof lead.last_name === 'string' ? lead.last_name : null,
+        business_name: typeof lead.business_name === 'string' ? lead.business_name : null,
+        appointment_datetime: body.slot_start,
+        duration_minutes: body.duration_minutes,
+        timezone,
+        calendar_url: googleCalendarUrl,
+        notes: body.notes?.trim() || null,
+        confirmation_email_sent_at: null,
+        confirmation_email_id: null,
+        reminder_24h_sent_at: null,
+        reminder_24h_email_id: null,
+        reminder_3h_sent_at: null,
+        reminder_3h_email_id: null,
+        reminder_10m_sent_at: null,
+        reminder_10m_email_id: null,
+        canceled_at: null,
+      }, { onConflict: 'sequence_key' })
+      .select('id, lead_email, lead_first_name, lead_last_name, business_name, appointment_datetime, timezone')
+      .single()
+
+    if (sequenceError) {
+      confirmationWarning = sequenceError.message
+      console.error('[crm schedule] failed to persist demo booking sequence', sequenceError)
+    } else if (sequence?.lead_email) {
+      const confirmation = await sendDemoBookingEmail({
+        stage: 'confirmation',
+        toEmail: sequence.lead_email,
+        toName: [sequence.lead_first_name, sequence.lead_last_name].filter(Boolean).join(' ') || 'there',
+        businessName: sequence.business_name,
+        startAt: sequence.appointment_datetime,
+        timezone: sequence.timezone,
+      })
+
+      if (confirmation.success) {
+        await supabase
+          .from('demo_booking_sequences')
+          .update({
+            confirmation_email_sent_at: nowIso,
+            confirmation_email_id: confirmation.emailId ?? null,
+          })
+          .eq('sequence_key', sequenceKey)
+      } else {
+        confirmationWarning = confirmation.error ?? 'Failed to send confirmation email'
+        console.error('[crm schedule] demo confirmation email failed', confirmation)
+      }
+
+      for (const reminder of reminderSchedule) {
+        const scheduledAt = new Date(bookingStart.getTime() - reminder.offsetMs)
+        if (scheduledAt.getTime() <= Date.now() + 60_000) continue
+
+        const stage = reminder.key === 'reminder_24h_email_id'
+          ? 'reminder_24h'
+          : reminder.key === 'reminder_3h_email_id'
+            ? 'reminder_3h'
+            : 'reminder_10m'
+
+        const scheduled = await sendDemoBookingEmail({
+          stage,
+          toEmail: sequence.lead_email,
+          toName: [sequence.lead_first_name, sequence.lead_last_name].filter(Boolean).join(' ') || 'there',
+          businessName: sequence.business_name,
+          startAt: sequence.appointment_datetime,
+          timezone: sequence.timezone,
+          scheduledAt: scheduledAt.toISOString(),
+        })
+
+        if (!scheduled.success) {
+          confirmationWarning = confirmationWarning ?? scheduled.error ?? `Failed to schedule ${stage}`
+          console.error('[crm schedule] demo reminder schedule failed', {
+            sequenceKey,
+            stage,
+            error: scheduled.error,
+          })
+          continue
+        }
+
+        await supabase
+          .from('demo_booking_sequences')
+          .update({ [reminder.key]: scheduled.emailId ?? null })
+          .eq('sequence_key', sequenceKey)
+      }
+    }
+  }
+
   return {
     event: {
       id: `booking-${Date.now()}`,
@@ -80,6 +218,7 @@ async function createLocalBooking(
     },
     lead,
     googleCalendarUrl,
+    confirmationWarning,
   }
 }
 
@@ -126,6 +265,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       event: booking.event,
       lead: booking.lead,
       googleCalendarUrl: booking.googleCalendarUrl,
+      warning: booking.confirmationWarning ?? null,
     }, { status: 201 })
   } catch (error) {
     console.error('[crm schedule] failed to create CRM booking', error)

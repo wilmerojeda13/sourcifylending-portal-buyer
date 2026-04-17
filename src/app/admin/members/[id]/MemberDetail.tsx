@@ -133,7 +133,7 @@ export default function MemberDetail({
   // ── Profile form ──
   const [form, setForm] = useState({
     subscription_status: profile.subscription_status,
-    plan_tier: profile.plan_tier ?? '',
+    plan_tier: (profile.plan_tier ?? '') as '' | 'free' | 'paid',
     assigned_program: profile.assigned_program ?? '',
     current_stage: profile.current_stage ?? '',
     readiness_status: profile.readiness_status ?? '',
@@ -877,6 +877,58 @@ export default function MemberDetail({
                   </div>
                 )}
 
+                {/* Lead & contact context */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <FileText size={18} className="text-green-600" /> Lead & Contact Context
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Lead Link</div>
+                      <div className="mt-1 text-gray-900 font-medium break-all">
+                        {profile.lead_id ? (
+                          <Link href={`/admin/crm/${profile.lead_id}`} className="text-green-700 hover:underline">
+                            {profile.lead_id}
+                          </Link>
+                        ) : (
+                          'Not linked'
+                        )}
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Account State</div>
+                      <div className="mt-1 text-gray-900 font-medium">{infoForm.account_state.replace(/_/g, ' ')}</div>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Acquisition</div>
+                      <div className="mt-1 text-gray-900 font-medium">{profile.acquisition_path.replace(/_/g, ' ')}</div>
+                      {profile.assigned_partner_name && (
+                        <div className="mt-1 text-xs text-gray-500">Partner: {profile.assigned_partner_name}</div>
+                      )}
+                    </div>
+                    <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Contact</div>
+                      <div className="mt-1 text-gray-900 font-medium break-all">{profile.email}</div>
+                      {((profile as UserProfile & { phone?: string }).phone) && (
+                        <div className="mt-1 text-xs text-gray-500">{(profile as UserProfile & { phone?: string }).phone}</div>
+                      )}
+                    </div>
+                    {profile.latest_analyzer_result && (
+                      <div className="sm:col-span-2 rounded-xl bg-gray-50 border border-gray-100 p-3">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Lead Summary</div>
+                        <div className="mt-1 text-gray-900 font-medium">
+                          {profile.latest_analyzer_result.summary}
+                        </div>
+                        {profile.latest_analyzer_result.recommended_next_step && (
+                          <div className="mt-1 text-xs text-gray-500">
+                            Next step: {profile.latest_analyzer_result.recommended_next_step}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Profile & Subscription Form */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
                   <h2 className="font-bold text-gray-900 mb-4">Profile & Subscription</h2>
@@ -896,8 +948,8 @@ export default function MemberDetail({
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Plan Tier</label>
                       <select
-                        value={form.plan_tier}
-                        onChange={(e) => setForm((p) => ({ ...p, plan_tier: e.target.value as 'free' | 'paid' | '' }))}
+                        value={form.plan_tier || ''}
+                        onChange={(e) => setForm((p) => ({ ...p, plan_tier: e.target.value === '' ? null : (e.target.value as 'free' | 'paid') }))}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                       >
                         <option value="">Unset</option>

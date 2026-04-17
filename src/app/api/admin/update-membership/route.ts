@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
+import { syncActiveBusinessProfile, syncEditableBusinessProfile } from '@/lib/admin-business-sync'
 import type { ProgramId, SubscriptionStatus } from '@/types'
 
 export async function POST(req: NextRequest) {
@@ -35,6 +36,10 @@ export async function POST(req: NextRequest) {
       .eq('id', user_id)
 
     if (profileError) throw profileError
+
+    await syncEditableBusinessProfile(supabase, user_id, profileUpdate)
+
+    await syncActiveBusinessProfile(supabase, user_id)
 
     // Also update subscriptions table if status changes
     if (subscription_status !== undefined) {

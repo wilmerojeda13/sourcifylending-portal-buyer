@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import BusinessManagementCard from '@/components/member/BusinessManagementCard'
 import { createClient } from '@/lib/supabase/client'
@@ -9,8 +10,8 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { formatPricingLabel, getProgramPricing, normalizeAcquisitionPath } from '@/lib/partner-program'
 import { useBusinessContext } from '@/lib/use-business-context'
 import {
-  CreditCard, CheckCircle, Shield, Loader2, Zap, Building2,
-  BarChart3, Calendar, Plus, ExternalLink, Lock,
+  CreditCard, CheckCircle, Shield, ShieldOff, Loader2, Zap, Building2,
+  BarChart3, Calendar, Plus, ExternalLink, Lock, BanIcon, Trash2,
 } from 'lucide-react'
 import type { UserProfile } from '@/types'
 import toast from 'react-hot-toast'
@@ -79,6 +80,12 @@ const PROGRAM_ICON_BG: Record<string, string> = {
   program_c: 'bg-purple-100 dark:bg-purple-900/40',
 }
 
+const PAID_PROGRAM_OPTIONS = [
+  { key: 'program_a', desc: 'Build high-limit 0% intro APR credit card stack for business or personal capital', badgeColor: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' },
+  { key: 'program_b', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badgeColor: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
+  { key: 'program_c', desc: 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan', badgeColor: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400' },
+] as const
+
 function getAvailableAddOns(activeMemberships: Membership[]): string[] {
   const active = activeMemberships.map((m) => m.program_code)
   if (active.length === 0) return []
@@ -88,8 +95,41 @@ function getAvailableAddOns(activeMemberships: Membership[]): string[] {
   return []
 }
 
+type DestructiveAction = 'downgrade' | 'cancel' | 'delete' | null
+
+const DESTRUCTIVE_ACTIONS: Record<Exclude<DestructiveAction, null>, {
+  title: string
+  description: string
+  placeholder: string
+  expectedText: string
+  buttonLabel: string
+}> = {
+  downgrade: {
+    title: 'Downgrade to Free Plan',
+    description: 'Type the phrase below to confirm the downgrade. This keeps the free plan active and stops paid access.',
+    placeholder: 'DOWNGRADE TO FREE',
+    expectedText: 'DOWNGRADE TO FREE',
+    buttonLabel: 'Downgrade',
+  },
+  cancel: {
+    title: 'Cancel Membership',
+    description: 'Type the phrase below to confirm cancellation. This ends the paid subscription and preserves progress.',
+    placeholder: 'CANCEL MEMBERSHIP',
+    expectedText: 'CANCEL MEMBERSHIP',
+    buttonLabel: 'Cancel Membership',
+  },
+  delete: {
+    title: 'Delete Account',
+    description: 'Type your account email to permanently delete this account, its memberships, and portal access.',
+    placeholder: 'email@example.com',
+    expectedText: '',
+    buttonLabel: 'Delete Account',
+  },
+}
+
 export default function BillingPage() {
   const supabase = createClient()
+  const router = useRouter()
   const { activeBusinessId } = useBusinessContext()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null)
@@ -100,6 +140,12 @@ export default function BillingPage() {
   const [portalLoading, setPortalLoading] = useState(false)
   const [addingOn, setAddingOn] = useState<string | null>(null)
   const [selectingPlan, setSelectingPlan] = useState<string | null>(null)
+  const [switchingProgram, setSwitchingProgram] = useState<string | null>(null)
+  const [downgrading, setDowngrading] = useState(false)
+  const [cancelingMembership, setCancelingMembership] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [destructiveAction, setDestructiveAction] = useState<DestructiveAction>(null)
+  const [destructiveInput, setDestructiveInput] = useState('')
   const [subscriptionRequiredFlow, setSubscriptionRequiredFlow] = useState(false)
   const [newBusinessFlow, setNewBusinessFlow] = useState(false)
 
@@ -200,6 +246,127 @@ export default function BillingPage() {
     }
   }
 
+  const handleSwitchProgram = async (newProgram: string) => {
+    setSwitchingProgram(newProgram)
+    try {
+      const res = await fetch('/api/stripe/change-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_program: newProgram }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to switch program')
+      toast.success(`Switched to ${PROGRAM_NAMES[newProgram] ?? 'the selected program'}`)
+      window.location.href = '/billing'
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to switch program')
+    } finally {
+      setSwitchingProgram(null)
+    }
+  }
+
+  const handleSelectFreePlan = async () => {
+    setSelectingPlan('free')
+    setDestructiveAction('downgrade')
+    setDestructiveInput('')
+    setSelectingPlan(null)
+  }
+
+  const handleDowngradeToFree = async () => {
+    setDowngrading(true)
+    try {
+      if (destructiveInput.trim().toUpperCase() !== DESTRUCTIVE_ACTIONS.downgrade.expectedText) {
+        throw new Error('Confirmation text must be "DOWNGRADE TO FREE"')
+      }
+      const res = await fetch('/api/stripe/downgrade-membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmText: destructiveInput }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Downgrade failed')
+      toast.success('Downgraded to the Free Plan')
+      window.location.href = '/billing'
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Downgrade failed')
+    } finally {
+      setDowngrading(false)
+    }
+  }
+
+  const handleCancelMembership = async () => {
+    setCancelingMembership(true)
+    try {
+      if (destructiveInput.trim().toUpperCase() !== DESTRUCTIVE_ACTIONS.cancel.expectedText) {
+        throw new Error('Confirmation text must be "CANCEL MEMBERSHIP"')
+      }
+      const res = await fetch('/api/stripe/cancel-membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmText: destructiveInput }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Cancellation failed')
+      toast.success('Membership canceled')
+      window.location.href = '/billing'
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Cancellation failed')
+    } finally {
+      setCancelingMembership(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    const email = profile?.email?.trim()
+    if (!email) {
+      toast.error('Account email is missing. Contact support before deleting.')
+      return
+    }
+
+    setDeletingAccount(true)
+    try {
+      if (destructiveInput.trim().toLowerCase() !== email.toLowerCase()) {
+        throw new Error(`Confirmation text must match ${email}`)
+      }
+      const res = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmText: destructiveInput }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Account deletion failed')
+      await supabase.auth.signOut().catch(() => {})
+      toast.success('Account deleted')
+      router.replace('/sign-in?deleted=1')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Account deletion failed')
+    } finally {
+      setDeletingAccount(false)
+    }
+  }
+
+  const closeDestructiveAction = () => {
+    setDestructiveAction(null)
+    setDestructiveInput('')
+  }
+
+  const submitDestructiveAction = async () => {
+    if (destructiveAction === 'downgrade') {
+      await handleDowngradeToFree()
+      closeDestructiveAction()
+      return
+    }
+    if (destructiveAction === 'cancel') {
+      await handleCancelMembership()
+      closeDestructiveAction()
+      return
+    }
+    if (destructiveAction === 'delete') {
+      await handleDeleteAccount()
+      closeDestructiveAction()
+    }
+  }
+
   if (loading) {
     return (
       <PortalLayout
@@ -244,6 +411,8 @@ export default function BillingPage() {
 
   const program = profile?.assigned_program || null
   const pathLabel = acquisitionPath === 'partner_assisted' ? 'Partner-Assisted' : 'Self-Serve'
+  const primaryPaidProgram = activePrograms.find((code) => code === 'program_a' || code === 'program_b') ?? null
+  const switchablePrograms = ['program_a', 'program_b'].filter((code) => code !== primaryPaidProgram)
   const pricingText = (programCode: string) => {
     if (programCode !== 'program_a' && programCode !== 'program_b' && programCode !== 'program_c') return ''
     return formatPricingLabel(programCode, acquisitionPath)
@@ -320,6 +489,75 @@ export default function BillingPage() {
         </div>
       )}
 
+      {isFreeUser && (
+        <div className="space-y-4 mb-6">
+          <div className="text-center mb-2">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Upgrade to a Program</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Pick a paid program anytime. Your free access stays active until you complete checkout.
+            </p>
+          </div>
+
+          {PAID_PROGRAM_OPTIONS.map(({ key, desc, badgeColor }) => (
+            <div key={key} className="card border-2 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-colors">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 ${PROGRAM_ICON_BG[key]} rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>
+                    {PROGRAM_ICONS[key]}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900 dark:text-white">{PROGRAM_NAMES[key]}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeColor}`}>{pricingBadge(key)}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{pricingText(key)}</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleSelectAndEnroll(key)}
+                  disabled={selectingPlan !== null}
+                  className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
+                >
+                  {selectingPlan === key ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+                  Upgrade
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mb-6">
+        <h2 className="section-title mb-3 text-red-700 dark:text-red-300">Danger Zone</h2>
+        <div className="card border border-red-200 dark:border-red-900/60 bg-red-50/60 dark:bg-red-950/20">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/40">
+                <Trash2 size={18} className="text-red-700 dark:text-red-300" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-red-900 dark:text-red-200">Delete Account</h3>
+                <p className="mt-1 text-sm leading-relaxed text-red-800 dark:text-red-300 max-w-2xl">
+                  Permanently remove this account, its memberships, payments, and portal access. This cannot be undone.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setDestructiveAction('delete')
+                setDestructiveInput('')
+              }}
+              disabled={deletingAccount}
+              className="inline-flex items-center gap-2 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-800 disabled:opacity-50"
+            >
+              {deletingAccount ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              Delete Account
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* ── Active Memberships ─────────────────────────────────────────────── */}
       {memberships.length > 0 && (
         <div className="mb-6">
@@ -366,6 +604,50 @@ export default function BillingPage() {
         </div>
       )}
 
+      {!isFreeUser && switchablePrograms.length > 0 && (
+        <div className="mb-6">
+          <h2 className="section-title mb-1">Change Program</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            Switch your primary paid program without canceling your account.
+          </p>
+          <div className="space-y-3">
+            {switchablePrograms.map((programCode) => (
+              <div key={programCode} className="card border-2 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-colors">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-10 h-10 ${PROGRAM_ICON_BG[programCode]} rounded-xl flex items-center justify-center shrink-0 mt-0.5`}>
+                      {PROGRAM_ICONS[programCode]}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 dark:text-white">{PROGRAM_NAMES[programCode]}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
+                        {programCode === 'program_a'
+                          ? 'Move into the 0% APR card strategy track.'
+                          : 'Move into the business credit builder track.'}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${programCode === 'program_a' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'}`}>
+                          {pricingBadge(programCode)}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{pricingText(programCode)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleSwitchProgram(programCode)}
+                    disabled={switchingProgram !== null}
+                    className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
+                  >
+                    {switchingProgram === programCode ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+                    Switch
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Fallback: legacy single-program active (no memberships rows yet) ── */}
       {memberships.length === 0 && isActive && program && (
         <div className="card mb-6 border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
@@ -392,6 +674,67 @@ export default function BillingPage() {
                   Manage
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {destructiveAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-lg rounded-3xl border border-gray-700 bg-slate-950 p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-white">{DESTRUCTIVE_ACTIONS[destructiveAction].title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-gray-300">{DESTRUCTIVE_ACTIONS[destructiveAction].description}</p>
+              </div>
+              <button
+                onClick={closeDestructiveAction}
+                className="rounded-full p-2 text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Close confirmation"
+              >
+                <BanIcon size={16} />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-gray-800 bg-white/5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Required confirmation</p>
+              <div className="mt-2 rounded-xl bg-black/30 px-3 py-2 font-mono text-sm text-white">
+                {destructiveAction === 'delete' ? (profile?.email ?? '') : DESTRUCTIVE_ACTIONS[destructiveAction].expectedText}
+              </div>
+            </div>
+
+            <label className="mt-5 block text-sm font-medium text-gray-200">
+              {destructiveAction === 'delete' ? 'Type your email' : 'Type the confirmation phrase'}
+            </label>
+            <input
+              value={destructiveInput}
+              onChange={(event) => setDestructiveInput(event.target.value)}
+              placeholder={destructiveAction === 'delete' ? profile?.email ?? 'email@example.com' : DESTRUCTIVE_ACTIONS[destructiveAction].placeholder}
+              className="mt-2 w-full rounded-xl border border-gray-700 bg-slate-900 px-4 py-3 text-sm text-white outline-none ring-0 placeholder:text-gray-500 focus:border-green-500"
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={closeDestructiveAction}
+                className="rounded-xl border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-200 transition-colors hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitDestructiveAction}
+                disabled={
+                  destructiveAction === 'delete'
+                    ? destructiveInput.trim().toLowerCase() !== (profile?.email ?? '').trim().toLowerCase()
+                    : destructiveInput.trim().toUpperCase() !== DESTRUCTIVE_ACTIONS[destructiveAction].expectedText
+                }
+                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {DESTRUCTIVE_ACTIONS[destructiveAction].buttonLabel}
+              </button>
             </div>
           </div>
         </div>
@@ -477,6 +820,60 @@ export default function BillingPage() {
         </div>
       )}
 
+      {!isFreeUser && (
+        <div className="mb-6 grid gap-4 md:grid-cols-2">
+          <div className="card border border-orange-200 dark:border-orange-900/60 bg-orange-50/60 dark:bg-orange-950/20">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-100 dark:bg-orange-900/40">
+                <ShieldOff size={18} className="text-orange-700 dark:text-orange-300" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-bold text-orange-900 dark:text-orange-200">Downgrade to Free Plan</h2>
+                <p className="mt-1 text-sm leading-relaxed text-orange-800 dark:text-orange-300">
+                  Keep the free analyzer active, remove paid access, and stop the subscription from renewing.
+                </p>
+                <button
+                  onClick={() => {
+                    setDestructiveAction('downgrade')
+                    setDestructiveInput('')
+                  }}
+                  disabled={downgrading}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {downgrading ? <Loader2 size={14} className="animate-spin" /> : <ShieldOff size={14} />}
+                  Downgrade
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="card border border-red-200 dark:border-red-900/60 bg-red-50/60 dark:bg-red-950/20">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/40">
+                <BanIcon size={18} className="text-red-700 dark:text-red-300" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-bold text-red-900 dark:text-red-200">Cancel Membership</h2>
+                <p className="mt-1 text-sm leading-relaxed text-red-800 dark:text-red-300">
+                  End the paid subscription while preserving progress so you can reactivate later if needed.
+                </p>
+                <button
+                  onClick={() => {
+                    setDestructiveAction('cancel')
+                    setDestructiveInput('')
+                  }}
+                  disabled={cancelingMembership || profile?.subscription_status === 'canceled'}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                >
+                  {cancelingMembership ? <Loader2 size={14} className="animate-spin" /> : <BanIcon size={14} />}
+                  {profile?.subscription_status === 'canceled' ? 'Already Canceled' : 'Cancel Membership'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Inactive Paid: Reactivate / Subscribe CTA ──────────────────────────── */}
       {!isActive && !isFreeUser && program && (
         <div className="card bg-gradient-to-br from-green-600 to-green-800 border-0 text-white mb-6">
@@ -516,11 +913,33 @@ export default function BillingPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select a plan and proceed directly to payment under your {pathLabel.toLowerCase()} pricing path.</p>
           </div>
 
-          {[
-            { key: 'program_a', desc: 'Build high-limit 0% intro APR credit card stack for business or personal capital', badgeColor: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' },
-            { key: 'program_b', desc: 'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring', badgeColor: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' },
-            { key: 'program_c', desc: 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan', badgeColor: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400' },
-          ].map(({ key, desc, badgeColor }) => (
+          <div className="card border-2 border-green-200 dark:border-green-800 bg-green-50/40 dark:bg-green-900/10">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+                  <CheckCircle size={18} className="text-green-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 dark:text-white">Free Plan</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">Access the free credit dispute tool and keep your account free-active. Upgrade later if you want a paid program.</p>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">No payment required</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Free Plan Active</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleSelectFreePlan}
+                disabled={selectingPlan !== null}
+                className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
+              >
+                {selectingPlan === 'free' ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+                Use Free Plan
+              </button>
+            </div>
+          </div>
+
+          {PAID_PROGRAM_OPTIONS.map(({ key, desc, badgeColor }) => (
             <div key={key} className="card border-2 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-colors">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-start gap-3">

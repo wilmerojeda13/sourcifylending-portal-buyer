@@ -194,6 +194,7 @@ export async function POST(req: NextRequest) {
       full_name: assessment.normalizedFullName,
       email: normalizedEmail,
       business_name: assessment.normalizedBusinessName || null,
+      plan_tier: 'free',
       account_state: 'prospect',
       subscription_status: 'inactive',
       progress_percentage: 0,
