@@ -131,9 +131,18 @@ export default function MemberDetail({
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview')
 
   // ── Profile form ──
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    subscription_status: SubscriptionStatus
+    plan_tier: 'free' | 'paid' | null
+    assigned_program: '' | ProgramId
+    current_stage: string
+    readiness_status: ReadinessStatus | ''
+    progress_percentage: number
+    admin_notes: string
+    portal_blocked: boolean
+  }>({
     subscription_status: profile.subscription_status,
-    plan_tier: (profile.plan_tier ?? '') as '' | 'free' | 'paid',
+    plan_tier: profile.plan_tier as 'free' | 'paid' | null,
     assigned_program: profile.assigned_program ?? '',
     current_stage: profile.current_stage ?? '',
     readiness_status: profile.readiness_status ?? '',
@@ -948,7 +957,7 @@ export default function MemberDetail({
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Plan Tier</label>
                       <select
-                        value={form.plan_tier || ''}
+                        value={form.plan_tier ?? ''}
                         onChange={(e) => setForm((p) => ({ ...p, plan_tier: e.target.value === '' ? null : (e.target.value as 'free' | 'paid') }))}
                         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                       >
