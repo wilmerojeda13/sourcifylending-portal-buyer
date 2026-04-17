@@ -107,16 +107,17 @@ async function activateUser(
   await upsertMembership(supabase, userId, program, subscriptionId)
 
   // 3. Update profile — also promote prospect → active_member on upgrade
-  // Ensure plan_tier is set to 'paid' for users completing paid checkout
+  // Ensure feature_tier is set to 'paid' for users completing paid checkout
   await supabase.from('profiles').update({
-    subscription_status: 'active',
+    billing_status: 'active',
     assigned_program: program,
     acquisition_path: acquisitionPath,
     assigned_partner_affiliate_id: assignedPartnerAffiliateId,
     current_stage: PROGRAM_STAGES[program],
     progress_percentage: 0,
-    account_state: 'active_member',
-    plan_tier: 'paid',
+    member_status: 'active_member',
+    feature_tier: 'paid',
+    portal_blocked: false,
     updated_at: new Date().toISOString(),
   }).eq('id', userId)
 
@@ -445,7 +446,7 @@ export async function POST(req: NextRequest) {
       }).eq('user_id', userId)
 
       await supabase.from('profiles').update({
-        subscription_status: status,
+        billing_status: status,
         updated_at: new Date().toISOString(),
       }).eq('id', userId)
 
@@ -462,11 +463,11 @@ export async function POST(req: NextRequest) {
 
         if (profile?.feature_tier === 'free') {
           // User was downgraded to free and is now re-upgrading
-          // Restore plan_tier and unlock access to all preserved work
+          // Restore feature_tier and unlock access to all preserved work
           await supabase.from('profiles').update({
-            plan_tier: 'paid',
+            feature_tier: 'paid',
             portal_blocked: false,
-            account_state: 'active_member',
+            member_status: 'active_member',
             updated_at: new Date().toISOString(),
           }).eq('id', userId)
         }
@@ -522,7 +523,7 @@ export async function POST(req: NextRequest) {
       }).eq('user_id', userId)
 
       await supabase.from('profiles').update({
-        subscription_status: 'canceled',
+        billing_status: 'canceled',
         updated_at: new Date().toISOString(),
       }).eq('id', userId)
 
@@ -589,16 +590,21 @@ export async function POST(req: NextRequest) {
           updated_at: new Date().toISOString(),
         }).eq('stripe_customer_id', customerId)
 
+        // ─── Automatic downgrade to free tier on payment failure ─────────────────
+        // When a recurring payment fails, automatically downgrade to free tier
+        // and block portal access until payment is recovered
         await supabase.from('profiles').update({
-          subscription_status: 'past_due',
+          billing_status: 'past_due',
+          feature_tier: 'free',
+          portal_blocked: true,
           updated_at: new Date().toISOString(),
         }).eq('id', sub.user_id)
 
         await supabase.from('notifications').insert({
           user_id: sub.user_id,
           type: 'system',
-          title: '⚠️ Payment Failed',
-          message: 'Your recent payment failed. Please update your billing info to avoid a service interruption.',
+          title: '⚠️ Payment Failed — Free Mode Activated',
+          message: 'Your recent payment failed. You\'ve been temporarily downgraded to Free tier. Update your billing info to restore paid access.',
           read: false,
           created_at: new Date().toISOString(),
         })
@@ -609,8 +615,8 @@ export async function POST(req: NextRequest) {
           eventType: 'payment_failed',
           category: 'billing',
           severity: 'critical',
-          title: 'Payment failed',
-          message: 'A subscription payment has failed. The user has been notified.',
+          title: 'Payment failed — downgraded to Free',
+          message: 'Subscription payment failed. User downgraded to Free tier to prevent service interruption.',
           metadata: { customer_id: customerId },
         })
       }
@@ -632,9 +638,33 @@ export async function POST(req: NextRequest) {
       if (sub) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, business_name, assigned_program, email, acquisition_path, assigned_partner_affiliate_id')
+          .select('full_name, business_name, assigned_program, email, acquisition_path, assigned_partner_affiliate_id, billing_status, feature_tier')
           .eq('id', sub.user_id)
           .maybeSingle()
+
+        // ─── Automatic upgrade from free to paid on payment recovery ────────────
+        // When a user who was downgraded to free tier makes a successful payment,
+        // automatically restore them to paid tier and unlock portal access
+        if (profile && profile.feature_tier === 'free' && (profile.billing_status === 'past_due' || profile.billing_status === 'inactive')) {
+          await supabase.from('profiles').update({
+            billing_status: 'active',
+            feature_tier: 'paid',
+            portal_blocked: false,
+            member_status: 'active_member',
+            updated_at: new Date().toISOString(),
+          }).eq('id', sub.user_id)
+
+          await supabase.from('notifications').insert({
+            user_id: sub.user_id,
+            type: 'system',
+            title: '✅ Payment Received — Paid Tier Restored',
+            message: 'Your payment was successful! You\'ve been restored to your paid plan with full access.',
+            read: false,
+            created_at: new Date().toISOString(),
+          })
+
+          await logActivity(sub.user_id, 'subscription_reactivated', { customer_id: customerId, recovery: 'from_payment_failure' })
+        }
 
         const amountPaid = (invoice.amount_paid || 0) / 100
         const program = (profile?.assigned_program || sub.program) as ProgramId | null
