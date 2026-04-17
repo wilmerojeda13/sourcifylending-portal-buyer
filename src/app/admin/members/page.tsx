@@ -32,7 +32,19 @@ export default async function AdminMembersPage() {
       .eq('status', 'active'),
   ])
 
-  const primaryProfiles = excludeChildBusinessProfiles(profiles ?? [], businessMemberships ?? [])
+  const rawProfiles = profiles ?? []
+  const filteredProfiles = excludeChildBusinessProfiles(rawProfiles, businessMemberships ?? [])
+
+  const filterLooksBroken =
+    rawProfiles.length > 0 &&
+    filteredProfiles.length === 0 &&
+    (businessMemberships?.length ?? 0) > 0
+
+  if (filterLooksBroken) {
+    console.error('[admin/members] profile_business_memberships filter removed every profile; falling back to raw profiles')
+  }
+
+  const primaryProfiles = filterLooksBroken ? rawProfiles : filteredProfiles
 
   const subMap = new Map((subscriptions ?? []).map((s) => [s.user_id, s]))
 
