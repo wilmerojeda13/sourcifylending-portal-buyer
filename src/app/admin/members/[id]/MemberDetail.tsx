@@ -941,6 +941,24 @@ export default function MemberDetail({
                 {/* Profile & Subscription Form */}
                 <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
                   <h2 className="font-bold text-gray-900 mb-4">Profile & Subscription</h2>
+
+                  {/* Downgraded User Info Banner */}
+                  {form.plan_tier === 'free' && (form.subscription_status === 'canceled' || form.subscription_status === 'past_due' || form.subscription_status === 'inactive') && (
+                    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <CheckCircle size={18} className="text-amber-700 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <h3 className="font-semibold text-amber-900 text-sm">User Downgraded to Free</h3>
+                          <p className="text-xs text-amber-800 mt-1">
+                            All user work data is preserved: tasks ({tasks?.filter(t => t.status === 'locked').length || 0} locked), documents ({documents?.length || 0}), and progress data.
+                            <br />
+                            Re-upgrade anytime to restore full access and resume from where they left off.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
                     <div>

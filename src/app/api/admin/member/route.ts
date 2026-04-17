@@ -99,6 +99,9 @@ export async function PATCH(req: NextRequest) {
     const { user_id, email, ...fields } = body
     if (!user_id) return NextResponse.json({ error: 'user_id required' }, { status: 400 })
 
+    // Fetch current profile for downgrade detection
+    const { data: currentProfile } = await supabase.from('profiles').select('plan_tier').eq('id', user_id).single()
+
     // Handle email change — must update Supabase Auth AND profiles
     if (email !== undefined) {
       const { error: authEmailErr } = await supabase.auth.admin.updateUserById(user_id, { email })
@@ -145,6 +148,18 @@ export async function PATCH(req: NextRequest) {
     if (membershipFieldsChanged) {
       await syncEditableBusinessProfile(supabase, user_id, update)
       await syncActiveBusinessProfile(supabase, user_id)
+    }
+
+    // ─── Downgrade to Free: Preserve All User Work ──────────────────────────────────
+    // When downgrading from paid to free, lock access but preserve all work data
+    // (tasks, documents, progress, program memberships). User can resume when they re-upgrade.
+    if (fields.plan_tier === 'free' && currentProfile?.plan_tier === 'paid') {
+      update.portal_blocked = true
+      // All tasks will be marked 'locked' by application logic, but remain queryable
+      // Documents remain preserved and queryable, just become read-only
+      // Program memberships soft-deleted via status changes, not hard-deleted
+      // Progress data (progress_percentage, current_stage, etc) remains unchanged
+      // Activity log will record this downgrade event automatically
     }
 
     // Sync subscriptions table if status changed

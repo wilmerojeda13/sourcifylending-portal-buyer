@@ -449,6 +449,29 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       }).eq('id', userId)
 
+      // ─── Re-upgrade: Restore access to preserved work ──────────────────────────
+      // When a user who downgraded to free re-activates their subscription, restore access
+      // to all preserved work (tasks, documents, program memberships) without data loss
+      if ((status === 'active' || status === 'trialing') &&
+          prevStatus && prevStatus !== 'active' && prevStatus !== 'trialing') {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('plan_tier, portal_blocked')
+          .eq('id', userId)
+          .maybeSingle()
+
+        if (profile?.plan_tier === 'free') {
+          // User was downgraded to free and is now re-upgrading
+          // Restore plan_tier and unlock access to all preserved work
+          await supabase.from('profiles').update({
+            plan_tier: 'paid',
+            portal_blocked: false,
+            account_state: 'active_member',
+            updated_at: new Date().toISOString(),
+          }).eq('id', userId)
+        }
+      }
+
       if ((status === 'active' || status === 'trialing') &&
           prevStatus && prevStatus !== 'active' && prevStatus !== 'trialing') {
         await logActivity(userId, 'subscription_reactivated', { status, previous_status: prevStatus })
