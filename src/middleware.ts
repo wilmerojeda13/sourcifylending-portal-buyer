@@ -3,12 +3,15 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { SITE_URL } from '@/lib/site-config'
 
 const SITE_HOST = new URL(SITE_URL).host.toLowerCase()
-const APEX_HOST = SITE_HOST.startsWith('www.') ? SITE_HOST.slice(4) : SITE_HOST
-const APEX_HOST_WITH_PORT = `${APEX_HOST}:443`
+// Only redirect the bare apex domain → www when SITE_HOST itself starts with www.
+// If SITE_HOST is a non-www subdomain (e.g. app.*), APEX_HOST would equal SITE_HOST
+// and every request would redirect to itself — an infinite loop. Skip the redirect in that case.
+const APEX_HOST = SITE_HOST.startsWith('www.') ? SITE_HOST.slice(4) : null
+const APEX_HOST_WITH_PORT = APEX_HOST ? `${APEX_HOST}:443` : null
 
 export async function middleware(request: NextRequest) {
   const host = request.headers.get('host')?.toLowerCase() ?? ''
-  if (host === APEX_HOST || host === APEX_HOST_WITH_PORT) {
+  if (APEX_HOST && (host === APEX_HOST || host === APEX_HOST_WITH_PORT)) {
     const url = request.nextUrl.clone()
     url.host = SITE_HOST
     url.protocol = 'https:'
