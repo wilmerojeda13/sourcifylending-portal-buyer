@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { SITE_URL } from '@/lib/site-config'
 import {
   Phone, ChevronRight, Building2, Loader2, CheckCircle2,
   ThumbsUp, ThumbsDown, Voicemail, PhoneMissed, PhoneOff,
@@ -80,12 +81,12 @@ function buildDialTarget(number: string) {
 }
 
 function buildTextMessage(firstName: string) {
-  return `Hey ${firstName}, this is Abel. Here's the link to set up your free account and take advantage of our free inquiry dispute tool: https://sourcifylending.com`
+  return `Hey ${firstName}, this is SourcifyLending. Here's the link to set up your free account and take advantage of our free inquiry dispute tool: ${SITE_URL}`
 }
 
 function buildPromoTextMessage(firstName: string) {
   const safeFirstName = firstName?.trim() || 'there'
-  return `Hey ${safeFirstName}, this is Abel. You inquired with us about funding in the past. If you're still looking for funding, set up your free account here and take advantage of our free business analyzer and free inquiry dispute tool: https://sourcifylending.com`
+  return `Hey ${safeFirstName}, this is SourcifyLending. You inquired with us about funding in the past. If you're still looking for funding, set up your free account here and take advantage of our free business analyzer and free inquiry dispute tool: ${SITE_URL}`
 }
 
 const DIALER_FETCH_TIMEOUT_MS = 15000
@@ -385,7 +386,7 @@ function LeadSearchModal({
   )
 }
 
-const DEFAULT_SCRIPT = `Hey, is this {first_name}? Great. My name is Abel with SourcifyLending.com. The reason I'm calling is because it looks like your business had inquired for funding in the past. Just wanted to see if you already found the funding you were seeking, or did you ever find a solution?
+const DEFAULT_SCRIPT = `Hey, is this {first_name}? Great. My name is SourcifyLending. The reason I'm calling is because it looks like your business had inquired for funding in the past. Just wanted to see if you already found the funding you were seeking, or did you ever find a solution?
 
 THE PIVOT: Well, the reason I'm reaching out is because on average, I help my clients get anywhere from $50,000 to $100,000 in 0% interest business funding—or business credit cards from places like Chase or Bank of America. Just wanted to see if you had a quick minute to run it by you and see if we're a good fit?
 

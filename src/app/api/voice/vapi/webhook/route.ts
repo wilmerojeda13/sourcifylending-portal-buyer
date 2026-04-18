@@ -7,6 +7,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getAvailableSlots, createCalendarEvent } from '@/lib/calendar'
 import { AUTO_SUPPRESS_DISPOSITIONS } from '@/modules/voice-agent/compliance/suppression'
 import twilio from 'twilio'
+import { ANALYZER_URL } from '@/lib/site-config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -175,7 +176,7 @@ async function handleSendAnalyzerLink(
     leadId ? supabase.from('voice_leads').select('phone_e164, owner_name').eq('id', leadId).maybeSingle() : Promise.resolve({ data: null }),
   ])
 
-  const analyzerUrl = settingsRes.data?.analyzer_url || process.env.ANALYZER_URL || 'https://app.sourcifylending.com/analyzer'
+  const analyzerUrl = settingsRes.data?.analyzer_url || process.env.ANALYZER_URL || ANALYZER_URL
   const phoneE164   = (leadRes as { data: { phone_e164?: string; owner_name?: string } | null }).data?.phone_e164
   const firstName   = (leadRes as { data: { phone_e164?: string; owner_name?: string } | null }).data?.owner_name?.trim().split(/\s+/)[0] || ''
 

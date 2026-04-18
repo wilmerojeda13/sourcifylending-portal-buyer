@@ -2,9 +2,10 @@
  * 30-day free user nurture sequence.
  * 11 emails designed to convert prospects → paid members.
  */
+import { APP_URL, NO_REPLY_EMAIL } from '@/lib/site-config'
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.sourcifylending.com'
-const FROM = 'SourcifyLending <no-reply@ai.sourcifylending.com>'
+const SITE_URL = APP_URL
+const FROM = `SourcifyLending <${NO_REPLY_EMAIL}>`
 
 export interface NurtureEmail {
   day: number
@@ -53,7 +54,7 @@ function baseTemplate({
     </div>
     <p style="margin:24px 0 0;font-size:13px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:20px">
       — The Sourcify Team<br/>
-      <a href="https://app.sourcifylending.com" style="color:#16a34a;text-decoration:none">app.sourcifylending.com</a>
+      <a href="${SITE_URL}" style="color:#16a34a;text-decoration:none">${SITE_URL}</a>
     </p>
     <p style="margin:12px 0 0;font-size:11px;color:#9ca3af">
       You're receiving this because you created a free Sourcify account.<br/>
@@ -303,7 +304,7 @@ export const NURTURE_SEQUENCE: NurtureEmail[] = [
           <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#111827">Programs start at $297/mo</p>
           <p style="margin:0;font-size:14px;color:#6b7280">Cancel anytime. No contracts.</p>
         </div>
-        <p style="margin:16px 0 0;font-size:15px;color:#374151">Whenever you're ready, your portal is waiting at <a href="${SITE_URL}/dashboard" style="color:#16a34a;text-decoration:none">app.sourcifylending.com</a>.</p>
+        <p style="margin:16px 0 0;font-size:15px;color:#374151">Whenever you're ready, your portal is waiting at <a href="${SITE_URL}/dashboard" style="color:#16a34a;text-decoration:none">${SITE_URL}/dashboard</a>.</p>
       `,
     }),
   },

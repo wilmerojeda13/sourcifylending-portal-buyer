@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import GlobalAIPanel from '@/components/ai/GlobalAIPanel'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { cn } from '@/lib/utils'
+import { SUPPORT_EMAIL } from '@/lib/site-config'
 import {
   LayoutDashboard, Bot, FileText, CheckSquare, BarChart2,
   CreditCard, Bell, LogOut, Menu, X, ChevronRight, Star, TrendingUp, ShieldCheck, Zap, ArrowUpCircle,
@@ -211,7 +212,7 @@ export default function PortalLayout({
             Your portal access has been temporarily suspended. Please contact our support team to resolve this.
           </p>
           <a
-            href="mailto:support@sourcifylending.com"
+            href={`mailto:${SUPPORT_EMAIL}`}
             className="inline-flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-6 py-3 rounded-xl hover:bg-green-700 transition-colors"
           >
             Contact Support

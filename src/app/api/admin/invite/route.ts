@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logPortalEvent } from '@/lib/portal-events'
 import { v4 as uuidv4 } from 'uuid'
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://app.sourcifylending.com'
+import { NO_REPLY_EMAIL, SITE_URL } from '@/lib/site-config'
 
 async function requireAdmin() {
   const authClient = await createClient()
@@ -64,7 +63,7 @@ async function sendInviteEmail(
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: 'SourcifyLending <no-reply@ai.sourcifylending.com>',
+      from: `SourcifyLending <${NO_REPLY_EMAIL}>`,
       to: [toEmail],
       subject: 'Your SourcifyLending Portal Account Is Ready',
       html,

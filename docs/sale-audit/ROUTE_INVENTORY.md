@@ -1,0 +1,182 @@
+# Route Inventory
+
+## Public / Marketing
+- `/` home
+- `/analyzer`
+- `/get-started`
+- `/pricing`
+- `/partners`
+- `/privacy`
+- `/terms`
+- `/business-credit-monitoring`
+- `/business-credit-setup`
+- `/business-resources`
+- `/credit-disputes`
+- `/credit-optimization`
+- `/funding-results`
+- `/progress`
+- `/reports`
+- `/roi`
+- `/training`
+- `/underwriting`
+- `/support`
+- `/notifications`
+
+## Auth / Access
+- `/login`
+- `/sign-in`
+- `/signup`
+- `/forgot-password`
+- `/auth/callback`
+- `/auth/confirm`
+- `/auth/reset-password`
+- `/claim-account`
+- `/accept-invite`
+
+## Client / Portal
+- `/dashboard`
+- `/portal`
+- `/documents`
+- `/settings`
+- `/opportunities`
+- `/enroll`
+- `/agent`
+- `/ai-usage`
+- `/account` under affiliate portal
+
+## Affiliate / Partner
+- `/affiliate/login`
+- `/affiliate/signup`
+- `/affiliate/dashboard`
+- `/affiliate/account`
+- `/affiliate/leads`
+- `/affiliate/referrals`
+- `/affiliate/commissions`
+- `/affiliate/resources`
+- `/affiliate/training`
+- `/admin/affiliates`
+- `/admin/affiliates/applications`
+- `/admin/affiliates/commissions`
+- `/admin/affiliates/flags`
+- `/admin/affiliates/leads`
+- `/admin/affiliates/payouts`
+- `/admin/affiliates/resources`
+- `/admin/affiliates/settings`
+- `/admin/affiliates/training`
+
+## Admin
+- `/admin`
+- `/admin/activity`
+- `/admin/ai-controls`
+- `/admin/chargeback-defense`
+- `/admin/client-view/[id]`
+- `/admin/compliance`
+- `/admin/content`
+- `/admin/crm`
+- `/admin/crm/[id]`
+- `/admin/crm/analytics`
+- `/admin/crm/calendar`
+- `/admin/crm/calls`
+- `/admin/crm/campaign`
+- `/admin/crm/dialer`
+- `/admin/crm/dialer/simple`
+- `/admin/crm/email-campaigns`
+- `/admin/crm/email-campaigns/[id]`
+- `/admin/crm/import`
+- `/admin/crm/tasks`
+- `/admin/dialer`
+- `/admin/dialer/analytics`
+- `/admin/dialer/callbacks`
+- `/admin/dialer/campaigns`
+- `/admin/dialer/campaigns/[id]`
+- `/admin/dialer/import`
+- `/admin/dialer/leads`
+- `/admin/dialer/qualified`
+- `/admin/dialer/queue`
+- `/admin/intelligence`
+- `/admin/members`
+- `/admin/members/[id]`
+- `/admin/operations`
+- `/admin/opportunities`
+- `/admin/profile`
+- `/admin/revenue`
+- `/admin/support`
+- `/admin/training`
+- `/admin/voice`
+- `/admin/voice/analytics`
+- `/admin/voice/campaigns`
+- `/admin/voice/campaigns/[id]`
+- `/admin/voice/campaigns/new`
+- `/admin/voice/leads`
+- `/admin/voice/live`
+- `/admin/voice/logs`
+- `/admin/voice/settings`
+- `/admin/voice/suppression`
+- `/admin/voice/templates`
+
+## API
+- `/api/auth/*`
+- `/api/admin/*`
+- `/api/affiliate/*`
+- `/api/agent`
+- `/api/agents/*`
+- `/api/agreements/*`
+- `/api/ai-credits/purchase`
+- `/api/ai-usage`
+- `/api/analyzer/*`
+- `/api/business-*`
+- `/api/claim-account`
+- `/api/content/track`
+- `/api/credit-disputes`
+- `/api/crm/invites/[id]/engagement`
+- `/api/cron/*`
+- `/api/debug/twilio`
+- `/api/delegate/*`
+- `/api/demo/switch-program`
+- `/api/documents/analyze`
+- `/api/events/track`
+- `/api/funding-approvals`
+- `/api/go/[slug]`
+- `/api/leads/analyzer`
+- `/api/memberships`
+- `/api/nav-sync`
+- `/api/notification-preferences`
+- `/api/nurture/unsubscribe`
+- `/api/opportunities/*`
+- `/api/outcomes/report`
+- `/api/payments/*`
+- `/api/portal/*`
+- `/api/public/lead-capture`
+- `/api/reports`
+- `/api/roi`
+- `/api/settings`
+- `/api/stripe/*`
+- `/api/support/messages`
+- `/api/switch-program`
+- `/api/tasks/generate`
+- `/api/underwriting`
+- `/api/voice/*`
+- `/api/webhooks/*`
+
+## SEO / Content Dynamic Routes
+- `/answers/[slug]`
+- `/comparisons/[slug]`
+- `/industries/[slug]`
+- `/locations/[slug]`
+- `/partner-case-studies/[slug]`
+- `/partner-comparisons/[slug]`
+- `/partner-earnings/[slug]`
+- `/partner-faqs/[slug]`
+- `/partner-guides/[slug]`
+- `/partner-personas/[slug]`
+- `/partners/[slug]`
+- `/portal-guides/[slug]`
+- `/problems/[slug]`
+- `/services/[slug]`
+
+## Legacy / Special
+- `/offline-crm`
+- `/offline-crm/dialer`
+- `/go/[slug]`
+- `/go/sms/[id]`
+

@@ -23,9 +23,9 @@ export interface AccessibleBusiness {
   label: string
   program: ProgramId | null
   role: 'owner' | 'admin' | 'member' | 'delegate'
-  account_state: AccountState
-  plan_tier: 'free' | 'paid'
-  subscription_status: SubscriptionStatus
+  member_status: AccountState
+  feature_tier: 'free' | 'paid'
+  billing_status: SubscriptionStatus
   portal_blocked: boolean
   is_default: boolean
 }
@@ -55,9 +55,9 @@ function toAccessibleBusiness(profile: MinimalProfile, row?: MembershipRow): Acc
     label: labelForProfile(profile),
     program: profile.assigned_program,
     role: row?.role ?? 'owner',
-    account_state: profile.member_status,
-    plan_tier: profile.feature_tier ?? 'free',
-    subscription_status: profile.billing_status,
+    member_status: profile.member_status,
+    feature_tier: profile.feature_tier ?? 'free',
+    billing_status: profile.billing_status,
     portal_blocked: profile.portal_blocked,
     is_default: row?.is_default ?? false,
   }
@@ -138,9 +138,9 @@ export async function getBusinessContext(preferredBusinessId?: string | null): P
       id: user.id,
       email: user.email ?? '',
       full_name: fullName,
-      plan_tier: 'free',
-      subscription_status: 'inactive',
-      account_state: 'prospect',
+      feature_tier: 'free',
+      billing_status: 'inactive',
+      member_status: 'prospect',
       acquisition_path: 'self_serve',
       progress_percentage: 0,
       nsf_flag: false,

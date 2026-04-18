@@ -2,6 +2,8 @@
 // Each slug maps to a destination URL. All links go through /api/go/[slug]
 // which logs user_id + timestamp + source before redirecting.
 
+import { APP_URL } from '@/lib/site-config'
+
 export const TRACKED_LINK_MAP: Record<string, string> = {
   // ── Bureau Registration ───────────────────────────────────────────────────
   'duns':           'https://www.dnb.com/duns-number/get-a-duns.html',
@@ -46,7 +48,7 @@ export const TRACKED_LINK_MAP: Record<string, string> = {
 }
 
 // The base URL for tracked links used in AI responses
-export const PORTAL_BASE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://app.sourcifylending.com'
+export const PORTAL_BASE = APP_URL
 
 // Helper — returns the tracked URL string to embed in AI responses
 export function trackedUrl(slug: string): string {

@@ -3,7 +3,6 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3, GitBranch, PhoneCall, PlayCircle, ContactRound, SearchCheck, ShieldCheck, Headphones } from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
-import { excludeChildBusinessProfiles } from '@/lib/business-memberships'
 import dynamic from 'next/dynamic'
 import SeedDemoButton from './SeedDemoButton'
 import SendRemindersButton from './SendRemindersButton'
@@ -41,7 +40,7 @@ export default async function AdminHubPage() {
   if (!adminCheck?.is_admin) redirect('/dashboard')
 
   // Parallel data fetch
-  const [{ data: profiles }, { data: recentActivity }, { count: unreadNotifCount }, { data: businessMemberships }] = await Promise.all([
+  const [{ data: profiles }, { data: recentActivity }, { count: unreadNotifCount }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, full_name, email, business_name, billing_status, assigned_program, portal_blocked, created_at')
@@ -55,13 +54,9 @@ export default async function AdminHubPage() {
       .from('admin_notifications')
       .select('*', { count: 'exact', head: true })
       .eq('is_read', false),
-    supabase
-      .from('profile_business_memberships')
-      .select('user_id, business_profile_id')
-      .eq('status', 'active'),
   ])
 
-  const all = excludeChildBusinessProfiles(profiles ?? [], businessMemberships ?? [])
+  const all = profiles ?? []
 
   const stats = {
     total: all.length,

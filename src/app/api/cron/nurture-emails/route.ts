@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       .from('profiles')
       .select('id, email, full_name, billing_status')
       .in('id', userIds)
-      .eq('subscription_status', 'inactive')
+      .eq('billing_status', 'inactive')
 
     const profileMap = new Map(profiles?.map(p => [p.id, p]) ?? [])
 
@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
       .from('profiles')
       .select('id, email, full_name, billing_status, assigned_program')
       .in('id', userIds)
-      .eq('subscription_status', 'active')
+      .eq('billing_status', 'active')
 
     const profileMap = new Map(profiles?.map(p => [p.id, p]) ?? [])
 

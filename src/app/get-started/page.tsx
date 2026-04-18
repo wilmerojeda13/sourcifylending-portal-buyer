@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { ArrowRight, CheckCircle, MessageSquare } from 'lucide-react'
 import PublicMessagingConsent from '@/components/compliance/PublicMessagingConsent'
 import TurnstileWidget from '@/components/compliance/TurnstileWidget'
+import { SITE_URL } from '@/lib/site-config'
 import {
   CompliancePayload,
   CONSENT_TEXT_VERSION,
@@ -175,7 +176,7 @@ export default function GetStartedPage() {
             <div className="mt-8 rounded-2xl border border-green-200 bg-green-50 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-green-700">Verification URL</p>
               <p className="mt-2 break-all text-sm font-medium text-green-900">
-                https://www.sourcifylending.com/get-started
+                {SITE_URL}/get-started
               </p>
             </div>
           </aside>

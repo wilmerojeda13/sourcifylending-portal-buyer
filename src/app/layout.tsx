@@ -4,10 +4,12 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
 import NotificationRuntime from '@/components/notifications/NotificationRuntime'
+import { SITE_URL } from '@/lib/site-config'
 
 export const metadata: Metadata = {
   title: 'SourcifyLending Portal',
   description: 'AI-powered business credit fulfillment platform',
+  metadataBase: new URL(SITE_URL),
   manifest: '/site.webmanifest',
   icons: {
     icon: [

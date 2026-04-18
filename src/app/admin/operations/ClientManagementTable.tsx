@@ -403,7 +403,7 @@ function CreateMemberModal({ onClose, onCreate }: {
           email,
           password,
           assigned_program: program || null,
-          account_state: accountState,
+          member_status: accountState,
         }),
       })
       const data = await res.json()

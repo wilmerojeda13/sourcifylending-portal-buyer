@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getBusinessContext } from '@/lib/business-context'
 import Anthropic from '@anthropic-ai/sdk'
+import { SITE_URL } from '@/lib/site-config'
 import {
   checkAIUsage,
   recordAIUsage,
@@ -183,7 +184,7 @@ export async function POST(req: NextRequest) {
       program_c: 'Program C — Capital Monitoring Membership',
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://app.sourcifylending.com'
+const siteUrl = SITE_URL
 
     const systemPrompt = `You are the AI Fulfillment Agent for SourcifyLending — a business credit and funding portal.
 

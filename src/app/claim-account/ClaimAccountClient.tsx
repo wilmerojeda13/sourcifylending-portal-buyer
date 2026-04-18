@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
+import { SUPPORT_EMAIL } from '@/lib/site-config'
 
 interface Props {
   token: string
@@ -151,7 +152,7 @@ export default function ClaimAccountClient({ token, fullName, email, businessNam
 
         <p className="text-center text-xs text-gray-400 mt-6">
           Need help?{' '}
-          <a href="mailto:support@sourcifylending.com" className="text-green-600 hover:text-green-700">
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-green-600 hover:text-green-700">
             Contact support
           </a>
         </p>

@@ -57,7 +57,7 @@ export function validatePreservationDelete(table: string, operation: 'hard' | 's
  *
  * PROFILES:
  *   - Core fields never deleted: progress_percentage, current_stage, readiness_status, assigned_program
- *   - Only access is gated via portal_blocked flag and subscription_status
+ *   - Only access is gated via portal_blocked flag and billing_status
  *   - Data remains intact for recovery on re-upgrade
  *
  * BUSINESS_PROFILES & TRADELINES:
@@ -73,7 +73,7 @@ export function validatePreservationDelete(table: string, operation: 'hard' | 's
 
 /**
  * Downgrade sequence that preserves all user work:
- * 1. Set plan_tier = 'free'
+ * 1. Set feature_tier = 'free'
  * 2. Set portal_blocked = true (prevents access without deleting data)
  * 3. Task status automatically managed by application logic (not force-deleted)
  * 4. All other data remains unchanged in database
@@ -81,9 +81,9 @@ export function validatePreservationDelete(table: string, operation: 'hard' | 's
  *
  * Re-upgrade sequence that restores all user work:
  * 1. Stripe webhook triggers on subscription reactivation
- * 2. Set plan_tier = 'paid'
+ * 2. Set feature_tier = 'paid'
  * 3. Set portal_blocked = false (restores access)
- * 4. Set account_state = 'active_member' if needed
+ * 4. Set member_status = 'active_member' if needed
  * 5. All previously locked tasks become accessible again
  * 6. User picks up exactly where they left off
  */

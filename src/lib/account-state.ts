@@ -1,7 +1,7 @@
 import type { PlanTier, SubscriptionStatus, AccountState } from '@/types'
 
 /**
- * Normalized account access state derived from plan_tier, subscription_status, and account_state.
+ * Normalized account access state derived from feature_tier, billing_status, and member_status.
  * Read-time normalization - no schema changes required.
  */
 export type AccountAccessState = 'free_active' | 'paid_active' | 'paid_inactive'
@@ -18,13 +18,13 @@ export interface AccountEntitlements {
  * Determine account access state and entitlements from user profile data.
  *
  * Logic:
- * - If plan_tier === 'free': free_active (free users are always "active" by definition)
- * - If plan_tier === 'paid' or null/undefined:
- *   - If subscription_status === 'active' or 'trialing': paid_active
+ * - If feature_tier === 'free': free_active (free users are always "active" by definition)
+ * - If feature_tier === 'paid' or null/undefined:
+ *   - If billing_status === 'active' or 'trialing': paid_active
  *   - Otherwise: paid_inactive (or paid_never_active if no prior history)
- * - Legacy users (null plan_tier, null subscription_status):
- *   - If account_state === 'prospect': free_active (prospects are free)
- *   - If account_state === 'active_member': paid_active (assumes paid if active_member)
+ * - Legacy users (null feature_tier, null billing_status):
+ *   - If member_status === 'prospect': free_active (prospects are free)
+ *   - If member_status === 'active_member': paid_active (assumes paid if active_member)
  *   - Otherwise: treat as paid_inactive
  */
 export function getAccountEntitlements(
@@ -67,8 +67,8 @@ export function getAccountEntitlements(
     }
   }
 
-  // Legacy users with no explicit plan_tier
-  // Use account_state as a proxy for paid status
+  // Legacy users with no explicit feature_tier
+  // Use member_status as a proxy for paid status
   if (accountState === 'prospect') {
     // Prospect accounts are essentially free users
     return {
@@ -81,7 +81,7 @@ export function getAccountEntitlements(
   }
 
   if (accountState === 'active_member') {
-    // Legacy active_member without explicit plan_tier
+    // Legacy active_member without explicit feature_tier
     // Assume they were/are paid users
     if (isActiveSubscription) {
       return {

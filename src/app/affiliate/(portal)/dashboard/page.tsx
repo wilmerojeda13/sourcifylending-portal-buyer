@@ -1,6 +1,7 @@
 ﻿'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { SITE_URL } from '@/lib/site-config'
 import {
   MousePointerClick,
   Users,
@@ -69,7 +70,7 @@ export default function AffiliateDashboardPage() {
   }, [])
 
   const referralLink = data
-    ? `https://sourcifylending.com/?ref=${data.affiliate.referral_code}`
+? `${SITE_URL}/?ref=${data.affiliate.referral_code}`
     : ''
 
   const copyLink = () => {

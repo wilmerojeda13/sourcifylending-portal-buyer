@@ -157,7 +157,7 @@ export default function TestCallWidget() {
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="e.g. Abel Fernandez"
+              placeholder="e.g. Jordan Fernandez"
               disabled={isActive}
               className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:bg-gray-50"
             />

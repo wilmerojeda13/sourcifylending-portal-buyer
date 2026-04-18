@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { SITE_URL } from '@/lib/site-config'
 import {
   ChevronLeft, Bot, Loader2, Phone, Webhook,
   CheckCircle2, Info, Zap,
@@ -33,7 +34,7 @@ const STAGE_OPTIONS = [
   { value: 'demo_held', label: 'Demo Held' },
 ]
 
-const WEBHOOK_URL = 'https://sourcifylending.com/api/webhooks/vapi'
+const WEBHOOK_URL = `${SITE_URL}/api/webhooks/vapi`
 
 interface LaunchResult {
   total_selected: number

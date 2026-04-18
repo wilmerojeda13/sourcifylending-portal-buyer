@@ -9,6 +9,7 @@ import { getAccountEntitlements } from '@/lib/account-state'
 import { StatusBadge } from '@/components/ui/Badge'
 import { formatPricingLabel, getProgramPricing, normalizeAcquisitionPath } from '@/lib/partner-program'
 import { useBusinessContext } from '@/lib/use-business-context'
+import { SUPPORT_EMAIL } from '@/lib/site-config'
 import {
   CreditCard, CheckCircle, Shield, ShieldOff, Loader2, Zap, Building2,
   BarChart3, Calendar, Plus, ExternalLink, Lock, BanIcon, Trash2,
@@ -183,7 +184,7 @@ export default function BillingPage() {
     }
   }, [])
 
-  // Normalize account state from plan_tier, subscription_status, and account_state
+  // Normalize account state from feature_tier, billing_status, and member_status
   const entitlements = getAccountEntitlements(profile?.feature_tier, profile?.billing_status, profile?.member_status)
   const isFreeUser = entitlements.access_state === 'free_active'
   const isActive = entitlements.access_state === 'free_active' || entitlements.access_state === 'paid_active'
@@ -968,7 +969,7 @@ export default function BillingPage() {
           ))}
 
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center pt-2">
-            Not sure which program fits? Contact us at <span className="font-medium text-gray-500 dark:text-gray-400">support@sourcifylending.com</span> and we&apos;ll help you choose.
+            Not sure which program fits? Contact us at <span className="font-medium text-gray-500 dark:text-gray-400">{SUPPORT_EMAIL}</span> and we&apos;ll help you choose.
           </p>
         </div>
       )}

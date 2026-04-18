@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { SUPPORT_EMAIL } from '@/lib/site-config'
 
 export default function PrivacyPage() {
   return (
@@ -35,7 +36,7 @@ export default function PrivacyPage() {
             <section>
               <h2 className="text-base font-semibold text-gray-900">Contact</h2>
               <p className="mt-2">
-                For privacy questions, contact <a className="text-green-700 underline underline-offset-2" href="mailto:support@sourcifylending.com">support@sourcifylending.com</a>.
+      For privacy questions, contact <a className="text-green-700 underline underline-offset-2" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
               </p>
             </section>
           </div>

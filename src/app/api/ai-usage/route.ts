@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
       profile: {
         assigned_program: profile?.assigned_program,
         ai_suspended: profile?.ai_suspended,
-        subscription_status: profile?.billing_status,
+        billing_status: profile?.billing_status,
       },
       balance,
       program_limits: programLimits,

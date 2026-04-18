@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Shield, CheckCircle, AlertCircle, Loader2, Lock } from 'lucide-react'
+import { SUPPORT_EMAIL } from '@/lib/site-config'
 
 interface Props {
   programLabel: string
@@ -28,7 +29,7 @@ Business credit outcomes depend on your individual financial history, actions ta
 Services are delivered digitally through this portal. Access to your AI agent, roadmap, progress tracker, document tools, and coaching resources constitutes delivery of services. You understand that digital access = service rendered.
 
 5. DISPUTE RESOLUTION
-Before initiating any dispute with your card issuer or bank, you agree to contact SourcifyLending directly at support@sourcifylending.com and allow 5 business days to resolve the matter.
+Before initiating any dispute with your card issuer or bank, you agree to contact SourcifyLending directly at ${SUPPORT_EMAIL} and allow 5 business days to resolve the matter.
 
 6. ELECTRONIC SIGNATURE
 By typing your full name and clicking "I Accept & Enter Portal", you are providing your electronic signature and agreeing to these terms with the same legal effect as a handwritten signature.`
@@ -135,7 +136,7 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
                 className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 cursor-pointer bg-white dark:bg-gray-700"
               />
                       <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-green-700 dark:group-hover:text-green-300">
-                <strong>I agree to contact SourcifyLending first</strong> at support@sourcifylending.com before initiating any dispute with my card issuer, allowing 5 business days to resolve.
+                <strong>I agree to contact SourcifyLending first</strong> at {SUPPORT_EMAIL} before initiating any dispute with my card issuer, allowing 5 business days to resolve.
               </span>
             </label>
           </div>

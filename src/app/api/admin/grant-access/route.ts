@@ -50,9 +50,9 @@ export async function POST(req: NextRequest) {
       access_granted_by: user.id,
       access_granted_at: now,
       access_granted_by_name: adminProfile.full_name || user.email,
-      plan_tier: 'paid',
-      account_state: 'active_member',
-      subscription_status: 'active',
+      feature_tier: 'paid',
+      member_status: 'active_member',
+      billing_status: 'active',
       updated_at: now,
     }
 

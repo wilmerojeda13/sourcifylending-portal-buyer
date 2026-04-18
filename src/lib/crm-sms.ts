@@ -109,7 +109,7 @@ export function buildCrmSmsTrackedLink(messageId: string, origin?: string) {
 
 export function buildDefaultCrmSmsBody(firstName: string | null | undefined, origin?: string) {
   const safeFirstName = firstName?.trim() || 'there'
-  return `Hi ${safeFirstName}, this is Abel with SourcifyLending. Here’s the link to get started in the portal: ${getCrmPortalSignupUrl(origin)}`
+  return `Hi ${safeFirstName}, this is SourcifyLending. Here’s the link to get started in the portal: ${getCrmPortalSignupUrl(origin)}`
 }
 
 export function renderCrmSmsTemplate(template: string, vars: Record<string, string | null | undefined>) {

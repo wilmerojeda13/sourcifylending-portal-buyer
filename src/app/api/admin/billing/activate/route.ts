@@ -47,10 +47,10 @@ export async function POST(req: NextRequest) {
     const program = profile?.assigned_program as ProgramId | null
     const programInfo = program ? PROGRAM_INFO[program] : null
 
-    // Update profile subscription_status
+    // Update profile billing_status
     const profileUpdate = {
-      subscription_status: newSubStatus,
-      plan_tier: deactivate ? (profile?.feature_tier ?? 'free') : 'paid',
+      billing_status: newSubStatus,
+      feature_tier: deactivate ? (profile?.feature_tier ?? 'free') : 'paid',
       updated_at: new Date().toISOString(),
     }
 

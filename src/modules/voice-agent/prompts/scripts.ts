@@ -5,6 +5,7 @@
  * adapting tone and opening based on lead source.
  */
 import type { VoiceLead, VoiceAgentSettings, VoicePromptVersion } from '@/types'
+import { ANALYZER_URL } from '@/lib/site-config'
 
 export interface CallContext {
   lead:            VoiceLead
@@ -20,8 +21,8 @@ export interface CallContext {
 export function buildSystemPrompt(ctx: CallContext): string {
   const { lead, settings, promptVersion, recordingDisclosure } = ctx
 
-  const analyzerUrl = settings.analyzer_url ?? 'https://app.sourcifylending.com/analyzer'
-  const transferNum = settings.transfer_number ?? 'Abel'
+  const analyzerUrl = settings.analyzer_url ?? ANALYZER_URL
+  const transferNum = settings.transfer_number ?? 'our team'
   const businessName = lead.business_name ?? 'their business'
   const ownerName   = lead.owner_name ?? ''
 

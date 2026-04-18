@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import type { PostgrestError } from '@supabase/supabase-js'
+import { ADMIN_NOTIFICATION_EMAIL, NO_REPLY_EMAIL, SITE_URL } from '@/lib/site-config'
 
 export type EventCategory = 'accounts' | 'billing' | 'subscriptions' | 'support' | 'documents' | 'funding' | 'reports' | 'leads'
 export type EventSeverity = 'info' | 'success' | 'warning' | 'critical'
@@ -81,7 +82,7 @@ async function sendAdminEmail(title: string, message: string | undefined, metada
   }
 
   const adminLink = userId
-    ? `<p style="margin-top:20px"><a href="${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://app.sourcifylending.com'}/admin/members/${userId}" style="color:#16a34a;text-decoration:underline;font-size:13px">View member in admin →</a></p>`
+    ? `<p style="margin-top:20px"><a href="${SITE_URL}/admin/members/${userId}" style="color:#16a34a;text-decoration:underline;font-size:13px">View member in admin →</a></p>`
     : ''
 
   const html = `
@@ -103,8 +104,8 @@ async function sendAdminEmail(title: string, message: string | undefined, metada
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: 'SourcifyLending Portal <no-reply@ai.sourcifylending.com>',
-      to: ['abel@sourcifylending.com'],
+      from: `SourcifyLending Portal <${NO_REPLY_EMAIL}>`,
+      to: [ADMIN_NOTIFICATION_EMAIL],
       subject: `[SourcifyLending] ${title}`,
       html,
     }),

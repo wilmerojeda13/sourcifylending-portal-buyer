@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.sourcifylending.com'
+import { NO_REPLY_EMAIL, SITE_URL } from '@/lib/site-config'
 
 // ─── Email: notify client their message has a reply ──────────────────────────
 async function sendReplyNotificationEmail(
@@ -47,7 +46,7 @@ async function sendReplyNotificationEmail(
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'SourcifyLending Support <no-reply@ai.sourcifylending.com>',
+      from: `SourcifyLending Support <${NO_REPLY_EMAIL}>`,
         to: [clientEmail],
         subject: `Re: ${subject} — SourcifyLending Support`,
         html: htmlBody,

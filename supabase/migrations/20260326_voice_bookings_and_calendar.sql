@@ -53,6 +53,6 @@ ALTER TABLE voice_agent_settings
   ADD COLUMN IF NOT EXISTS booking_timezone           TEXT DEFAULT 'America/New_York',
   ADD COLUMN IF NOT EXISTS booking_days_ahead         INTEGER DEFAULT 5,
   ADD COLUMN IF NOT EXISTS create_meet_link           BOOLEAN DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS abel_email                 TEXT,
+  ADD COLUMN IF NOT EXISTS transfer_contact_email     TEXT,
   ADD COLUMN IF NOT EXISTS confirmation_email_enabled BOOLEAN DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS confirmation_sms_enabled   BOOLEAN DEFAULT FALSE;

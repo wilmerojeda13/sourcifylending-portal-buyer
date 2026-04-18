@@ -165,7 +165,7 @@ const TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'search_training_content',
-    description: 'Search training videos by keyword in title or description. Use this when Abel asks if we have a video about a specific topic.',
+    description: 'Search training videos by keyword in title or description. Use this when the operator asks if we have a video about a specific topic.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -325,7 +325,7 @@ async function executeTool(
         .eq('is_admin', false)
 
       if (input.program) query = query.eq('assigned_program', input.program)
-      if (input.status)  query = query.eq('subscription_status', input.status)
+      if (input.status)  query = query.eq('billing_status', input.status)
       if (input.search) {
         const s = `%${input.search}%`
         query = query.or(`full_name.ilike.${s},email.ilike.${s},business_name.ilike.${s}`)
@@ -814,9 +814,9 @@ Created: ${vc.created_at ? new Date(vc.created_at).toLocaleDateString() : 'N/A'}
 
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
-  const systemPrompt = `${pageContextBlock}You are Abel's personal Admin AI for SourcifyLending — an agentic assistant with FULL access to every part of the admin portal.
+  const systemPrompt = `${pageContextBlock}You are the Admin AI for SourcifyLending — an agentic assistant with FULL access to every part of the admin portal.
 
-You follow Abel everywhere: CRM, Members, Support, Training, Voice Campaigns, Affiliates, Revenue, Operations. You know exactly which page he's on and what he's looking at.
+You follow the operator everywhere: CRM, Members, Support, Training, Voice Campaigns, Affiliates, Revenue, Operations. You know exactly which page they are on and what they are looking at.
 
 You TAKE ACTION. You don't ask "would you like me to...?" — you just DO it and report back.
 

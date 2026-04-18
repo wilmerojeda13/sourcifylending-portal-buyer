@@ -186,14 +186,14 @@ export async function POST(req: NextRequest) {
       )
 
       await supabase.from('profiles').update({
-        subscription_status: 'active',
-        plan_tier: 'paid',
+        billing_status: 'active',
+        feature_tier: 'paid',
         updated_at: new Date().toISOString(),
       }).eq('id', user_id)
 
       await syncEditableBusinessProfile(supabase, user_id, {
-        subscription_status: 'active',
-        plan_tier: 'paid',
+        billing_status: 'active',
+        feature_tier: 'paid',
         updated_at: new Date().toISOString(),
       })
       await syncActiveBusinessProfile(supabase, user_id)

@@ -1,7 +1,20 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { SITE_URL } from '@/lib/site-config'
+
+const SITE_HOST = new URL(SITE_URL).host.toLowerCase()
+const APEX_HOST = SITE_HOST.startsWith('www.') ? SITE_HOST.slice(4) : SITE_HOST
+const APEX_HOST_WITH_PORT = `${APEX_HOST}:443`
 
 export async function middleware(request: NextRequest) {
+  const host = request.headers.get('host')?.toLowerCase() ?? ''
+  if (host === APEX_HOST || host === APEX_HOST_WITH_PORT) {
+    const url = request.nextUrl.clone()
+    url.host = SITE_HOST
+    url.protocol = 'https:'
+    return NextResponse.redirect(url, 308)
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   // Refresh Supabase session on every request so cookies stay valid

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { NO_REPLY_EMAIL, SITE_URL } from '@/lib/site-config'
 
 const DAILY_INVITE_LIMIT = 20
 const MAX_RESENDS_PER_LEAD = 3
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   // Build invite link
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sourcifylending.com'
+  const baseUrl = SITE_URL
   const inviteLink = `${baseUrl}/signup?ref=${affiliate.referral_code}&lead=${leadId}`
 
   // Send email via Resend
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'SourcifyLending <no-reply@ai.sourcifylending.com>',
+      from: `SourcifyLending <${NO_REPLY_EMAIL}>`,
       to: [lead.email],
       subject: `${affiliate.name} invited you to SourcifyLending`,
       html: emailHtml,

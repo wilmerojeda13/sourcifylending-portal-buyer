@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logPortalEvent } from '@/lib/portal-events'
+import { NO_REPLY_EMAIL } from '@/lib/site-config'
 import {
   buildCrmInviteLink,
   buildCrmInviteSummary,
@@ -191,7 +192,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'SourcifyLending <no-reply@ai.sourcifylending.com>',
+      from: `SourcifyLending <${NO_REPLY_EMAIL}>`,
       to: [normalizedEmail],
       subject: inviteType === 'portal' ? 'Your SourcifyLending portal invite' : 'Your SourcifyLending pre-analyzer invite',
       html,

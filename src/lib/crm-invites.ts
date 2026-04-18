@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { APP_URL } from '@/lib/site-config'
 const CRM_INVITE_QUERY_CHUNK_SIZE = 200
 
 export const CRM_INVITE_COOKIE = 'crm_invite'
@@ -101,7 +102,7 @@ export function normalizeInviteEmail(email: string | null | undefined) {
 }
 
 export function getAppUrl(origin?: string) {
-  return (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || origin || 'https://app.sourcifylending.com').replace(/\/$/, '')
+  return (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || origin || APP_URL).replace(/\/$/, '')
 }
 
 export function formatInviteTypeLabel(inviteType: CrmInviteType) {

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import ClaimAccountClient from './ClaimAccountClient'
 import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase/server'
+import { SUPPORT_EMAIL } from '@/lib/site-config'
 
 interface PageProps {
   searchParams: Promise<{ token?: string }>
@@ -61,7 +62,7 @@ export default async function ClaimAccountPage({ searchParams }: PageProps) {
         title="Invalid Link"
         message="This invite link is expired or invalid. Please contact SourcifyLending support for a new invite."
         linkLabel="Contact Support →"
-        linkHref="mailto:support@sourcifylending.com"
+        linkHref={`mailto:${SUPPORT_EMAIL}`}
       />
     )
   }
@@ -83,7 +84,7 @@ export default async function ClaimAccountPage({ searchParams }: PageProps) {
         title="Link Expired"
         message="This invite link has expired (links are valid for 7 days). Please contact SourcifyLending to get a new invite."
         linkLabel="Contact Support →"
-        linkHref="mailto:support@sourcifylending.com"
+        linkHref={`mailto:${SUPPORT_EMAIL}`}
       />
     )
   }

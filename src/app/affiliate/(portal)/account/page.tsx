@@ -1,6 +1,7 @@
 ﻿'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { SITE_URL, SUPPORT_EMAIL } from '@/lib/site-config'
 import {
   Copy, CheckCheck, Mail, AlertCircle, User, Calendar, Tag,
   TrendingUp, Zap, CheckCircle, Clock, ExternalLink, RefreshCw,
@@ -454,7 +455,7 @@ export default function AffiliateAccountPage() {
   }, [])
 
   const referralLink = affiliate
-    ? `https://sourcifylending.com/?ref=${affiliate.referral_code}`
+  ? `${SITE_URL}/?ref=${affiliate.referral_code}`
     : ''
 
   const copyCode = () => {
@@ -621,7 +622,7 @@ export default function AffiliateAccountPage() {
           </p>
         </div>
         <a
-          href="mailto:abel@sourcifylending.com"
+  href={`mailto:${SUPPORT_EMAIL}`}
           className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-700 hover:text-indigo-700 dark:text-indigo-400 transition-colors w-full sm:w-auto"
         >
           <Mail size={15} />

@@ -4,6 +4,7 @@ import { inferLeadPhoneIntelligence } from '@/lib/crm-call-compliance'
 import { createCrmLeadActivity, getAppUrl } from '@/lib/crm-invites'
 import { logPortalEvent } from '@/lib/portal-events'
 import { formatComplianceSnapshotLines, type ComplianceSnapshot } from '@/lib/public-form-compliance'
+import { NO_REPLY_EMAIL } from '@/lib/site-config'
 
 type JsonRecord = Record<string, unknown>
 
@@ -378,7 +379,7 @@ async function sendLeadLifecycleNotificationEmail(opts: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'SourcifyLending Portal <no-reply@ai.sourcifylending.com>',
+      from: `SourcifyLending Portal <${NO_REPLY_EMAIL}>`,
       to: recipients.map((recipient) => recipient.email),
       subject: `[SourcifyLending] ${title}`,
       html,

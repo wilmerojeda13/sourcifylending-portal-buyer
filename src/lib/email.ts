@@ -4,6 +4,7 @@
  */
 import { Resend } from 'resend'
 import type { AnalyzerResult } from '@/types'
+import { APP_URL, NO_REPLY_EMAIL, SITE_URL, SUPPORT_EMAIL } from '@/lib/site-config'
 
 // Lazy-initialize so the constructor never runs at build time (no env vars available)
 let _resend: Resend | null = null
@@ -13,8 +14,7 @@ function getResend(): Resend {
 }
 
 // Always use the verified subdomain — sourcifylending.com is NOT verified in Resend
-const FROM_ADDRESS = 'SourcifyLending <no-reply@ai.sourcifylending.com>'
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://sourcifylending.com'
+const FROM_ADDRESS = `SourcifyLending <${NO_REPLY_EMAIL}>`
 const DEMO_RESCHEDULE_LINK = 'https://calendar.app.google/ELRdbfukLHNBiiWy7'
 export const DIALER_INTRO_EMAIL_SUBJECT = 'Set up your free SourcifyLending account'
 export const DEMO_NO_SHOW_RESCHEDULE_SUBJECT = 'Let’s reschedule your demo'
@@ -43,10 +43,10 @@ export function buildDialerIntroEmailText() {
 Here is the link to set up your free SourcifyLending account and run the free analyzer:
 
 Portal:
-https://app.sourcifylending.com/login
+${APP_URL}/login
 
 Free Analyzer:
-https://app.sourcifylending.com/analyzer
+${APP_URL}/analyzer
 
 The analyzer takes about 3 minutes and helps determine the best path based on your business profile.
 
@@ -1147,13 +1147,13 @@ export async function sendWelcomeAgreementConfirmation({
           <tr><td style="padding:16px 20px;">
             <p style="margin:0;font-size:13px;color:#991b1b;font-weight:600;">No-Refund Policy Acknowledged</p>
             <p style="margin:6px 0 0;font-size:13px;color:#b91c1c;line-height:1.5;">
-              By signing this agreement, you confirmed that all payments are non-refundable once portal access is granted, and that you agree to contact SourcifyLending directly at support@sourcifylending.com before initiating any dispute.
+              By signing this agreement, you confirmed that all payments are non-refundable once portal access is granted, and that you agree to contact SourcifyLending directly at ${SUPPORT_EMAIL} before initiating any dispute.
             </p>
           </td></tr>
         </table>
 
         <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">
-          Keep this email for your records. If you have any questions about your agreement or services, contact us at <a href="mailto:support@sourcifylending.com" style="color:#1d4ed8;">support@sourcifylending.com</a>.
+          Keep this email for your records. If you have any questions about your agreement or services, contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#1d4ed8;">${SUPPORT_EMAIL}</a>.
         </p>
       </td></tr>
       <tr><td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
@@ -1266,7 +1266,7 @@ export async function sendChargeConfirmationEmail({
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border:1px solid #fde68a;border-radius:12px;margin:0 0 24px;">
           <tr><td style="padding:14px 18px;">
             <p style="margin:0;font-size:12px;color:#92400e;line-height:1.5;">
-              <strong>Per your signed service agreement</strong>, all payments are non-refundable once portal access is granted. If you have questions about your service, contact us at <a href="mailto:support@sourcifylending.com" style="color:#92400e;">support@sourcifylending.com</a> before initiating any dispute.
+<strong>Per your signed service agreement</strong>, all payments are non-refundable once portal access is granted. If you have questions about your service, contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#92400e;">${SUPPORT_EMAIL}</a> before initiating any dispute.
             </p>
           </td></tr>
         </table>

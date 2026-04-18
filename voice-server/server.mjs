@@ -22,6 +22,10 @@ const SUPABASE_KEY        = process.env.SUPABASE_SERVICE_ROLE_KEY  ?? ''
 const TWILIO_ACCOUNT_SID  = process.env.TWILIO_ACCOUNT_SID         ?? ''
 const TWILIO_AUTH_TOKEN   = process.env.TWILIO_AUTH_TOKEN          ?? ''
 const TWILIO_FROM_NUMBER  = process.env.TWILIO_FROM_NUMBER         ?? ''  // E.164 number to send SMS from
+const ANALYZER_URL        = (process.env.ANALYZER_URL
+  || process.env.NEXT_PUBLIC_APP_URL
+  || process.env.NEXT_PUBLIC_SITE_URL
+  || 'https://www.sourcifylending.com/analyzer').replace(/\/$/, '')
 const GEMINI_MODEL        = 'models/gemini-2.5-flash-native-audio-preview-09-2025' // Native audio Live model (09 = no thinking overhead)
 const GEMINI_API_VER      = 'v1beta'                               // v1beta for Live API (BidiGenerateContent)
 const VOICE_NAME          = 'Aoede'  // Female voice — professional and natural
@@ -265,7 +269,7 @@ async function createGeminiSession(systemPrompt, onAudio, onText, onToolCall, on
             functionDeclarations: [
               {
                 name: 'check_availability',
-                description: 'Check Abel\'s Google Calendar for available demo slots. Call this when a qualified lead agrees to book a demo.',
+    description: 'Check the operator Google Calendar for available demo slots. Call this when a qualified lead agrees to book a demo.',
                 parameters: {
                   type: 'object',
                   properties: {
@@ -445,7 +449,7 @@ async function loadSystemPrompt(leadId, callId) {
       supabase.from('voice_calls').update({ generated_opener: opener }).eq('id', callId).catch(() => {})
     }
 
-    const analyzerUrl      = settings?.analyzer_url      ?? process.env.ANALYZER_URL ?? 'https://app.sourcifylending.com/analyzer'
+const analyzerUrl      = settings?.analyzer_url      ?? ANALYZER_URL
     const transferNum      = settings?.transfer_number   ?? ''
     const calendarEnabled  = !!(settings?.google_refresh_token || process.env.GOOGLE_REFRESH_TOKEN)
 
@@ -453,8 +457,8 @@ async function loadSystemPrompt(leadId, callId) {
   } catch (err) {
     console.error('[VOICE SERVER] Error loading prompt:', err.message)
     return buildSystemPrompt(
-      "Hi, this is SourcifyLending. I'm reaching out to see who handles business funding or business credit strategy for the company.",
-      'https://app.sourcifylending.com/analyzer',
+  "Hi, this is SourcifyLending. I'm reaching out to see who handles business funding or business credit strategy for the company.",
+  ANALYZER_URL,
       '',
       false
     )
@@ -584,7 +588,7 @@ class CallSession {
 
     // Store analyzer URL for post-call SMS
     const settingsData = this.calendarSettings
-    this.analyzerUrl = settingsData?.analyzer_url ?? process.env.ANALYZER_URL ?? 'https://app.sourcifylending.com/analyzer'
+this.analyzerUrl = settingsData?.analyzer_url ?? ANALYZER_URL
 
     // Build callbacks (used by both pre-warmed and fresh sessions)
     const onAudio = (geminiAudioBase64) => {

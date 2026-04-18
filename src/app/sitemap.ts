@@ -1,7 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { getAllPublishedContentPaths } from '@/lib/content-engine'
-
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.sourcifylending.com').replace(/\/$/, '')
+import { SITE_URL } from '@/lib/site-config'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -19,6 +18,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: path === '' ? 1 : 0.7,
   }))
 
-  // Temporarily disable dynamic routes to isolate Railway build issue
-  return staticRoutes
+  const publishedContent = await getAllPublishedContentPaths()
+  const dynamicRoutes: MetadataRoute.Sitemap = publishedContent.map((page) => ({
+    url: `${SITE_URL}/${page.route_group}/${page.slug}`,
+    lastModified: new Date(page.published_at || page.updated_at),
+    changeFrequency: 'monthly',
+    priority: 0.6,
+  }))
+
+  return [...staticRoutes, ...dynamicRoutes]
 }

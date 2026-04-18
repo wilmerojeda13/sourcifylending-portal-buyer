@@ -205,7 +205,7 @@ export async function createCalendarEvent(settings, {
   const calendarId  = settings?.google_calendar_id || 'primary'
   const createMeet  = !!settings?.create_meet_link
 
-  const summary = `SourcifyLending Demo – ${leadName || businessName || 'Lead'}`
+  const summary = `SourcifyLending – ${leadName || businessName || 'Lead'}`
 
   const descLines = [
     leadName        ? `Contact: ${leadName}`          : null,

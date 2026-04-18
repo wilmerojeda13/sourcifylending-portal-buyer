@@ -1,13 +1,23 @@
 import type { MetadataRoute } from 'next'
-
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.sourcifylending.com').replace(/\/$/, '')
+import { SITE_URL } from '@/lib/site-config'
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin/', '/api/'],
+      disallow: [
+        '/admin/',
+        '/api/',
+        '/auth/',
+        '/login',
+        '/sign-in',
+        '/signup',
+        '/forgot-password',
+        '/claim-account',
+        '/accept-invite',
+        '/offline-crm/',
+      ],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { ADMIN_NOTIFICATION_EMAIL, NO_REPLY_EMAIL, SITE_URL } from '@/lib/site-config'
 import { parseContentAttributionCookie, recordContentEvent } from '@/lib/content-engine'
 import {
   assessPublicFormIdentity,
@@ -207,8 +208,8 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: 'SourcifyLending Portal <no-reply@ai.sourcifylending.com>',
-          to: ['abel@sourcifylending.com'],
+          from: `SourcifyLending Portal <${NO_REPLY_EMAIL}>`,
+          to: [ADMIN_NOTIFICATION_EMAIL],
           subject: `New Affiliate Application: ${name}`,
           html: `
             <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
@@ -231,7 +232,7 @@ export async function POST(req: NextRequest) {
                   <p style="font-size:14px;color:#111827;margin:0">${promotion_plan}</p>
                 </div>
                 <div style="margin-top:20px">
-                  <a href="https://sourcifylending.com/admin/affiliates/applications" style="display:inline-block;background:#16a34a;color:#fff;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px">Review in Admin Panel</a>
+                  <a href="${SITE_URL}/admin/affiliates/applications" style="display:inline-block;background:#16a34a;color:#fff;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px">Review in Admin Panel</a>
                 </div>
               </div>
             </div>

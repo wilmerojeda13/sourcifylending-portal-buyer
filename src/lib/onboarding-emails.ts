@@ -3,9 +3,10 @@
  * Keeps active clients moving through their program — next steps,
  * underwriting reminders, milestone celebrations, and momentum builders.
  */
+import { APP_URL, NO_REPLY_EMAIL } from '@/lib/site-config'
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.sourcifylending.com'
-const FROM = 'SourcifyLending <no-reply@ai.sourcifylending.com>'
+const SITE_URL = APP_URL
+const FROM = `SourcifyLending <${NO_REPLY_EMAIL}>`
 
 export interface OnboardingEmail {
   day: number
@@ -35,7 +36,7 @@ function base({
     <div style="text-align:center;margin:32px 0">
       <a href="${ctaUrl}" style="background:#16a34a;color:#fff;font-size:15px;font-weight:700;padding:14px 36px;border-radius:10px;text-decoration:none;display:inline-block">${ctaText}</a>
     </div>
-    <p style="margin:24px 0 0;font-size:13px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:20px">— The Sourcify Team<br/><a href="https://app.sourcifylending.com" style="color:#16a34a;text-decoration:none">app.sourcifylending.com</a></p>
+    <p style="margin:24px 0 0;font-size:13px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:20px">— The Sourcify Team<br/><a href="${SITE_URL}" style="color:#16a34a;text-decoration:none">${SITE_URL}</a></p>
     <p style="margin:12px 0 0;font-size:11px;color:#9ca3af">You're receiving this as an active Sourcify member.<br/><a href="${unsubscribeUrl}" style="color:#9ca3af">Unsubscribe from sequence emails</a></p>
   </td></tr>
 </table>

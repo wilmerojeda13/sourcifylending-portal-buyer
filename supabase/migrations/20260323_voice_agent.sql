@@ -176,7 +176,7 @@ CREATE TABLE IF NOT EXISTS voice_agent_settings (
   twilio_caller_id      text,
   transfer_number       text,
   voice_server_ws_url   text DEFAULT 'ws://localhost:3002',
-  analyzer_url          text DEFAULT 'https://app.sourcifylending.com/analyzer',
+  analyzer_url          text DEFAULT 'https://www.sourcifylending.com/analyzer',
   sms_template          text DEFAULT 'Hi {{name}}, this is SourcifyLending. Here is the free business credit analyzer: {{link}}',
   email_template        text,
   email_subject         text DEFAULT 'Free Business Credit Analyzer — SourcifyLending',

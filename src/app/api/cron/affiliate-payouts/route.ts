@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { SITE_URL } from '@/lib/site-config'
 
 // This endpoint is called by Vercel Cron on the 1st of each month.
 // It delegates to the admin payout run endpoint using an internal service call.
@@ -8,7 +9,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://sourcifylending.com'
+  const baseUrl = SITE_URL
 
   try {
     const res = await fetch(`${baseUrl}/api/admin/affiliates/payouts/run`, {

@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { createServiceClient } from '@/lib/supabase/server'
 import { logPortalEvent } from '@/lib/portal-events'
 import { isMissingRelationError } from '@/lib/supabase-schema'
+import { SITE_URL } from '@/lib/site-config'
 import { getContentMotion } from '@/lib/content-engine-types'
 import type {
   ContentAiVisibilityDashboard,
@@ -301,7 +302,7 @@ const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null
 
-const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.sourcifylending.com').replace(/\/$/, '')
+const SITE_ORIGIN = SITE_URL
 
 function slugToTitle(input: string) {
   return input
@@ -1407,7 +1408,7 @@ export async function recordContentUpdate(args: {
 
 export async function submitIndexNow(paths: string[], initiatedBy?: string | null) {
   const key = process.env.INDEXNOW_KEY
-  const host = process.env.INDEXNOW_HOST || 'www.sourcifylending.com'
+  const host = process.env.INDEXNOW_HOST || new URL(SITE_URL).host
 
   if (!key || paths.length === 0) {
     return { submitted: false, reason: 'missing_config_or_paths' as const }

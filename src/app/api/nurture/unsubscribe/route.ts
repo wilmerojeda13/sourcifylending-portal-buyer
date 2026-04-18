@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { APP_URL } from '@/lib/site-config'
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('token')
@@ -28,7 +29,7 @@ h2{margin:0 0 12px;font-size:22px;color:#111827}p{margin:0;color:#6b7280;font-si
 a{display:inline-block;margin-top:24px;color:#16a34a;font-size:14px}</style></head>
 <body><div class="box"><h2>${msg}</h2>
 <p>Your Sourcify account and portal access remain active.</p>
-<a href="https://app.sourcifylending.com">Return to portal →</a></div></body></html>`
+<a href="${APP_URL}">Return to portal →</a></div></body></html>`
 
   if (error || !data) {
     return new NextResponse(html('Already unsubscribed'), { status: 200, headers: { 'Content-Type': 'text/html' } })

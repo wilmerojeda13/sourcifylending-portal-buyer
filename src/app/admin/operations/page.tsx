@@ -3,7 +3,6 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { AlertTriangle, Users, DollarSign, HeartPulse } from 'lucide-react'
 import ClientManagementTable from './ClientManagementTable'
-import { excludeChildBusinessProfiles } from '@/lib/business-memberships'
 
 const CREDIT_ACCOUNT_TYPES = [
   '0% APR Card',
@@ -34,7 +33,7 @@ export default async function AdminOperationsPage() {
   if (!adminCheck?.is_admin) redirect('/dashboard')
 
   // Parallel fetch all data
-  const [profilesRes, tasksRes, activityRes, fundingRes, assignmentsRes, businessMembershipsRes] = await Promise.all([
+  const [profilesRes, tasksRes, activityRes, fundingRes, assignmentsRes] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, full_name, email, business_name, billing_status, assigned_program, current_stage, progress_percentage, portal_blocked, is_demo, created_at')
@@ -49,10 +48,9 @@ export default async function AdminOperationsPage() {
       .select('user_id, approved_amount, approved_limit, approval_type, status')
       .eq('status', 'Approved'),
     supabase.from('support_assignments').select('*'),
-    supabase.from('profile_business_memberships').select('user_id, business_profile_id').eq('status', 'active'),
   ])
 
-  const profiles = excludeChildBusinessProfiles(profilesRes.data ?? [], businessMembershipsRes.data ?? [])
+  const profiles = profilesRes.data ?? []
   const tasks = tasksRes.data ?? []
   const activityLogs = activityRes.data ?? []
   const fundingApprovals = fundingRes.data ?? []

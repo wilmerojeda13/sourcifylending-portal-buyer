@@ -82,14 +82,14 @@ describe('account-state', () => {
 
     // ── LEGACY NULL CASES ───────────────────────────────────────────────────
 
-    test('legacy fallback: completely null user (no plan_tier, subscription, or state)', () => {
+    test('legacy fallback: completely null user (no feature_tier, subscription, or state)', () => {
       const entitlements = getAccountEntitlements(null, null, null)
       // Fallback to paid_inactive to be safe (don't accidentally upgrade)
       expect(entitlements.access_state).toBe('paid_inactive')
       expect(entitlements.can_use_ai_agent).toBe(false)
     })
 
-    test('legacy: null plan_tier but active subscription', () => {
+    test('legacy: null feature_tier but active subscription', () => {
       const entitlements = getAccountEntitlements(null, 'active', null)
       expect(entitlements.access_state).toBe('paid_active')
       expect(entitlements.has_prior_paid_history).toBe(true)
@@ -163,7 +163,7 @@ describe('account-state', () => {
       expect(entitlements.has_prior_paid_history).toBe(true)
     })
 
-    test('Legacy paid user (null plan_tier, active subscription) keeps access', () => {
+    test('Legacy paid user (null feature_tier, active subscription) keeps access', () => {
       const entitlements = getAccountEntitlements(null, 'active', 'active_member')
       expect(entitlements.access_state).toBe('paid_active')
       expect(entitlements.can_use_ai_agent).toBe(true)

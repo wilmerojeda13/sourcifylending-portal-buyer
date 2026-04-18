@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
   const body = await req.json()
-  const { full_name, email, password, assigned_program, account_state = 'prospect' } = body
+  const { full_name, email, password, assigned_program, member_status = 'prospect' } = body
 
   if (!email?.trim()) return NextResponse.json({ error: 'Email is required' }, { status: 400 })
   if (!password || password.length < 6) return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
     id: newUser.user.id,
     email: email.trim(),
     full_name: (full_name ?? '').trim(),
-    subscription_status: 'inactive',
-    account_state,
+    billing_status: 'inactive',
+    member_status,
     assigned_program: assigned_program || null,
     progress_percentage: 0,
     nsf_flag: false,
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       full_name: (full_name ?? '').trim(),
       email: email.trim(),
       business_name: null,
-      subscription_status: 'inactive',
+      billing_status: 'inactive',
       assigned_program: assigned_program || null,
       current_stage: null,
       progress: 0,

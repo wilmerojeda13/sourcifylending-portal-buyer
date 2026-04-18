@@ -1,6 +1,7 @@
 /**
  * VAPI assistant configuration builder for SourcifyLending voice agent (Sarah)
  */
+import { ANALYZER_URL } from '@/lib/site-config'
 
 export interface LeadInfo {
   owner_name?:           string
@@ -97,7 +98,7 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'check_availability',
-      description: "Check Abel's Google Calendar for available demo slots. Call this when a qualified lead agrees to book a demo.",
+      description: 'Check available demo slots before offering a booking. Call this when a qualified lead agrees to book a demo.',
       parameters: {
         type: 'object',
         properties: { num_slots: { type: 'integer', description: 'Number of slots to return, usually 2 or 3' } },
@@ -157,7 +158,7 @@ export function buildVapiAssistant(opts: {
   webhookUrl: string
 }) {
   const { lead, settings, callId, leadId, webhookUrl } = opts
-  const analyzerUrl    = settings?.analyzer_url    || process.env.ANALYZER_URL || 'https://app.sourcifylending.com/analyzer'
+  const analyzerUrl    = settings?.analyzer_url    || process.env.ANALYZER_URL || ANALYZER_URL
   const transferNum    = settings?.transfer_number || ''
   const calendarEnabled = !!(settings?.google_refresh_token || process.env.GOOGLE_REFRESH_TOKEN)
 

@@ -112,7 +112,7 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
   const allPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
   const memberPrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
-  // Normalize account state from plan_tier, subscription_status, and account_state
+  // Normalize account state from feature_tier, billing_status, and member_status
   const entitlements = getAccountEntitlements(profile?.feature_tier, profile?.billing_status, profile?.member_status)
   const isFreeUser = entitlements.access_state === 'free_active'
   const isActive = entitlements.access_state === 'free_active' || entitlements.access_state === 'paid_active'

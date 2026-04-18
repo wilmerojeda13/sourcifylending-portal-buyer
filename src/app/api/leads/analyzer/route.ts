@@ -370,7 +370,7 @@ export async function POST(req: NextRequest) {
         message: `A known member completed the free analyzer again. Their admin profile was refreshed instead of creating a duplicate lead.`,
         metadata: {
           email: normalizedEmail,
-          account_state: existingProfile.member_status,
+          member_status: existingProfile.member_status,
           ...(existingLead?.id ? { lead_id: existingLead.id } : {}),
           readiness_score: result.readiness_score,
           estimated_funding_range: result.estimated_funding_range,

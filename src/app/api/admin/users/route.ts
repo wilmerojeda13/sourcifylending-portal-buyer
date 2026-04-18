@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const supabase = await verifyAdmin()
   if (!supabase) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { full_name, email, plan_tier, assigned_program, subscription_status } = await req.json()
+  const { full_name, email, feature_tier, assigned_program, billing_status } = await req.json()
 
   if (!full_name || !email) {
     return NextResponse.json({ error: 'Name and email are required' }, { status: 400 })
@@ -44,9 +44,9 @@ export async function POST(req: NextRequest) {
     id: userId,
     full_name,
     email,
-    plan_tier: plan_tier || 'free',
+    feature_tier: feature_tier || 'free',
     assigned_program: assigned_program || null,
-    subscription_status: subscription_status || 'inactive',
+    billing_status: billing_status || 'inactive',
     created_at: new Date().toISOString(),
   }, { onConflict: 'id' })
 

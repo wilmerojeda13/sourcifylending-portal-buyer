@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { NO_REPLY_EMAIL, APP_URL } from '@/lib/site-config'
 
 async function sendInviteEmail(toEmail: string, ownerName: string, inviteToken: string) {
   const key = process.env.RESEND_API_KEY
   if (!key) return
-  const inviteUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/accept-invite?token=${inviteToken}`
+  const inviteUrl = `${APP_URL}/accept-invite?token=${inviteToken}`
   const html = `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
       <div style="background:#16a34a;padding:24px 32px;border-radius:12px 12px 0 0">
@@ -25,7 +26,7 @@ async function sendInviteEmail(toEmail: string, ownerName: string, inviteToken: 
       method: 'POST',
       headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'SourcifyLending Portal <no-reply@ai.sourcifylending.com>',
+        from: `SourcifyLending Portal <${NO_REPLY_EMAIL}>`,
         to: [toEmail],
         subject: `Reminder: ${ownerName} invited you to their SourcifyLending portal`,
         html,

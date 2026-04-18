@@ -5,8 +5,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react'
 import PublicLegalLinks from '@/components/compliance/PublicLegalLinks'
+import { SUPPORT_EMAIL } from '@/lib/site-config'
 
-const DEMO_EMAIL = 'affiliate@sourcifylending.com'
+const DEMO_EMAIL = 'affiliate-demo@sourcifylending.com'
 const DEMO_PASSWORD = 'AffiliateDemo123!'
 
 export default function AffiliateLoginPage() {
@@ -184,7 +185,7 @@ export default function AffiliateLoginPage() {
           <p className="text-[13px] leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">
             Want to become a partner?{' '}
             <a
-              href="mailto:abel@sourcifylending.com"
+  href={`mailto:${SUPPORT_EMAIL}`}
               className="font-medium text-indigo-600 hover:text-indigo-700 hover:underline dark:text-indigo-400"
             >
               Contact us

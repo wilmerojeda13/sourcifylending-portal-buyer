@@ -252,7 +252,7 @@ export default function AdminAIPanel() {
     setMessages([{
       id: uuidv4(),
       role: 'assistant',
-      content: `Hey Abel 👋 I'm your Admin AI — I follow you across every page and know exactly what you're looking at.${contextNote}`,
+      content: `Hey there 👋 I'm your Admin AI — I follow you across every page and know exactly what you're looking at.${contextNote}`,
       timestamp: new Date().toISOString(),
     }])
   }, [open, initialized, pageCtx.label, contextType])

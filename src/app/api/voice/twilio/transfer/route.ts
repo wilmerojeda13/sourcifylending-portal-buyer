@@ -1,6 +1,6 @@
 /**
  * POST /api/voice/twilio/transfer
- * TwiML response for live call transfer to Abel.
+ * TwiML response for live call transfer to the operator.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'

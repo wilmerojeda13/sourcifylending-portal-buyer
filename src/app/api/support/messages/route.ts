@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logMemoryEvent } from '@/lib/ai-memory'
 import { logPortalEvent } from '@/lib/portal-events'
 import { getBusinessContext } from '@/lib/business-context'
+import { ADMIN_NOTIFICATION_EMAIL, NO_REPLY_EMAIL } from '@/lib/site-config'
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024 // 5 MB
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
@@ -51,8 +52,8 @@ async function sendSupportNotificationEmail(
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'SourcifyLending Portal <no-reply@ai.sourcifylending.com>',
-        to: ['abel@sourcifylending.com'],
+        from: `SourcifyLending Portal <${NO_REPLY_EMAIL}>`,
+        to: [ADMIN_NOTIFICATION_EMAIL],
         reply_to: userEmail,
         subject: `New Portal Support Message: ${subject}`,
         html: htmlBody,

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { ADMIN_NOTIFICATION_EMAIL, NO_REPLY_EMAIL } from '@/lib/site-config'
 
-const ADMIN_EMAIL = 'abel@sourcifylending.com'
-const FROM = 'SourcifyLending Portal <no-reply@ai.sourcifylending.com>'
+const FROM = `SourcifyLending Portal <${NO_REPLY_EMAIL}>`
 
 async function sendEmail(subject: string, html: string) {
   const key = process.env.RESEND_API_KEY
@@ -10,7 +10,7 @@ async function sendEmail(subject: string, html: string) {
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: FROM, to: [ADMIN_EMAIL], subject, html }),
+    body: JSON.stringify({ from: FROM, to: [ADMIN_NOTIFICATION_EMAIL], subject, html }),
   })
 }
 

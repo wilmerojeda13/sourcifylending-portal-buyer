@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { NO_REPLY_EMAIL, SITE_URL } from '@/lib/site-config'
 
 async function requireAdmin() {
   const authClient = await createClient()
@@ -51,12 +52,12 @@ export async function POST(req: NextRequest) {
     // Send via Resend
     const key = process.env.RESEND_API_KEY
     if (key) {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://app.sourcifylending.com'
+const siteUrl = SITE_URL
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: 'SourcifyLending <no-reply@ai.sourcifylending.com>',
+      from: `SourcifyLending <${NO_REPLY_EMAIL}>`,
           to: [profile.email],
           subject: 'Reset Your SourcifyLending Password',
           html: `
