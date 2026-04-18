@@ -84,33 +84,17 @@ async function loadMembershipRows(userId: string) {
     )
   `
 
-  const current = await serviceClient
+  const { data, error } = await serviceClient
     .from('profile_business_memberships')
     .select(selectClause)
     .eq('user_id', userId)
     .eq('status', 'active')
 
-  if (!current.error) {
-    return { rows: (current.data ?? []) as MembershipRow[] }
+  if (error) {
+    throw error
   }
 
-  if (!isSchemaDriftError(current.error, 'user_id')) {
-    throw current.error
-  }
-
-  const legacy = await serviceClient
-    .from('profile_business_memberships')
-    .select(selectClause)
-    .eq('auth_user_id', userId)
-    .eq('status', 'active')
-
-  if (legacy.error && !isMissingRelationError(legacy.error, 'profile_business_memberships')) {
-    throw legacy.error
-  }
-
-  return {
-    rows: (legacy.data ?? []) as MembershipRow[],
-  }
+  return { rows: (data ?? []) as MembershipRow[] }
 }
 
 export async function getBusinessContext(preferredBusinessId?: string | null): Promise<BusinessContext | null> {
