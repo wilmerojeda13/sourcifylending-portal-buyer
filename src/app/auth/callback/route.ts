@@ -11,6 +11,7 @@ import { parseContentAttributionCookie, recordContentEvent } from '@/lib/content
 import { ensureSignupCrmLead } from '@/lib/signup-crm'
 import { logSignupSecurityEvent } from '@/lib/signup-security'
 import { getSignupAutomationErrorMessage, recordSignupAutomationFailure } from '@/lib/signup-automation-monitor'
+import { ADMIN_NOTIFICATION_EMAIL, NO_REPLY_EMAIL } from '@/lib/site-config'
 
 async function sendNewSignupNotification(email: string, fullName: string) {
   const key = process.env.RESEND_API_KEY
@@ -20,8 +21,8 @@ async function sendNewSignupNotification(email: string, fullName: string) {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'SourcifyLending Portal <no-reply@ai.sourcifylending.com>',
-        to: ['abel@sourcifylending.com'],
+        from: `SourcifyLending Portal <${NO_REPLY_EMAIL}>`,
+        to: [ADMIN_NOTIFICATION_EMAIL],
         subject: `New Sign-Up: ${fullName || email}`,
         html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
           <div style="background:#16a34a;padding:24px 32px;border-radius:12px 12px 0 0">
@@ -115,9 +116,9 @@ export async function GET(request: NextRequest) {
       id: user.id,
       email: user.email ?? '',
       full_name: fullName,
-      plan_tier: 'free',
-      subscription_status: 'inactive',
-      account_state: 'prospect',
+      feature_tier: 'free',
+      billing_status: 'inactive',
+      member_status: 'prospect',
       acquisition_path: 'self_serve',
       progress_percentage: 0,
       nsf_flag: false,
