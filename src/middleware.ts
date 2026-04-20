@@ -14,6 +14,13 @@ export async function middleware(request: NextRequest) {
   const host = request.headers.get('host')?.toLowerCase() ?? ''
   const isAdmin = isAdminSubdomain(host)
 
+  // Redirect admin subdomain root to /admin-login
+  if (isAdmin && request.nextUrl.pathname === '/') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/admin-login'
+    return NextResponse.redirect(url, 307)
+  }
+
   // Store admin subdomain flag in response headers for downstream use
   let supabaseResponse = NextResponse.next({ request })
   if (isAdmin) {
