@@ -12,6 +12,11 @@ export const APP_URL = trimSlash(
   SITE_URL
 )
 
+export const ADMIN_URL = trimSlash(
+  process.env.NEXT_PUBLIC_ADMIN_URL ??
+  SITE_URL.replace(/^https?:\/\/(?:www\.)?/, 'https://admin.')
+)
+
 export const ANALYZER_URL = trimSlash(
   process.env.ANALYZER_URL ??
   `${APP_URL}/analyzer`

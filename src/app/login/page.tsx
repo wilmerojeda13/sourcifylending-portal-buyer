@@ -1,19 +1,32 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import LoginForm from './LoginForm'
 import { createClient } from '@/lib/supabase/server'
-import { normalizeNextPath } from '@/lib/auth-routing'
+import { normalizeNextPath, isAdminSubdomain } from '@/lib/auth-routing'
 
 export const dynamic = 'force-dynamic'
 
 interface PageProps {
-  searchParams: Promise<{ error?: string; email?: string; next?: string }>
+  searchParams: Promise<{ error?: string; email?: string; next?: string; code?: string }>
 }
 
 export default async function LoginPage({ searchParams }: PageProps) {
-  const { error, email, next } = await searchParams
+  const { error, email, next, code } = await searchParams
+
+  // Redirect admin subdomain to dedicated admin login
+  const headersList = await headers()
+  const host = headersList.get('host')?.toLowerCase() ?? ''
+  if (isAdminSubdomain(host)) {
+    redirect(`/admin-login?${new URLSearchParams({ ...(error && { error }), ...(email && { email }), ...(next && { next }), ...(code && { code }) }).toString()}`)
+  }
+
   const nextPath = normalizeNextPath(next)
+
+  if (code) {
+    redirect(`/auth/callback?code=${encodeURIComponent(code)}&next=${encodeURIComponent(nextPath)}`)
+  }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

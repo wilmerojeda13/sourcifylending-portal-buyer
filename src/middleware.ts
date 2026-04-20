@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { SITE_URL } from '@/lib/site-config'
+import { isAdminSubdomain } from '@/lib/auth-routing'
 
 const SITE_HOST = new URL(SITE_URL).host.toLowerCase()
 // Only redirect the bare apex domain → www when SITE_HOST itself starts with www.
@@ -11,14 +12,20 @@ const APEX_HOST_WITH_PORT = APEX_HOST ? `${APEX_HOST}:443` : null
 
 export async function middleware(request: NextRequest) {
   const host = request.headers.get('host')?.toLowerCase() ?? ''
+  const isAdmin = isAdminSubdomain(host)
+
+  // Store admin subdomain flag in response headers for downstream use
+  let supabaseResponse = NextResponse.next({ request })
+  if (isAdmin) {
+    supabaseResponse.headers.set('x-admin-subdomain', 'true')
+  }
+
   if (APEX_HOST && (host === APEX_HOST || host === APEX_HOST_WITH_PORT)) {
     const url = request.nextUrl.clone()
     url.host = SITE_HOST
     url.protocol = 'https:'
     return NextResponse.redirect(url, 308)
   }
-
-  let supabaseResponse = NextResponse.next({ request })
 
   // Refresh Supabase session on every request so cookies stay valid
   const supabase = createServerClient(
@@ -32,6 +39,9 @@ export async function middleware(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
+          if (isAdmin) {
+            supabaseResponse.headers.set('x-admin-subdomain', 'true')
+          }
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )

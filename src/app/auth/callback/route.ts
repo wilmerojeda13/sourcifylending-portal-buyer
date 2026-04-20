@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const next = normalizeNextPath(searchParams.get('next'))
+  const adminEntry = searchParams.get('adminEntry') === 'true'
   const appOrigin = origin.replace(/\/$/, '')
 
   if (!code) {
@@ -129,6 +130,23 @@ export async function GET(request: NextRequest) {
     if (profileErr && profileErr.code !== '23505') {
       console.error('[auth/callback] profile bootstrap failed', profileErr)
       return NextResponse.redirect(`${appOrigin}/sign-in?error=oauth_callback_failed&next=${encodeURIComponent(next)}`)
+    }
+  }
+
+  // Admin entry point security check
+  if (adminEntry) {
+    const { data: profile } = await serviceClient
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (!profile?.is_admin) {
+      await supabase.auth.signOut()
+      const adminOrigin = origin.replace(/^https?:\/\/(www\.)?/, 'https://admin.')
+      return NextResponse.redirect(
+        `${adminOrigin}/admin-login?error=not_admin&email=${encodeURIComponent(user.email || '')}`
+      )
     }
   }
 

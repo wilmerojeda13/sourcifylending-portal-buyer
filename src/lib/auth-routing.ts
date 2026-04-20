@@ -1,4 +1,9 @@
 export const DEFAULT_POST_LOGIN_PATH = '/portal'
+export const ADMIN_POST_LOGIN_PATH = '/admin'
+
+export function isAdminSubdomain(host: string): boolean {
+  return host.toLowerCase().startsWith('admin.')
+}
 
 export function normalizeNextPath(next: string | null | undefined, fallback = DEFAULT_POST_LOGIN_PATH) {
   if (!next) return fallback
@@ -7,8 +12,10 @@ export function normalizeNextPath(next: string | null | undefined, fallback = DE
   return next
 }
 
-export function buildOAuthCallbackUrl(origin: string, next: string | null | undefined) {
+export function buildOAuthCallbackUrl(origin: string, next: string | null | undefined, isAdminEntry?: boolean) {
   const base = origin.replace(/\/$/, '')
-  const target = normalizeNextPath(next)
-  return `${base}/auth/callback?next=${encodeURIComponent(target)}`
+  const url = new URL(base)
+  const isAdminOrigin = isAdminEntry !== undefined ? isAdminEntry : isAdminSubdomain(url.host)
+  const target = normalizeNextPath(next, isAdminOrigin ? ADMIN_POST_LOGIN_PATH : DEFAULT_POST_LOGIN_PATH)
+  return `${base}/auth/callback?next=${encodeURIComponent(target)}&adminEntry=${isAdminOrigin}`
 }
