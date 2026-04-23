@@ -31,7 +31,6 @@ const DISPOSITIONS: {
 }[] = [
   { key: 'interested', label: 'Interested', icon: ThumbsUp, color: 'bg-green-500 hover:bg-green-600 text-white', outcome: 'Interested', newStage: 'interested' },
   { key: 'book_demo', label: 'Book Demo', icon: CalendarPlus, color: 'bg-purple-500 hover:bg-purple-600 text-white', outcome: 'Booked Call', newStage: 'qualified' },
-  { key: 'demo_no_show', label: 'Demo No Show', icon: PhoneMissed, color: 'bg-slate-700 hover:bg-slate-800 text-white', outcome: 'Demo No Show', newStage: null },
   { key: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'bg-amber-500 hover:bg-amber-600 text-white', outcome: 'Left Voicemail', newStage: 'contacted' },
   { key: 'no_answer', label: 'No Answer', icon: PhoneMissed, color: 'bg-gray-400 hover:bg-gray-500 text-white', outcome: 'No Answer', newStage: 'contacted' },
   { key: 'not_interested', label: 'Not Interested', icon: ThumbsDown, color: 'bg-red-400 hover:bg-red-500 text-white', outcome: 'Not Interested', newStage: 'closed_lost' },

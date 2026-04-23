@@ -58,6 +58,13 @@ export const CRM_DISPOSITIONS: readonly CRMDispositionEntry[] = [
     key: 'demo_no_show',
     label: 'Demo No Show',
     outcome: 'Demo No Show',
+    stage: 'follow_up',
+  },
+  {
+    key: 'appointment_no_show',
+    label: 'Appointment No Show',
+    outcome: 'Appointment No Show',
+    stage: 'follow_up',
   },
   {
     key: 'follow_up',
@@ -292,7 +299,7 @@ export async function applyCrmDisposition(
   const { data: updatedLead, error: updateError } = await supabase
     .from('crm_leads')
     .update(leadUpdate)
-    .eq('id', input.leadId)
+    .eq('id', effectiveLeadId)
     .select('*')
     .single()
 

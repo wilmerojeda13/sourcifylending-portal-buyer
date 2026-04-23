@@ -13,7 +13,6 @@ const STAGES: OfflineLeadStage[] = ['new', 'contacted', 'interested', 'callback'
 const DISPOSITIONS: { outcome: OfflineCallOutcome; stage: OfflineLeadStage | null; label: string }[] = [
   { outcome: 'Interested', stage: 'interested', label: 'Interested' },
   { outcome: 'Booked Call', stage: 'qualified', label: 'Booked Call' },
-  { outcome: 'Demo No Show', stage: null, label: 'Demo No Show' },
   { outcome: 'Left Voicemail', stage: 'contacted', label: 'Voicemail' },
   { outcome: 'No Answer', stage: 'contacted', label: 'No Answer' },
   { outcome: 'Call Back Later', stage: 'callback', label: 'Call Back Later' },
