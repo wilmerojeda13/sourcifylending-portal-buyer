@@ -7,7 +7,6 @@ import { logPortalEvent } from '@/lib/portal-events'
 import { getAffiliateByStripeCustomer, createCommission, reverseCommissions } from '@/lib/affiliates'
 import { sendChargeConfirmationEmail } from '@/lib/email'
 import { logWebhookError, enqueueWebhookRetry } from '@/lib/webhook-error-logs'
-import { logBillingEvent } from '@/lib/billing-events'
 import { linkOrphanedAnalyzerResults } from '@/lib/link-analyzer-results'
 import type { ProgramId } from '@/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -359,17 +358,34 @@ export async function POST(req: NextRequest) {
         // Link analyzer results if user completed free analyzer before signup
         const { data: profile } = await supabase
           .from('profiles')
-          .select('email')
+          .select('email, full_name, business_name')
           .eq('id', userId)
           .single()
         if (profile?.email) {
           const analyzerResult = await linkOrphanedAnalyzerResults(supabase, userId, profile.email)
           if (analyzerResult.linked > 0) {
-            await logBillingEvent(supabase, userId, 'analyzer_results_linked', { linked_count: analyzerResult.linked })
+            const clientName = profile.full_name || profile.business_name || 'Client'
+            logPortalEvent({
+              userId,
+              eventType: 'analyzer_results_linked',
+              category: 'billing',
+              severity: 'success',
+              title: 'Analyzer Results Linked',
+              message: `Free analyzer results linked to ${clientName}'s account`,
+              metadata: { linked_count: analyzerResult.linked, program },
+            })
           }
         }
 
-        await logBillingEvent(supabase, userId, 'subscription_activated', { program, subscription_id: subscription.id })
+        logPortalEvent({
+          userId,
+          eventType: 'subscription_created',
+          category: 'subscriptions',
+          severity: 'success',
+          title: `Subscription created: ${PROGRAM_NAMES[program] || program}`,
+          message: `New subscription for ${PROGRAM_NAMES[program] || program}`,
+          metadata: { program, subscription_id: subscription.id },
+        })
         await logActivity(userId, 'checkout_completed', { program, session_type: 'setup_fee', subscription_id: subscription.id, acquisition_path: acquisitionPath })
       } else {
         const subscriptionId = session.subscription as string
@@ -391,17 +407,34 @@ export async function POST(req: NextRequest) {
         // Link analyzer results if user completed free analyzer before signup
         const { data: profile } = await supabase
           .from('profiles')
-          .select('email')
+          .select('email, full_name, business_name')
           .eq('id', userId)
           .single()
         if (profile?.email) {
           const analyzerResult = await linkOrphanedAnalyzerResults(supabase, userId, profile.email)
           if (analyzerResult.linked > 0) {
-            await logBillingEvent(supabase, userId, 'analyzer_results_linked', { linked_count: analyzerResult.linked })
+            const clientName = profile.full_name || profile.business_name || 'Client'
+            logPortalEvent({
+              userId,
+              eventType: 'analyzer_results_linked',
+              category: 'billing',
+              severity: 'success',
+              title: 'Analyzer Results Linked',
+              message: `Free analyzer results linked to ${clientName}'s account`,
+              metadata: { linked_count: analyzerResult.linked, program },
+            })
           }
         }
 
-        await logBillingEvent(supabase, userId, 'subscription_activated', { program, subscription_id: subscriptionId })
+        logPortalEvent({
+          userId,
+          eventType: 'subscription_created',
+          category: 'subscriptions',
+          severity: 'success',
+          title: `Subscription created: ${PROGRAM_NAMES[program] || program}`,
+          message: `New subscription for ${PROGRAM_NAMES[program] || program}`,
+          metadata: { program, subscription_id: subscriptionId },
+        })
         await logActivity(userId, 'checkout_completed', {
           program,
           session_type: 'subscription',
@@ -444,10 +477,14 @@ export async function POST(req: NextRequest) {
         })
 
         if (!paymentError) {
-          await logBillingEvent(supabase, userId, 'payment_logged', {
-            amount: setupAmount,
-            payment_type: 'setup_fee',
-            session_id: sessionId,
+          logPortalEvent({
+            userId,
+            eventType: 'payment_received',
+            category: 'billing',
+            severity: 'success',
+            title: `Payment received: $${setupAmount.toFixed(2)}`,
+            message: `Setup fee of $${setupAmount.toFixed(2)} successfully paid`,
+            metadata: { amount: setupAmount, payment_type: 'setup_fee', session_id: sessionId },
           })
         }
       }
@@ -766,10 +803,14 @@ export async function POST(req: NextRequest) {
 
             if (!paymentError && paymentRecords.length > 0) {
               const totalAmount = paymentRecords.reduce((sum, r) => sum + (r.amount as number), 0)
-              await logBillingEvent(supabase, sub.user_id, 'recurring_payment', {
-                amount: totalAmount,
-                invoice_id: invoice.id,
-                records_count: paymentRecords.length,
+              logPortalEvent({
+                userId: sub.user_id,
+                eventType: 'payment_received',
+                category: 'billing',
+                severity: 'success',
+                title: `Payment received: $${totalAmount.toFixed(2)}`,
+                message: `Payment of $${totalAmount.toFixed(2)} successfully processed`,
+                metadata: { amount: totalAmount, invoice_id: invoice.id, records_count: paymentRecords.length },
               })
             }
           }
