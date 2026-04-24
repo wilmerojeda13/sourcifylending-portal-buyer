@@ -6,6 +6,9 @@ import { logActivity } from '@/lib/activity'
 import { logPortalEvent } from '@/lib/portal-events'
 import { getAffiliateByStripeCustomer, createCommission, reverseCommissions } from '@/lib/affiliates'
 import { sendChargeConfirmationEmail } from '@/lib/email'
+import { logWebhookError, enqueueWebhookRetry } from '@/lib/webhook-error-logs'
+import { logBillingEvent } from '@/lib/billing-events'
+import { linkOrphanedAnalyzerResults } from '@/lib/link-analyzer-results'
 import type { ProgramId } from '@/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
@@ -352,6 +355,21 @@ export async function POST(req: NextRequest) {
           setupFeeAmountCents,
           monthlyFeeAmountCents || null,
         )
+
+        // Link analyzer results if user completed free analyzer before signup
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', userId)
+          .single()
+        if (profile?.email) {
+          const analyzerResult = await linkOrphanedAnalyzerResults(supabase, userId, profile.email)
+          if (analyzerResult.linked > 0) {
+            await logBillingEvent(supabase, userId, 'analyzer_results_linked', { linked_count: analyzerResult.linked })
+          }
+        }
+
+        await logBillingEvent(supabase, userId, 'subscription_activated', { program, subscription_id: subscription.id })
         await logActivity(userId, 'checkout_completed', { program, session_type: 'setup_fee', subscription_id: subscription.id, acquisition_path: acquisitionPath })
       } else {
         const subscriptionId = session.subscription as string
@@ -369,6 +387,21 @@ export async function POST(req: NextRequest) {
           setupFeeAmountCents,
           monthlyFeeAmountCents || null,
         )
+
+        // Link analyzer results if user completed free analyzer before signup
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', userId)
+          .single()
+        if (profile?.email) {
+          const analyzerResult = await linkOrphanedAnalyzerResults(supabase, userId, profile.email)
+          if (analyzerResult.linked > 0) {
+            await logBillingEvent(supabase, userId, 'analyzer_results_linked', { linked_count: analyzerResult.linked })
+          }
+        }
+
+        await logBillingEvent(supabase, userId, 'subscription_activated', { program, subscription_id: subscriptionId })
         await logActivity(userId, 'checkout_completed', {
           program,
           session_type: 'subscription',
@@ -392,7 +425,7 @@ export async function POST(req: NextRequest) {
       if (sessionType === 'setup_fee' && session.amount_total && session.amount_total > 0) {
         const sessionId = session.id
         const setupAmount = session.amount_total / 100
-        await supabase.from('payment_records').insert({
+        const { error: paymentError } = await supabase.from('payment_records').insert({
           user_id: userId,
           amount: setupAmount,
           payment_date: new Date().toISOString().split('T')[0],
@@ -408,7 +441,15 @@ export async function POST(req: NextRequest) {
           partner_commission_eligible: acquisitionPath === 'partner_assisted' && !!assignedPartnerAffiliateId,
           notes: `Stripe checkout completed: ${sessionId}`,
           logged_by: 'stripe_webhook',
-        }).select().maybeSingle()
+        })
+
+        if (!paymentError) {
+          await logBillingEvent(supabase, userId, 'payment_logged', {
+            amount: setupAmount,
+            payment_type: 'setup_fee',
+            session_id: sessionId,
+          })
+        }
       }
 
       break
@@ -721,7 +762,16 @@ export async function POST(req: NextRequest) {
               })
             }
 
-            await supabase.from('payment_records').insert(paymentRecords)
+            const { error: paymentError } = await supabase.from('payment_records').insert(paymentRecords)
+
+            if (!paymentError && paymentRecords.length > 0) {
+              const totalAmount = paymentRecords.reduce((sum, r) => sum + (r.amount as number), 0)
+              await logBillingEvent(supabase, sub.user_id, 'recurring_payment', {
+                amount: totalAmount,
+                invoice_id: invoice.id,
+                records_count: paymentRecords.length,
+              })
+            }
           }
 
           // Send charge confirmation email — pull recent agent actions as deliverables
@@ -898,8 +948,22 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     console.error('[Stripe Webhook] Unhandled error processing event:', event.type, err)
-    // Return 200 to prevent Stripe from endlessly retrying — log the error for investigation
-    return NextResponse.json({ received: true, warning: 'Processing error logged' })
+
+    // Log error to database for tracking
+    const errorLogId = await logWebhookError(supabase, event.id, event.type, err, {
+      event_type: event.type,
+      timestamp: new Date().toISOString(),
+    })
+
+    // Enqueue for retry
+    await enqueueWebhookRetry(supabase, event.id, event.type, event.data, errorLogId || undefined)
+
+    // Return 200 to prevent Stripe from endlessly retrying — error is logged for investigation
+    return NextResponse.json({
+      received: true,
+      warning: 'Processing error logged and queued for retry',
+      error_log_id: errorLogId,
+    })
   }
 
   return NextResponse.json({ received: true })
