@@ -35,7 +35,7 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
     scrollToBottom()
   }, [messages])
 
-  // Initialize with greeting
+  // Initialize with greeting and track event
   useEffect(() => {
     const greeting: ChatMessage = {
       role: 'bot',
@@ -43,6 +43,17 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
         'Hi! 👋 I can help you understand your funding options and see if SourcifyLending may be a fit. Want to check your options?',
     }
     setMessages([greeting])
+
+    // Track chatbot opened
+    try {
+      fetch('/api/chatbot/analytics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'chatbot_opened' }),
+      }).catch(() => {})
+    } catch {
+      // Ignore analytics errors
+    }
   }, [])
 
   const handleSendMessage = async () => {
@@ -57,6 +68,19 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
     setInput('')
     setIsLoading(true)
     setShowQuickReplies(false)
+
+    // Track first message sent
+    if (messages.length <= 1) {
+      try {
+        fetch('/api/chatbot/analytics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'first_message_sent' }),
+        }).catch(() => {})
+      } catch {
+        // Ignore
+      }
+    }
 
     try {
       // Extract any lead data from the user message
@@ -96,7 +120,46 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
 
   const handleQuickReply = (value: string) => {
     setInput(value)
-    setTimeout(() => inputRef.current?.focus(), 0)
+    setTimeout(() => {
+      inputRef.current?.focus()
+      // Send the message after setting input
+      const extracted = extractLeadData(value, collectedData)
+      const updatedData = { ...collectedData, ...extracted }
+      setCollectedData(updatedData)
+
+      const userMessage: ChatMessage = {
+        role: 'user',
+        content: value,
+      }
+      setMessages((prev) => [...prev, userMessage])
+      setShowQuickReplies(false)
+
+      // Get bot response
+      setIsLoading(true)
+      getChatbotResponse(value, updatedData, [...messages, userMessage])
+        .then((response) => {
+          const botMessage: ChatMessage = {
+            role: 'bot',
+            content: response.message || 'Thanks for that information. Can you tell me a bit more about your business?',
+          }
+          setMessages((prev) => [...prev, botMessage])
+
+          if (response.isComplete && response.qualificationResult) {
+            setQualificationResult(response.qualificationResult)
+          }
+        })
+        .catch((error) => {
+          console.error('Error getting chatbot response:', error)
+          const errorMessage: ChatMessage = {
+            role: 'bot',
+            content: 'I had trouble processing that. Can you tell me your business name?',
+          }
+          setMessages((prev) => [...prev, errorMessage])
+        })
+        .finally(() => {
+          setIsLoading(false)
+        })
+    }, 0)
   }
 
   return (

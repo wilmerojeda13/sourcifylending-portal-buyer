@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Build conversation for Claude
     const messages = [
       ...conversationHistory.map((m) => ({
-        role: m.role as 'user' | 'assistant',
+        role: (m.role === 'bot' ? 'assistant' : m.role) as 'user' | 'assistant',
         content: m.content,
       })),
       {

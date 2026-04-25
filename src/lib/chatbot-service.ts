@@ -124,7 +124,16 @@ export function runQualification(data: Partial<CollectedData>): QualificationRes
 
   const score = analyzerResult.readiness_score
   const status = analyzerResult.readiness_status as 'Ready' | 'Conditionally Ready' | 'Not Ready'
-  const summary = analyzerResult.summary || `Based on your profile (${score}/100), ${status === 'Ready' ? 'you look like a strong fit!' : 'let us help you get ready.'}`
+  let summary = analyzerResult.summary
+  if (!summary) {
+    if (status === 'Ready') {
+      summary = `Based on your profile (${score}/100), you may be a strong candidate for one of our programs.`
+    } else if (status === 'Conditionally Ready') {
+      summary = `Based on your profile (${score}/100), you may be a possible candidate. There are a few areas to strengthen.`
+    } else {
+      summary = `Based on your profile (${score}/100), you may need to strengthen your profile first. Let's find the best path forward.`
+    }
+  }
   const blockers = analyzerResult.top_blockers || []
 
   const fundingRange = analyzerResult.estimated_funding_range || '$0 - $5,000'
@@ -200,55 +209,20 @@ export async function getChatbotResponse(
   collectedData: Partial<CollectedData>,
   conversationHistory: Array<{ role: string; content: string }>
 ): Promise<ChatResponse> {
-  try {
-    // Try to call Claude API
-    const response = await fetch('/api/chatbot/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: userMessage,
-        collectedData,
-        conversationHistory,
-      }),
-    })
+  // Use scripted conversation flow (no API calls to save on token costs)
+  const nextQuestion = generateNextQuestion(collectedData, conversationHistory.length)
 
-    if (!response.ok) {
-      throw new Error('API error')
-    }
+  // Check if we have enough data to qualify
+  const hasEnough = hasEnoughDataToQualify(collectedData)
+  let qualResult: QualificationResult | undefined
 
-    const data = await response.json()
+  if (hasEnough) {
+    qualResult = runQualification(collectedData)
+  }
 
-    // Check if we have enough data to qualify
-    const hasEnough = hasEnoughDataToQualify(data.extractedData || collectedData)
-    let qualResult: QualificationResult | undefined
-
-    if (hasEnough) {
-      qualResult = runQualification(data.extractedData || collectedData)
-    }
-
-    return {
-      message: data.response || generateNextQuestion(collectedData, conversationHistory.length),
-      isComplete: hasEnough,
-      qualificationResult: qualResult,
-    }
-  } catch (error) {
-    console.error('Chatbot API error, using fallback:', error)
-
-    // Fallback: Use scripted conversation
-    const nextQuestion = generateNextQuestion(collectedData, conversationHistory.length)
-
-    // Check if we have enough data to qualify
-    const hasEnough = hasEnoughDataToQualify(collectedData)
-    let qualResult: QualificationResult | undefined
-
-    if (hasEnough) {
-      qualResult = runQualification(collectedData)
-    }
-
-    return {
-      message: nextQuestion,
-      isComplete: hasEnough,
-      qualificationResult: qualResult,
-    }
+  return {
+    message: nextQuestion,
+    isComplete: hasEnough,
+    qualificationResult: qualResult,
   }
 }
