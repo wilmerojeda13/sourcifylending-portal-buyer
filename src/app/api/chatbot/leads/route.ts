@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import type { QualificationResult } from '@/types'
 
 interface LeadRequest {
   full_name: string
@@ -14,6 +15,7 @@ interface LeadRequest {
   state?: string
   has_business_credit?: boolean
   has_bank_statements?: boolean
+  qualificationResult?: QualificationResult
 }
 
 interface ChatbotMetadata {
@@ -216,6 +218,47 @@ export async function POST(request: NextRequest) {
       quality: leadQuality,
       confidence: chatbotMetadata.source_confidence,
     })
+
+    // Sync to CRM if qualification result is provided
+    if (body.qualificationResult) {
+      try {
+        const { syncChatbotLeadLifecycle } = await import('@/lib/chatbot-crm')
+        const crmResult = await syncChatbotLeadLifecycle({
+          supabase,
+          fullName: body.full_name,
+          email: normalizedEmail,
+          phone: normalizedPhone,
+          businessName: body.business_name,
+          collectedData: {
+            full_name: body.full_name,
+            email: normalizedEmail,
+            phone: normalizedPhone || undefined,
+            business_name: body.business_name,
+            business_age: body.business_age,
+            monthly_revenue: body.monthly_revenue,
+            credit_score_range: body.credit_score_range,
+            funding_goal: body.funding_goal,
+            industry: body.industry,
+            state: body.state,
+            has_business_credit: body.has_business_credit,
+            has_bank_statements: body.has_bank_statements,
+          },
+          qualificationResult: body.qualificationResult,
+        })
+
+        console.info(`[Chatbot] CRM sync successful: ${newLead.id}`, {
+          crmLeadId: crmResult.leadId,
+          action: crmResult.action,
+          duplicateRisk: crmResult.duplicateRisk,
+        })
+      } catch (crmErr) {
+        console.error('[Chatbot] CRM sync error:', crmErr, {
+          leadId: newLead.id,
+          email: normalizedEmail,
+        })
+        // Log but don't fail - lead is still saved
+      }
+    }
 
     return NextResponse.json(
       {

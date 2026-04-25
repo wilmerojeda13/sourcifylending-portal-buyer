@@ -125,6 +125,20 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
           // Ignore
         }
 
+        // Save lead to database with qualification result
+        try {
+          fetch('/api/chatbot/leads', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...updatedData,
+              qualificationResult: result,
+            }),
+          }).catch(() => {})
+        } catch {
+          // Ignore lead storage errors - don't block UI
+        }
+
         setCurrentStep('qualification')
         isSubmittingRef.current = false
         return
@@ -219,6 +233,20 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
         }).catch(() => {})
       } catch {
         // Ignore
+      }
+
+      // Save lead to database with qualification result
+      try {
+        fetch('/api/chatbot/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...updatedData,
+            qualificationResult: result,
+          }),
+        }).catch(() => {})
+      } catch {
+        // Ignore lead storage errors - don't block UI
       }
 
       setCurrentStep('qualification')
