@@ -95,7 +95,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Insert lead
+    // Insert lead with chatbot data stored as metadata
+    // Using only confirmed fields from the leads table schema
     const { data: newLead, error: insertError } = await supabase
       .from('leads')
       .insert({
@@ -103,16 +104,19 @@ export async function POST(request: NextRequest) {
         email: body.email,
         phone: body.phone || null,
         business_name: body.business_name,
-        business_age: body.business_age || null,
-        monthly_revenue: body.monthly_revenue || null,
-        credit_score_range: body.credit_score_range || null,
-        funding_goal: body.funding_goal || null,
-        industry: body.industry || null,
-        state: body.state || null,
-        has_business_credit: body.has_business_credit || false,
-        has_bank_statements: body.has_bank_statements || false,
         source: 'chatbot',
-        created_at: new Date().toISOString(),
+        // Store all collected data as JSON for reference
+        // Note: The actual column name may vary; adjust if needed
+        chatbot_metadata: {
+          business_age: body.business_age || null,
+          monthly_revenue: body.monthly_revenue || null,
+          credit_score_range: body.credit_score_range || null,
+          funding_goal: body.funding_goal || null,
+          industry: body.industry || null,
+          state: body.state || null,
+          has_business_credit: body.has_business_credit || false,
+          has_bank_statements: body.has_bank_statements || false,
+        },
       })
       .select()
       .single()

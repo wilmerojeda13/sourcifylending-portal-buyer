@@ -93,14 +93,12 @@ export default function QualificationResult({
         >
           Create Your Account
         </Link>
-        <a
-          href="https://calendly.com/sourcifylending" // Replace with actual calendar link
-          target="_blank"
-          rel="noopener noreferrer"
+        <Link
+          href="/analyzer"
           className="btn-secondary w-full justify-center"
         >
-          Book a Consultation
-        </a>
+          View Full Analyzer
+        </Link>
       </div>
     </div>
   )

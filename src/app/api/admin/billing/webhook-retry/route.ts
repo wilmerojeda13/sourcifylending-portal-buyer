@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
         // For now, log that we're retrying
         await logPortalEvent({
           eventType: 'webhook_retry_attempted',
-          category: 'webhooks',
+          category: 'billing',
           severity: 'info',
           title: `Webhook retry attempt ${item.retry_count + 1}`,
           message: `Retrying ${item.event_type} event ${item.stripe_event_id}`,
@@ -73,8 +73,8 @@ export async function POST(req: NextRequest) {
             console.log(`[Webhook Retry] Max retries reached for event ${item.stripe_event_id}, removed from queue`)
             await logPortalEvent({
               eventType: 'webhook_retry_exhausted',
-              category: 'webhooks',
-              severity: 'error',
+              category: 'billing',
+              severity: 'critical',
               title: 'Webhook retry exhausted',
               message: `Event ${item.stripe_event_id} failed after 3 retries and requires manual review`,
               metadata: {
