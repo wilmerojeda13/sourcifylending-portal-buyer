@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { DIALER_TIME_ZONE, getTimeZoneDayBounds, getTimeZoneWeekStart, getTimeZoneDateKey } from '@/lib/timezones'
 import { getDialerMetrics } from '@/lib/dialer/dialer-reporting-service'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 async function assertAdmin() {
   const auth = await createClient()
   const { data: { user } } = await auth.auth.getUser()

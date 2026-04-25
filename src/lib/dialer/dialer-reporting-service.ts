@@ -58,12 +58,6 @@ export async function getDialerMetrics(
     if (filters.campaignId && filters.campaignId !== 'all') {
       q = q.eq('campaign_id', filters.campaignId)
     }
-    if (filters.repId && filters.repId !== 'all') {
-      q = q.eq('rep_user_id', filters.repId)
-    }
-    if (filters.source && filters.source !== 'all') {
-      q = q.eq('lead_source', filters.source)
-    }
 
     return q
   }

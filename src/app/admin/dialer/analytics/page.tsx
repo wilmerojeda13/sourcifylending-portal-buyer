@@ -17,6 +17,8 @@ import DialerNav from '@/components/dialer/DialerNav'
 import { AnalyticsRow, getAnalyticsDataset, getDefaultFilters, getAnalyticsRowDateKey, getAnalyticsRowHour } from './analytics-data'
 import { DIALER_TIME_ZONE } from '@/lib/timezones'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 export const metadata = { title: 'Analytics - Dialer' }
 
 const CONNECT_OUTCOMES = new Set(['contacted', 'qualified'])
