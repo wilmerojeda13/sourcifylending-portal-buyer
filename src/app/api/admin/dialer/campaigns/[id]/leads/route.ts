@@ -122,10 +122,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   // CRITICAL: Only undialable leads (promoted, dnc, closed_lost) should show called leads
   const isDialerQueue = status && ['new', 'attempted', 'callback', 'follow_up', 'interested', 'qualified'].includes(status)
 
-  // Paginated list for campaign detail view / dialer queues
-  const from = page * limit
-  const to   = from + limit - 1
-
   // Filter by search term (client-side filtering of raw_lead data)
   const filterBySearch = (leads: any[]) => {
     if (!search) return leads

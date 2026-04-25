@@ -601,7 +601,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
 
         {/* Tabs */}
         <div className="flex gap-1 mb-4 items-center">
-          {([['leads','Campaign Leads'],['add','Add Existing'],['import','Import CSV']] as const).map(([key, label]) => (
+          {([['leads','Campaign Leads (WITH SEARCH)'],['add','Add Existing'],['import','Import CSV']] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)}
               className={cn(
                 'px-4 py-2 text-sm font-medium rounded-xl transition-colors',
