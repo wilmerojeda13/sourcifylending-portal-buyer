@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ArrowRight, CheckCircle, Bot, BarChart2, Shield, Users, DollarSign } from 'lucide-react'
+import HomepageChatbot from '@/components/chatbot/HomepageChatbot'
 
 export default function HomePage() {
   return (
@@ -279,6 +280,9 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* Chatbot */}
+      <HomepageChatbot />
     </div>
   )
 }

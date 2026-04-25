@@ -787,3 +787,28 @@ export interface VoiceAnalytics {
   calls_by_source: Record<string, number>
   daily_calls: Array<{ date: string; count: number; connects: number }>
 }
+
+// ─── Chatbot ──────────────────────────────────────────────────────────────────
+export interface CollectedData {
+  full_name?: string
+  email?: string
+  phone?: string
+  business_name?: string
+  business_age?: string
+  monthly_revenue?: string
+  credit_score_range?: string
+  funding_goal?: string
+  industry?: string
+  state?: string
+  has_business_credit?: boolean
+  has_bank_statements?: boolean
+}
+
+export interface QualificationResult {
+  readiness_status: 'Ready' | 'Conditionally Ready' | 'Not Ready'
+  readiness_score: number
+  summary: string
+  funding_range?: string
+  blockers?: string[]
+  recommended_program?: 'A' | 'B' | 'C'
+}

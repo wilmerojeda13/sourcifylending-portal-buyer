@@ -129,8 +129,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   // Helper: apply search filter if provided
   const applySearchFilter = (q: any) => {
     if (!search) return q
-    const searchTerm = `%${search}%`
-    return q.or(`raw_lead.first_name.ilike.${searchTerm},raw_lead.last_name.ilike.${searchTerm},raw_lead.phone.ilike.${searchTerm},raw_lead.phone_e164.ilike.${searchTerm},raw_lead.business_name.ilike.${searchTerm}`)
+    const term = search.toLowerCase()
+    return q.or(
+      `raw_lead->>first_name.ilike.*${term}*,` +
+      `raw_lead->>last_name.ilike.*${term}*,` +
+      `raw_lead->>phone.ilike.*${term}*,` +
+      `raw_lead->>phone_e164.ilike.*${term}*,` +
+      `raw_lead->>business_name.ilike.*${term}*`
+    )
   }
 
   // Count total matching rows (lightweight — no row data)
