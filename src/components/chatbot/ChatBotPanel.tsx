@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, X, Loader } from 'lucide-react'
+import { Send, X } from 'lucide-react'
 import ChatBotMessage from './ChatBotMessage'
 import QualificationResult from './QualificationResult'
-import { getStep, getNextStep, getStepIndex, getTotalSteps, type ChatbotStep } from '@/lib/chatbot-flow'
-import { runQualification, hasEnoughDataToQualify } from '@/lib/chatbot-service'
-import type { CollectedData, QualificationResult as QualResult } from '@/types'
+import { getStep, getNextStep, getProgressPercent, type ChatbotStep } from '@/lib/chatbot-flow-simple'
+import { calculateChatbotScore } from '@/lib/chatbot-scoring'
+import type { QualificationResult as QualResult } from '@/types'
 
 interface ChatMessage {
   role: 'user' | 'bot'
@@ -20,14 +20,12 @@ interface ChatBotPanelProps {
 export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [collectedData, setCollectedData] = useState<Partial<CollectedData>>({})
-  const [qualificationResult, setQualificationResult] = useState<QualResult | null>(null)
-  const [currentStep, setCurrentStep] = useState<ChatbotStep>('intro')
-  const [validationError, setValidationError] = useState<string>('')
+  const [currentStep, setCurrentStep] = useState<ChatbotStep>('welcome')
+  const [collectedData, setCollectedData] = useState<Record<string, string>>({})
+  const [isBotTyping, setIsBotTyping] = useState(false)
+  const [result, setResult] = useState<QualResult | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const isSubmittingRef = useRef(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -37,238 +35,254 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
     scrollToBottom()
   }, [messages])
 
-  // Initialize with intro step
+  // Initialize with welcome
   useEffect(() => {
-    const introStep = getStep('intro')
-    if (introStep) {
-      const greeting: ChatMessage = {
-        role: 'bot',
-        content: introStep.botMessage,
-      }
-      setMessages([greeting])
+    const welcomeStep = getStep('welcome')
+    if (welcomeStep) {
+      setMessages([{ role: 'bot', content: welcomeStep.botMessage }])
     }
 
-    // Track chatbot opened
     try {
       fetch('/api/chatbot/analytics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event: 'chatbot_opened' }),
       }).catch(() => {})
-    } catch {
-      // Ignore analytics errors
-    }
+    } catch {}
   }, [])
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || isSubmittingRef.current) return
+  const handleQuickReply = (value: string) => {
+    setIsBotTyping(true)
 
-    isSubmittingRef.current = true
-    setValidationError('')
-    const userInput = input.trim()
-
-    // Get current step config
-    const currentStepConfig = getStep(currentStep)
-    if (!currentStepConfig) {
-      isSubmittingRef.current = false
+    // Handle special actions
+    if (value === 'pricing') {
+      setCurrentStep('pricing')
+      setTimeout(() => {
+        const step = getStep('pricing')
+        if (step) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'user', content: 'See pricing' },
+            { role: 'bot', content: step.botMessage },
+          ])
+        }
+        setIsBotTyping(false)
+      }, 500)
       return
     }
 
-    // If this step has validation, validate the input
-    if (currentStepConfig.validate) {
-      const validationResult = currentStepConfig.validate(userInput)
-      if (!validationResult.valid) {
-        setValidationError(validationResult.error || 'Invalid input')
-        isSubmittingRef.current = false
-        return
-      }
+    if (value === 'how_it_works') {
+      setCurrentStep('how_it_works')
+      setTimeout(() => {
+        const step = getStep('how_it_works')
+        if (step) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'user', content: 'How it works' },
+            { role: 'bot', content: step.botMessage },
+          ])
+        }
+        setIsBotTyping(false)
+      }, 500)
+      return
+    }
 
-      // Extract the validated value
-      const fieldValue = validationResult.value !== undefined ? validationResult.value : userInput
+    if (value === 'start_check') {
+      setCurrentStep('name')
+      setTimeout(() => {
+        const step = getStep('name')
+        if (step) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'user', content: 'Check my options' },
+            { role: 'bot', content: step.botMessage },
+          ])
+        }
+        setIsBotTyping(false)
+      }, 500)
+      return
+    }
 
-      // Update collected data with the field value
-      if (currentStepConfig.field) {
-        const field = currentStepConfig.field
-        setCollectedData((prev) => ({
-          ...prev,
-          [field]: fieldValue,
-        }))
-      }
+    if (value === 'go_analyzer' || value === 'open_analyzer') {
+      window.open('/analyzer', '_blank')
+      setIsBotTyping(false)
+      return
+    }
 
-      // Add user message to chat
-      setMessages((prev) => [...prev, { role: 'user', content: userInput }])
-      setInput('')
+    // Regular quick reply - save and advance
+    const stepConfig = getStep(currentStep)
+    if (!stepConfig?.field) {
+      setIsBotTyping(false)
+      return
+    }
 
-      // Determine next step
+    setCollectedData((prev) => ({
+      ...prev,
+      [stepConfig.field!]: value,
+    }))
+
+    setMessages((prev) => [
+      ...prev,
+      { role: 'user', content: value },
+    ])
+
+    // Show typing indicator
+    setTimeout(() => {
       const nextStep = getNextStep(currentStep)
-
-      // Check if we've reached qualification
-      if (nextStep === 'qualification') {
-        // We have all required data - run qualification
-        const field = currentStepConfig.field
-        const updatedData = {
-          ...collectedData,
-          ...(field ? { [field]: fieldValue } : {}),
-        }
-        const result = runQualification(updatedData)
-        setQualificationResult(result)
-        setCollectedData(updatedData)
-
-        // Track completion
-        try {
-          fetch('/api/chatbot/analytics', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ event: 'qualification_completed' }),
-          }).catch(() => {})
-        } catch {
-          // Ignore
-        }
-
-        // Save lead to database with qualification result
-        try {
-          fetch('/api/chatbot/leads', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...updatedData,
-              qualificationResult: result,
-            }),
-          }).catch(() => {})
-        } catch {
-          // Ignore lead storage errors - don't block UI
-        }
-
-        setCurrentStep('qualification')
-        isSubmittingRef.current = false
-        return
-      }
-
-      // Move to next step
-      const nextStepConfig = getStep(nextStep)
-      if (nextStepConfig) {
-        setCurrentStep(nextStep)
+      if (nextStep === 'complete') {
+        // Run scoring
+        const scored = calculateChatbotScore({
+          full_name: collectedData.full_name,
+          email: collectedData.email,
+          phone: collectedData.phone,
+          business_name: collectedData.business_name,
+          business_age: collectedData.business_age,
+          monthly_revenue: value,
+          credit_score_range: collectedData.credit_score_range,
+          funding_goal: collectedData.funding_goal,
+          industry: collectedData.industry,
+        })
+        setResult(scored)
         setMessages((prev) => [
           ...prev,
-          { role: 'bot', content: nextStepConfig.botMessage },
+          { role: 'bot', content: 'Thanks. I\'ll summarize your funding readiness now.' },
         ])
-      }
+        setCurrentStep('result')
 
-      // Track first message sent (only once, on first real message)
-      if (messages.length <= 1 && currentStep === 'intro') {
-        try {
-          fetch('/api/chatbot/analytics', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ event: 'first_message_sent' }),
-          }).catch(() => {})
-        } catch {
-          // Ignore
+        // Save lead
+        saveLeadToCRM({
+          ...collectedData,
+          [stepConfig.field!]: value,
+        }, scored)
+      } else {
+        setCurrentStep(nextStep as ChatbotStep)
+        const nextStepConfig = getStep(nextStep as ChatbotStep)
+        if (nextStepConfig) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'bot', content: nextStepConfig.botMessage },
+          ])
         }
       }
-    }
-
-    isSubmittingRef.current = false
+      setIsBotTyping(false)
+    }, 500)
   }
 
-  const handleQuickReply = (value: string) => {
-    if (isSubmittingRef.current) return
+  const handleSendMessage = () => {
+    if (!input.trim() || isBotTyping) return
 
-    // Set input for UX feedback
-    setInput(value)
-    setTimeout(() => {
-      inputRef.current?.focus()
-    }, 0)
+    const stepConfig = getStep(currentStep)
+    if (!stepConfig?.field) return
 
-    isSubmittingRef.current = true
-    setValidationError('')
+    // Handle combined contact field
+    if (stepConfig.field === 'contact') {
+      const emailMatch = input.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/i)
+      const phoneMatch = input.match(/\d{10,}/)
 
-    const currentStepConfig = getStep(currentStep)
-    if (!currentStepConfig || !currentStepConfig.validate) {
-      isSubmittingRef.current = false
+      if (!emailMatch && !phoneMatch) {
+        alert('Please provide at least an email or phone number.')
+        return
+      }
+
+      const newData: Record<string, string> = { ...collectedData }
+      if (emailMatch) newData.email = emailMatch[1]
+      if (phoneMatch) newData.phone = phoneMatch[0].slice(-10)
+
+      setCollectedData(newData)
+      setMessages((prev) => [...prev, { role: 'user', content: input }])
+      setInput('')
+      setIsBotTyping(true)
+
+      setTimeout(() => {
+        const nextStep = getNextStep(currentStep)
+        if (nextStep === 'complete') {
+          const scored = calculateChatbotScore({ ...newData })
+          setResult(scored)
+          setMessages((prev) => [
+            ...prev,
+            { role: 'bot', content: 'Thanks. I\'ll summarize your funding readiness now.' },
+          ])
+          setCurrentStep('result')
+          saveLeadToCRM(newData, scored)
+        } else {
+          setCurrentStep(nextStep as ChatbotStep)
+          const nextStepConfig = getStep(nextStep as ChatbotStep)
+          if (nextStepConfig) {
+            setMessages((prev) => [
+              ...prev,
+              { role: 'bot', content: nextStepConfig.botMessage },
+            ])
+          }
+        }
+        setIsBotTyping(false)
+      }, 500)
       return
     }
 
-    const validationResult = currentStepConfig.validate(value)
-    if (!validationResult.valid) {
-      setValidationError(validationResult.error || 'Invalid selection')
-      isSubmittingRef.current = false
+    // Regular text field
+    if (stepConfig.field === 'full_name' && input.trim().length < 2) {
+      alert('Please enter at least 2 characters.')
       return
     }
 
-    const fieldValue = validationResult.value !== undefined ? validationResult.value : value
-
-    // Update collected data
-    if (currentStepConfig.field) {
-      const field = currentStepConfig.field
-      setCollectedData((prev) => ({
-        ...prev,
-        [field]: fieldValue,
-      }))
+    const newData = {
+      ...collectedData,
+      [stepConfig.field]: input.trim(),
     }
 
-    // Add to messages
-    setMessages((prev) => [...prev, { role: 'user', content: value }])
+    setCollectedData(newData)
+    setMessages((prev) => [...prev, { role: 'user', content: input }])
     setInput('')
+    setIsBotTyping(true)
 
-    // Get next step
-    const nextStep = getNextStep(currentStep)
-
-    if (nextStep === 'qualification') {
-      // Run qualification
-      const field = currentStepConfig.field
-      const updatedData = {
-        ...collectedData,
-        ...(field ? { [field]: fieldValue } : {}),
+    setTimeout(() => {
+      const nextStep = getNextStep(currentStep)
+      if (nextStep === 'complete') {
+        const scored = calculateChatbotScore({ full_name: newData.full_name } as any)
+        setResult(scored)
+        setMessages((prev) => [
+          ...prev,
+          { role: 'bot', content: 'Thanks. I\'ll summarize your funding readiness now.' },
+        ])
+        setCurrentStep('result')
+        saveLeadToCRM(newData, scored)
+      } else {
+        setCurrentStep(nextStep as ChatbotStep)
+        const nextStepConfig = getStep(nextStep as ChatbotStep)
+        if (nextStepConfig) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'bot', content: nextStepConfig.botMessage },
+          ])
+        }
       }
-      const result = runQualification(updatedData)
-      setQualificationResult(result)
-      setCollectedData(updatedData)
-
-      try {
-        fetch('/api/chatbot/analytics', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event: 'qualification_completed' }),
-        }).catch(() => {})
-      } catch {
-        // Ignore
-      }
-
-      // Save lead to database with qualification result
-      try {
-        fetch('/api/chatbot/leads', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...updatedData,
-            qualificationResult: result,
-          }),
-        }).catch(() => {})
-      } catch {
-        // Ignore lead storage errors - don't block UI
-      }
-
-      setCurrentStep('qualification')
-      isSubmittingRef.current = false
-      return
-    }
-
-    const nextStepConfig = getStep(nextStep)
-    if (nextStepConfig) {
-      setCurrentStep(nextStep)
-      setMessages((prev) => [
-        ...prev,
-        { role: 'bot', content: nextStepConfig.botMessage },
-      ])
-    }
-
-    isSubmittingRef.current = false
+      setIsBotTyping(false)
+    }, 500)
   }
 
-  const currentStepConfig = getStep(currentStep)
-  const stepNumber = currentStep === 'qualification' ? getTotalSteps() : getStepIndex(currentStep)
-  const totalSteps = getTotalSteps()
+  async function saveLeadToCRM(data: Record<string, string>, scored: QualResult) {
+    try {
+      fetch('/api/chatbot/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: data.full_name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          business_name: data.business_name || '',
+          business_age: data.business_age,
+          monthly_revenue: data.monthly_revenue,
+          credit_score_range: data.credit_score_range,
+          funding_goal: data.funding_goal,
+          industry: data.industry,
+          qualificationResult: scored,
+        }),
+      }).catch(() => {})
+    } catch {}
+  }
+
+  const stepConfig = getStep(currentStep)
+  const progress = getProgressPercent(currentStep)
 
   return (
     <div className="fixed bottom-0 right-0 z-40 sm:bottom-6 sm:right-6 w-full sm:w-96 max-h-screen sm:max-h-[600px] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col dark:bg-gray-800">
@@ -280,13 +294,11 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
           </div>
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-              SourcifyLending
+              SourcifyLending Assistant
             </h3>
-            {currentStep !== 'qualification' && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Step {stepNumber} of {totalSteps}
-              </p>
-            )}
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Funding readiness check
+            </p>
           </div>
         </div>
         <button
@@ -298,6 +310,13 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
         </button>
       </div>
 
+      {/* Progress bar */}
+      {!result && currentStep !== 'welcome' && (
+        <div className="h-1 bg-gray-200 dark:bg-gray-700">
+          <div className="h-full bg-green-600 transition-all" style={{ width: `${progress}%` }} />
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg, idx) => (
@@ -308,19 +327,20 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
           />
         ))}
 
-        {isLoading && (
+        {isBotTyping && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 dark:bg-gray-700 rounded-lg rounded-bl-none px-4 py-3">
-              <Loader size={16} className="animate-spin text-gray-600" />
+            <div className="bg-gray-100 dark:bg-gray-700 rounded-lg rounded-bl-none px-4 py-3 flex gap-1">
+              <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           </div>
         )}
 
-        {/* Qualification Result */}
-        {qualificationResult && (
+        {result && (
           <div className="mt-4">
             <QualificationResult
-              result={qualificationResult}
+              result={result}
               collectedData={collectedData}
               onClose={onClose}
             />
@@ -331,13 +351,13 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
       </div>
 
       {/* Quick Replies */}
-      {!qualificationResult && currentStepConfig?.quickReplies && (
+      {!result && stepConfig?.quickReplies && (
         <div className="px-4 pb-3 space-y-2">
-          {currentStepConfig.quickReplies.map((reply) => (
+          {stepConfig.quickReplies.map((reply) => (
             <button
               key={reply.value}
               onClick={() => handleQuickReply(reply.value)}
-              disabled={isSubmittingRef.current}
+              disabled={isBotTyping}
               className="btn-secondary text-xs py-2 px-3 text-left w-full disabled:opacity-50"
             >
               {reply.label}
@@ -346,15 +366,8 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
         </div>
       )}
 
-      {/* Validation Error */}
-      {validationError && (
-        <div className="px-4 pb-2">
-          <p className="text-xs text-red-600 dark:text-red-400">{validationError}</p>
-        </div>
-      )}
-
       {/* Input */}
-      {!qualificationResult && currentStepConfig && (
+      {!result && stepConfig?.inputType && (
         <div className="border-t border-gray-100 dark:border-gray-700 p-4">
           <div className="flex gap-2">
             <input
@@ -368,14 +381,14 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
                   handleSendMessage()
                 }
               }}
-              placeholder="Type your answer..."
+              placeholder="Your answer..."
               className="input-field flex-1 py-2"
-              disabled={isSubmittingRef.current}
+              disabled={isBotTyping}
               autoFocus
             />
             <button
               onClick={handleSendMessage}
-              disabled={isSubmittingRef.current || !input.trim()}
+              disabled={isBotTyping || !input.trim()}
               className="btn-primary p-2 flex-shrink-0 disabled:opacity-50"
               aria-label="Send message"
             >

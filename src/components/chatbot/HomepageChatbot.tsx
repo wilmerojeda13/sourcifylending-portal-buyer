@@ -1,11 +1,39 @@
 'use client'
 
-import { useState } from 'react'
-import { MessageCircle, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
+import { MessageCircle } from 'lucide-react'
 import ChatBotPanel from './ChatBotPanel'
+
+const INTERNAL_ROUTES = [
+  '/login',
+  '/signin',
+  '/sign-in',
+  '/signup',
+  '/register',
+  '/portal',
+  '/admin',
+  '/crm',
+  '/dialer',
+  '/client',
+  '/dashboard',
+  '/auth',
+  '/underwriting',
+]
 
 export default function HomepageChatbot() {
   const [isOpen, setIsOpen] = useState(false)
+  const [shouldShow, setShouldShow] = useState(false)
+  const pathname = usePathname()
+
+  useEffect(() => {
+    const isInternalRoute = INTERNAL_ROUTES.some((route) =>
+      pathname.startsWith(route)
+    )
+    setShouldShow(!isInternalRoute)
+  }, [pathname])
+
+  if (!shouldShow) return null
 
   return (
     <>
