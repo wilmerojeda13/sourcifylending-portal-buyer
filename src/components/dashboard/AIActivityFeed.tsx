@@ -2,47 +2,29 @@
 import { useState, useEffect } from 'react'
 import { Bot, CheckCircle, AlertTriangle, Info, Sparkles, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 
-interface AgentAction {
+interface ActivityEvent {
   id: string
-  agent_name: string
-  action_type: string
+  event_type: string
   title: string
-  description: string | null
-  status: string
-  auto_fixed: boolean
-  needs_review: boolean
+  message: string | null
+  severity: 'info' | 'success' | 'warning' | 'critical'
   created_at: string
 }
 
-const AGENT_LABELS: Record<string, string> = {
-  onboarding: 'Onboarding AI',
-  document:   'Document AI',
-  roadmap:    'Roadmap AI',
-  opportunity:'Opportunity AI',
-  billing:    'Billing AI',
-  support:    'Support AI',
-  health:     'Platform AI',
+const EVENT_CATEGORY_COLORS: Record<string, string> = {
+  billing:      'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
+  subscriptions:'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
+  leads:        'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
+  accounts:     'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
+  alerts:       'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
 }
 
-const AGENT_COLORS: Record<string, string> = {
-  onboarding: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
-  document:   'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
-  roadmap:    'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400',
-  opportunity:'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
-  billing:    'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',
-  support:    'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
-  health:     'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
-}
-
-function ActionIcon({ action }: { action: AgentAction }) {
-  if (action.needs_review || action.status === 'pending_approval') {
+function EventIcon({ severity }: { severity: string }) {
+  if (severity === 'critical' || severity === 'warning') {
     return <AlertTriangle size={15} className="text-amber-500 shrink-0 mt-0.5" />
   }
-  if (action.auto_fixed || action.action_type === 'task_completed' || action.action_type === 'stage_advanced') {
+  if (severity === 'success') {
     return <CheckCircle size={15} className="text-green-500 shrink-0 mt-0.5" />
-  }
-  if (action.action_type === 'flag_raised') {
-    return <AlertTriangle size={15} className="text-amber-500 shrink-0 mt-0.5" />
   }
   return <Info size={15} className="text-blue-400 shrink-0 mt-0.5" />
 }
@@ -58,15 +40,15 @@ function timeAgo(dateStr: string) {
 }
 
 export default function AIActivityFeed() {
-  const [actions, setActions] = useState<AgentAction[]>([])
+  const [events, setEvents] = useState<ActivityEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {
-    fetch('/api/agents/activity?limit=20')
+    fetch('/api/admin/activity?limit=20&category=all')
       .then(r => r.json())
-      .then(data => setActions(data.actions ?? []))
+      .then(data => setEvents(data.events ?? []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -87,26 +69,26 @@ export default function AIActivityFeed() {
     )
   }
 
-  if (actions.length === 0) {
+  if (events.length === 0) {
     return (
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-8 h-8 bg-green-100 rounded-xl flex items-center justify-center">
             <Bot size={16} className="text-green-600" />
           </div>
-          <p className="font-bold text-gray-900 dark:text-white text-sm">AI Activity</p>
+          <p className="font-bold text-gray-900 dark:text-white text-sm">Activity Feed</p>
         </div>
         <div className="flex flex-col items-center py-6 text-center">
           <Sparkles size={22} className="text-gray-300 dark:text-gray-600 mb-2" />
-          <p className="text-sm text-gray-400 dark:text-gray-500">Your AI advisor is warming up.</p>
-          <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Activity will appear here as the AI works on your account.</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">No activity yet.</p>
+          <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Activity will appear here as events occur.</p>
         </div>
       </div>
     )
   }
 
-  const visible = showAll ? actions : actions.slice(0, 5)
-  const hasAlerts = actions.some(a => a.needs_review || a.status === 'pending_approval')
+  const visible = showAll ? events : events.slice(0, 5)
+  const hasAlerts = events.some(e => e.severity === 'critical' || e.severity === 'warning')
 
   return (
     <div className="card">
@@ -116,68 +98,67 @@ export default function AIActivityFeed() {
             <Bot size={16} className="text-green-600" />
           </div>
           <div>
-            <p className="font-bold text-gray-900 dark:text-white text-sm">AI Activity</p>
+            <p className="font-bold text-gray-900 dark:text-white text-sm">Activity Feed</p>
             {hasAlerts && (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">Action needed</p>
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">Alerts</p>
             )}
           </div>
         </div>
-        <span className="text-xs text-gray-400 dark:text-gray-500">{actions.length} actions</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">{events.length} events</span>
       </div>
 
       <div className="space-y-2">
-        {visible.map(action => (
+        {visible.map(event => (
           <div
-            key={action.id}
+            key={event.id}
             className={`rounded-xl border px-3 py-2.5 transition-all cursor-pointer ${
-              action.needs_review || action.status === 'pending_approval'
+              event.severity === 'critical' || event.severity === 'warning'
                 ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30'
                 : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-700'
             }`}
-            onClick={() => setExpanded(expanded === action.id ? null : action.id)}
+            onClick={() => setExpanded(expanded === event.id ? null : event.id)}
           >
             <div className="flex items-start gap-2">
-              <ActionIcon action={action} />
+              <EventIcon severity={event.severity} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className={`text-xs font-semibold leading-snug ${
-                    action.needs_review ? 'text-amber-800 dark:text-amber-300' : 'text-gray-800 dark:text-gray-200'
+                    event.severity === 'warning' || event.severity === 'critical'
+                      ? 'text-amber-800 dark:text-amber-300'
+                      : 'text-gray-800 dark:text-gray-200'
                   }`}>
-                    {action.title}
+                    {event.title}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${AGENT_COLORS[action.agent_name] ?? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
-                    {AGENT_LABELS[action.agent_name] ?? action.agent_name}
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${EVENT_CATEGORY_COLORS[event.event_type] ?? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                    {event.event_type}
                   </span>
-                  {action.auto_fixed && (
-                    <span className="text-[10px] text-green-600 font-medium">Auto-completed</span>
-                  )}
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">{timeAgo(action.created_at)}</span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">{timeAgo(event.created_at)}</span>
                 </div>
               </div>
-              {action.description && (
-                expanded === action.id
+              {event.message && (
+                expanded === event.id
                   ? <ChevronUp size={12} className="text-gray-400 shrink-0 mt-1" />
                   : <ChevronDown size={12} className="text-gray-400 shrink-0 mt-1" />
               )}
             </div>
 
-            {expanded === action.id && action.description && (
+            {expanded === event.id && event.message && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed pl-5 border-t border-gray-100 dark:border-gray-700 pt-2">
-                {action.description}
+                {event.message}
               </p>
             )}
           </div>
         ))}
       </div>
 
-      {actions.length > 5 && (
+      {events.length > 5 && (
         <button
           onClick={() => setShowAll(v => !v)}
           className="w-full mt-3 text-xs text-green-600 hover:text-green-700 font-medium py-1.5 text-center"
         >
-          {showAll ? 'Show less' : `Show ${actions.length - 5} more`}
+          {showAll ? 'Show less' : `Show ${events.length - 5} more`}
         </button>
       )}
     </div>

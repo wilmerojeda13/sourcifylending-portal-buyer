@@ -141,11 +141,16 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
   const PAGE_SIZE = 100
   const [page, setPage]   = useState(0)
   const [total, setTotal] = useState(0)
+  const [leadsSearch, setLeadsSearch] = useState('')
 
   // Bulk select (leads tab)
   const [bulkSel, setBulkSel]         = useState<Set<string>>(new Set())
   const [bulkActing, setBulkActing]   = useState(false)
   const [selectingAll, setSelectingAll] = useState(false)
+
+  // Disposition modal
+  const [dispositionModal, setDispositionModal] = useState<{ id: string; rawLeadId: string } | null>(null)
+  const [dispositionActing, setDispositionActing] = useState(false)
 
   // Create-from-outcomes modal
   const [showModal, setShowModal]           = useState(false)
@@ -165,10 +170,11 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
   const [exporting, setExporting] = useState(false)
   const [allLeads, setAllLeads] = useState<CampaignLead[]>([])
 
-  const loadPage = useCallback(async (pg: number, filter: string) => {
+  const loadPage = useCallback(async (pg: number, filter: string, search?: string) => {
     try {
       const p = new URLSearchParams({ page: String(pg), limit: String(PAGE_SIZE) })
       if (filter !== 'all') p.set('status', filter)
+      if (search?.trim()) p.set('search', search.trim())
       const [camRes, leadsRes] = await Promise.all([
         fetch(`/api/admin/dialer/campaigns/${campaignId}`),
         fetch(`/api/admin/dialer/campaigns/${campaignId}/leads?${p}`),
@@ -186,7 +192,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
     }
   }, [campaignId])
 
-  const load = useCallback(() => loadPage(0, statusFilter), [loadPage, statusFilter])
+  const load = useCallback(() => loadPage(0, statusFilter, leadsSearch), [loadPage, statusFilter, leadsSearch])
 
   useEffect(() => { loadPage(0, 'all') }, [loadPage])
 
@@ -412,6 +418,38 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
     }
   }
 
+  async function handleDisposition(outcome: string, callbackDate?: string, followUpDate?: string, note?: string) {
+    if (!dispositionModal) return
+    setDispositionActing(true)
+    try {
+      const body: Record<string, any> = {
+        campaign_lead_id: dispositionModal.id,
+        raw_lead_id: dispositionModal.rawLeadId,
+        outcome,
+      }
+      if (callbackDate) body.callback_due_at = callbackDate
+      if (followUpDate) body.follow_up_at = followUpDate
+      if (note) body.note = note
+      if (outcome === 'qualified') body.promote = true
+
+      const res = await fetch(`/api/admin/dialer/campaigns/${campaignId}/disposition`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+
+      toast.success(`Lead dispositioned as ${outcome}`)
+      setDispositionModal(null)
+      await loadPage(page, statusFilter, leadsSearch)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to disposition lead')
+    } finally {
+      setDispositionActing(false)
+    }
+  }
+
   async function updateCampaignStatus(status: CampaignStatus) {
     try {
       const res  = await fetch(`/api/admin/dialer/campaigns/${campaignId}`, {
@@ -584,11 +622,27 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
         {/* Leads tab */}
         {tab === 'leads' && (
           <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+            {/* Search input */}
+            <div className="px-4 py-3 border-b border-gray-800 bg-gray-800/40">
+              <input
+                type="text"
+                value={leadsSearch}
+                onChange={e => setLeadsSearch(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    setBulkSel(new Set())
+                    loadPage(0, statusFilter, e.currentTarget.value)
+                  }
+                }}
+                placeholder="Search by name, phone, business…"
+                className="w-full px-3 py-2 text-sm border border-gray-700 rounded-xl focus:outline-none focus:border-gray-500 bg-gray-800 text-gray-100 placeholder:text-gray-500"
+              />
+            </div>
             {/* Status filter */}
             <div className="px-4 py-3 border-b border-gray-800 flex gap-1.5 overflow-x-auto">
               {['all', 'new', 'attempted', 'contacted', 'interested', 'callback', 'follow_up', 'qualified', 'promoted', 'dnc'].map(s => (
                 <button key={s}
-                  onClick={() => { setStatusFilter(s); setBulkSel(new Set()); loadPage(0, s) }}
+                  onClick={() => { setStatusFilter(s); setBulkSel(new Set()); loadPage(0, s, leadsSearch) }}
                   className={cn(
                     'px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors',
                     statusFilter === s ? 'bg-gray-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700',
@@ -656,6 +710,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Phone</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Last Called</th>
+                    <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Action</th>
                     <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
@@ -684,6 +739,14 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell text-xs text-gray-400">
                         {l.last_called_at ? new Date(l.last_called_at).toLocaleString() : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => setDispositionModal({ id: l.id, rawLeadId: l.raw_lead_id })}
+                          className="px-2.5 py-1 text-xs font-medium text-blue-400 bg-blue-900/30 border border-blue-800 rounded-lg hover:bg-blue-900/50 transition-colors"
+                        >
+                          Disposition
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button onClick={() => removeLead(l.raw_lead_id)}
@@ -900,6 +963,67 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
               </button>
               <button onClick={() => setShowModal(false)} className="px-4 py-2.5 text-sm text-gray-400 hover:text-gray-200">Cancel</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Disposition Modal */}
+      {dispositionModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-gray-100">Disposition Lead</h2>
+              <button onClick={() => setDispositionModal(null)} className="text-gray-500 hover:text-gray-300"><X size={16} /></button>
+            </div>
+
+            {leads.find(l => l.id === dispositionModal.id) && (
+              <div className="space-y-4">
+                {(() => {
+                  const lead = leads.find(l => l.id === dispositionModal.id)!
+                  return (
+                    <>
+                      <div className="bg-gray-800/50 rounded-lg p-3 space-y-1">
+                        <p className="font-medium text-gray-100">{lead.raw_lead.first_name} {lead.raw_lead.last_name ?? ''}</p>
+                        {lead.raw_lead.business_name && <p className="text-xs text-gray-400">{lead.raw_lead.business_name}</p>}
+                        <p className="text-xs text-gray-400 flex items-center gap-1"><Phone size={11} /> {lead.raw_lead.phone}</p>
+                        <p className="text-xs text-gray-500">Current: <span className={cn('font-semibold px-1.5 rounded capitalize', STATUS_COLORS[lead.status])}>{lead.status.replace('_',' ')}</span></p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-300">Disposition</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { key: 'attempted', label: 'No Answer' },
+                            { key: 'contacted', label: 'Contacted' },
+                            { key: 'interested', label: 'Interested' },
+                            { key: 'dnc', label: 'DNC' },
+                            { key: 'callback', label: 'Callback' },
+                            { key: 'follow_up', label: 'Follow Up' },
+                            { key: 'qualified', label: 'Qualified' },
+                            { key: 'closed_lost', label: 'Not Interested' },
+                          ].map(opt => (
+                            <button
+                              key={opt.key}
+                              onClick={() => handleDisposition(opt.key)}
+                              disabled={dispositionActing}
+                              className="px-3 py-2 text-xs font-medium text-gray-100 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {dispositionActing && (
+                        <div className="flex items-center justify-center gap-2 py-3 text-sm text-gray-400">
+                          <Loader2 size={14} className="animate-spin" /> Saving…
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
+            )}
           </div>
         </div>
       )}

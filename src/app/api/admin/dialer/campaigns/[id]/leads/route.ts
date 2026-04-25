@@ -15,6 +15,7 @@ async function assertAdmin() {
 // GET: list campaign leads with raw lead data merged in
 // Query params:
 //   status=<str>    filter by campaign lead status
+//   search=<str>    search by name, phone, or business (queries across first_name, phone, business_name)
 //   dialable=1      only dialable statuses (new/attempted/callback/follow_up)
 //   ids_only=1      return only [{id}] for the current filter (for bulk select-all)
 //   page=<int>      0-indexed page number (default 0), ignored when dialable=1 or ids_only=1
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const sp       = new URL(req.url).searchParams
   const status   = sp.get('status')
+  const search   = sp.get('search')?.trim()
   const dialable = sp.get('dialable') === '1'
   const idsOnly  = sp.get('ids_only') === '1'
   const page     = Math.max(0, parseInt(sp.get('page') ?? '0', 10))
@@ -124,6 +126,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const from = page * limit
   const to   = from + limit - 1
 
+  // Helper: apply search filter if provided
+  const applySearchFilter = (q: any) => {
+    if (!search) return q
+    const searchTerm = `%${search}%`
+    return q.or(`raw_lead.first_name.ilike.${searchTerm},raw_lead.last_name.ilike.${searchTerm},raw_lead.phone.ilike.${searchTerm},raw_lead.phone_e164.ilike.${searchTerm},raw_lead.business_name.ilike.${searchTerm}`)
+  }
+
   // Count total matching rows (lightweight — no row data)
   let countQ = admin.supabase
     .from('dialer_campaign_leads')
@@ -132,6 +141,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (status) countQ = countQ.eq('status', status)
   // STRICT: Dialer queues never show leads that have been called
   if (isDialerQueue) countQ = countQ.is('last_called_at', null)
+  countQ = applySearchFilter(countQ)
   const { count: total } = await countQ
 
   // Fetch the current page
@@ -154,6 +164,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (status) query = query.eq('status', status)
   // STRICT: Dialer queues never show leads that have been called
   if (isDialerQueue) query = query.is('last_called_at', null)
+  query = applySearchFilter(query)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -8,6 +8,7 @@ import dynamicImport from 'next/dynamic'
 const AIActivityFeed = dynamicImport(() => import('@/components/dashboard/AIActivityFeed'), { ssr: false })
 const WelcomeGateWrapper = dynamicImport(() => import('@/components/dashboard/WelcomeGateWrapper'), { ssr: false })
 import PaymentAlertBanner, { type PaymentAlert } from '@/components/dashboard/PaymentAlertBanner'
+import KashuAffiliateCard from '@/components/dashboard/KashuAffiliateCard'
 import { getProgramShortLabel, getReadinessColor, formatDate } from '@/lib/utils'
 import { getAccountEntitlements } from '@/lib/account-state'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -128,12 +129,17 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
   const uwCountdownUrgent = uwDaysUntilDue !== null && uwDaysUntilDue <= 7
 
   const CREDIT_ACCOUNT_TYPES = ['0% APR Card', 'Business Credit Card', 'Vendor Account', 'Store Account', 'Fleet Account', 'Line of Credit']
+  const CARD_TYPES = ['0% APR Card', 'Business Credit Card']
   const totalFundingApproved = (fundingApprovals ?? []).reduce((sum, a) => {
     const isCreditAccount = CREDIT_ACCOUNT_TYPES.includes(a.approval_type)
     const amt = isCreditAccount ? (a.approved_limit ?? a.approved_amount ?? 0) : (a.approved_amount ?? a.approved_limit ?? 0)
     return sum + Number(amt)
   }, 0)
   const mostRecentApproval = fundingApprovals?.[0] ?? null
+
+  // ── Kashu affiliate eligibility ────────────────────────────────────────────
+  const hasCardApproval = (fundingApprovals ?? []).some((a) => CARD_TYPES.includes(a.approval_type))
+  const kashuEligible = profile?.assigned_program === 'program_a' && hasCardApproval
 
   const completedTasks = tasks?.filter((t) => t.status === 'completed') || []
   const pendingTasks = tasks?.filter((t) => t.status === 'pending') || []
@@ -307,6 +313,9 @@ export default async function DashboardPage({ nextPath = '/dashboard' }: Dashboa
           </Link>
         </div>
       )}
+
+      {/* Kashu Affiliate Card — Program A only, after card approval */}
+      <KashuAffiliateCard isEligible={kashuEligible} />
 
       {/* Underwriting Renewal Countdown */}
       {showUWCountdown && uwDaysUntilDue !== null && (
