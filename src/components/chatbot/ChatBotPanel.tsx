@@ -222,24 +222,25 @@ export default function ChatBotPanel({ onClose }: ChatBotPanelProps) {
 
       {/* Quick Replies */}
       {showQuickReplies && messages.length === 1 && !qualificationResult && (
-        <div className="px-4 pb-3">
-          <QuickReplies
-            replies={[
-              {
-                label: '✓ Check if I qualify',
-                value: "I'd like to check if I qualify for funding",
-              },
-              {
-                label: '💰 See pricing',
-                value: 'Can you show me the pricing options?',
-              },
-              {
-                label: '❓ How does it work?',
-                value: 'How does the SourcifyLending program work?',
-              },
-            ]}
-            onSelect={handleQuickReply}
-          />
+        <div className="px-4 pb-3 space-y-2">
+          <button
+            onClick={() => handleQuickReply("I'd like to check if I qualify for funding")}
+            className="btn-secondary text-xs py-2 px-3 text-left w-full"
+          >
+            ✓ Check if I qualify
+          </button>
+          <a
+            href="/pricing"
+            className="block btn-secondary text-xs py-2 px-3 text-left text-center"
+          >
+            💰 See pricing
+          </a>
+          <a
+            href="/#how-it-works"
+            className="block btn-secondary text-xs py-2 px-3 text-left text-center"
+          >
+            ❓ How does it work?
+          </a>
         </div>
       )}
 
