@@ -1,7 +1,6 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import GlobalAIPanel from '@/components/ai/GlobalAIPanel'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { cn } from '@/lib/utils'
 import { SUPPORT_EMAIL } from '@/lib/site-config'
@@ -12,8 +11,8 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { useBusinessContext } from '@/lib/use-business-context'
+import { useEffect, useMemo, useState } from 'react'
+import PortalAIFloatingWidget from '@/components/ai/PortalAIFloatingWidget'
 import type { PlanTier, SubscriptionStatus } from '@/types'
 
 const BASE_NAV_ITEMS = [
@@ -86,80 +85,49 @@ export default function PortalLayout({
   const [mobileOpen, setMobileOpen] = useState(false)
   const [liveNotificationCount, setLiveNotificationCount] = useState(notificationCount)
   const [switching, setSwitching] = useState(false)
-  const supabase = createClient()
-  const { businesses, activeBusinessId } = useBusinessContext()
+  const supabase = useMemo(() => createClient(), [])
 
   // Nav items are based on the ACTIVE program only (assignedProgram)
   // allPrograms is only used to decide whether to show the program switcher
-  const enrolledPrograms = allPrograms ?? (assignedProgram ? [assignedProgram] : [])
+  const enrolledPrograms = useMemo(() => allPrograms ?? (assignedProgram ? [assignedProgram] : []), [allPrograms, assignedProgram])
   const hasA = assignedProgram === 'program_a'
   const hasB = assignedProgram === 'program_b'
-  const isMultiProgram = enrolledPrograms.filter(p => p !== 'program_c').length > 1
+  const isMultiProgram = useMemo(() => enrolledPrograms.filter((p) => p !== 'program_c').length > 1, [enrolledPrograms])
 
   // Free users also get the limited nav (same as prospects)
   const isFreeUser = planTier === 'free'
 
-  // ── Program-aware sidebar nav ──────────────────────────────────────────────
-  // Free users and prospects get a minimal nav. Active members get program-specific items:
-  //   Program A  → Credit Optimization, Credit Disputes
-  //   Program B  → Biz Credit Setup, Biz Credit Monitoring, Biz Resources
-  //   Program C  → base items only (no program-specific extras)
-  //   All active → Opportunities, Funding Results, Credit Disputes, AI Credits, Reports, Billing, Support
-  //   Delegate   → same as active member but Billing is hidden
-  const sidebarNavItems = isProspect || isFreeUser
-    ? PROSPECT_NAV_ITEMS
-    : [
-        ...BASE_NAV_ITEMS.slice(0, 4), // Dashboard, AI Agent, Documents, Progress
+  const sidebarNavItems = useMemo(() => {
+    if (isProspect || isFreeUser) return PROSPECT_NAV_ITEMS
+    return [
+      ...BASE_NAV_ITEMS.slice(0, 4),
+      ...(hasA ? [{ href: '/credit-optimization', label: 'Credit Optimization', icon: Star }] : []),
+      ...(hasB
+        ? [
+            { href: '/business-credit-setup', label: 'Biz Credit Setup', icon: Building2 },
+            { href: '/business-credit-monitoring', label: 'Biz Credit Monitoring', icon: TrendingUp },
+            { href: '/business-resources', label: 'Biz Resources', icon: BookOpen },
+          ]
+        : []),
+      ...(hasA || hasB ? [{ href: '/underwriting', label: 'Underwrite Your Biz', icon: ClipboardList }] : []),
+      { href: '/opportunities', label: 'Opportunities', icon: TrendingUp },
+      { href: '/funding-results', label: 'Funding Results', icon: DollarSign },
+      { href: '/roi', label: 'ROI Tracker', icon: PieChart },
+      ...(hasA ? [{ href: '/credit-disputes', label: 'Credit Disputes', icon: ShieldAlert }] : []),
+      { href: '/ai-usage', label: 'AI Credits', icon: Zap },
+      { href: '/reports', label: 'Reports', icon: BarChart2 },
+      ...(!isDelegate ? [{ href: '/billing', label: 'Billing', icon: CreditCard }] : []),
+      { href: '/training', label: 'Training Videos', icon: PlayCircle },
+      { href: '/support', label: 'Support Inbox', icon: MessageSquare },
+      { href: '/settings', label: 'Settings', icon: Settings },
+    ]
+  }, [hasA, hasB, isDelegate, isFreeUser, isProspect])
 
-        // ── Program A only ───────────────────────────────────────────────────
-        ...(hasA
-          ? [{ href: '/credit-optimization', label: 'Credit Optimization', icon: Star }]
-          : []),
-
-        // ── Program B only ───────────────────────────────────────────────────
-        ...(hasB
-          ? [
-              { href: '/business-credit-setup',      label: 'Biz Credit Setup',      icon: Building2 },
-              { href: '/business-credit-monitoring',  label: 'Biz Credit Monitoring', icon: TrendingUp },
-              { href: '/business-resources',          label: 'Biz Resources',         icon: BookOpen },
-            ]
-          : []),
-
-        // ── Underwriting review — Program A & B only ─────────────────────────
-        ...(hasA || hasB
-          ? [{ href: '/underwriting', label: 'Underwrite Your Biz', icon: ClipboardList }]
-          : []),
-
-        // ── Shared for all active members ────────────────────────────────────
-        { href: '/opportunities',   label: 'Opportunities',   icon: TrendingUp },
-        { href: '/funding-results', label: 'Funding Results', icon: DollarSign },
-        { href: '/roi',             label: 'ROI Tracker',     icon: PieChart },
-
-        // ── Program A only: credit dispute tooling ───────────────────────────
-        ...(hasA
-          ? [{ href: '/credit-disputes', label: 'Credit Disputes', icon: ShieldAlert }]
-          : []),
-
-        { href: '/ai-usage',        label: 'AI Credits',      icon: Zap },
-
-        { href: '/reports', label: 'Reports', icon: BarChart2 },
-        // Delegates cannot access Billing
-        ...(!isDelegate ? [{ href: '/billing', label: 'Billing', icon: CreditCard }] : []),
-        { href: '/training',  label: 'Training Videos', icon: PlayCircle },
-        { href: '/support',   label: 'Support Inbox', icon: MessageSquare },
-        { href: '/settings',  label: 'Settings',      icon: Settings },
-      ]
-
-  const currentBusiness = businesses.find((business) => business.id === activeBusinessId) ?? null
-  const currentBusinessFree = currentBusiness
-    ? currentBusiness.feature_tier === 'free'
-    : isFreeUser
-  const currentBusinessPaid = currentBusinessFree
+  const currentBusinessPaid = planTier === 'free'
     ? true
-    : currentBusiness
-      ? currentBusiness.billing_status === 'active' || currentBusiness.billing_status === 'trialing'
-      : accountState === 'active_member'
-  const subscriptionGateAllowedPaths = new Set(['/dashboard', '/billing', '/funding-results', '/support', '/settings', '/training', '/notifications'])
+    : subscriptionStatus === 'active' || subscriptionStatus === 'trialing' || accountState === 'active_member'
+
+  const subscriptionGateAllowedPaths = useMemo(() => new Set(['/dashboard', '/billing', '/funding-results', '/support', '/settings', '/training', '/notifications']), [])
   const prospectInquiryDisputesPath = isProspect && pathname === '/credit-disputes'
   const shouldShowSubscriptionGate =
     !portalBlocked &&
@@ -426,8 +394,8 @@ export default function PortalLayout({
             </div>
             <div className="min-w-0 flex-1">
               <span className="font-bold text-gray-900 dark:text-gray-100 text-sm block truncate">SourcifyLending</span>
-              {currentBusiness && (
-                <span className="text-[11px] text-gray-400 block truncate">{currentBusiness.label}</span>
+              {programLabel && (
+                <span className="text-[11px] text-gray-400 block truncate">{programLabel}</span>
               )}
             </div>
           </div>
@@ -483,8 +451,8 @@ export default function PortalLayout({
           )}
         </main>
 
-        {/* Global AI Panel — persistent across all portal pages */}
-        <GlobalAIPanel
+        {/* Global AI Panel — loaded only after explicit launch to keep the shell light */}
+        <PortalAIFloatingWidget
           assignedProgram={assignedProgram}
           accountState={accountState}
           userName={userName}

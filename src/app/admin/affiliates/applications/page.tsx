@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle, XCircle, Clock, Search, ChevronDown, ChevronUp, Loader2, ExternalLink } from 'lucide-react'
 
 interface Application {
@@ -35,7 +35,7 @@ export default function AffiliateApplicationsPage() {
   const [saving, setSaving] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
 
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -49,9 +49,9 @@ export default function AffiliateApplicationsPage() {
       setNotes(noteMap)
     } catch { /* ignore */ }
     setLoading(false)
-  }
+  }, [search, statusFilter])
 
-  useEffect(() => { fetchApplications() }, [statusFilter, search])
+  useEffect(() => { fetchApplications() }, [fetchApplications])
 
   const updateStatus = async (id: string, status: string) => {
     setSaving(id)

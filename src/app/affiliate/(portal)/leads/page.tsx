@@ -267,7 +267,7 @@ export default function LeadsPage() {
           <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
             <UserPlus size={32} className="mb-3 opacity-40" />
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500">No prospects yet</p>
-            <p className="text-xs mt-1">Click "Add Prospect" to get started</p>
+            <p className="text-xs mt-1">Click &quot;Add Prospect&quot; to get started</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-gray-800">

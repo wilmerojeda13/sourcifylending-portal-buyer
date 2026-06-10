@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
-import DashboardPage from '../dashboard/page'
+import { DashboardContent } from '../dashboard/DashboardContent'
 
 export default function PortalPage() {
-  return <DashboardPage nextPath="/portal" />
+  return <DashboardContent nextPath="/portal" />
 }

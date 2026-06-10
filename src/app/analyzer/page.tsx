@@ -288,7 +288,7 @@ export default function AnalyzerPage() {
               </div>
               <h2 className="text-xl font-bold text-gray-900 mb-1">Where should we send your analysis?</h2>
               <p className="text-sm text-gray-400 mb-6">
-                Enter your info to unlock your credit readiness report and program recommendation. We'll never spam you.
+                Enter your info to unlock your credit readiness report and program recommendation. We&apos;ll never spam you.
               </p>
 
               <div className="space-y-4">

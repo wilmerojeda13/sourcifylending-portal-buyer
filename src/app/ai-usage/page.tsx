@@ -337,7 +337,7 @@ function AIUsageInner() {
                 ) : monthlyPct >= 70 ? (
                   <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
                     <AlertTriangle size={18} className="text-yellow-500 shrink-0 mt-0.5" />
-                    <p className="text-sm text-yellow-700">You've used {monthlyPct}% of your monthly AI credits.</p>
+                    <p className="text-sm text-yellow-700">You&apos;ve used {monthlyPct}% of your monthly AI credits.</p>
                   </div>
                 ) : null}
               </>
@@ -391,7 +391,7 @@ function AIUsageInner() {
             {balance && limits && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Today's Credits</p>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Today&apos;s Credits</p>
                   <UsageMeter used={balance.daily_credits_used} total={limits.daily_credit_cap} label="" />
                 </div>
                 <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4">

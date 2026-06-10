@@ -1,19 +1,41 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, CheckCircle, Bot, BarChart2, Shield, Users, DollarSign } from 'lucide-react'
 import HomepageChatbot from '@/components/chatbot/HomepageChatbot'
+import { SITE_URL } from '@/lib/site-config'
+
+export const metadata: Metadata = {
+  title: 'SourcifyLending | Business Credit Fulfillment',
+  description: 'Build business credit with an AI-guided fulfillment platform, program roadmap, and secure client portal.',
+  alternates: {
+    canonical: SITE_URL,
+  },
+  openGraph: {
+    title: 'SourcifyLending | Business Credit Fulfillment',
+    description: 'Build business credit with an AI-guided fulfillment platform, program roadmap, and secure client portal.',
+    url: SITE_URL,
+    siteName: 'SourcifyLending',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'SourcifyLending | Business Credit Fulfillment',
+    description: 'Build business credit with an AI-guided fulfillment platform, program roadmap, and secure client portal.',
+  },
+}
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Nav */}
-      <header className="border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3 max-w-6xl mx-auto">
+      <header className="border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between max-w-6xl mx-auto">
         <div className="flex items-center gap-2 min-w-0 shrink">
           <div className="w-7 h-7 sm:w-8 sm:h-8 bg-green-600 rounded-lg flex items-center justify-center shrink-0">
             <span className="text-white font-bold text-xs sm:text-sm">SL</span>
           </div>
           <span className="font-bold text-sm sm:text-base text-gray-900 truncate whitespace-nowrap">SourcifyLending</span>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 shrink-0">
           <Link href="/partners" className="brand-link text-sm font-medium px-3 py-2 hidden sm:inline">
             Partners
           </Link>
@@ -37,7 +59,7 @@ export default function HomePage() {
         </div>
         <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6">
           Build Business Credit<br />
-          <span className="text-white">With AI Guiding Every Step</span>
+          <span className="text-green-600">With AI Guiding Every Step</span>
         </h1>
         <p className="text-lg text-gray-500 max-w-2xl mx-auto mb-10">
           SourcifyLending&apos;s AI fulfillment agent manages your entire credit-building journey —

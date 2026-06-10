@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Loader2, Plus, CheckSquare, Square, CheckCircle2, MinusSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -62,7 +62,7 @@ export default function TasksClient() {
   const [bulkDueAt, setBulkDueAt] = useState('')
   const [bulkOwnerId, setBulkOwnerId] = useState('')
 
-  async function load(selectedBucket = bucket) {
+  const load = useCallback(async (selectedBucket = bucket) => {
     setLoading(true)
     const params = new URLSearchParams({ bucket: selectedBucket, owner: 'me' })
     const res = await fetch(`/api/admin/crm/tasks?${params.toString()}`, { cache: 'no-store' })
@@ -70,11 +70,11 @@ export default function TasksClient() {
     setTasks(json.tasks ?? [])
     setCounts(json.counts ?? {})
     setLoading(false)
-  }
+  }, [bucket])
 
   useEffect(() => {
     load(bucket)
-  }, [bucket])
+  }, [bucket, load])
 
   const grouped = useMemo(() => {
     return tasks.reduce<Record<string, TaskRecord[]>>((acc, task) => {

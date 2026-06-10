@@ -1,7 +1,8 @@
 'use client'
 
+import NextImage from 'next/image'
 import { useState, useRef } from 'react'
-import { MessageSquare, Send, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp, InboxIcon, Paperclip, Image, FileText as FileIcon } from 'lucide-react'
+import { MessageSquare, Send, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp, InboxIcon, Paperclip, Image as AttachmentIcon, FileText as FileIcon } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 interface SupportMessage {
@@ -34,7 +35,14 @@ function AttachmentPreview({ url }: { url: string }) {
   const isImage = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url)
   return isImage ? (
     <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-2">
-      <img src={url} alt="Attachment" className="max-h-48 rounded-xl border border-gray-200 dark:border-gray-600 object-contain" />
+      <NextImage
+        src={url}
+        alt="Attachment preview"
+        width={768}
+        height={512}
+        unoptimized
+        className="max-h-48 w-auto rounded-xl border border-gray-200 object-contain dark:border-gray-600"
+      />
     </a>
   ) : (
     <a href={url} target="_blank" rel="noopener noreferrer"
@@ -166,7 +174,7 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
 
             {file ? (
               <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5">
-                <Image size={15} className="text-green-600 shrink-0" />
+                <AttachmentIcon size={15} className="text-green-600 shrink-0" />
                 <span className="text-sm text-gray-700 dark:text-gray-200 truncate flex-1">{file.name}</span>
                 <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
                 <button type="button" onClick={removeFile} className="text-gray-400 hover:text-red-500 transition-colors shrink-0">

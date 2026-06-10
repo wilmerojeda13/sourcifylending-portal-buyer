@@ -7,10 +7,29 @@ import NotificationRuntime from '@/components/notifications/NotificationRuntime'
 import { SITE_URL } from '@/lib/site-config'
 
 export const metadata: Metadata = {
-  title: 'SourcifyLending Portal',
-  description: 'AI-powered business credit fulfillment platform',
+  title: {
+    default: 'SourcifyLending Portal',
+    template: '%s | SourcifyLending',
+  },
+  description: 'AI-powered business credit fulfillment platform.',
   metadataBase: new URL(SITE_URL),
   manifest: '/site.webmanifest',
+  openGraph: {
+    title: 'SourcifyLending Portal',
+    description: 'AI-powered business credit fulfillment platform.',
+    url: SITE_URL,
+    siteName: 'SourcifyLending',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'SourcifyLending Portal',
+    description: 'AI-powered business credit fulfillment platform.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
   icons: {
     icon: [
       { url: '/sourcify-favicon-20260331.png', type: 'image/png' },

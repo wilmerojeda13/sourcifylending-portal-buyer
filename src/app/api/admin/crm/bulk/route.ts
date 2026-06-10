@@ -59,10 +59,10 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const action = body.action as string | undefined
-  const module = body.module as string | undefined
+  const targetModule = body.module as string | undefined
   const ids = Array.isArray(body.ids) ? body.ids : []
 
-  if (action === 'archive' && !module) {
+  if (action === 'archive' && !targetModule) {
     const filter = body.filter as string | undefined
     let query = admin.supabase
       .from('crm_leads')
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ count: '✓', message: 'archived — refresh to see updated count' })
   }
 
-  if (action === 'delete_archived' && !module) {
+  if (action === 'delete_archived' && !targetModule) {
     const { error } = await admin.supabase
       .from('crm_leads')
       .delete()
@@ -88,12 +88,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ count: '✓', message: 'archived leads permanently deleted' })
   }
 
-  if (!action || !module || ids.length === 0) {
+  if (!action || !targetModule || ids.length === 0) {
     return NextResponse.json({ error: 'module, action, and ids are required.' }, { status: 400 })
   }
 
   try {
-    if (module === 'leads') {
+    if (targetModule === 'leads') {
       if (action === 'delete') {
         return jsonResult(
           await bulkDeleteLeads(admin.supabase, {
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (module === 'tasks') {
+    if (targetModule === 'tasks') {
       if (action === 'complete') {
         return jsonResult(
           await bulkCompleteTasks(admin.supabase, {

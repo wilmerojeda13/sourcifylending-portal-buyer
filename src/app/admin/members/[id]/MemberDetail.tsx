@@ -1722,7 +1722,7 @@ export default function MemberDetail({
                   <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
                     <Zap size={18} className="text-amber-500" /> Credit Adjustment
                   </h2>
-                  <p className="text-xs text-gray-400 mb-4">Add, remove, or reset this user's current billing period credits.</p>
+                  <p className="text-xs text-gray-400 mb-4">Add, remove, or reset this user&apos;s current billing period credits.</p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 mb-1">Type</label>

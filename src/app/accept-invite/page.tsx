@@ -133,7 +133,7 @@ function AcceptInviteInner() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className="max-w-md w-full text-center bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
           <CheckCircle2 size={40} className="text-green-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">You're In!</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">You&apos;re In!</h1>
           <p className="text-sm text-gray-500 mb-4">Your delegate access has been activated. Taking you to the portal now…</p>
           <Loader2 size={20} className="text-green-400 animate-spin mx-auto" />
         </div>

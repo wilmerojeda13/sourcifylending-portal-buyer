@@ -155,20 +155,20 @@ export async function GET(req: NextRequest) {
   const { from: weekStart } = getThisWeekRangeInCrmTimeZone(now, crmTimeZone)
   const { from: monthStart } = getThisMonthRangeInCrmTimeZone(now, crmTimeZone)
 
-  const connects = calls.filter(call => ['Interested', 'Appointment Set', 'Booked Call', 'Closed Won'].includes(call.call_outcome)).length
-  const bookedCalls = calls.filter(call => call.strategy_call_booked || ['Appointment Set', 'Booked Call'].includes(call.call_outcome)).length
-  const closedDeals = calls.filter(call => call.converted_to_client || call.call_outcome === 'Closed Won').length
+  const connects = calls.filter((call: any) => ['Interested', 'Appointment Set', 'Booked Call', 'Closed Won'].includes(call.call_outcome)).length
+  const bookedCalls = calls.filter((call: any) => call.strategy_call_booked || ['Appointment Set', 'Booked Call'].includes(call.call_outcome)).length
+  const closedDeals = calls.filter((call: any) => call.converted_to_client || call.call_outcome === 'Closed Won').length
   const followUpsPending = tasks.length
   const callbacksDueToday = [
-    ...tasks.filter(task => task.task_type === 'Callback' && task.due_at && new Date(task.due_at) >= todayStart && new Date(task.due_at) < tomorrowStart),
-    ...hotLeads.filter(lead => lead.callback_due_at && new Date(lead.callback_due_at) >= todayStart && new Date(lead.callback_due_at) < tomorrowStart),
+    ...tasks.filter((task: any) => task.task_type === 'Callback' && task.due_at && new Date(task.due_at) >= todayStart && new Date(task.due_at) < tomorrowStart),
+    ...hotLeads.filter((lead: any) => lead.callback_due_at && new Date(lead.callback_due_at) >= todayStart && new Date(lead.callback_due_at) < tomorrowStart),
   ]
 
-  const callsToday = calls.filter(call => new Date(call.call_started_at) >= todayStart).length
-  const callsThisWeek = calls.filter(call => new Date(call.call_started_at) >= weekStart).length
-  const callsThisMonth = calls.filter(call => new Date(call.call_started_at) >= monthStart).length
+  const callsToday = calls.filter((call: any) => new Date(call.call_started_at) >= todayStart).length
+  const callsThisWeek = calls.filter((call: any) => new Date(call.call_started_at) >= weekStart).length
+  const callsThisMonth = calls.filter((call: any) => new Date(call.call_started_at) >= monthStart).length
   const avgCallsPerDay = calls.length ? Number((calls.length / Math.max(Math.ceil((rangeEnd.getTime() - rangeStart.getTime()) / 86400000), 1)).toFixed(1)) : 0
-  const avgTalkTimeSeconds = calls.length ? Math.round(calls.reduce((sum, call) => sum + (call.duration_seconds || 0), 0) / calls.length) : 0
+  const avgTalkTimeSeconds = calls.length ? Math.round(calls.reduce((sum, call: any) => sum + (call.duration_seconds || 0), 0) / calls.length) : 0
   // NOTE: SMS metrics removed from overview - fetch from /api/admin/crm/leads/[id] per-lead or dedicated SMS endpoint
   // Keeping response lightweight for fast first paint
 
@@ -184,7 +184,7 @@ export async function GET(req: NextRequest) {
 
   const conversionByAgent: { label: string; total: number; won: number; rate: number }[] = []
 
-  const topHotLeads = hotLeads.map(lead => ({
+  const topHotLeads = hotLeads.map((lead: any) => ({
     id: lead.id,
     name: [lead.first_name, lead.last_name].filter(Boolean).join(' '),
     business_name: lead.business_name,

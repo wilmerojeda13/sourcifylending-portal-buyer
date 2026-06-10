@@ -726,11 +726,10 @@ export default function OpportunitiesClient({
   }
 
   // ── Program A / C: existing UI ─────────────────────────────────────────────
-  const enriched = useMemo(() =>
-    opportunities.map(opp => ({
-      ...opp,
-      status: getOpportunityStatus(opp, currentStage),
-    })), [opportunities, currentStage])
+  const enriched = opportunities.map(opp => ({
+    ...opp,
+    status: getOpportunityStatus(opp, currentStage),
+  }))
 
   // Separate active from completed (approved)
   const activeEnriched = enriched.filter(o => localStatuses[o.id] !== 'approved')

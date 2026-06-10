@@ -370,7 +370,7 @@ export default function AffiliateSettingsPage() {
               </div>
               <p className="text-xs text-gray-400 mt-4 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
                 These rules are hardcoded in the system logic. To modify the thresholds or reward type, a developer change is required.
-                The "Run Free Access Check" button on the main partners page manually triggers the eligibility check.
+                The &quot;Run Free Access Check&quot; button on the main partners page manually triggers the eligibility check.
               </p>
             </div>
           </>

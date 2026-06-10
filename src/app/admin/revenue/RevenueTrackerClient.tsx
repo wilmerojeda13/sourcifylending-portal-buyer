@@ -426,7 +426,7 @@ export default function RevenueTrackerClient() {
                   </p>
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 dark:text-gray-500">No monthly goal set. Click "Set New Goal" to add one.</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">No monthly goal set. Click &quot;Set New Goal&quot; to add one.</p>
               )}
 
               {showGoalForm && (

@@ -79,11 +79,12 @@ interface GlobalAIPanelProps {
   assignedProgram?: string | null
   accountState?: 'prospect' | 'active_member'
   userName?: string
+  defaultOpen?: boolean
 }
 
-export default function GlobalAIPanel({ assignedProgram, accountState, userName }: GlobalAIPanelProps) {
+export default function GlobalAIPanel({ assignedProgram, accountState, userName, defaultOpen = false }: GlobalAIPanelProps) {
   const pathname = usePathname()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)

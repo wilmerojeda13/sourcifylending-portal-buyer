@@ -139,7 +139,7 @@ export default function OfflineCRMApp() {
     setNotesDraft(selectedLead.notes ?? '')
     setFollowUpDraft(selectedLead.follow_up_at ? new Date(selectedLead.follow_up_at).toISOString().slice(0, 16) : '')
     setTagDraft((selectedLead.tags ?? []).join(', '))
-  }, [selectedLead?.id])
+  }, [selectedLead])
 
   const syncNow = useCallback(async () => {
     setSyncing(true)
@@ -160,7 +160,7 @@ export default function OfflineCRMApp() {
     } finally {
       setSyncing(false)
     }
-  }, [bootstrap, hasCachedWorkspace, leads.length, online, refresh])
+  }, [bootstrap, hasCachedWorkspace, online, refresh])
 
   useEffect(() => {
     if (!online || syncing || pendingCount === 0) return

@@ -112,7 +112,7 @@ export default function OfflineCRMDialer() {
     if (!current) return
     setTemperature(current.lead_temperature ?? 'cold')
     setNextFollowUpAt(current.follow_up_at ? new Date(current.follow_up_at).toISOString().slice(0, 16) : '')
-  }, [current?.id])
+  }, [current])
 
   const syncLabel = useMemo(() => {
     const pending = leads.filter((lead) => lead.pending_sync).length
@@ -190,7 +190,7 @@ export default function OfflineCRMDialer() {
     } finally {
       setActing(false)
     }
-  }, [acting, advance, callStartedAt, called, converted, current, nextFollowUpAt, note, refresh, strategyBooked, temperature])
+  }, [advance, callStartedAt, called, converted, current, nextFollowUpAt, note, refresh, strategyBooked, temperature])
 
   if (loading) {
     return (

@@ -29,3 +29,6 @@ next-env.d.ts
 .vercel
 .env*.local
 .aider*
+
+# client data files with excessively long paths
+All SourcifyLending/

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -403,17 +403,19 @@ function BookDemoModal({
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
   }
 
-  const buildLeadFormData = () => ({
+  const buildLeadFormData = useCallback(() => ({
     name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || `${lead.first_name || ''}`.trim() || 'Lead',
     phone: lead.phone || '',
     email: lead.email || '',
     company: lead.business_name || '',
-  })
+  }), [lead.business_name, lead.email, lead.first_name, lead.last_name, lead.phone])
 
-  const [formData, setFormData] = useState(buildLeadFormData())
+  const defaultTimezone = lead.likely_timezone || 'America/New_York'
+
+  const [formData, setFormData] = useState(() => buildLeadFormData())
   const [dateTime, setDateTime] = useState(buildDefaultDateTime())
   const [duration, setDuration] = useState(30)
-  const [timezone, setTimezone] = useState(lead.likely_timezone || 'America/New_York')
+  const [timezone, setTimezone] = useState(defaultTimezone)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -422,9 +424,9 @@ function BookDemoModal({
     setFormData(buildLeadFormData())
     setDateTime(buildDefaultDateTime())
     setDuration(30)
-    setTimezone(lead.likely_timezone || 'America/New_York')
+    setTimezone(defaultTimezone)
     setNotes('')
-  }, [isOpen, lead.id])
+  }, [buildLeadFormData, defaultTimezone, isOpen])
 
   async function confirm() {
     if (!dateTime) {
@@ -635,15 +637,6 @@ export default function LeadDetailClient({
       .catch(() => {})
   }, [duplicatesLoaded, lead.duplicate_review_required, lead.id, lead.phone])
 
-  useEffect(() => {
-    if (autoOpenBooking.current) return
-    if (searchParams.get('book_demo') !== '1') return
-    autoOpenBooking.current = true
-    void openBookDemoModal().finally(() => {
-      router.replace(`/admin/crm/${lead.id}`)
-    })
-  }, [lead.id, router, searchParams])
-
   async function loadActivities() {
     if (activitiesLoaded || loadingActivities) return
     setLoadingActivities(true)
@@ -708,7 +701,7 @@ export default function LeadDetailClient({
     }
   }
 
-  async function openBookDemoModal() {
+  const openBookDemoModal = useCallback(async () => {
     setLoadingBookingLead(true)
     try {
       const response = await fetch(`/api/admin/crm/leads/${lead.id}`)
@@ -719,7 +712,17 @@ export default function LeadDetailClient({
       }
       setBookingLead(json.lead)
       if (!calendarLoaded) {
-        await loadCalendar()
+        const calendarResponse = await fetch(`/api/admin/crm/calendar?lead_id=${lead.id}&google=true`)
+        const calendarJson = await calendarResponse.json()
+        setCalendarSummary({
+          configured: calendarJson.connected ?? false,
+          matched: (calendarJson.events ?? []).length > 0,
+          warning: calendarJson.google_calendar?.error || null,
+          events: calendarJson.events ?? [],
+          nextEvent: calendarJson.events?.[0] ?? null,
+          hasBookedDemo: (calendarJson.events ?? []).some((event: LeadCalendarEvent) => event.type === 'demo' && event.status !== 'cancelled'),
+        })
+        setCalendarLoaded(true)
       }
       setShowBookDemo(true)
     } catch {
@@ -727,7 +730,16 @@ export default function LeadDetailClient({
     } finally {
       setLoadingBookingLead(false)
     }
-  }
+  }, [calendarLoaded, lead.id])
+
+  useEffect(() => {
+    if (autoOpenBooking.current) return
+    if (searchParams.get('book_demo') !== '1') return
+    autoOpenBooking.current = true
+    void openBookDemoModal().finally(() => {
+      router.replace(`/admin/crm/${lead.id}`)
+    })
+  }, [lead.id, openBookDemoModal, router, searchParams])
 
   async function refreshActivities() {
     const response = await fetch(`/api/admin/crm/activities?lead_id=${lead.id}`)

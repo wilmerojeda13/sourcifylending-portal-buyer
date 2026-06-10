@@ -310,7 +310,7 @@ export default function FundingResultsClient({ initialApprovals, startDate, assi
               Funding Goal <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">(optional)</span>
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              Set the minimum funding amount you want to reach. We'll help you track progress toward your target.
+              Set the minimum funding amount you want to reach. We&apos;ll help you track progress toward your target.
             </p>
             <div className="flex items-end gap-2 mb-3">
               <div className="flex-1">

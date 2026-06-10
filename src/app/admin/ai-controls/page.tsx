@@ -1029,7 +1029,7 @@ export default function AIControlsPage() {
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                   <p className="text-xs font-semibold text-blue-700 mb-1">Per-User Overrides</p>
                   <p className="text-xs text-blue-600">
-                    To suspend a user's AI access or set custom credit limits, open their profile in{' '}
+                    To suspend a user&apos;s AI access or set custom credit limits, open their profile in{' '}
                     <Link href="/admin/members" className="underline font-semibold">Member Management</Link>{' '}
                     → AI Controls tab.
                   </p>

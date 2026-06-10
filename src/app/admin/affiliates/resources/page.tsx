@@ -386,7 +386,7 @@ export default function ResourcesPage() {
             <div>
               <h3 className="font-bold text-gray-900">Delete Resource?</h3>
               <p className="text-sm text-gray-500 mt-1">
-                "{confirmDelete.title}" will be permanently removed. This cannot be undone.
+                &ldquo;{confirmDelete.title}&rdquo; will be permanently removed. This cannot be undone.
               </p>
             </div>
             <div className="flex gap-3">
