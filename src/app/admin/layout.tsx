@@ -6,7 +6,7 @@ import AdminNotificationBell from '@/components/admin/AdminNotificationBell'
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect('/admin-login?next=/admin')
 
   const supabase = await createServiceClient()
   const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()

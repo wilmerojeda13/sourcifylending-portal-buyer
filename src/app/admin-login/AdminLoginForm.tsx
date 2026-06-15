@@ -14,7 +14,7 @@ export default function AdminLoginForm({ nextPath = ADMIN_POST_LOGIN_PATH }: Adm
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
-  const [keepSignedIn, setKeepSignedIn] = useState(true)
+  const [keepSignedIn, setKeepSignedIn] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
