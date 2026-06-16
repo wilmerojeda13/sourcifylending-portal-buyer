@@ -169,6 +169,17 @@ function buildTimezoneMetaLabel(lead: CRMLead) {
 }
 
 // ─── Kanban Board Sub-components ─────────────────────────────────────────────
+async function readJsonResponse<T = any>(response: Response): Promise<T> {
+  const body = await response.text()
+  if (!body.trim()) return {} as T
+
+  try {
+    return JSON.parse(body) as T
+  } catch {
+    throw new Error(`Unexpected non-JSON response from CRM API (${response.status})`)
+  }
+}
+
 function DraggableKanbanCard({
   lead,
   selectedIds,
@@ -681,7 +692,7 @@ export default function CRMClient() {
   useEffect(() => {
     let active = true
     fetch('/api/admin/crm/tags', { cache: 'no-store' })
-      .then((response) => response.json())
+      .then((response) => readJsonResponse(response))
       .then((json) => {
         if (active) setAvailableTags(json.tags ?? [])
       })
@@ -694,7 +705,7 @@ export default function CRMClient() {
   useEffect(() => {
     let active = true
     fetch('/api/admin/crm/owners', { cache: 'no-store' })
-      .then((response) => response.json())
+      .then((response) => readJsonResponse(response))
       .then((json) => {
         if (active) setOwners(json.owners ?? [])
       })
@@ -731,7 +742,7 @@ export default function CRMClient() {
         if (version !== loadVersion.current) return // newer load started — abort
         p.set('page', String(page))
         const res  = await fetch(`/api/admin/crm/leads?${p}`, { cache: 'no-store' })
-        const json = await res.json()
+        const json = await readJsonResponse(res)
         if (!res.ok) {
           throw new Error(json.error || 'Failed to load leads')
         }

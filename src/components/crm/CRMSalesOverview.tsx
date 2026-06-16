@@ -56,6 +56,17 @@ function StatCard({
   )
 }
 
+async function readJsonResponse<T = any>(response: Response): Promise<T> {
+  const body = await response.text()
+  if (!body.trim()) return {} as T
+
+  try {
+    return JSON.parse(body) as T
+  } catch {
+    throw new Error(`Unexpected non-JSON response from CRM overview API (${response.status})`)
+  }
+}
+
 export default function CRMSalesOverview() {
   const [range, setRange] = useState('this_month')
   const [data, setData] = useState<OverviewResponse | null>(null)
@@ -68,10 +79,12 @@ export default function CRMSalesOverview() {
       setLoading(true)
       try {
         const response = await fetch(`/api/admin/crm/overview?range=${range}`, { cache: 'no-store' })
-        const json = await response.json()
+        const json = await readJsonResponse<OverviewResponse>(response)
         if (active) {
           setData(response.ok ? json : null)
         }
+      } catch {
+        if (active) setData(null)
       } finally {
         if (active) setLoading(false)
       }
