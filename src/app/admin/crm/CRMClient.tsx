@@ -622,6 +622,7 @@ export default function CRMClient() {
   const searchParams = useSearchParams()
   const focus = searchParams.get('focus') === 'leads' ? 'leads' : 'overview'
   const [leads, setLeads]           = useState<CRMLead[]>([])
+  const [leadTotal, setLeadTotal]   = useState(0)
   const [loading, setLoading]       = useState(true)
   const [search, setSearch]         = useState(searchParams.get('search') ?? '')
   const [stageFilter, setStageFilter] = useState(searchParams.get('stage') ?? '')
@@ -724,14 +725,19 @@ export default function CRMClient() {
       let allLeads: CRMLead[] = []
       let page = 0
       let total = Infinity
+      let apiTotal = 0
 
       while (allLeads.length < total) {
         if (version !== loadVersion.current) return // newer load started — abort
         p.set('page', String(page))
         const res  = await fetch(`/api/admin/crm/leads?${p}`, { cache: 'no-store' })
         const json = await res.json()
+        if (!res.ok) {
+          throw new Error(json.error || 'Failed to load leads')
+        }
         const batch: CRMLead[] = json.leads ?? []
         total = json.total ?? batch.length
+        apiTotal = json.total ?? allLeads.length + batch.length
         allLeads = [...allLeads, ...batch]
         if (batch.length < 1000) break
         page++
@@ -739,7 +745,13 @@ export default function CRMClient() {
 
       if (version !== loadVersion.current) return // stale — discard
       setLeads(allLeads)
-    } catch { if (version === loadVersion.current) toast.error('Failed to load leads') }
+      setLeadTotal(apiTotal || allLeads.length)
+    } catch (error) {
+      if (version === loadVersion.current) {
+        const message = error instanceof Error ? error.message : 'Failed to load leads'
+        toast.error(message)
+      }
+    }
     finally { if (version === loadVersion.current) setLoading(false) }
   }, [stageFilter, search, temperatureFilter, callabilityFilter, tagFilters, excludeTagFilters, tagMode, ownerFilter, dispositionFilter, openTasksOnly, followUpDueOnly, callbackDueOnly])
 
@@ -748,7 +760,11 @@ export default function CRMClient() {
     return () => clearTimeout(t)
   }, [load, search])
 
-  function handleCreated(lead: CRMLead) { setLeads(p=>[lead,...p]); setShowNew(false) }
+  function handleCreated(lead: CRMLead) {
+    setLeads(p=>[lead,...p])
+    setLeadTotal((current) => current + 1)
+    setShowNew(false)
+  }
 
   // Paginated list — 50 per page
   const PAGE_SIZE = 50
@@ -1028,7 +1044,7 @@ export default function CRMClient() {
     }
   }
 
-  const total     = leads.length
+  const total     = Math.max(leadTotal, leads.length)
   const tagMap = new Map(availableTags.map((tag) => [tag.id, tag]))
   const ownerMap = new Map(owners.map((owner) => [owner.id, owner.name]))
   const leadCountLabel = isPipelineView ? 'pipeline leads' : 'leads'

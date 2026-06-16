@@ -1,20 +1,29 @@
 const trimSlash = (value: string) => value.replace(/\/$/, '')
 
+const firstNonEmpty = (...values: Array<string | undefined>) =>
+  values.find((value) => value && value.trim().length > 0)
+
 export const SITE_URL = trimSlash(
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  process.env.NEXT_PUBLIC_APP_URL ??
-  'https://www.sourcifylending.com'
+  firstNonEmpty(
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    'https://www.sourcifylending.com',
+  )!
 )
 
 export const APP_URL = trimSlash(
-  process.env.NEXT_PUBLIC_APP_URL ??
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  SITE_URL
+  firstNonEmpty(
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    SITE_URL,
+  )!
 )
 
 export const ADMIN_URL = trimSlash(
-  process.env.NEXT_PUBLIC_ADMIN_URL ??
-  SITE_URL.replace(/^https?:\/\/(?:www\.)?/, 'https://admin.')
+  firstNonEmpty(
+    process.env.NEXT_PUBLIC_ADMIN_URL,
+    SITE_URL.replace(/^https?:\/\/(?:www\.)?/, 'https://admin.'),
+  )!
 )
 
 export const ANALYZER_URL = trimSlash(
