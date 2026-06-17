@@ -1,31 +1,15 @@
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { randomBytes, createHash } from 'crypto'
+import { createServerClient } from '@supabase/ssr'
 import { buildOAuthCallbackUrl, normalizeNextPath } from '@/lib/auth-routing'
 import { SITE_URL } from '@/lib/site-config'
 
-function base64Url(input: Buffer | string) {
-  return Buffer.from(input)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '')
-}
-
-function createPkceVerifier() {
-  return base64Url(randomBytes(32))
-}
-
-function createPkceChallenge(verifier: string) {
-  return base64Url(createHash('sha256').update(verifier).digest())
-}
-
-function getProjectRef() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+function isLocalDevelopmentOrigin(origin: string) {
   try {
-    const host = new URL(url).hostname
-    return host.split('.')[0] || 'supabase'
+    const { hostname } = new URL(origin)
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
   } catch {
-    return 'supabase'
+    return false
   }
 }
 
@@ -34,31 +18,48 @@ export async function GET(request: NextRequest) {
   const next = normalizeNextPath(searchParams.get('next'))
   const adminEntry = searchParams.get('adminEntry') === 'true'
   const callbackUrl = buildOAuthCallbackUrl(origin || SITE_URL, next, adminEntry)
-  const isSecure = (origin || SITE_URL).startsWith('https://')
+  const isProduction = process.env.VERCEL_ENV === 'production' && !isLocalDevelopmentOrigin(origin)
+  const appOrigin = (isProduction ? SITE_URL : origin).replace(/\/$/, '')
 
-  const verifier = createPkceVerifier()
-  const challenge = createPkceChallenge(verifier)
-  const projectRef = getProjectRef()
-  const storageKey = `sb-${projectRef}-auth-token`
+  const cookieStore = await cookies()
+  const redirectResponse = NextResponse.redirect(origin || SITE_URL)
 
-  const authorizeUrl = new URL(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/authorize`)
-  authorizeUrl.searchParams.set('provider', 'google')
-  authorizeUrl.searchParams.set('redirect_to', callbackUrl)
-  authorizeUrl.searchParams.set('code_challenge', challenge)
-  authorizeUrl.searchParams.set('code_challenge_method', 's256')
-  authorizeUrl.searchParams.set('access_type', 'offline')
-  authorizeUrl.searchParams.set('prompt', 'consent select_account')
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options)
+            redirectResponse.cookies.set(name, value, options)
+          })
+        },
+      },
+    }
+  )
 
-  const response = NextResponse.redirect(authorizeUrl.toString())
-  response.cookies.set({
-    name: `${storageKey}-code-verifier`,
-    value: `base64-${base64Url(JSON.stringify(verifier))}`,
-    path: '/',
-    sameSite: 'lax',
-    httpOnly: true,
-    secure: isSecure,
-    maxAge: 10 * 60,
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: callbackUrl,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent select_account',
+      },
+    },
   })
 
-  return response
+  if (error || !data.url) {
+    console.error('[auth/google] signInWithOAuth failed', error)
+    return NextResponse.redirect(
+      `${appOrigin}/sign-in?error=oauth_callback_failed&next=${encodeURIComponent(next)}`
+    )
+  }
+
+  redirectResponse.headers.set('Location', data.url)
+  return redirectResponse
 }
