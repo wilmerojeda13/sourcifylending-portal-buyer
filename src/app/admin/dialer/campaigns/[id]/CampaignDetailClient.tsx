@@ -737,14 +737,14 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                         </button>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-100">{l.raw_lead.first_name} {l.raw_lead.last_name ?? ''}</p>
-                        {l.raw_lead.business_name && <p className="text-xs text-gray-400">{l.raw_lead.business_name}</p>}
-                        {l.raw_lead.call_window_status === 'blocked' && (
+                        <p className="font-medium text-gray-100">{l.raw_lead?.first_name ?? 'Lead'} {l.raw_lead?.last_name ?? ''}</p>
+                        {l.raw_lead?.business_name && <p className="text-xs text-gray-400">{l.raw_lead.business_name}</p>}
+                        {l.raw_lead?.call_window_status === 'blocked' && (
                           <span className="text-[10px] text-orange-400">{l.raw_lead.blocked_until_label ?? 'Outside call window'}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell text-gray-300">
-                        <span className="flex items-center gap-1"><Phone size={11} /> {l.raw_lead.phone}</span>
+                        <span className="flex items-center gap-1"><Phone size={11} /> {l.raw_lead?.phone ?? 'No phone available'}</span>
                       </td>
                       <td className="px-4 py-3">
                         <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize', STATUS_COLORS[l.status] ?? 'bg-gray-100 text-gray-500')}>
@@ -997,9 +997,9 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                   return (
                     <>
                       <div className="bg-gray-800/50 rounded-lg p-3 space-y-1">
-                        <p className="font-medium text-gray-100">{lead.raw_lead.first_name} {lead.raw_lead.last_name ?? ''}</p>
-                        {lead.raw_lead.business_name && <p className="text-xs text-gray-400">{lead.raw_lead.business_name}</p>}
-                        <p className="text-xs text-gray-400 flex items-center gap-1"><Phone size={11} /> {lead.raw_lead.phone}</p>
+                        <p className="font-medium text-gray-100">{lead.raw_lead?.first_name ?? 'Lead'} {lead.raw_lead?.last_name ?? ''}</p>
+                        {lead.raw_lead?.business_name && <p className="text-xs text-gray-400">{lead.raw_lead.business_name}</p>}
+                        <p className="text-xs text-gray-400 flex items-center gap-1"><Phone size={11} /> {lead.raw_lead?.phone ?? 'No phone available'}</p>
                         <p className="text-xs text-gray-500">Current: <span className={cn('font-semibold px-1.5 rounded capitalize', STATUS_COLORS[lead.status])}>{lead.status.replace('_',' ')}</span></p>
                       </div>
 

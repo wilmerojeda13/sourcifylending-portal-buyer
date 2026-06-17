@@ -322,24 +322,24 @@ function LeadSearchModal({
                 <div>
                   <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Selected Lead</p>
                   <h3 className="mt-1 text-lg font-semibold text-gray-100">
-                    {selectedLead.raw_lead.first_name} {selectedLead.raw_lead.last_name ?? ''}
+                    {selectedLead.raw_lead?.first_name ?? 'Lead'} {selectedLead.raw_lead?.last_name ?? ''}
                   </h3>
                 </div>
                 <div className="space-y-2 text-sm text-gray-300">
                   <p className="flex items-center gap-2">
                     <Phone size={13} className="shrink-0 text-green-400" />
-                    {selectedLead.raw_lead.phone}
+                    {selectedLead.raw_lead?.phone ?? 'No phone available'}
                   </p>
-                  {selectedLead.raw_lead.business_name && (
+                  {selectedLead.raw_lead?.business_name && (
                     <p className="flex items-center gap-2">
                       <Building2 size={13} className="shrink-0 text-gray-400" />
-                      {selectedLead.raw_lead.business_name}
+                      {selectedLead.raw_lead?.business_name}
                     </p>
                   )}
-                  {selectedLead.raw_lead.email && (
+                  {selectedLead.raw_lead?.email && (
                     <p className="flex items-center gap-2">
                       <Mail size={13} className="shrink-0 text-gray-400" />
-                      {selectedLead.raw_lead.email}
+                      {selectedLead.raw_lead?.email}
                     </p>
                   )}
                   <p className="flex items-center gap-2">
@@ -351,11 +351,11 @@ function LeadSearchModal({
                     Lead ID: {selectedLead.raw_lead_id}
                   </p>
                 </div>
-                {selectedLead.raw_lead.notes && (
+                {selectedLead.raw_lead?.notes && (
                   <div className="rounded-xl border border-amber-800 bg-amber-950/30 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-400">Lead Notes</p>
                     <p className="mt-1 text-sm leading-relaxed text-amber-200 whitespace-pre-wrap">
-                      {selectedLead.raw_lead.notes}
+                      {selectedLead.raw_lead?.notes}
                     </p>
                   </div>
                 )}
@@ -674,7 +674,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     const lead = current
     if (!lead) return
 
-    setSpokeTextDraft(buildTextMessage(lead.raw_lead.first_name))
+    setSpokeTextDraft(buildTextMessage(lead.raw_lead?.first_name ?? 'there'))
     setSpokeTextModalOpen(true)
   }
 
@@ -682,7 +682,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
     const lead = current
     if (!lead) return
 
-    setPromoTextDraft(buildPromoTextMessage(lead.raw_lead.first_name))
+    setPromoTextDraft(buildPromoTextMessage(lead.raw_lead?.first_name ?? 'there'))
     setPromoTextModalOpen(true)
   }
 
@@ -861,7 +861,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
 
       const promotionOutcome = json.promotion?.outcome
       if (promotionOutcome === 'created_new_crm_lead') {
-        toast.success(`${current.raw_lead.first_name || 'Lead'} created in CRM.`)
+        toast.success(`${current?.raw_lead?.first_name || 'Lead'} created in CRM.`)
       } else if (promotionOutcome === 'merged_into_existing_crm_lead') {
         toast('Merged into existing CRM lead.', { icon: 'ℹ' })
       } else if (promotionOutcome === 'already_promoted') {
@@ -1260,9 +1260,9 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                   <ArrowRight size={9} /> Up next
                 </p>
                 <p className="text-xs font-medium text-gray-300">
-                  {queue[index + 1].raw_lead.first_name} {queue[index + 1].raw_lead.last_name ?? ''}
+                  {queue[index + 1].raw_lead?.first_name ?? 'Next lead'} {queue[index + 1].raw_lead?.last_name ?? ''}
                 </p>
-                <p className="text-[11px] text-gray-500">{queue[index + 1].raw_lead.phone}</p>
+                <p className="text-[11px] text-gray-500">{queue[index + 1].raw_lead?.phone ?? 'No phone available'}</p>
               </div>
             )}
           </div>
