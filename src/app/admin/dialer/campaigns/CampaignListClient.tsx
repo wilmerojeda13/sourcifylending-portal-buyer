@@ -20,6 +20,21 @@ interface Campaign {
   status_counts: Record<string, number>
 }
 
+function normalizeCampaign(input: Partial<Campaign> & { id: string; name?: string }) {
+  return {
+    ...input,
+    name: input.name ?? 'Untitled campaign',
+    description: input.description ?? null,
+    status: input.status ?? 'paused',
+    lead_count: Number(input.lead_count) || 0,
+    created_at: input.created_at ?? new Date(0).toISOString(),
+    updated_at: input.updated_at ?? new Date(0).toISOString(),
+    status_counts: input.status_counts && typeof input.status_counts === 'object'
+      ? input.status_counts
+      : {},
+  } as Campaign
+}
+
 const STATUS_BADGE: Record<CampaignStatus, string> = {
   active:    'bg-green-100 text-green-700',
   paused:    'bg-yellow-100 text-yellow-700',
@@ -40,7 +55,7 @@ export default function CampaignListClient() {
       const res  = await fetch('/api/admin/dialer/campaigns')
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
-      setCampaigns(json.campaigns ?? [])
+      setCampaigns((json.campaigns ?? []).map(normalizeCampaign))
     } catch {
       toast.error('Failed to load campaigns')
     } finally {
@@ -65,7 +80,7 @@ export default function CampaignListClient() {
       setName('')
       setDesc('')
       setShowNew(false)
-      setCampaigns(c => [{ ...json.campaign, status_counts: {} }, ...c])
+      setCampaigns(c => [normalizeCampaign({ ...(json.campaign ?? {}), status_counts: {} }), ...c])
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to create')
     } finally {
@@ -103,11 +118,11 @@ export default function CampaignListClient() {
   const activeCampaigns   = campaigns.filter(c => c.status !== 'archived')
   const archivedCampaigns = campaigns.filter(c => c.status === 'archived')
   const queueReadyTotal = campaigns.reduce((sum, c) => sum
-    + (c.status_counts.new ?? 0)
-    + (c.status_counts.attempted ?? 0)
-    + (c.status_counts.callback ?? 0)
-    + (c.status_counts.follow_up ?? 0), 0)
-  const qualifiedTotal = campaigns.reduce((sum, c) => sum + (c.status_counts.qualified ?? 0), 0)
+    + (c.status_counts?.new ?? 0)
+    + (c.status_counts?.attempted ?? 0)
+    + (c.status_counts?.callback ?? 0)
+    + (c.status_counts?.follow_up ?? 0), 0)
+  const qualifiedTotal = campaigns.reduce((sum, c) => sum + (c.status_counts?.qualified ?? 0), 0)
   const progressTotal = campaigns.reduce((sum, c) => sum + c.lead_count, 0)
 
   if (loading) return (
@@ -221,11 +236,12 @@ export default function CampaignListClient() {
         {activeCampaigns.length > 0 && (
           <div className="space-y-3">
             {activeCampaigns.map(c => {
-              const dialed = (c.status_counts.attempted ?? 0) + (c.status_counts.contacted ?? 0)
-                           + (c.status_counts.interested ?? 0) + (c.status_counts.callback ?? 0)
-                           + (c.status_counts.follow_up ?? 0) + (c.status_counts.qualified ?? 0)
-                           + (c.status_counts.promoted ?? 0) + (c.status_counts.dnc ?? 0)
-                           + (c.status_counts.closed_lost ?? 0)
+              const counts = c.status_counts ?? {}
+              const dialed = (counts.attempted ?? 0) + (counts.contacted ?? 0)
+                           + (counts.interested ?? 0) + (counts.callback ?? 0)
+                           + (counts.follow_up ?? 0) + (counts.qualified ?? 0)
+                           + (counts.promoted ?? 0) + (counts.dnc ?? 0)
+                           + (counts.closed_lost ?? 0)
               const pct = c.lead_count > 0 ? Math.round((dialed / c.lead_count) * 100) : 0
 
               return (
@@ -282,7 +298,7 @@ export default function CampaignListClient() {
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">Queue Ready</p>
                       <p className="mt-1 text-lg font-semibold text-white">
-                        {((c.status_counts.new ?? 0) + (c.status_counts.attempted ?? 0) + (c.status_counts.callback ?? 0) + (c.status_counts.follow_up ?? 0)).toLocaleString()}
+                        {(((c.status_counts?.new ?? 0) + (c.status_counts?.attempted ?? 0) + (c.status_counts?.callback ?? 0) + (c.status_counts?.follow_up ?? 0))).toLocaleString()}
                       </p>
                     </div>
                     <div>
@@ -291,7 +307,7 @@ export default function CampaignListClient() {
                     </div>
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">CRM Ready</p>
-                      <p className="mt-1 text-lg font-semibold text-white">{((c.status_counts.qualified ?? 0) + (c.status_counts.promoted ?? 0)).toLocaleString()}</p>
+                      <p className="mt-1 text-lg font-semibold text-white">{(((c.status_counts?.qualified ?? 0) + (c.status_counts?.promoted ?? 0))).toLocaleString()}</p>
                     </div>
                   </div>
 
@@ -316,9 +332,9 @@ export default function CampaignListClient() {
                       ['promoted','Promoted','border-cyan-400/20 bg-cyan-400/10 text-cyan-200'],
                       ['dnc','DNC','border-rose-400/20 bg-rose-400/10 text-rose-200'],
                     ].map(([key, label, cls]) =>
-                      (c.status_counts[key] ?? 0) > 0 ? (
+                      (counts[key as string] ?? 0) > 0 ? (
                         <span key={key} className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', cls)}>
-                          {label} {c.status_counts[key]}
+                          {label} {(counts[key as string] ?? 0)}
                         </span>
                       ) : null
                     )}

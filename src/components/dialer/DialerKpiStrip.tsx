@@ -42,6 +42,19 @@ function Divider() {
   return <div className="w-px h-6 bg-gray-700 shrink-0" />
 }
 
+function isPeriodStats(value: unknown): value is PeriodStats {
+  if (!value || typeof value !== 'object') return false
+  const stats = value as Record<string, unknown>
+  return ['dials', 'connects', 'interested', 'qualified', 'promoted', 'contact_rate', 'qualified_rate']
+    .every(key => typeof stats[key] === 'number')
+}
+
+function isAnalytics(value: unknown): value is Analytics {
+  if (!value || typeof value !== 'object') return false
+  const analytics = value as Record<string, unknown>
+  return isPeriodStats(analytics.today) && isPeriodStats(analytics.week)
+}
+
 function Row({
   label,
   s,
@@ -87,7 +100,11 @@ export default function DialerKpiStrip({ campaignId, className }: Props) {
       ? `/api/admin/dialer/analytics?campaign_id=${campaignId}`
       : '/api/admin/dialer/analytics'
     fetch(url)
-      .then(r => r.json())
+      .then(async r => {
+        const json = await r.json().catch(() => null)
+        if (!r.ok || !isAnalytics(json)) return null
+        return json
+      })
       .then(j => setData(j))
       .catch(() => {})
       .finally(() => setLoading(false))

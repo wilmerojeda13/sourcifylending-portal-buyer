@@ -27,6 +27,19 @@ interface Campaign {
   status_counts: Record<string, number>
 }
 
+function normalizeCampaign(input: Partial<Campaign> & { id: string; name?: string }) {
+  return {
+    ...input,
+    name: input.name ?? 'Untitled campaign',
+    description: input.description ?? null,
+    status: input.status ?? 'paused',
+    lead_count: Number(input.lead_count) || 0,
+    status_counts: input.status_counts && typeof input.status_counts === 'object'
+      ? input.status_counts
+      : {},
+  } as Campaign
+}
+
 interface CampaignLead {
   id: string
   campaign_id: string
@@ -181,7 +194,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
       ])
       const [camJson, leadsJson] = await Promise.all([camRes.json(), leadsRes.json()])
       if (!camRes.ok) throw new Error(camJson.error)
-      setCampaign(camJson.campaign)
+      setCampaign(normalizeCampaign(camJson.campaign ?? { id: campaignId }))
       setLeads(leadsJson.leads ?? [])
       setTotal(leadsJson.total ?? 0)
       setPage(pg)
@@ -482,9 +495,10 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
   const filteredLeads = leads
 
   // Dialable count comes from accurate server-side status_counts (not capped leads array)
+  const counts = campaign.status_counts ?? {}
   const dialableCount = campaign
     ? (['new', 'attempted', 'callback', 'follow_up'] as const)
-        .reduce((sum, s) => sum + (campaign.status_counts[s] ?? 0), 0)
+        .reduce((sum, s) => sum + (counts[s] ?? 0), 0)
     : 0
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -567,9 +581,9 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
           {/* Status count pills */}
           <div className="flex gap-1.5 flex-wrap mt-4">
             {Object.entries(STATUS_COLORS).map(([key, cls]) =>
-              (campaign.status_counts[key] ?? 0) > 0 ? (
+              (counts[key] ?? 0) > 0 ? (
                 <span key={key} className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize', cls)}>
-                  {key.replace('_',' ')} {campaign.status_counts[key]}
+                  {key.replace('_',' ')} {counts[key]}
                 </span>
               ) : null
             )}
@@ -649,7 +663,7 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
                   )}>
                   {s === 'all'
                     ? `All (${campaign.lead_count})`
-                    : `${s.replace('_', ' ')} (${campaign.status_counts[s] ?? 0})`}
+                    : `${s.replace('_', ' ')} (${counts[s] ?? 0})`}
                 </button>
               ))}
             </div>
@@ -938,14 +952,14 @@ export default function CampaignDetailClient({ campaignId }: { campaignId: strin
               Copy leads with selected outcomes from <span className="text-gray-300">“{campaign.name}”</span> into a new campaign at status “New”.
             </p>
             <div className="space-y-1 mb-4">
-              {OUTCOME_OPTIONS.filter(o => (campaign.status_counts[o.key] ?? 0) > 0).map(o => (
+              {OUTCOME_OPTIONS.filter(o => (counts[o.key] ?? 0) > 0).map(o => (
                 <label key={o.key} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-800 cursor-pointer">
                   <input type="checkbox" checked={fromStatuses.has(o.key)}
                     onChange={e => setFromStatuses(s => {
                       const ns = new Set(s); e.target.checked ? ns.add(o.key) : ns.delete(o.key); return ns
                     })} className="rounded" />
                   <span className="text-sm text-gray-300">{o.label}</span>
-                  <span className="ml-auto text-xs text-gray-500">{campaign.status_counts[o.key]}</span>
+                  <span className="ml-auto text-xs text-gray-500">{counts[o.key] ?? 0}</span>
                 </label>
               ))}
             </div>

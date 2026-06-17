@@ -721,8 +721,10 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
   }
 
   function handleDial() {
-    if (!raw) return
-    const number = raw.phone_e164 ?? raw.phone
+    const lead = current
+    const rawLead = lead?.raw_lead ?? null
+    if (!rawLead) return
+    const number = rawLead.phone_e164 ?? rawLead.phone
     const dialTarget = buildDialTarget(number)
     setMobileDockMode('post_call')
     if (dialTarget.target) {
@@ -1143,7 +1145,7 @@ export default function CampaignDialerClient({ campaignId }: { campaignId: strin
                     </button>
                   )}
                 </div>
-                {!raw.email && (
+                {!raw?.email && (
                   <p className="text-[11px] text-gray-500">No email on file</p>
                 )}
               </div>

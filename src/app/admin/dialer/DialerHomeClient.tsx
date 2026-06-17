@@ -25,6 +25,18 @@ interface Campaign {
   status_counts: Record<string, number>
 }
 
+function normalizeCampaign(input: Partial<Campaign> & { id: string; name?: string }) {
+  return {
+    ...input,
+    name: input.name ?? 'Untitled campaign',
+    status: input.status ?? 'paused',
+    lead_count: Number(input.lead_count) || 0,
+    status_counts: input.status_counts && typeof input.status_counts === 'object'
+      ? input.status_counts
+      : {},
+  } as Campaign
+}
+
 interface AnalyticsResponse {
   today?: {
     dials: number
@@ -84,7 +96,7 @@ export default function DialerHomeClient() {
       fetch('/api/admin/dialer/campaigns').then(async res => {
         const json = await res.json()
         if (!res.ok) throw new Error(json.error ?? 'Failed to load campaigns')
-        return json.campaigns ?? []
+        return (json.campaigns ?? []).map(normalizeCampaign)
       }),
       fetch('/api/admin/dialer/analytics').then(async res => {
         const json = await res.json()
@@ -122,22 +134,22 @@ export default function DialerHomeClient() {
 
   const queueReady = useMemo(
     () => campaigns.reduce((sum, campaign) => sum
-      + (campaign.status_counts.new ?? 0)
-      + (campaign.status_counts.attempted ?? 0)
-      + (campaign.status_counts.callback ?? 0)
-      + (campaign.status_counts.follow_up ?? 0), 0),
+      + (campaign.status_counts?.new ?? 0)
+      + (campaign.status_counts?.attempted ?? 0)
+      + (campaign.status_counts?.callback ?? 0)
+      + (campaign.status_counts?.follow_up ?? 0), 0),
     [campaigns]
   )
 
   const readyForCrm = useMemo(
     () => campaigns.reduce((sum, campaign) => sum
-      + (campaign.status_counts.qualified ?? 0)
-      + (campaign.status_counts.promoted ?? 0), 0),
+      + (campaign.status_counts?.qualified ?? 0)
+      + (campaign.status_counts?.promoted ?? 0), 0),
     [campaigns]
   )
 
   const callbacksDue = useMemo(
-    () => campaigns.reduce((sum, campaign) => sum + (campaign.status_counts.callback ?? 0), 0),
+    () => campaigns.reduce((sum, campaign) => sum + (campaign.status_counts?.callback ?? 0), 0),
     [campaigns]
   )
 
@@ -339,10 +351,11 @@ export default function DialerHomeClient() {
             </div>
           ) : (
             activeCampaigns.slice(0, 4).map(campaign => {
-              const queued = (campaign.status_counts.new ?? 0)
-                + (campaign.status_counts.attempted ?? 0)
-                + (campaign.status_counts.callback ?? 0)
-                + (campaign.status_counts.follow_up ?? 0)
+              const counts = campaign.status_counts ?? {}
+              const queued = (counts.new ?? 0)
+                + (counts.attempted ?? 0)
+                + (counts.callback ?? 0)
+                + (counts.follow_up ?? 0)
               const completed = campaign.lead_count > 0
                 ? campaign.lead_count - queued
                 : 0
@@ -367,7 +380,7 @@ export default function DialerHomeClient() {
                           {queued.toLocaleString()} ready
                         </span>
                         <span className="rounded-full bg-violet-500/10 px-2.5 py-1 text-xs font-medium text-violet-200">
-                          {campaign.status_counts.qualified ?? 0} qualified
+                          {(counts.qualified ?? 0)} qualified
                         </span>
                       </div>
                     </div>
@@ -377,7 +390,7 @@ export default function DialerHomeClient() {
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
                     <div>
                       <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Leads</p>
-                      <p className="mt-1 text-lg font-semibold text-white">{campaign.lead_count.toLocaleString()}</p>
+                      <p className="mt-1 text-lg font-semibold text-white">{(campaign.lead_count ?? 0).toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Completed</p>
