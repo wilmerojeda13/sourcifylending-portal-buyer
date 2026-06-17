@@ -223,29 +223,44 @@ export async function getTagsForEntities(
   if (entityIds.length === 0) {
     return new Map<string, CRMTagRecord[]>()
   }
-  const rows: Array<{ entity_id: string; crm_tags: CRMTagRecord | CRMTagRecord[] | null }> = []
+  const linkRows: Array<{ entity_id: string; tag_id: string }> = []
 
   for (let index = 0; index < entityIds.length; index += CRM_TAG_QUERY_CHUNK_SIZE) {
     const chunk = entityIds.slice(index, index + CRM_TAG_QUERY_CHUNK_SIZE)
     const { data, error } = await supabase
       .from('crm_tag_links')
-      .select('entity_id, crm_tags!inner(id, name, slug, color, description, created_by_user_id, created_by_name, created_at, updated_at)')
+      .select('entity_id, tag_id')
       .eq('entity_type', entityType)
       .in('entity_id', chunk)
-      .is('crm_tags.deleted_at', null)
 
     if (error) throw error
-    rows.push(...((data ?? []) as Array<{ entity_id: string; crm_tags: CRMTagRecord | CRMTagRecord[] | null }>))
+    linkRows.push(...((data ?? []) as Array<{ entity_id: string; tag_id: string }>))
+  }
+
+  const tagIds = Array.from(new Set(linkRows.map((row) => row.tag_id).filter(Boolean)))
+  const tagsById = new Map<string, CRMTagRecord>()
+
+  for (let index = 0; index < tagIds.length; index += CRM_TAG_QUERY_CHUNK_SIZE) {
+    const chunk = tagIds.slice(index, index + CRM_TAG_QUERY_CHUNK_SIZE)
+    const { data, error } = await supabase
+      .from('crm_tags')
+      .select('id, name, slug, color, description, created_by_user_id, created_by_name, created_at, updated_at')
+      .is('deleted_at', null)
+      .in('id', chunk)
+
+    if (error) throw error
+    for (const tag of (data ?? []) as CRMTagRecord[]) {
+      tagsById.set(tag.id, tag)
+    }
   }
 
   const result = new Map<string, CRMTagRecord[]>()
-  for (const row of rows) {
-    const entityId = row.entity_id as string
-    const tag = row.crm_tags as CRMTagRecord | CRMTagRecord[] | null
-    if (!tag || Array.isArray(tag)) continue
-    const existing = result.get(entityId) ?? []
+  for (const row of linkRows) {
+    const tag = tagsById.get(row.tag_id)
+    if (!tag) continue
+    const existing = result.get(row.entity_id) ?? []
     existing.push(tag)
-    result.set(entityId, existing)
+    result.set(row.entity_id, existing)
   }
 
   for (const [entityId, tags] of Array.from(result.entries())) {

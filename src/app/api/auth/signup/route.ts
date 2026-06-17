@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
           full_name: assessment.normalizedFullName,
           business_name: assessment.normalizedBusinessName,
         },
-        emailRedirectTo: `${req.nextUrl.origin}/auth/callback?next=/dashboard`,
+        emailRedirectTo: `${req.nextUrl.origin}/auth/confirm?next=/dashboard`,
       },
     })
 

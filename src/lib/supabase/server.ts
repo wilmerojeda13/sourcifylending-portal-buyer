@@ -34,14 +34,27 @@ export async function createClient() {
  * user sessions cannot override the service role key.
  */
 export async function createServiceClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  )
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL is required to create a Supabase client.')
+  }
+
+  const key = serviceRoleKey || anonKey
+  if (!key) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY is required to create a Supabase client.')
+  }
+
+  if (!serviceRoleKey) {
+    console.warn('[supabase] Falling back to anon key for server client because SUPABASE_SERVICE_ROLE_KEY is missing.')
+  }
+
+  return createSupabaseClient(supabaseUrl, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
 }

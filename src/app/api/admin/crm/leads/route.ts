@@ -6,7 +6,7 @@ import { getLeadDialerPriority } from '@/lib/crm-dialer'
 import { getCrmInviteSummaryMap } from '@/lib/crm-invites'
 import { getCrmSmsSummaryMap } from '@/lib/crm-sms'
 import { matchesDialerQueueFilter, type DialerQueueFilter } from '@/lib/crm-dialer-eligibility'
-import { getTagsForEntities, matchesCrmTagFilters } from '@/lib/crm-tags'
+import { getTagsForEntities, matchesCrmTagFilters, type CRMTagRecord } from '@/lib/crm-tags'
 import { isSchemaDriftError } from '@/lib/supabase-schema'
 import { 
   rankSearchResults, 
@@ -44,12 +44,6 @@ const CRM_LEAD_LIST_SELECT = [
   'likely_timezone',
   'timezone_confidence',
   'timezone_source',
-  'timezone_reason',
-  'recipient_local_time',
-  'timezone_abbreviation',
-  'call_window_status',
-  'call_window_message',
-  'blocked_until_label',
   'created_at',
 ].join(', ')
 
@@ -278,7 +272,12 @@ export async function GET(req: NextRequest) {
   // The phone parsing was too expensive for list views
   const filteredLeads = normalizedLeads
 
-  const leadTagMap = await getTagsForEntities(supabase, 'lead', filteredLeads.map((lead) => lead.id))
+  let leadTagMap = new Map<string, CRMTagRecord[]>()
+  try {
+    leadTagMap = await getTagsForEntities(supabase, 'lead', filteredLeads.map((lead) => lead.id))
+  } catch (error) {
+    console.warn('crm_leads tag enrichment unavailable in GET /api/admin/crm/leads', error)
+  }
   const tagFilteredLeads = (tagIds.length > 0 || excludeTagIds.length > 0)
     ? filteredLeads.filter((lead) => {
       const tags = leadTagMap.get(lead.id) ?? []
@@ -321,18 +320,27 @@ export async function GET(req: NextRequest) {
     searchResults = rankSearchResults(pagedLeads, search, { limit })
   }
 
-  const inviteSummaryMap = dialerMode
-    ? await getCrmInviteSummaryMap(
-      supabase,
-      pagedLeads.map((lead) => lead.id),
-    )
-    : new Map()
-  const smsSummaryMap = dialerMode
-    ? await getCrmSmsSummaryMap(
-      supabase,
-      pagedLeads.map((lead) => lead.id),
-    )
-    : new Map()
+  let inviteSummaryMap: Map<string, any> = new Map()
+  let smsSummaryMap: Map<string, any> = new Map()
+  if (dialerMode) {
+    try {
+      inviteSummaryMap = await getCrmInviteSummaryMap(
+        supabase,
+        pagedLeads.map((lead) => lead.id),
+      )
+    } catch (error) {
+      console.warn('crm invite summary enrichment unavailable in GET /api/admin/crm/leads', error)
+    }
+
+    try {
+      smsSummaryMap = await getCrmSmsSummaryMap(
+        supabase,
+        pagedLeads.map((lead) => lead.id),
+      )
+    } catch (error) {
+      console.warn('crm sms summary enrichment unavailable in GET /api/admin/crm/leads', error)
+    }
+  }
 
   const responseLeads = (searchResults ?? pagedLeads.map(lead => ({
     ...lead,

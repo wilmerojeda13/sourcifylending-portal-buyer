@@ -33,3 +33,5 @@ next-env.d.ts
 # client data files with excessively long paths
 All SourcifyLending/
 .env.local
+
+.env*

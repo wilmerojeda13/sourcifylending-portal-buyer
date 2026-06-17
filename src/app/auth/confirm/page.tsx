@@ -13,18 +13,15 @@ function AuthConfirmInner() {
     processed.current = true
 
     const next = searchParams.get('next') || '/dashboard'
+    const adminEntry = searchParams.get('adminEntry') === 'true'
 
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
-    const syncPartnerAttribution = async () => {
-      try {
-        await fetch('/api/auth/sync-partner-attribution', { method: 'POST' })
-      } catch {
-        // Keep auth confirmation resilient even if attribution sync fails.
-      }
+    const syncPartnerAttribution = () => {
+      void fetch('/api/auth/sync-partner-attribution', { method: 'POST' }).catch(() => {})
     }
 
     const hash = window.location.hash
@@ -42,26 +39,28 @@ function AuthConfirmInner() {
               console.error('setSession error:', error)
               router.replace(`/login?error=auth_confirm_failed`)
             } else {
-              void syncPartnerAttribution().finally(() => router.replace(next))
+              syncPartnerAttribution()
+              window.location.replace(next)
             }
+          })
+          .catch((error) => {
+            console.error('setSession threw:', error)
+            router.replace(`/login?error=auth_confirm_failed`)
           })
         return
       }
     }
 
-    // PKCE flow — code in query param
+    // PKCE flow — hand off to the server callback so the code verifier stays intact
     const code = searchParams.get('code')
     if (code) {
-      supabase.auth
-        .exchangeCodeForSession(code)
-        .then(({ error }) => {
-          if (error) {
-            console.error('exchangeCodeForSession error:', error)
-            router.replace(`/login?error=auth_confirm_failed`)
-          } else {
-            void syncPartnerAttribution().finally(() => router.replace(next))
-          }
-        })
+      const callbackUrl = new URL('/auth/callback', window.location.origin)
+      callbackUrl.searchParams.set('code', code)
+      callbackUrl.searchParams.set('next', next)
+      if (adminEntry) {
+        callbackUrl.searchParams.set('adminEntry', 'true')
+      }
+      window.location.replace(callbackUrl.toString())
       return
     }
 

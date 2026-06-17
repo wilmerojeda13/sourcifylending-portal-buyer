@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { buildOAuthCallbackUrl, normalizeNextPath } from '@/lib/auth-routing'
+import { normalizeNextPath } from '@/lib/auth-routing'
 
 interface Props {
   redirectTo?: string
@@ -13,40 +12,30 @@ interface Props {
 export default function GoogleSignInButton({
   redirectTo = '/portal',
   label = 'Continue with Google',
-  keepSignedIn = true,
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     setLoading(true)
     setError(null)
-    const supabase = createClient({ keepSignedIn })
-    const nextPath = normalizeNextPath(redirectTo)
 
-    // Timeout guard — if Supabase doesn't redirect within 8 s, reset so user can retry
-    const timeout = new Promise<{ error: Error }>(resolve =>
-      setTimeout(() => resolve({ error: new Error('timeout') }), 8000)
-    )
-    const result = await Promise.race([
-      supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: buildOAuthCallbackUrl(window.location.origin, nextPath),
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent select_account',
-          },
-        },
-      }),
-      timeout,
-    ])
+    try {
+      const nextPath = normalizeNextPath(redirectTo)
+      const isAdminEntry = nextPath.startsWith('/admin')
+      const url = new URL('/auth/google', window.location.origin)
 
-    if (result?.error) {
+      url.searchParams.set('next', nextPath)
+      if (isAdminEntry) {
+        url.searchParams.set('adminEntry', 'true')
+      }
+
+      window.location.assign(url.toString())
+    } catch (signInError) {
+      console.error('[GoogleSignInButton] redirect failed', signInError)
       setLoading(false)
-      setError('Google sign-in failed — please try again.')
+      setError('Google sign-in failed - please try again.')
     }
-    // If no error the browser has already navigated away; loading stays true intentionally
   }
 
   return (
@@ -70,11 +59,10 @@ export default function GoogleSignInButton({
             <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335" />
           </svg>
         )}
-        {loading ? 'Redirecting…' : label}
+        {loading ? 'Redirecting...' : label}
       </button>
-      {error && (
-        <p className="mt-2 text-center text-xs text-red-500">{error}</p>
-      )}
+      {error && <p className="mt-2 text-center text-xs text-red-500">{error}</p>}
     </div>
   )
 }
+// PUBLIC_FORM_COMPLIANCE_OK

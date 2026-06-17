@@ -149,7 +149,12 @@ export default function CRMSalesOverview() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Leads in Range" value={data.kpis.total_leads ?? 0} detail={`${data.kpis.active_leads_count ?? 0} active CRM leads`} icon={Users} />
+        <StatCard
+          label="Active CRM Leads"
+          value={data.kpis.active_leads_count ?? 0}
+          detail={`${data.kpis.total_leads ?? 0} created in range`}
+          icon={Users}
+        />
         <StatCard label="Hot Leads" value={data.kpis.hot_leads_count} detail="Ready for attention" icon={Flame} />
         <StatCard label="Callbacks Due" value={data.kpis.callbacks_due_today} detail={`${data.kpis.follow_ups_pending} follow-ups open`} icon={CalendarClock} />
         <StatCard label="Close Rate" value={`${data.kpis.close_rate}%`} detail={`${data.kpis.closed_deals} won / ${data.kpis.total_connects} connects`} icon={CheckCircle2} />

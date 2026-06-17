@@ -14,8 +14,17 @@ export function normalizeNextPath(next: string | null | undefined, fallback = DE
   return next
 }
 
+function isLocalDevelopmentOrigin(origin: string) {
+  try {
+    const { hostname } = new URL(origin)
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+  } catch {
+    return false
+  }
+}
+
 export function buildOAuthCallbackUrl(origin: string, next: string | null | undefined, isAdminEntry?: boolean) {
-  const isProduction = process.env.VERCEL_ENV === 'production'
+  const isProduction = process.env.VERCEL_ENV === 'production' && !isLocalDevelopmentOrigin(origin)
   const fallbackBase = isAdminEntry ? ADMIN_URL : SITE_URL
   const base = (isProduction ? fallbackBase : origin).replace(/\/$/, '')
   const url = new URL(base)

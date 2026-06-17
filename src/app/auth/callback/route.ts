@@ -45,12 +45,21 @@ async function sendNewSignupNotification(email: string, fullName: string) {
   }
 }
 
+function isLocalDevelopmentOrigin(origin: string) {
+  try {
+    const { hostname } = new URL(origin)
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+  } catch {
+    return false
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const next = normalizeNextPath(searchParams.get('next'))
   const adminEntry = searchParams.get('adminEntry') === 'true'
-  const isProduction = process.env.VERCEL_ENV === 'production'
+  const isProduction = process.env.VERCEL_ENV === 'production' && !isLocalDevelopmentOrigin(origin)
   const appOrigin = (isProduction ? (adminEntry ? ADMIN_URL : SITE_URL) : origin).replace(/\/$/, '')
 
   if (!code) {
@@ -82,6 +91,11 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase.auth.exchangeCodeForSession(code)
   if (error) {
     console.error('[auth/callback] exchangeCodeForSession failed', error)
+    if (error.code === 'pkce_code_verifier_not_found') {
+      return NextResponse.redirect(
+        `${appOrigin}/sign-in?error=oauth_callback_failed&next=${encodeURIComponent(next)}`
+      )
+    }
     return NextResponse.redirect(`${appOrigin}/sign-in?error=oauth_callback_failed&next=${encodeURIComponent(next)}`)
   }
 
@@ -91,14 +105,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${appOrigin}/sign-in?error=oauth_callback_failed&next=${encodeURIComponent(next)}`)
   }
 
-  const { data: existingById } = await serviceClient
+  const { data: existingById } = await supabase
     .from('profiles')
     .select('id')
     .eq('id', user.id)
     .maybeSingle()
 
   if (!existingById && user.email) {
-    const { data: emailProfile } = await serviceClient
+    const { data: emailProfile } = await supabase
       .from('profiles')
       .select('id')
       .eq('email', user.email)
@@ -115,7 +129,7 @@ export async function GET(request: NextRequest) {
 
   if (!existingById) {
     const fullName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || ''
-    const { error: profileErr } = await serviceClient.from('profiles').insert({
+    const { error: profileErr } = await supabase.from('profiles').insert({
       id: user.id,
       email: user.email ?? '',
       full_name: fullName,
@@ -137,7 +151,7 @@ export async function GET(request: NextRequest) {
 
   // Admin entry point security check
   if (adminEntry) {
-    const { data: profile } = await serviceClient
+    const { data: profile } = await supabase
       .from('profiles')
       .select('is_admin')
       .eq('id', user.id)

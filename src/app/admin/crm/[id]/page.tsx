@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { getTagsForEntities } from '@/lib/crm-tags'
+import { getTagsForEntities, type CRMTagRecord } from '@/lib/crm-tags'
 import LeadDetailClient from './LeadDetailClient'
 
 export const metadata = { title: 'Lead Detail' }
@@ -27,7 +27,12 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     .order('due_at', { ascending: true, nullsFirst: false })
     .limit(20)
 
-  const leadTagMap = await getTagsForEntities(supabase, 'lead', [id])
+  let leadTagMap = new Map<string, CRMTagRecord[]>()
+  try {
+    leadTagMap = await getTagsForEntities(supabase, 'lead', [id])
+  } catch (error) {
+    console.warn('[admin crm] lead tag enrichment failed for detail page', error)
+  }
 
   return (
     <LeadDetailClient

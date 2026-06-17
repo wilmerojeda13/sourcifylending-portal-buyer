@@ -84,13 +84,18 @@ export default function NotificationRuntime() {
       const user = data.user
       if (!user) return
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id, is_admin, active_business_profile_id')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
-      if (cancelled || !profile) return
+      if (cancelled || profileError || !profile) {
+        if (profileError) {
+          console.warn('[NotificationRuntime] profile bootstrap failed', profileError)
+        }
+        return
+      }
 
       const businessId = getCookie('sl_active_business') || profile.active_business_profile_id || profile.id
       setActiveBusinessId(businessId)
