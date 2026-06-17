@@ -12,6 +12,7 @@ import { ensureSignupCrmLead } from '@/lib/signup-crm'
 import { logSignupSecurityEvent } from '@/lib/signup-security'
 import { getSignupAutomationErrorMessage, recordSignupAutomationFailure } from '@/lib/signup-automation-monitor'
 import { ADMIN_NOTIFICATION_EMAIL, NO_REPLY_EMAIL } from '@/lib/site-config'
+import { ADMIN_URL, SITE_URL } from '@/lib/site-config'
 
 async function sendNewSignupNotification(email: string, fullName: string) {
   const key = process.env.RESEND_API_KEY
@@ -49,7 +50,8 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   const next = normalizeNextPath(searchParams.get('next'))
   const adminEntry = searchParams.get('adminEntry') === 'true'
-  const appOrigin = origin.replace(/\/$/, '')
+  const isProduction = process.env.VERCEL_ENV === 'production'
+  const appOrigin = (isProduction ? (adminEntry ? ADMIN_URL : SITE_URL) : origin).replace(/\/$/, '')
 
   if (!code) {
     return NextResponse.redirect(`${appOrigin}/sign-in?error=oauth_callback_failed&next=${encodeURIComponent(next)}`)

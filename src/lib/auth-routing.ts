@@ -1,3 +1,5 @@
+import { ADMIN_URL, SITE_URL } from '@/lib/site-config'
+
 export const DEFAULT_POST_LOGIN_PATH = '/portal'
 export const ADMIN_POST_LOGIN_PATH = '/admin'
 
@@ -13,7 +15,9 @@ export function normalizeNextPath(next: string | null | undefined, fallback = DE
 }
 
 export function buildOAuthCallbackUrl(origin: string, next: string | null | undefined, isAdminEntry?: boolean) {
-  const base = origin.replace(/\/$/, '')
+  const isProduction = process.env.VERCEL_ENV === 'production'
+  const fallbackBase = isAdminEntry ? ADMIN_URL : SITE_URL
+  const base = (isProduction ? fallbackBase : origin).replace(/\/$/, '')
   const url = new URL(base)
   const isAdminOrigin = isAdminEntry !== undefined ? isAdminEntry : isAdminSubdomain(url.host)
   const target = normalizeNextPath(next, isAdminOrigin ? ADMIN_POST_LOGIN_PATH : DEFAULT_POST_LOGIN_PATH)
