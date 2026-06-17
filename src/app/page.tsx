@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { ArrowRight, CheckCircle, Bot, BarChart2, Shield, Users, DollarSign } from 'lucide-react'
 import HomepageChatbot from '@/components/chatbot/HomepageChatbot'
 import { SITE_URL } from '@/lib/site-config'
@@ -24,7 +25,17 @@ export const metadata: Metadata = {
   },
 }
 
-export default function HomePage() {
+interface HomePageProps {
+  searchParams?: Promise<{ code?: string; next?: string }>
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const params = searchParams ? await searchParams : {}
+  if (params.code) {
+    const nextPath = params.next && params.next.startsWith('/') ? params.next : '/portal'
+    redirect(`/auth/callback?code=${encodeURIComponent(params.code)}&next=${encodeURIComponent(nextPath)}`)
+  }
+
   return (
     <div className="min-h-screen bg-white">
       {/* Nav */}
