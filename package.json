@@ -20,6 +20,7 @@
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.1",
     "@twilio/voice-sdk": "^2.18.1",
+    "@vercel/speed-insights": "^2.0.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "google-libphonenumber": "^3.2.44",
