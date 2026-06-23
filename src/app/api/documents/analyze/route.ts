@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { checkAIUsage, recordAIUsage } from '@/lib/ai-usage'
 import { logMemoryEvent, updateMemoryProfile } from '@/lib/ai-memory'
 import { getBusinessContext } from '@/lib/business-context'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+import { createOpenAIText, extractJsonObject, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai'
 
 // ─── Static maps ──────────────────────────────────────────────────────────────
 
@@ -389,33 +387,40 @@ export async function POST(req: NextRequest) {
     const systemPrompt = buildSystemPrompt(program, profile ?? {})
     const maxTokens = program ? 1400 : 900  // program-aware responses are larger
 
-    const userContent: Anthropic.MessageParam['content'] = isImage
+    const userContent = isImage
       ? [
           {
             type: 'text' as const,
             text: `Declared document type: ${declaredLabel}\nFilename: ${doc.file_name}\n\nAnalyze this document image and return the JSON assessment.`,
           },
           {
-            type: 'image' as const,
-            source: { type: 'url' as const, url: doc.file_url },
+            type: 'image_url' as const,
+            image_url: { url: doc.file_url },
           },
         ]
       : `Declared document type: ${declaredLabel}\nFilename: ${doc.file_name}\nFile extension: .${ext}\n\nThis file type cannot be visually previewed. Base your analysis on the declared type and filename. If the filename clearly mismatches the declared type, flag it. Otherwise provide guidance appropriate for this document type.\n\nReturn the JSON assessment.`
 
-    const model = isImage ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001'
+    if (!isOpenAIConfigured()) {
+      await supabase.from('documents').update({
+        ai_analysis_status: 'failed',
+        ai_analyzed_at: new Date().toISOString(),
+      }).eq('document_id', document_id)
+      return NextResponse.json({ error: 'AI analysis is unavailable because OpenAI is not configured.' }, { status: 503 })
+    }
 
-    const message = await anthropic.messages.create({
+    const model = getOpenAIModel()
+    const message = await createOpenAIText({
       model,
-      max_tokens: maxTokens,
       system: systemPrompt,
+      maxTokens,
       messages: [{ role: 'user', content: userContent }],
     })
 
-    const rawContent = message.content[0]?.type === 'text' ? message.content[0].text : '{}'
+    const rawContent = message.text || '{}'
 
     let analysis: Record<string, unknown>
     try {
-      const cleaned = rawContent.replace(/^```json\n?/i, '').replace(/\n?```$/i, '').trim()
+      const cleaned = extractJsonObject(rawContent)
       analysis = JSON.parse(cleaned)
     } catch {
       await supabase.from('documents').update({
@@ -436,7 +441,7 @@ export async function POST(req: NextRequest) {
         'success',
         model,
         0,
-        undefined,
+        { provider: 'openai' },
         usageCheck.creditSource,
         usageCheck.purchasedBucketId,
       )

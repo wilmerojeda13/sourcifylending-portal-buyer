@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { createOpenAIText, extractJsonObject, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai'
 
 // ─── Stage ordering & metadata ────────────────────────────────────────────────
 const B_STAGES = ['Foundation', 'Store Credit', 'Fleet & Gas', 'Cash & Revolving']
@@ -97,10 +97,8 @@ export async function GET() {
     // ── Step 6: AI Explanation per recommendation ─────────────────────────────
     let explanations: Record<string, string> = {}
 
-    if (top3.length > 0 && process.env.ANTHROPIC_API_KEY) {
+    if (top3.length > 0 && isOpenAIConfigured()) {
       try {
-        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
         const systemPrompt = `You are a business credit advisor at SourcifyLending.
 For each opportunity, write exactly ONE sentence (max 22 words) explaining:
 - Why this account is the right choice RIGHT NOW for this client
@@ -119,15 +117,15 @@ Return ONLY valid JSON: {"Opportunity Name": "one sentence explanation", ...}`
 Top recommended opportunities for this stage:
 ${top3.map((o, i) => `${i + 1}. "${o.name}" — reports to: ${o.reports_to ?? 'D&B'}, PG required: ${o.pg_required}, terms: ${o.terms ?? 'Net 30'}`).join('\n')}`
 
-        const response = await anthropic.messages.create({
-          model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
-          max_tokens: 350,
+        const response = await createOpenAIText({
+          model: getOpenAIModel(),
+          maxTokens: 350,
           system: systemPrompt,
           messages: [{ role: 'user', content: userMsg }],
         })
 
-        const raw = response.content[0]?.type === 'text' ? response.content[0].text.trim() : '{}'
-        const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+        const raw = response.text.trim()
+        const cleaned = extractJsonObject(raw)
         explanations = JSON.parse(cleaned)
       } catch (e) {
         console.error('[Match] AI explanation error:', e)

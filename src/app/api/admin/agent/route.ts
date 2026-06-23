@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { getOpenAIDiagnostic, getOpenAIClient, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai'
 
 export const dynamic = 'force-dynamic'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+function logAdminAI(level: 'info' | 'warn' | 'error', message: string, meta: Record<string, unknown> = {}) {
+  const payload = {
+    scope: 'api/admin/agent',
+    timestamp: new Date().toISOString(),
+    ...meta,
+  }
+  if (level === 'info') console.info(`[ADMIN-AI] ${message}`, payload)
+  else if (level === 'warn') console.warn(`[ADMIN-AI] ${message}`, payload)
+  else console.error(`[ADMIN-AI] ${message}`, payload)
+}
 
 async function requireAdmin() {
   const authClient = await createClient()
@@ -17,7 +26,11 @@ async function requireAdmin() {
 }
 
 // ─── Tool definitions ─────────────────────────────────────────────────────────
-const TOOLS: Anthropic.Tool[] = [
+const TOOLS: Array<{
+  name: string
+  description: string
+  input_schema: Record<string, unknown>
+}> = [
   // ── CRM ──
   {
     name: 'search_leads',
@@ -213,6 +226,15 @@ const TOOLS: Anthropic.Tool[] = [
     input_schema: { type: 'object' as const, properties: {} },
   },
 ]
+
+const OPENAI_TOOLS = TOOLS.map((tool) => ({
+  type: 'function' as const,
+  function: {
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.input_schema,
+  },
+}))
 
 // ─── Tool execution ───────────────────────────────────────────────────────────
 async function executeTool(
@@ -664,9 +686,16 @@ async function executeTool(
 
 // ─── POST /api/admin/agent ────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const requestId = crypto.randomUUID()
   const supabase = await requireAdmin()
-  if (!supabase) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ message: 'AI not configured' }, { status: 503 })
+  if (!supabase) {
+    logAdminAI('warn', 'forbidden admin request', { requestId })
+    return NextResponse.json({ error: 'Forbidden', request_id: requestId }, { status: 403 })
+  }
+  if (!isOpenAIConfigured()) {
+    logAdminAI('error', 'OPENAI_API_KEY_MISSING', { requestId, diagnostic_code: 'OPENAI_API_KEY_MISSING' })
+    return NextResponse.json({ message: 'AI is temporarily unavailable. Please try again shortly.', error_code: 'OPENAI_API_KEY_MISSING', request_id: requestId }, { status: 503 })
+  }
 
   const { messages, page_context, context_id, context_type } = await req.json() as {
     messages: { role: string; content: string }[]
@@ -885,53 +914,75 @@ Operations:
   - get_operations_summary: client health, task completion, at-risk members`
 
   // ─── Agentic loop ─────────────────────────────────────────────────────────
-  const apiMessages: Anthropic.MessageParam[] = messages.map(m => ({
-    role: m.role as 'user' | 'assistant',
+  const openai = getOpenAIClient()
+  const model = getOpenAIModel()
+  const apiMessages: any[] = messages.map(m => ({
+    role: m.role === 'assistant' ? 'assistant' : 'user',
     content: m.content,
   }))
 
   let finalText = ''
   const MAX_ITERATIONS = 8
 
-  for (let i = 0; i < MAX_ITERATIONS; i++) {
-    const response = await anthropic.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 1024,
-      system: systemPrompt,
-      tools: TOOLS,
-      messages: apiMessages,
-    })
-
-    // Collect any text content
-    const textBlocks = response.content.filter(b => b.type === 'text')
-    if (textBlocks.length) {
-      finalText = textBlocks.map(b => (b as Anthropic.TextBlock).text).join('\n')
-    }
-
-    // If no tool calls, we're done
-    if (response.stop_reason === 'end_turn') break
-
-    // Process tool calls
-    const toolUseBlocks = response.content.filter(b => b.type === 'tool_use')
-    if (!toolUseBlocks.length) break
-
-    // Add assistant message with all content blocks
-    apiMessages.push({ role: 'assistant', content: response.content })
-
-    // Execute all tool calls and collect results
-    const toolResults: Anthropic.ToolResultBlockParam[] = []
-    for (const block of toolUseBlocks) {
-      const toolBlock = block as Anthropic.ToolUseBlock
-      const result = await executeTool(toolBlock.name, toolBlock.input as Record<string, unknown>, supabase)
-      toolResults.push({
-        type: 'tool_result',
-        tool_use_id: toolBlock.id,
-        content: result,
+  try {
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      const response = await openai.chat.completions.create({
+        model,
+        max_tokens: 1024,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...apiMessages,
+        ],
+        tools: OPENAI_TOOLS,
+        tool_choice: 'auto',
       })
-    }
 
-    // Add tool results and continue loop
-    apiMessages.push({ role: 'user', content: toolResults })
+      const message = response.choices[0]?.message
+      if (message?.content) finalText = message.content
+
+      // If no tool calls, we're done
+      const toolCalls = message?.tool_calls ?? []
+      if (!toolCalls.length) break
+
+      apiMessages.push({
+        role: 'assistant',
+        content: message.content ?? null,
+        tool_calls: toolCalls,
+      })
+
+      // Execute all tool calls and collect results
+      for (const toolCall of toolCalls) {
+        let input: Record<string, unknown> = {}
+        try {
+          input = JSON.parse(toolCall.function.arguments || '{}')
+        } catch {
+          input = {}
+        }
+        const result = await executeTool(toolCall.function.name, input, supabase)
+        apiMessages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: result,
+        })
+      }
+    }
+  } catch (error) {
+    const diagnostic = getOpenAIDiagnostic(error)
+    logAdminAI(diagnostic.code === 'OPENAI_RATE_LIMITED' ? 'warn' : 'error', diagnostic.code, {
+      requestId,
+      diagnostic_code: diagnostic.code,
+      openai_status: diagnostic.status,
+      model,
+      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : { message: String(error) },
+    })
+    return NextResponse.json(
+      {
+        message: 'AI is temporarily unavailable. Please try again shortly.',
+        error_code: diagnostic.code,
+        request_id: requestId,
+      },
+      { status: 503 }
+    )
   }
 
   return NextResponse.json({ message: finalText || 'Done.' })

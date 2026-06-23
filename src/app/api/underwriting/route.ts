@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { scoreUnderwriting } from '@/lib/underwriting-scorer'
 import { logActivity } from '@/lib/activity'
 import { sendUnderwritingCompleteEmail } from '@/lib/email'
 import { logPortalEvent } from '@/lib/portal-events'
 import { getBusinessContext } from '@/lib/business-context'
+import { createOpenAIText, extractJsonObject, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai'
 
 // Reviews are valid for 30 days
 const REVIEW_VALIDITY_DAYS = 30
@@ -95,9 +95,8 @@ export async function POST(req: NextRequest) {
     let aiSummary: string | null = null
     let aiRecommendations: string[] = []
 
-    if (process.env.ANTHROPIC_API_KEY) {
+    if (isOpenAIConfigured()) {
       try {
-        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
         const reviewNumber = (profile.underwriting_review_count ?? 0) + 1
         const isReview = reviewNumber > 1
         const programLabel = profile.assigned_program === 'program_a'
@@ -147,15 +146,15 @@ ${profile.assigned_program === 'program_a' ? `- Total credit limit: ${answers.uw
 Key issues: ${scoreResult.key_issues.length > 0 ? scoreResult.key_issues.join('; ') : 'None'}
 ${scoreResult.estimated_funding_range ? `Estimated funding range: ${scoreResult.estimated_funding_range}` : ''}`
 
-        const response = await anthropic.messages.create({
-          model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
-          max_tokens: 600,
+        const response = await createOpenAIText({
+          model: getOpenAIModel(),
+          maxTokens: 600,
           system: systemPrompt,
           messages: [{ role: 'user', content: userMsg }],
         })
 
-        const raw = response.content[0]?.type === 'text' ? response.content[0].text.trim() : '{}'
-        const cleaned = raw.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
+        const raw = response.text.trim()
+        const cleaned = extractJsonObject(raw)
         const parsed = JSON.parse(cleaned)
         aiSummary = typeof parsed.summary === 'string' ? parsed.summary : null
         aiRecommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : []

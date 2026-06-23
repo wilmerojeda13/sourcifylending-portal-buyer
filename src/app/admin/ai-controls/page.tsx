@@ -327,7 +327,7 @@ export default function AIControlsPage() {
   ] as const
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="relative isolate min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
 
         {/* Header */}
@@ -940,7 +940,7 @@ export default function AIControlsPage() {
                     rows={3}
                     value={maintenanceNote}
                     onChange={(e) => setMaintenanceNote(e.target.value)}
-                    placeholder="e.g. OpenAI rate limit hit — resuming at 3pm. Or: Upgrading model from gpt-4o-mini to gpt-4o."
+                    placeholder="e.g. OpenAI rate limit hit — resuming at 3pm. Or: Upgrading OPENAI_MODEL."
                     className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
                   />
                   <div className="flex justify-end mt-3">

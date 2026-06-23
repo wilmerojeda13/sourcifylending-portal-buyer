@@ -2,7 +2,7 @@
  * underwriting-scorer.ts
  *
  * Deterministic underwriting scoring engine — no AI dependency.
- * Runs synchronously before the Anthropic call in /api/underwriting.
+ * Runs synchronously before the OpenAI call in /api/underwriting.
  * Returns a risk score, approval likelihood, and key issue list
  * that the AI then uses as grounding context.
  */

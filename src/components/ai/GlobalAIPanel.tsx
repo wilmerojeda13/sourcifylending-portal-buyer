@@ -182,7 +182,7 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
     setMessages(prev => [...prev, userMsg])
     setLoading(true)
 
-    // Build message history for Claude (last 20 messages)
+    // Build message history for the server-side LLM route (last 20 messages)
     const history = [...messages, userMsg].slice(-20).map(m => ({
       role: m.role,
       content: m.content,
@@ -254,7 +254,7 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
       {/* ── Overlay (mobile) ── */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
           onClick={() => setOpen(false)}
         />
       )}
@@ -262,7 +262,7 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
       {/* ── Panel ── */}
       <div
         className={cn(
-          'fixed z-50 flex flex-col bg-white dark:bg-gray-900 shadow-2xl transition-all duration-300 ease-in-out',
+          'fixed z-40 lg:z-30 flex flex-col bg-white dark:bg-gray-900 shadow-2xl transition-all duration-300 ease-in-out',
           // Desktop: side panel from right
           'lg:bottom-6 lg:right-6 lg:w-[420px] lg:rounded-2xl lg:border lg:border-gray-200 dark:lg:border-gray-700',
           // Mobile: bottom sheet
@@ -388,7 +388,7 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
           <button
             onClick={() => setOpen(true)}
             className={cn(
-              'hidden lg:flex fixed z-50 items-center gap-2 px-4 py-3 rounded-full shadow-lg',
+              'hidden lg:flex fixed z-30 items-center gap-2 px-4 py-3 rounded-full shadow-lg',
               'bg-gray-900 hover:bg-gray-800 text-white transition-all duration-200 hover:scale-105 active:scale-95',
               'lg:bottom-6 lg:right-6',
             )}
@@ -401,7 +401,7 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
           </button>
           <button
             onClick={() => setOpen(true)}
-            className="lg:hidden fixed right-4 bottom-20 z-50 w-14 h-14 rounded-full bg-gray-900 hover:bg-gray-800 text-white shadow-xl flex items-center justify-center transition-all duration-200 active:scale-95"
+            className="lg:hidden fixed right-4 bottom-20 z-30 w-14 h-14 rounded-full bg-gray-900 hover:bg-gray-800 text-white shadow-xl flex items-center justify-center transition-all duration-200 active:scale-95"
           >
             <Sparkles size={20} className="text-green-400" />
           </button>
@@ -412,7 +412,7 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
       {open && (
         <button
           onClick={() => setOpen(false)}
-          className="hidden lg:flex fixed z-50 bottom-6 right-[444px] items-center gap-1.5 px-3 py-2 rounded-full bg-gray-900 text-white text-xs shadow-lg hover:bg-gray-800 transition-colors"
+          className="hidden lg:flex fixed z-30 bottom-6 right-[444px] items-center gap-1.5 px-3 py-2 rounded-full bg-gray-900 text-white text-xs shadow-lg hover:bg-gray-800 transition-colors"
         >
           <ChevronDown size={12} />
           <span>Hide</span>

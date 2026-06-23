@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Anthropic } from '@anthropic-ai/sdk'
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+import { createOpenAIText, extractJsonObject, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai'
 
 interface ChatRequest {
   message: string
@@ -59,15 +55,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error('ANTHROPIC_API_KEY not set, using fallback')
+    if (!isOpenAIConfigured()) {
+      console.error('OPENAI_API_KEY not set, using fallback')
       return NextResponse.json({
         response: 'Thanks! Can you tell me a bit more about your business?',
         extractedData: {},
       })
     }
 
-    // Build conversation for Claude
+    // Build conversation for OpenAI
     const messages = [
       ...conversationHistory.map((m) => ({
         role: (m.role === 'bot' ? 'assistant' : m.role) as 'user' | 'assistant',
@@ -79,23 +75,19 @@ export async function POST(request: NextRequest) {
       },
     ]
 
-    const response = await anthropic.messages.create({
-      model: 'claude-opus-4-7',
-      max_tokens: 256,
+    const response = await createOpenAIText({
+      model: getOpenAIModel(),
+      maxTokens: 256,
       system: buildSystemPrompt(collectedData),
       messages,
     })
 
-    const assistantMessage =
-      response.content[0].type === 'text' ? response.content[0].text : ''
+    const assistantMessage = response.text
 
     // Try to parse JSON response
     let parsedResponse = { response: assistantMessage, extracted: {} }
     try {
-      const jsonMatch = assistantMessage.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        parsedResponse = JSON.parse(jsonMatch[0])
-      }
+      parsedResponse = JSON.parse(extractJsonObject(assistantMessage))
     } catch {
       // If JSON parsing fails, return raw response
       parsedResponse = { response: assistantMessage, extracted: {} }

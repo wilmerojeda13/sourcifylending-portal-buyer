@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getBusinessContext } from '@/lib/business-context'
-import Anthropic from '@anthropic-ai/sdk'
 import { SITE_URL } from '@/lib/site-config'
 import {
   checkAIUsage,
@@ -9,9 +8,45 @@ import {
   getEstimatedCostUsd,
   type AIActionType,
 } from '@/lib/ai-usage'
+import { createOpenAIText, getOpenAIDiagnostic, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai'
 
 const PLATFORM_MAINTENANCE_MESSAGE =
   "The AI assistant is temporarily unavailable due to maintenance, upgrades, or a temporary service issue. We're actively working to restore access as quickly as possible. Please try again shortly."
+
+function logAIEvent(
+  level: 'info' | 'warn' | 'error',
+  message: string,
+  meta: Record<string, unknown> = {}
+) {
+  const payload = {
+    scope: 'api/agent',
+    timestamp: new Date().toISOString(),
+    ...meta,
+  }
+
+  if (level === 'info') {
+    console.info(`[AI] ${message}`, payload)
+  } else if (level === 'warn') {
+    console.warn(`[AI] ${message}`, payload)
+  } else {
+    console.error(`[AI] ${message}`, payload)
+  }
+}
+
+function getErrorDetails(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    }
+  }
+
+  return {
+    name: 'UnknownError',
+    message: String(error),
+  }
+}
 
 /** Check system_settings for ai_maintenance flag. Returns { enabled, note }. */
 async function getAIMaintenanceStatus(): Promise<{ enabled: boolean; note: string }> {
@@ -32,50 +67,89 @@ async function getAIMaintenanceStatus(): Promise<{ enabled: boolean; note: strin
 }
 
 export async function POST(req: NextRequest) {
-  // ─── Platform-level maintenance / availability check ─────────────────────────
-  // This runs BEFORE any user-level checks or OpenAI calls
+  const requestId = crypto.randomUUID()
+  const hasOpenAIKey = isOpenAIConfigured()
+  const configuredModel = getOpenAIModel()
+
+  // Platform-level maintenance / availability check.
+  // This runs BEFORE any user-level checks or model calls.
   try {
     const maintenance = await getAIMaintenanceStatus()
+    logAIEvent('info', 'incoming request', {
+      requestId,
+      hasOpenAIKey,
+      configuredModel,
+      maintenanceEnabled: maintenance.enabled,
+      maintenanceNote: maintenance.note,
+      method: req.method,
+      url: req.url,
+    })
+
     if (maintenance.enabled) {
-      console.warn(
-        `[AI-MAINTENANCE] Request blocked — maintenance mode ON. Note: "${maintenance.note}"`
-      )
+      logAIEvent('warn', 'blocked by maintenance flag', {
+        requestId,
+        maintenanceNote: maintenance.note,
+      })
       return NextResponse.json(
-        { message: PLATFORM_MAINTENANCE_MESSAGE, platform_maintenance: true },
-        { status: 200 }
+        {
+          message: PLATFORM_MAINTENANCE_MESSAGE,
+          platform_maintenance: true,
+          error_code: 'ai_maintenance_enabled',
+          request_id: requestId,
+        },
+        { status: 503 }
       )
     }
   } catch (maintErr) {
-    // If settings check itself fails, treat as maintenance
-    console.error('[AI-MAINTENANCE] Failed to check maintenance status:', maintErr)
+    logAIEvent('error', 'failed to check maintenance status', {
+      requestId,
+      error: getErrorDetails(maintErr),
+    })
     return NextResponse.json(
-      { message: PLATFORM_MAINTENANCE_MESSAGE, platform_maintenance: true },
-      { status: 200 }
+      {
+        message: PLATFORM_MAINTENANCE_MESSAGE,
+        platform_maintenance: true,
+        error_code: 'ai_maintenance_check_failed',
+        request_id: requestId,
+      },
+      { status: 503 }
     )
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('Agent error: ANTHROPIC_API_KEY is not configured')
-    // Treat missing API key as a platform-level issue (not a user credit issue)
+  if (!hasOpenAIKey) {
+    logAIEvent('error', 'OPENAI_API_KEY_MISSING', {
+      requestId,
+      configuredModel,
+      diagnostic_code: 'OPENAI_API_KEY_MISSING',
+    })
     return NextResponse.json(
-      { message: PLATFORM_MAINTENANCE_MESSAGE, platform_maintenance: true },
-      { status: 200 }
+      {
+        message: PLATFORM_MAINTENANCE_MESSAGE,
+        platform_maintenance: true,
+        error_code: 'OPENAI_API_KEY_MISSING',
+        request_id: requestId,
+      },
+      { status: 503 }
     )
   }
-
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
+      logAIEvent('warn', 'unauthorized request without user session', { requestId })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const context = await getBusinessContext()
     if (!context) {
+      logAIEvent('warn', 'missing business context', {
+        requestId,
+        userId: user.id,
+      })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const profile = context.activeProfile
 
     const body = await req.json()
     const { messages, action_type, page_context } = body as {
@@ -88,7 +162,7 @@ export async function POST(req: NextRequest) {
     // Callers can pass action_type in the request body; default to simple_chat
     const actionType: AIActionType = (action_type as AIActionType) ?? 'simple_chat'
 
-    // ─── Server-side usage check (runs BEFORE calling OpenAI) ─────────────────
+    // ─── Server-side usage check (runs BEFORE calling OpenAI) ─────────────
     const usageCheck = await checkAIUsage(user.id, actionType)
 
     if (!usageCheck.allowed) {
@@ -115,7 +189,6 @@ export async function POST(req: NextRequest) {
 
     // Fetch user context — load all account data before responding
     const [
-      { data: profile },
       { data: tasks },
       { data: documents },
       { data: reports },
@@ -124,7 +197,6 @@ export async function POST(req: NextRequest) {
       { data: activeDisputes },
       { data: approvedFunding },
     ] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', context.activeBusinessId).single(),
       supabase.from('tasks').select('*').eq('user_id', context.activeBusinessId).order('sort_order'),
       supabase.from('documents').select('document_type,review_status,file_name').eq('user_id', context.activeBusinessId),
       supabase.from('reports').select('report_type,title,generated_at').eq('user_id', context.activeBusinessId).order('generated_at', { ascending: false }).limit(5),
@@ -346,56 +418,62 @@ ${assignedProgram === 'program_c' ? `PROGRAM C — Capital Monitoring:
 
 If no program assigned: ask what program they are in and what their current goal is.`
 
-    const model = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'
+    const model = configuredModel
     let aiMessage = 'I encountered an error. Please try again.'
     let callStatus: 'success' | 'failed' = 'failed'
 
     try {
-      const response = await anthropic.messages.create({
+      logAIEvent('info', 'calling OpenAI', {
+        requestId,
+        userId: user.id,
+        businessId: context.activeBusinessId,
         model,
-        max_tokens: 600,
+        actionType,
+      })
+      const response = await createOpenAIText({
         system: systemPrompt,
+        maxTokens: 600,
+        model,
         messages,
       })
 
-      aiMessage = response.content[0]?.type === 'text' ? response.content[0].text : aiMessage
+      aiMessage = response.text || aiMessage
       callStatus = 'success'
     } catch (aiErr) {
-      const errMsg = aiErr instanceof Error ? aiErr.message : String(aiErr)
-      // Determine if this is a platform-level provider failure
-      const isPlatformError =
-        errMsg.includes('quota') ||
-        errMsg.includes('rate_limit') ||
-        errMsg.includes('overloaded') ||
-        errMsg.includes('503') ||
-        errMsg.includes('502') ||
-        errMsg.includes('529') ||
-        errMsg.includes('overload') ||
-        errMsg.includes('ECONNREFUSED') ||
-        errMsg.includes('ETIMEDOUT') ||
-        errMsg.includes('network')
-      console.error(`[AI-PLATFORM-ERROR] Anthropic call failed (isPlatformError=${isPlatformError}):`, errMsg)
-      if (isPlatformError) {
-        // Record the failed attempt then return the maintenance message
-        await recordAIUsage(
-          user.id,
-          program,
-          actionType,
-          0,
-          isHeavy,
-          balanceId,
-          'failed',
-          model,
-          0,
-          { reason: 'provider_error', internal_message: errMsg }
-        )
-        return NextResponse.json(
-          { message: PLATFORM_MAINTENANCE_MESSAGE, platform_maintenance: true },
-          { status: 200 }
-        )
-      }
-      aiMessage = `I encountered an error processing your request. Please try again.`
-      callStatus = 'failed'
+      const diagnostic = getOpenAIDiagnostic(aiErr)
+      const errDetails = getErrorDetails(aiErr)
+      logAIEvent(diagnostic.code === 'OPENAI_RATE_LIMITED' ? 'warn' : 'error', diagnostic.code, {
+        requestId,
+        userId: user.id,
+        businessId: context.activeBusinessId,
+        model,
+        actionType,
+        diagnostic_code: diagnostic.code,
+        openai_status: diagnostic.status,
+        error: errDetails,
+      })
+      // Record the failed attempt with zero credit cost, then return the friendly platform message.
+      await recordAIUsage(
+        user.id,
+        program,
+        actionType,
+        0,
+        isHeavy,
+        balanceId,
+        'failed',
+        model,
+        0,
+        { provider: 'openai', reason: diagnostic.code, openai_status: diagnostic.status }
+      )
+      return NextResponse.json(
+        {
+          message: PLATFORM_MAINTENANCE_MESSAGE,
+          platform_maintenance: true,
+          error_code: diagnostic.code,
+          request_id: requestId,
+        },
+        { status: 503 }
+      )
     }
 
     // ─── Record usage (deducts credits only on success) ────────────────────────
@@ -409,19 +487,27 @@ If no program assigned: ask what program they are in and what their current goal
       callStatus,
       model,
       getEstimatedCostUsd(actionType),
-      { action_type: actionType },
+      { provider: 'openai', action_type: actionType },
       creditSource,
       purchasedBucketId
     )
 
     return NextResponse.json({ message: aiMessage })
   } catch (error) {
-    const errMsg = error instanceof Error ? error.message : String(error)
-    console.error('[AI-ORCHESTRATION-ERROR] Unexpected agent failure:', errMsg)
+    const errDetails = getErrorDetails(error)
+    logAIEvent('error', 'unexpected agent failure', {
+      requestId,
+      error: errDetails,
+    })
     // Surface all unexpected orchestration failures as the platform maintenance message
     return NextResponse.json(
-      { message: PLATFORM_MAINTENANCE_MESSAGE, platform_maintenance: true },
-      { status: 200 }
+      {
+        message: PLATFORM_MAINTENANCE_MESSAGE,
+        platform_maintenance: true,
+        error_code: 'agent_orchestration_error',
+        request_id: requestId,
+      },
+      { status: 500 }
     )
   }
 }

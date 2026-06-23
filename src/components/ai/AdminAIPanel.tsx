@@ -326,11 +326,11 @@ export default function AdminAIPanel() {
   return (
     <>
       {/* ── Mobile overlay ── */}
-      {open && <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setOpen(false)} />}
+      {open && <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setOpen(false)} />}
 
       {/* ── Chat panel ── */}
       <div className={cn(
-        'fixed z-50 flex flex-col bg-white dark:bg-gray-900 shadow-2xl transition-all duration-300 ease-in-out',
+        'fixed z-40 lg:z-30 flex flex-col bg-white dark:bg-gray-900 shadow-2xl transition-all duration-300 ease-in-out',
         'lg:bottom-6 lg:right-6 lg:w-[420px] lg:rounded-2xl lg:border lg:border-gray-200 dark:lg:border-gray-700',
         'bottom-0 right-0 left-0 lg:left-auto rounded-t-2xl lg:rounded-2xl',
         open
@@ -430,7 +430,7 @@ export default function AdminAIPanel() {
               {loading ? <Loader2 size={13} className="text-white animate-spin" /> : <Send size={13} className="text-white" />}
             </button>
           </div>
-          <p className="text-[10px] text-gray-400 text-center mt-1.5">Admin AI · Full access · Opus 4.6</p>
+          <p className="text-[10px] text-gray-400 text-center mt-1.5">Admin AI · Full access · OpenAI</p>
         </div>
       </div>
 
@@ -439,7 +439,7 @@ export default function AdminAIPanel() {
         <>
           <button
             onClick={() => setOpen(true)}
-            className="hidden lg:flex fixed z-50 items-center gap-2 px-4 py-3 rounded-full shadow-lg bg-gray-950 hover:bg-gray-900 text-white transition-all duration-200 hover:scale-105 active:scale-95 lg:bottom-6 lg:right-6"
+            className="hidden lg:flex fixed z-30 items-center gap-2 px-4 py-3 rounded-full shadow-lg bg-gray-950 hover:bg-gray-900 text-white transition-all duration-200 hover:scale-105 active:scale-95 lg:bottom-6 lg:right-6"
           >
             <Bot size={16} className="text-indigo-400" />
             <span className="text-sm font-semibold">Admin AI</span>
@@ -449,7 +449,7 @@ export default function AdminAIPanel() {
           <button
             onClick={() => setOpen(true)}
             className={cn(
-              'lg:hidden fixed right-4 z-50 w-14 h-14 rounded-full bg-gray-950 hover:bg-gray-900 text-white shadow-xl flex items-center justify-center transition-all duration-200 active:scale-95',
+              'lg:hidden fixed right-4 z-30 w-14 h-14 rounded-full bg-gray-950 hover:bg-gray-900 text-white shadow-xl flex items-center justify-center transition-all duration-200 active:scale-95',
               hideMobileLauncher ? 'hidden' : mobileLauncherBottomClass,
             )}
           >
@@ -463,7 +463,7 @@ export default function AdminAIPanel() {
       {open && (
         <button
           onClick={() => setOpen(false)}
-          className="hidden lg:flex fixed z-50 bottom-6 right-[444px] items-center gap-1.5 px-3 py-2 rounded-full bg-gray-950 text-white text-xs shadow-lg hover:bg-gray-900 transition-colors"
+          className="hidden lg:flex fixed z-30 bottom-6 right-[444px] items-center gap-1.5 px-3 py-2 rounded-full bg-gray-950 text-white text-xs shadow-lg hover:bg-gray-900 transition-colors"
         >
           <ChevronDown size={12} />
           <span>Hide</span>

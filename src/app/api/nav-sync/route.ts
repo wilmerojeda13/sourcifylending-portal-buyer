@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getBusinessContext } from '@/lib/business-context'
-import Anthropic from '@anthropic-ai/sdk'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+import { createOpenAIText, extractJsonObject, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai'
 
 export async function POST(req: NextRequest) {
   const authClient = await createClient()
@@ -36,6 +34,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    if (!isOpenAIConfigured()) {
+      return NextResponse.json({ error: 'AI extraction is unavailable because OpenAI is not configured.' }, { status: 503 })
+    }
+
     const extractionPrompt = `You are a business credit data extraction assistant. The user has pasted text from their Nav business credit dashboard. Extract the following fields if present:
 
 1. PAYDEX score (D&B, 0–100)
@@ -56,15 +58,14 @@ Return a JSON object ONLY with these exact keys (use null if not found):
 Input data:
 ${text.slice(0, 4000)}`
 
-    const response = await anthropic.messages.create({
-      model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
-      max_tokens: 400,
+    const response = await createOpenAIText({
+      model: getOpenAIModel(),
+      maxTokens: 400,
       messages: [{ role: 'user', content: extractionPrompt }],
     })
 
-    const raw = response.content[0]?.type === 'text' ? response.content[0].text : ''
-    // Strip markdown code fences if present
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    const raw = response.text
+    const cleaned = extractJsonObject(raw)
     extracted = JSON.parse(cleaned)
   } catch (err) {
     console.error('[nav-sync] AI extraction failed:', err)
@@ -131,14 +132,14 @@ Return JSON only:
   "next_actions": ["2-3 specific action strings"]
 }`
 
-    const insightRes = await anthropic.messages.create({
-      model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
-      max_tokens: 400,
+    const insightRes = await createOpenAIText({
+      model: getOpenAIModel(),
+      maxTokens: 400,
       messages: [{ role: 'user', content: insightPrompt }],
     })
 
-    const raw = insightRes.content[0]?.type === 'text' ? insightRes.content[0].text : ''
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    const raw = insightRes.text
+    const cleaned = extractJsonObject(raw)
     const parsed = JSON.parse(cleaned)
     aiInsights = parsed.insights ?? []
     nextActions = parsed.next_actions ?? []

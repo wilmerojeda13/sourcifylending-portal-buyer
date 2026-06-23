@@ -1,9 +1,9 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type { Metadata } from 'next'
 import { createServiceClient } from '@/lib/supabase/server'
 import { logPortalEvent } from '@/lib/portal-events'
 import { isMissingRelationError } from '@/lib/supabase-schema'
 import { SITE_URL } from '@/lib/site-config'
+import { createOpenAIText, extractJsonObject, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai'
 import { getContentMotion } from '@/lib/content-engine-types'
 import type {
   ContentAiVisibilityDashboard,
@@ -297,10 +297,6 @@ export const PRIORITY_CONTENT_SEEDS: ContentPageSeed[] = [
     secondaryKeywords: ['partner program objections', 'business funding partnership faq'],
   },
 ]
-
-const anthropic = process.env.ANTHROPIC_API_KEY
-  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  : null
 
 const SITE_ORIGIN = SITE_URL
 
@@ -828,7 +824,7 @@ function sanitizeAiJson(input: string) {
 }
 
 async function maybeEnhanceDraftWithAI(seed: ContentPageSeed, fallback: ReturnType<typeof buildFallbackDraft>) {
-  if (!anthropic) return fallback
+  if (!isOpenAIConfigured()) return fallback
 
   try {
     const prompt = [
@@ -848,21 +844,18 @@ async function maybeEnhanceDraftWithAI(seed: ContentPageSeed, fallback: ReturnTy
       `Route group: ${seed.routeGroup}`,
     ].join('\n')
 
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-latest',
-      max_tokens: 1800,
+    const response = await createOpenAIText({
+      model: getOpenAIModel(),
+      maxTokens: 1800,
       system: 'Return JSON only. Do not wrap in markdown.',
       messages: [{ role: 'user', content: prompt }],
     })
 
-    const text = response.content
-      .filter((item) => item.type === 'text')
-      .map((item) => item.text)
-      .join('\n')
+    const text = response.text
 
     if (!text.trim()) return fallback
 
-    const parsed = JSON.parse(sanitizeAiJson(text)) as Partial<ContentPageRecord>
+    const parsed = JSON.parse(sanitizeAiJson(extractJsonObject(text))) as Partial<ContentPageRecord>
     const merged = {
       ...fallback,
       title_tag: trimText(parsed.title_tag, fallback.title_tag),

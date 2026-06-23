@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { logActivity } from '@/lib/activity'
 import { getBusinessContext } from '@/lib/business-context'
-import Anthropic from '@anthropic-ai/sdk'
 import type { ReportType } from '@/types'
 import { v4 as uuidv4 } from 'uuid'
+import { createOpenAIText, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai'
 
 const REPORT_PROMPTS: Record<ReportType, (ctx: Record<string, unknown>) => string> = {
   credit_readiness_summary: (ctx) => `
@@ -92,7 +92,7 @@ Write a concise 2-3 paragraph Next Step Summary that:
 Keep it under 250 words. Direct and actionable.`,
 }
 
-// Static sample content shown to demo accounts (no OpenAI call needed)
+// Static sample content shown to demo accounts (no provider call needed)
 const DEMO_REPORT_CONTENT: Record<ReportType, string> = {
   credit_readiness_summary: `**Credit Readiness Summary — Sample Report**
 
@@ -170,6 +170,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const context = await getBusinessContext()
     if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const profile = context.activeProfile
     const supabase = await createServiceClient()
 
     const { report_type }: { report_type: ReportType } = await req.json()
@@ -178,7 +179,6 @@ export async function POST(req: NextRequest) {
     if (!promptFn) return NextResponse.json({ error: 'Unknown report type' }, { status: 400 })
 
     // Check subscription and demo status
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', context.activeBusinessId).single()
     const isActive = profile?.billing_status === 'active' || profile?.billing_status === 'trialing'
     const isDemo = profile?.is_demo === true
 
@@ -226,26 +226,26 @@ export async function POST(req: NextRequest) {
 
     let content: string
 
-    if (isDemo || !process.env.ANTHROPIC_API_KEY) {
-      // Demo accounts (or missing key): use static sample content
+    if (isDemo) {
+      // Demo accounts: use static sample content
       content = DEMO_REPORT_CONTENT[report_type]
+    } else if (!isOpenAIConfigured()) {
+      return NextResponse.json({ error: 'Report AI is unavailable because OpenAI is not configured.' }, { status: 503 })
     } else {
-      // Live report — call Anthropic
       try {
-        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-        const response = await anthropic.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 800,
+        const response = await createOpenAIText({
+          model: getOpenAIModel(),
+          maxTokens: 800,
           system: 'You are a professional business credit consultant generating formal client reports for SourcifyLending. Reports must be professional, factual, and never promise specific credit outcomes or approvals.',
           messages: [{ role: 'user', content: promptFn(ctx) }],
         })
-        content = response.content[0]?.type === 'text' ? response.content[0].text : ''
+        content = response.text
         if (!content) throw new Error('Empty response from AI provider')
       } catch (aiErr) {
         const msg = aiErr instanceof Error ? aiErr.message : String(aiErr)
         console.error('[Reports] AI generation failed:', msg)
         // Fall back to static sample rather than hard-failing
-        content = DEMO_REPORT_CONTENT[report_type] + '\n\n*(Note: Live AI generation temporarily unavailable. Showing standard report template.)*'
+        return NextResponse.json({ error: 'Report generation AI failed. Please try again.' }, { status: 503 })
       }
     }
 
@@ -280,20 +280,18 @@ export async function GET() {
   if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = await createServiceClient()
-  const [{ data: profile }, { data: reports }, membershipsResult] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', context.activeBusinessId).single(),
-    supabase.from('reports').select('*').eq('user_id', context.activeBusinessId).order('generated_at', { ascending: false }),
-    supabase.from('memberships').select('program_code').eq('user_id', context.activeBusinessId).eq('status', 'active'),
-  ])
-
-  const membershipPrograms = (membershipsResult?.data ?? []).map((membership: { program_code: string }) => membership.program_code).filter(Boolean)
-  const activePrograms = membershipPrograms.length > 0 ? membershipPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
+  const profile = context.activeProfile
+  const { data: reports } = await supabase
+    .from('reports')
+    .select('*')
+    .eq('user_id', context.activeBusinessId)
+    .order('generated_at', { ascending: false })
   const isActive = profile?.billing_status === 'active' || profile?.billing_status === 'trialing'
 
   return NextResponse.json({
     profile,
     reports: reports ?? [],
-    active_programs: activePrograms,
+    active_programs: profile?.assigned_program ? [profile.assigned_program] : [],
     is_active: isActive,
   })
 }
