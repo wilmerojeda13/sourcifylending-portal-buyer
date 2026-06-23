@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import PortalLayout from '@/components/layout/PortalLayout'
 import { createClient } from '@/lib/supabase/client'
+import { useBusinessContext } from '@/lib/use-business-context'
 import { getProgramShortLabel } from '@/lib/utils'
 import {
   Zap, AlertTriangle, Clock, TrendingUp, RefreshCw, Loader2,
@@ -23,11 +24,16 @@ const ACTION_LABELS: Record<string, string> = {
   underwriting_or_multi_step_deep_analysis: 'Deep Analysis',
 }
 
+function sameStringList(a: string[], b: string[]) {
+  return a.length === b.length && a.every((value, index) => value === b[index])
+}
+
 interface UsageData {
   profile: {
     assigned_program: string | null
     ai_suspended: boolean
     billing_status: string | null
+    is_admin?: boolean
   } | null
   balance: UserAIBalance | null
   program_limits: AIProgramLimits | null
@@ -141,38 +147,56 @@ function AIUsageInner() {
   const justPurchased = searchParams.get('purchased') === '1'
 
   const supabase = createClient()
+  const { activeProfile: contextProfile, activePrograms: contextPrograms } = useBusinessContext()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [usageData, setUsageData] = useState<UsageData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [buying, setBuying] = useState<string | null>(null)
   const [buyError, setBuyError] = useState<string | null>(null)
   const [activePrograms, setActivePrograms] = useState<string[]>([])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
+    setLoadError(null)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setUsageData(null)
+        return
+      }
 
-    const [profileRes, usageRes, membershipsResult] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).single(),
-      fetch('/api/ai-usage'),
-      supabase.from('memberships').select('program_code').eq('user_id', user.id).eq('status', 'active'),
-    ])
+      const usageRes = await fetch('/api/ai-usage')
+      const data = await usageRes.json().catch(() => null)
 
-    if (profileRes.data) {
-      setProfile(profileRes.data)
-      const mPrograms = (membershipsResult?.data ?? []).map((m: { program_code: string }) => m.program_code).filter(Boolean)
-      setActivePrograms(mPrograms.length > 0 ? mPrograms : (profileRes.data?.assigned_program ? [profileRes.data.assigned_program] : []))
+      if (usageRes.ok && data) {
+        setUsageData(data)
+      } else {
+        setUsageData(null)
+        setLoadError(data?.error ?? 'Unable to load AI credits right now.')
+      }
+    } catch (err) {
+      console.error('[ai-usage page] load failed', err)
+      setUsageData(null)
+      setLoadError('Unable to load AI credits right now.')
+    } finally {
+      setLoading(false)
     }
-    if (usageRes.ok) {
-      const data = await usageRes.json()
-      setUsageData(data)
-    }
-    setLoading(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useEffect(() => {
+    if (contextProfile) {
+      setProfile(contextProfile)
+      const effectivePrograms = (contextProfile.effective_allowed_programs ?? contextPrograms ?? []).filter(Boolean)
+      const nextPrograms = effectivePrograms.length > 0
+        ? effectivePrograms
+        : (contextProfile.assigned_program ? [contextProfile.assigned_program] : [])
+      setActivePrograms((current) => sameStringList(current, nextPrograms) ? current : nextPrograms)
+    }
+  }, [contextProfile, contextPrograms])
 
   // When returning from Stripe (?purchased=1), the webhook may not have fired yet.
   // Auto-poll every 2s until purchased credits appear (max 5 attempts = 10s).
@@ -184,15 +208,22 @@ function AIUsageInner() {
 
     const poll = setInterval(async () => {
       attempts++
-      const res = await fetch('/api/ai-usage')
-      if (res.ok) {
-        const data = await res.json()
-        if ((data.purchased_credits_remaining ?? 0) > 0 || attempts >= maxAttempts) {
-          setUsageData(data)
+      try {
+        const res = await fetch('/api/ai-usage')
+        const data = await res.json().catch(() => null)
+        if (res.ok && data) {
+          if ((data.purchased_credits_remaining ?? 0) > 0 || attempts >= maxAttempts) {
+            setUsageData(data)
+            clearInterval(poll)
+          }
+        } else if (attempts >= maxAttempts) {
           clearInterval(poll)
         }
-      } else if (attempts >= maxAttempts) {
-        clearInterval(poll)
+      } catch (err) {
+        console.error('[ai-usage page] polling failed', err)
+        if (attempts >= maxAttempts) {
+          clearInterval(poll)
+        }
       }
     }, intervalMs)
 
@@ -252,7 +283,7 @@ function AIUsageInner() {
       isAdmin={profile?.is_admin}
       allPrograms={activePrograms}
     >
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="relative isolate max-w-2xl mx-auto space-y-6">
 
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -288,6 +319,16 @@ function AIUsageInner() {
                   ? `${purchasedRemaining} purchased credits are active and ready to use.`
                   : 'This usually takes just a few seconds. Your balance will update automatically.'}
               </p>
+            </div>
+          </div>
+        )}
+
+        {loadError && !usageData && (
+          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">AI Credits unavailable</p>
+              <p className="text-sm text-amber-700 mt-0.5">{loadError}</p>
             </div>
           </div>
         )}

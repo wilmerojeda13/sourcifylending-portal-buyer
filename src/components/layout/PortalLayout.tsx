@@ -361,7 +361,7 @@ export default function PortalLayout({
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 fixed h-full z-20">
+      <aside className="hidden lg:flex flex-col w-64 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 fixed h-full z-40">
         {sidebar}
       </aside>
 
@@ -387,7 +387,7 @@ export default function PortalLayout({
       {/* Main Content */}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
         {/* Mobile Top Bar */}
-        <header className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3.5 flex items-center justify-between sticky top-0 z-10">
+        <header className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3.5 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <div className="w-7 h-7 bg-green-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-xs">SL</span>
@@ -418,7 +418,7 @@ export default function PortalLayout({
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 md:p-6 pb-24 lg:pb-6 max-w-5xl w-full mx-auto">
+        <main className="relative z-0 isolate flex-1 p-4 md:p-6 pb-24 lg:pb-6 max-w-5xl w-full mx-auto">
           {isDemo && (
             <div className="mb-5 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-2xl px-4 py-3 flex items-center gap-3">
               <span className="text-lg">🧪</span>
@@ -459,7 +459,7 @@ export default function PortalLayout({
         />
 
         {/* Mobile Bottom Navigation */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 z-10 px-1 py-1.5 safe-area-pb">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 z-30 px-1 py-1.5 safe-area-pb">
           <div className={`grid gap-0.5 ${isProspect ? 'grid-cols-7' : 'grid-cols-6'}`}>
             {(isProspect ? PROSPECT_NAV_ITEMS : MOBILE_NAV_ITEMS).map(({ href, label, icon: Icon }) => {
               const active = pathname === href || pathname.startsWith(href + '/')
