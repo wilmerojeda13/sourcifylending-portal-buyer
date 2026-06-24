@@ -68,9 +68,24 @@ describe('account-state', () => {
       expect(entitlements.has_prior_paid_history).toBe(true)
     })
 
-    test('paid_inactive: explicitly marked paid user with past_due subscription', () => {
+    test('paid_active: explicitly marked paid user with past_due subscription stays in grace period', () => {
       const entitlements = getAccountEntitlements('paid', 'past_due', 'active_member')
+      expect(entitlements.access_state).toBe('paid_active')
+      expect(entitlements.can_use_paid_program_features).toBe(true)
+      expect(entitlements.has_prior_paid_history).toBe(true)
+    })
+
+    test('paid_inactive: explicitly marked paid user with past_due_locked subscription', () => {
+      const entitlements = getAccountEntitlements('paid', 'past_due_locked', 'active_member')
       expect(entitlements.access_state).toBe('paid_inactive')
+      expect(entitlements.can_use_paid_program_features).toBe(false)
+      expect(entitlements.has_prior_paid_history).toBe(true)
+    })
+
+    test('paid_inactive: explicitly marked paid user with suspended subscription', () => {
+      const entitlements = getAccountEntitlements('paid', 'suspended', 'active_member')
+      expect(entitlements.access_state).toBe('paid_inactive')
+      expect(entitlements.can_use_paid_program_features).toBe(false)
       expect(entitlements.has_prior_paid_history).toBe(true)
     })
 

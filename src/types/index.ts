@@ -76,6 +76,7 @@ export interface UserProfile {
   feature_tier: FeatureTier
   portal_blocked: boolean
   is_demo: boolean
+  demo_access_scope?: 'free' | 'program_a' | 'program_b' | 'program_c' | 'all_access' | null
   is_admin: boolean
   admin_notes: string | null
   suspicious_signup?: boolean
@@ -103,6 +104,11 @@ export interface UserProfile {
   partner_onboarding_status: 'unassigned' | 'partner_closing' | 'onboarding' | 'active' | null
   delegate_access_authorized: boolean
   active_business_profile_id?: string | null
+  effective_access_scope?: 'free' | 'program_a' | 'program_b' | 'program_c' | 'all_access' | null
+  effective_access_source?: 'stripe' | 'demo' | 'manual_override' | 'preview' | 'free' | null
+  effective_access_label?: string | null
+  effective_allowed_programs?: ProgramId[] | null
+  effective_access_override_id?: string | null
   created_at: string
   updated_at: string
   // ── Underwriting ────────────────────────────────────────────────────────────
@@ -166,7 +172,7 @@ export interface UnderwritingReview {
 }
 
 // ─── Subscription ─────────────────────────────────────────────────────────────
-export type BillingStatus = 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing'
+export type BillingStatus = 'active' | 'inactive' | 'canceled' | 'past_due' | 'past_due_locked' | 'suspended' | 'trialing'
 export type FeatureTier = 'free' | 'paid'
 // Backwards compatibility aliases
 export type SubscriptionStatus = BillingStatus
@@ -185,6 +191,17 @@ export interface Subscription {
   recurring_amount_cents: number | null
   current_period_start: string | null
   current_period_end: string | null
+  failed_payment_reason?: string | null
+  failed_payment_code?: string | null
+  failed_payment_decline_code?: string | null
+  last_failed_payment_at?: string | null
+  next_payment_attempt_at?: string | null
+  last_failed_invoice_id?: string | null
+  last_failed_payment_intent_id?: string | null
+  last_failed_charge_id?: string | null
+  payment_retry_count?: number
+  final_payment_failure_at?: string | null
+  suspended_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -360,6 +377,7 @@ export type ActivityEventType =
   | 'subscription_reactivated'
   | 'subscription_canceled'
   | 'payment_failed'
+  | 'manual_membership_override_granted'
   | 'task_completed'
   | 'document_uploaded'
   | 'report_generated'

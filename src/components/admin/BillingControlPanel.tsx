@@ -29,6 +29,13 @@ interface BillingData {
     activation_source: string | null
     stripe_customer_id: string | null
     stripe_subscription_id: string | null
+    last_failed_invoice_id: string | null
+    failed_payment_reason: string | null
+    failed_payment_code: string | null
+    failed_payment_decline_code: string | null
+    last_failed_payment_at: string | null
+    next_payment_attempt_at: string | null
+    payment_retry_count: number | null
     setup_fee_standard: number | null
     setup_fee_paid: number | null
     monthly_fee_standard: number | null
@@ -82,6 +89,8 @@ const BILLING_BADGE: Record<string, string> = {
   setup_balance_due: 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-400',
   payment_arrangement: 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-400',
   past_due: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400',
+  past_due_locked: 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300',
+  suspended: 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300',
   canceled: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',
   unpaid: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400',
 }
@@ -479,14 +488,59 @@ export default function BillingControlPanel({ userId }: Props) {
           {/* Stripe Links */}
           <div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Stripe Customer</p>
-            <p className="text-xs text-gray-700 font-mono truncate">
-              {subscription?.stripe_customer_id ?? <span className="text-gray-400">Not linked</span>}
-            </p>
+            {subscription?.stripe_customer_id ? (
+              <a
+                href={`https://dashboard.stripe.com/customers/${subscription.stripe_customer_id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex max-w-full items-center gap-1 text-xs text-blue-700 hover:underline"
+              >
+                <span className="truncate font-mono">{subscription.stripe_customer_id}</span>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
+            ) : (
+              <p className="text-xs text-gray-400">Not linked</p>
+            )}
           </div>
           <div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Stripe Subscription</p>
+            {subscription?.stripe_subscription_id ? (
+              <a
+                href={`https://dashboard.stripe.com/subscriptions/${subscription.stripe_subscription_id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex max-w-full items-center gap-1 text-xs text-blue-700 hover:underline"
+              >
+                <span className="truncate font-mono">{subscription.stripe_subscription_id}</span>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
+            ) : (
+              <p className="text-xs text-gray-400">Not linked</p>
+            )}
+          </div>
+
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Failed Payment Reason</p>
+            <p className="text-xs text-gray-700 dark:text-gray-300">
+              {subscription?.failed_payment_reason ?? subscription?.failed_payment_decline_code ?? <span className="text-gray-400">None</span>}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Last Failed Payment</p>
+            <p className="text-xs text-gray-700 dark:text-gray-300">
+              {subscription?.last_failed_payment_at ? new Date(subscription.last_failed_payment_at).toLocaleString() : <span className="text-gray-400">None</span>}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Next Stripe Retry</p>
+            <p className="text-xs text-gray-700 dark:text-gray-300">
+              {subscription?.next_payment_attempt_at ? new Date(subscription.next_payment_attempt_at).toLocaleString() : <span className="text-gray-400">Not scheduled</span>}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Failed Invoice</p>
             <p className="text-xs text-gray-700 font-mono truncate">
-              {subscription?.stripe_subscription_id ?? <span className="text-gray-400">Not linked</span>}
+              {subscription?.last_failed_invoice_id ?? <span className="text-gray-400">None</span>}
             </p>
           </div>
         </div>

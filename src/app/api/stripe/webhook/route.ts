@@ -5,13 +5,21 @@ import { generateTasksForUser } from '@/lib/task-templates'
 import { logActivity } from '@/lib/activity'
 import { logPortalEvent } from '@/lib/portal-events'
 import { getAffiliateByStripeCustomer, createCommission, reverseCommissions } from '@/lib/affiliates'
-import { sendChargeConfirmationEmail } from '@/lib/email'
+import { sendChargeConfirmationEmail, sendPaymentReminderEmail } from '@/lib/email'
 import { logWebhookError, enqueueWebhookRetry } from '@/lib/webhook-error-logs'
 import { linkOrphanedAnalyzerResults } from '@/lib/link-analyzer-results'
 import type { ProgramId } from '@/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import { getPartnerCommissionPercent, normalizeAcquisitionPath } from '@/lib/partner-program'
+import {
+  buildFailedPaymentReason,
+  getInvoiceNextPaymentAttemptAt,
+  getInvoicePaymentIntentId,
+  getInvoiceRetryCount,
+  getInvoiceSubscriptionId,
+  resolveFailedPaymentStatus,
+} from '@/lib/subscription-recovery'
 
 // ─── Program Metadata ─────────────────────────────────────────────────────────
 const PROGRAM_STAGES: Record<ProgramId, string> = {
@@ -35,6 +43,14 @@ const PROGRAM_MONTHLY_PRICE_IDS: Record<ProgramId, string> = {
   program_a: PRICE_IDS.program_a.monthly,
   program_b: PRICE_IDS.program_b.monthly,
   program_c: PRICE_IDS.program_c.monthly,
+}
+
+function getSubscriptionRecoveryStatus(stripeStatus: Stripe.Subscription.Status): 'active' | 'trialing' | 'past_due' | 'past_due_locked' | 'canceled' | 'inactive' {
+  if (stripeStatus === 'active' || stripeStatus === 'trialing' || stripeStatus === 'past_due' || stripeStatus === 'canceled') {
+    return stripeStatus
+  }
+  if (stripeStatus === 'unpaid') return 'past_due_locked'
+  return 'inactive'
 }
 
 function lineHasPrice(line: Stripe.InvoiceLineItem, priceId: string | undefined) {
@@ -510,9 +526,7 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      const status = (sub.status === 'active' || sub.status === 'trialing')
-        ? sub.status
-        : 'inactive'
+      const status = getSubscriptionRecoveryStatus(sub.status)
 
       const prevStatus = (event.data.previous_attributes as Stripe.Subscription | undefined)?.status
 
@@ -520,11 +534,16 @@ export async function POST(req: NextRequest) {
         status,
         current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
         current_period_end:   new Date(sub.current_period_end   * 1000).toISOString(),
+        suspended_at: status === 'past_due_locked' ? new Date().toISOString() : null,
+        final_payment_failure_at: status === 'past_due_locked' ? new Date().toISOString() : null,
+        next_payment_attempt_at: status === 'active' || status === 'trialing' ? null : null,
         updated_at: new Date().toISOString(),
       }).eq('user_id', userId)
 
       await supabase.from('profiles').update({
         billing_status: status,
+        feature_tier: 'paid',
+        portal_blocked: false,
         updated_at: new Date().toISOString(),
       }).eq('id', userId)
 
@@ -655,16 +674,39 @@ export async function POST(req: NextRequest) {
     case 'invoice.payment_failed': {
       const invoice    = event.data.object as Stripe.Invoice
       const customerId = invoice.customer as string
+      const failedStatus = resolveFailedPaymentStatus(invoice)
+      const nextPaymentAttemptAt = getInvoiceNextPaymentAttemptAt(invoice)
+      const retryCount = getInvoiceRetryCount(invoice)
+      const paymentIntentId = getInvoicePaymentIntentId(invoice)
+      const subscriptionId = getInvoiceSubscriptionId(invoice)
+      const failureReason = buildFailedPaymentReason(invoice)
+      const paymentIntent = (invoice as Stripe.Invoice & {
+        payment_intent?: Stripe.PaymentIntent | string | null
+      }).payment_intent
+      const lastPaymentError = paymentIntent && typeof paymentIntent !== 'string'
+        ? paymentIntent.last_payment_error
+        : null
 
       const { data: sub } = await supabase
         .from('subscriptions')
-        .select('user_id')
+        .select('user_id, program')
         .eq('stripe_customer_id', customerId)
-        .single()
+        .maybeSingle()
 
       if (sub?.user_id) {
         await supabase.from('subscriptions').update({
-          status: 'past_due',
+          status: failedStatus,
+          failed_payment_reason: failureReason,
+          failed_payment_code: lastPaymentError?.code ?? null,
+          failed_payment_decline_code: lastPaymentError?.decline_code ?? null,
+          last_failed_payment_at: new Date().toISOString(),
+          next_payment_attempt_at: nextPaymentAttemptAt,
+          last_failed_invoice_id: invoice.id,
+          last_failed_payment_intent_id: paymentIntentId,
+          last_failed_charge_id: typeof invoice.charge === 'string' ? invoice.charge : invoice.charge?.id ?? null,
+          payment_retry_count: retryCount,
+          final_payment_failure_at: failedStatus === 'past_due_locked' ? new Date().toISOString() : null,
+          suspended_at: failedStatus === 'past_due_locked' ? new Date().toISOString() : null,
           updated_at: new Date().toISOString(),
         }).eq('stripe_customer_id', customerId)
 
@@ -672,37 +714,90 @@ export async function POST(req: NextRequest) {
         // When a recurring payment fails, automatically downgrade to free tier
         // and block portal access until payment is recovered
         await supabase.from('profiles').update({
-          billing_status: 'past_due',
-          feature_tier: 'free',
-          portal_blocked: true,
+          billing_status: failedStatus,
+          feature_tier: 'paid',
+          portal_blocked: false,
+          member_status: 'active_member',
           updated_at: new Date().toISOString(),
         }).eq('id', sub.user_id)
 
+        const membershipStatusUpdate = {
+          status: failedStatus,
+          updated_at: new Date().toISOString(),
+        }
+        if (subscriptionId) {
+          await supabase.from('memberships').update(membershipStatusUpdate).eq('stripe_subscription_id', subscriptionId)
+        } else {
+          await supabase.from('memberships').update(membershipStatusUpdate).eq('user_id', sub.user_id).eq('status', 'active')
+        }
+
         await supabase.from('notifications').insert({
-          user_id: sub.user_id,
+          user_id: sub!.user_id,
           type: 'system',
-          title: '⚠️ Payment Failed — Free Mode Activated',
-          message: 'Your recent payment failed. You\'ve been temporarily downgraded to Free tier. Update your billing info to restore paid access.',
+          title: failedStatus === 'past_due_locked' ? 'Membership Paused' : 'Payment Failed',
+          message: failedStatus === 'past_due_locked'
+            ? 'Your membership is paused due to failed payment. Update your card to restore access.'
+            : 'Payment failed. Please update your payment method.',
           read: false,
           created_at: new Date().toISOString(),
         })
 
-        await logActivity(sub.user_id, 'payment_failed', { customer_id: customerId })
+        const { data: profileForEmail } = await supabase
+          .from('profiles')
+          .select('full_name, business_name, email, assigned_program')
+          .eq('id', sub.user_id)
+          .maybeSingle()
+
+        const toEmail = profileForEmail?.email || (invoice.customer_email as string | null)
+        if (toEmail) {
+          sendPaymentReminderEmail({
+            toEmail,
+            toName: profileForEmail?.full_name || profileForEmail?.business_name || 'Client',
+            reminderType: 'past_due',
+            amountDue: invoice.amount_remaining ? invoice.amount_remaining / 100 : undefined,
+            dueDate: nextPaymentAttemptAt ?? undefined,
+            programLabel: PROGRAM_NAMES[profileForEmail?.assigned_program as ProgramId] ?? 'SourcifyLending Membership',
+            notes: failureReason,
+          }).catch(err => console.error('[PaymentReminder] Email error:', err))
+        }
+
+        await logActivity(sub.user_id, 'payment_failed', {
+          customer_id: customerId,
+          invoice_id: invoice.id,
+          subscription_id: subscriptionId,
+          retry_count: retryCount,
+          next_payment_attempt_at: nextPaymentAttemptAt,
+          status: failedStatus,
+          failure_reason: failureReason,
+        })
         logPortalEvent({
           userId: sub.user_id,
           eventType: 'payment_failed',
           category: 'billing',
-          severity: 'critical',
-          title: 'Payment failed — downgraded to Free',
-          message: 'Subscription payment failed. User downgraded to Free tier to prevent service interruption.',
-          metadata: { customer_id: customerId },
+          severity: failedStatus === 'past_due_locked' ? 'critical' : 'warning',
+          title: failedStatus === 'past_due_locked' ? 'Payment failed - membership paused' : 'Payment failed - grace period active',
+          message: failedStatus === 'past_due_locked'
+            ? 'Stripe has no next retry scheduled. Premium access is paused until the client updates their payment method.'
+            : 'Subscription payment failed. Client remains active during Stripe dunning and can update their payment method.',
+          metadata: {
+            customer_id: customerId,
+            invoice_id: invoice.id,
+            subscription_id: subscriptionId,
+            retry_count: retryCount,
+            next_payment_attempt_at: nextPaymentAttemptAt,
+            failure_reason: failureReason,
+            decline_code: lastPaymentError?.decline_code ?? null,
+            payment_intent_id: paymentIntentId,
+          },
         })
+
       }
 
       break
     }
 
-    // ── Invoice paid (recurring subscription payment) ───────────────────────
+    // ── Charge refunded ─────────────────────────────────────────────────────
+    case 'invoice.payment_succeeded':
     case 'invoice.paid': {
       const invoice = event.data.object as Stripe.Invoice
       const customerId = invoice.customer as string
@@ -714,16 +809,27 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
       if (sub) {
+        await supabase.from('subscriptions').update({
+          status: 'active',
+          next_payment_attempt_at: null,
+          payment_retry_count: 0,
+          final_payment_failure_at: null,
+          suspended_at: null,
+          updated_at: new Date().toISOString(),
+        }).eq('stripe_customer_id', customerId)
+
+        await supabase.from('memberships').update({
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        }).eq('user_id', sub.user_id).in('status', ['past_due', 'past_due_locked', 'suspended'])
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name, business_name, assigned_program, email, acquisition_path, assigned_partner_affiliate_id, billing_status, feature_tier')
           .eq('id', sub.user_id)
           .maybeSingle()
 
-        // ─── Automatic upgrade from free to paid on payment recovery ────────────
-        // When a user who was downgraded to free tier makes a successful payment,
-        // automatically restore them to paid tier and unlock portal access
-        if (profile && profile.feature_tier === 'free' && (profile.billing_status === 'past_due' || profile.billing_status === 'inactive')) {
+        if (profile && ['past_due', 'past_due_locked', 'suspended', 'inactive'].includes(profile.billing_status ?? '')) {
           await supabase.from('profiles').update({
             billing_status: 'active',
             feature_tier: 'paid',
@@ -735,8 +841,8 @@ export async function POST(req: NextRequest) {
           await supabase.from('notifications').insert({
             user_id: sub.user_id,
             type: 'system',
-            title: '✅ Payment Received — Paid Tier Restored',
-            message: 'Your payment was successful! You\'ve been restored to your paid plan with full access.',
+            title: 'Payment Received - Access Restored',
+            message: 'Your payment was successful. Your paid membership access has been restored.',
             read: false,
             created_at: new Date().toISOString(),
           })
@@ -746,76 +852,72 @@ export async function POST(req: NextRequest) {
 
         const amountPaid = (invoice.amount_paid || 0) / 100
         const program = (profile?.assigned_program || sub.program) as ProgramId | null
-        const acquisitionPath = normalizeAcquisitionPath(profile?.acquisition_path || sub.acquisition_path)
-        const assignedPartnerAffiliateId = profile?.assigned_partner_affiliate_id || sub.assigned_partner_affiliate_id || null
-        if (amountPaid > 0) {
+        if (amountPaid > 0 && program) {
+          const acquisitionPath = normalizeAcquisitionPath(profile?.acquisition_path || sub.acquisition_path)
+          const assignedPartnerAffiliateId = profile?.assigned_partner_affiliate_id || sub.assigned_partner_affiliate_id || null
+          const { setupFeeCents, recurringCents } = getInvoiceComponentAmounts(invoice, program)
           const paymentDate = new Date().toISOString().split('T')[0]
-          if (program) {
-            const { setupFeeCents, recurringCents } = getInvoiceComponentAmounts(invoice, program)
-            const paymentRecords: Array<Record<string, unknown>> = []
+          const paymentRecords: Array<Record<string, unknown>> = []
 
-            if (setupFeeCents > 0) {
-              paymentRecords.push({
-                user_id: sub.user_id,
-                subscription_id: sub.id,
-                amount: setupFeeCents / 100,
-                payment_date: paymentDate,
-                payment_source: 'stripe_invoice',
-                payment_type: 'setup_fee',
-                payment_status: 'paid',
-                client_name_snapshot: profile?.full_name || profile?.business_name || null,
-                program_code: profile?.assigned_program || program,
-                stripe_customer_id: customerId,
-                stripe_invoice_id: invoice.id,
-                acquisition_path: acquisitionPath,
-                assigned_partner_affiliate_id: assignedPartnerAffiliateId,
-                revenue_component: 'setup_fee',
-                partner_commission_eligible: acquisitionPath === 'partner_assisted' && !!assignedPartnerAffiliateId,
-                notes: `Stripe setup fee collected: ${invoice.id}`,
-                logged_by: 'stripe_webhook',
-              })
-            }
-
-            if (recurringCents > 0 || paymentRecords.length === 0) {
-              const recurringAmount = recurringCents > 0 ? recurringCents / 100 : amountPaid
-              paymentRecords.push({
-                user_id: sub.user_id,
-                subscription_id: sub.id,
-                amount: recurringAmount,
-                payment_date: paymentDate,
-                payment_source: 'stripe_invoice',
-                payment_type: 'recurring',
-                payment_status: 'paid',
-                client_name_snapshot: profile?.full_name || profile?.business_name || null,
-                program_code: profile?.assigned_program || program,
-                stripe_customer_id: customerId,
-                stripe_invoice_id: invoice.id,
-                acquisition_path: acquisitionPath,
-                assigned_partner_affiliate_id: assignedPartnerAffiliateId,
-                revenue_component: 'recurring',
-                partner_commission_eligible: acquisitionPath === 'partner_assisted' && !!assignedPartnerAffiliateId,
-                notes: `Stripe invoice paid: ${invoice.id}`,
-                logged_by: 'stripe_webhook',
-              })
-            }
-
-            const { error: paymentError } = await supabase.from('payment_records').insert(paymentRecords)
-
-            if (!paymentError && paymentRecords.length > 0) {
-              const totalAmount = paymentRecords.reduce((sum, r) => sum + (r.amount as number), 0)
-              logPortalEvent({
-                userId: sub.user_id,
-                eventType: 'payment_received',
-                category: 'billing',
-                severity: 'success',
-                title: `Payment received: $${totalAmount.toFixed(2)}`,
-                message: `Payment of $${totalAmount.toFixed(2)} successfully processed`,
-                metadata: { amount: totalAmount, invoice_id: invoice.id, records_count: paymentRecords.length },
-              })
-            }
+          if (setupFeeCents > 0) {
+            paymentRecords.push({
+              user_id: sub.user_id,
+              subscription_id: sub.id,
+              amount: setupFeeCents / 100,
+              payment_date: paymentDate,
+              payment_source: 'stripe_invoice',
+              payment_type: 'setup_fee',
+              payment_status: 'paid',
+              client_name_snapshot: profile?.full_name || profile?.business_name || null,
+              program_code: profile?.assigned_program || program,
+              stripe_customer_id: customerId,
+              stripe_invoice_id: invoice.id,
+              acquisition_path: acquisitionPath,
+              assigned_partner_affiliate_id: assignedPartnerAffiliateId,
+              revenue_component: 'setup_fee',
+              partner_commission_eligible: acquisitionPath === 'partner_assisted' && !!assignedPartnerAffiliateId,
+              notes: `Stripe setup fee collected: ${invoice.id}`,
+              logged_by: 'stripe_webhook',
+            })
           }
 
-          // Send charge confirmation email — pull recent agent actions as deliverables
+          const recurringAmountCents = recurringCents > 0 ? recurringCents : invoice.amount_paid - setupFeeCents
+          if (recurringAmountCents > 0 || paymentRecords.length === 0) {
+            paymentRecords.push({
+              user_id: sub.user_id,
+              subscription_id: sub.id,
+              amount: (recurringAmountCents > 0 ? recurringAmountCents : invoice.amount_paid) / 100,
+              payment_date: paymentDate,
+              payment_source: 'stripe_invoice',
+              payment_type: 'recurring',
+              payment_status: 'paid',
+              client_name_snapshot: profile?.full_name || profile?.business_name || null,
+              program_code: profile?.assigned_program || program,
+              stripe_customer_id: customerId,
+              stripe_invoice_id: invoice.id,
+              acquisition_path: acquisitionPath,
+              assigned_partner_affiliate_id: assignedPartnerAffiliateId,
+              revenue_component: 'recurring',
+              partner_commission_eligible: acquisitionPath === 'partner_assisted' && !!assignedPartnerAffiliateId,
+              notes: `Stripe invoice paid: ${invoice.id}`,
+              logged_by: 'stripe_webhook',
+            })
+          }
+
+          const { error: paymentError } = await supabase.from('payment_records').insert(paymentRecords)
+          if (!paymentError && paymentRecords.length > 0) {
+            const totalAmount = paymentRecords.reduce((sum, r) => sum + (r.amount as number), 0)
+            logPortalEvent({
+              userId: sub.user_id,
+              eventType: 'payment_received',
+              category: 'billing',
+              severity: 'success',
+              title: `Payment received: $${totalAmount.toFixed(2)}`,
+              message: `Payment of $${totalAmount.toFixed(2)} successfully processed`,
+              metadata: { amount: totalAmount, invoice_id: invoice.id, records_count: paymentRecords.length },
+            })
+          }
+
           const toEmail = profile?.email || (invoice.customer_email as string | null) || null
           if (toEmail) {
             const { data: recentActions } = await supabase
@@ -826,28 +928,24 @@ export async function POST(req: NextRequest) {
               .order('created_at', { ascending: false })
               .limit(5)
 
-            const programLabel = PROGRAM_NAMES[profile?.assigned_program as ProgramId] ?? profile?.assigned_program ?? 'Membership'
             sendChargeConfirmationEmail({
               toEmail,
               toName: profile?.full_name || profile?.business_name || 'Member',
               amountPaid,
-              programLabel,
+              programLabel: PROGRAM_NAMES[profile?.assigned_program as ProgramId] ?? profile?.assigned_program ?? 'Membership',
               invoiceId: invoice.id,
               billingDate: new Date().toISOString(),
               deliverables: recentActions?.map(a => ({ title: a.title, description: a.description ?? undefined })) ?? [],
             }).catch(err => console.error('[ChargeConfirmation] Email error:', err))
           }
 
-          // Admin notification for successful payment
-          const clientName = profile?.full_name || profile?.business_name || 'Client'
-          const programLabel2 = PROGRAM_NAMES[profile?.assigned_program as ProgramId] ?? profile?.assigned_program ?? 'Membership'
           logPortalEvent({
             userId: sub.user_id,
             eventType: 'payment_succeeded',
             category: 'billing',
             severity: 'success',
-            title: `Payment received — ${clientName}`,
-            message: `$${amountPaid.toFixed(2)} for ${programLabel2}`,
+            title: `Payment received - ${profile?.full_name || profile?.business_name || 'Client'}`,
+            message: `$${amountPaid.toFixed(2)} for ${PROGRAM_NAMES[profile?.assigned_program as ProgramId] ?? profile?.assigned_program ?? 'Membership'}`,
             metadata: {
               amount: amountPaid,
               program: profile?.assigned_program,
@@ -858,7 +956,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Partner commission creation for collected revenue
       const invPaid = event.data.object as Stripe.Invoice
       if (invPaid.customer && invPaid.status === 'paid' && invPaid.amount_paid > 0) {
         try {
@@ -870,10 +967,7 @@ export async function POST(req: NextRequest) {
             .maybeSingle()
 
           let referral = await getAffiliateByStripeCustomer(payingCustomerId)
-          const partnerAffiliateId =
-            liveSub?.assigned_partner_affiliate_id ||
-            referral?.affiliate_id ||
-            null
+          const partnerAffiliateId = liveSub?.assigned_partner_affiliate_id || referral?.affiliate_id || null
           const acquisitionPath = normalizeAcquisitionPath(liveSub?.acquisition_path)
           const programType = (liveSub?.program || referral?.program_type || 'program_a') as ProgramId
 
@@ -899,7 +993,6 @@ export async function POST(req: NextRequest) {
             for (const item of lineItems) {
               const percent = getPartnerCommissionPercent(programType, item.component, referral?.deal_type)
               if (percent <= 0) continue
-
               await createCommission({
                 affiliateId: partnerAffiliateId,
                 referralId: referral?.id ?? null,
@@ -914,30 +1007,6 @@ export async function POST(req: NextRequest) {
                 dealTypeApproved: referral?.deal_type_approved as boolean | null ?? true,
               })
             }
-
-            if (referral?.id) {
-              await supabase.from('affiliate_referrals').update({
-                referral_status: 'active',
-                subscription_active: true,
-                last_payment_at: new Date().toISOString(),
-                onboarding_status: 'active',
-              }).eq('id', referral.id)
-            }
-
-            if (liveSub?.user_id) {
-              try {
-                await supabase.from('affiliate_leads')
-                  .update({
-                    status: 'active',
-                    converted_at: new Date().toISOString(),
-                    onboarding_status: 'active',
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq('affiliate_id', partnerAffiliateId)
-                  .eq('user_id', liveSub.user_id)
-                  .in('status', ['account_created', 'invite_sent', 'lead_created'])
-              } catch (e) { console.error('Lead status update error:', e) }
-            }
           }
         } catch (e) { console.error('Affiliate commission error:', e) }
       }
@@ -945,7 +1014,6 @@ export async function POST(req: NextRequest) {
       break
     }
 
-    // ── Charge refunded ─────────────────────────────────────────────────────
     case 'charge.refunded': {
       const charge = event.data.object as Stripe.Charge
       const customerId = charge.customer as string

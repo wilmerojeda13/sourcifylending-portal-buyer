@@ -16,12 +16,24 @@ import {
 } from 'lucide-react'
 import type { UserProfile } from '@/types'
 import toast from 'react-hot-toast'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
 
 interface Membership {
   id: string
   program_code: string
   status: string
   started_at: string
+}
+
+interface BillingSubscription {
+  stripe_customer_id: string | null
+  status: string | null
+  failed_payment_reason: string | null
+  failed_payment_decline_code: string | null
+  last_failed_payment_at: string | null
+  next_payment_attempt_at: string | null
+  last_failed_invoice_id: string | null
+  payment_retry_count: number | null
 }
 
 interface PaymentArrangement {
@@ -131,9 +143,11 @@ const DESTRUCTIVE_ACTIONS: Record<Exclude<DestructiveAction, null>, {
 export default function BillingPage() {
   const supabase = createClient()
   const router = useRouter()
-  const { activeBusinessId } = useBusinessContext()
+  const { locale } = useLanguage()
+  const { activeBusinessId, activeProfile: contextProfile, activePrograms: contextPrograms } = useBusinessContext()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null)
+  const [subscription, setSubscription] = useState<BillingSubscription | null>(null)
   const [memberships, setMemberships] = useState<Membership[]>([])
   const [arrangement, setArrangement] = useState<PaymentArrangement | null>(null)
   const [totalPaid, setTotalPaid] = useState<number>(0)
@@ -149,22 +163,28 @@ export default function BillingPage() {
   const [destructiveInput, setDestructiveInput] = useState('')
   const [subscriptionRequiredFlow, setSubscriptionRequiredFlow] = useState(false)
   const [newBusinessFlow, setNewBusinessFlow] = useState(false)
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
+
+  useEffect(() => {
+    if (contextProfile) {
+      setProfile(contextProfile)
+    }
+  }, [contextProfile])
 
   useEffect(() => {
     const init = async () => {
       if (!activeBusinessId) return
-      const [{ data: p }, { data: sub }, { data: mem }, { data: arr }, { data: records }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', activeBusinessId).single(),
-        supabase.from('subscriptions').select('stripe_customer_id').eq('user_id', activeBusinessId).maybeSingle(),
-        supabase.from('memberships').select('*').eq('user_id', activeBusinessId).eq('status', 'active'),
+      const [{ data: sub }, { data: mem }, { data: arr }, { data: records }] = await Promise.all([
+        supabase.from('subscriptions').select('stripe_customer_id,status,failed_payment_reason,failed_payment_decline_code,last_failed_payment_at,next_payment_attempt_at,last_failed_invoice_id,payment_retry_count').eq('user_id', activeBusinessId).maybeSingle(),
+        supabase.from('memberships').select('*').eq('user_id', activeBusinessId).in('status', ['active', 'past_due', 'past_due_locked', 'suspended']),
         supabase.from('payment_arrangements').select('*').eq('user_id', activeBusinessId).eq('is_active', true).maybeSingle(),
         supabase.from('payment_records').select('amount').eq('user_id', activeBusinessId),
       ])
-      setProfile(p)
       setStripeCustomerId(sub?.stripe_customer_id ?? null)
+      setSubscription(sub ?? null)
       setMemberships(mem ?? [])
       setArrangement(arr ?? null)
-      setTotalPaid((records ?? []).reduce((sum, r) => sum + Number(r.amount), 0))
+      setTotalPaid((records ?? []).reduce((sum: number, r: { amount: number | string }) => sum + Number(r.amount), 0))
       setLoading(false)
     }
     init()
@@ -176,10 +196,10 @@ export default function BillingPage() {
     setSubscriptionRequiredFlow(params.get('subscription_required') === '1')
     setNewBusinessFlow(params.get('new_business') === '1')
     if (params.get('add_on') === 'success') {
-      toast.success('Add-on membership activated!')
+      toast.success(text('Add-on membership activated!', '¡La membresía adicional se activó!'))
       window.history.replaceState({}, '', '/billing')
     } else if (params.get('add_on') === 'canceled') {
-      toast.error('Add-on checkout was canceled.')
+      toast.error(text('Add-on checkout was canceled.', 'El pago de la membresía adicional fue cancelado.'))
       window.history.replaceState({}, '', '/billing')
     }
   }, [])
@@ -189,10 +209,16 @@ export default function BillingPage() {
   const isFreeUser = entitlements.access_state === 'free_active'
   const isActive = entitlements.access_state === 'free_active' || entitlements.access_state === 'paid_active'
   const acquisitionPath = normalizeAcquisitionPath(profile?.acquisition_path)
-  const canManageBilling = isActive && !!stripeCustomerId && !isFreeUser
-  const availableAddOns = getAvailableAddOns(memberships)
+  const canManageBilling = !!stripeCustomerId && !isFreeUser
+  const activeMemberships = memberships.filter((m) => m.status === 'active' || m.status === 'past_due')
+  const availableAddOns = getAvailableAddOns(activeMemberships)
+  const isPaymentGrace = profile?.billing_status === 'past_due'
+  const isPaymentLocked = profile?.billing_status === 'past_due_locked' || profile?.billing_status === 'suspended'
 
-  const allPrograms = memberships.map((m) => m.program_code).filter(Boolean)
+  const profilePrograms = (profile?.effective_allowed_programs ?? contextPrograms ?? []).filter(Boolean)
+  const allPrograms = profilePrograms.length > 0
+    ? profilePrograms
+    : memberships.map((m) => m.program_code).filter(Boolean)
   const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
 
   const handlePortal = async () => {
@@ -203,10 +229,10 @@ export default function BillingPage() {
       if (data.url) {
         window.location.href = data.url
       } else {
-        toast.error(data.error || 'Failed to open billing portal')
+        toast.error(data.error || text('Failed to open billing portal', 'No se pudo abrir el portal de facturación'))
       }
     } catch {
-      toast.error('Something went wrong.')
+      toast.error(text('Something went wrong.', 'Algo salió mal.'))
     }
     setPortalLoading(false)
   }
@@ -223,10 +249,10 @@ export default function BillingPage() {
       if (data.url) {
         window.location.href = data.url
       } else {
-        toast.error(data.error || 'Failed to start checkout')
+        toast.error(data.error || text('Failed to start checkout', 'No se pudo iniciar el pago'))
       }
     } catch {
-      toast.error('Something went wrong.')
+      toast.error(text('Something went wrong.', 'Algo salió mal.'))
     }
     setAddingOn(null)
   }
@@ -238,10 +264,10 @@ export default function BillingPage() {
         .from('profiles')
         .update({ assigned_program: selectedProgram, updated_at: new Date().toISOString() })
         .eq('id', activeBusinessId)
-      if (error) { toast.error('Failed to select program. Please try again.'); return }
+      if (error) { toast.error(text('Failed to select program. Please try again.', 'No se pudo seleccionar el programa. Inténtalo de nuevo.')); return }
       window.location.href = '/enroll'
     } catch {
-      toast.error('Something went wrong. Please try again.')
+      toast.error(text('Something went wrong. Please try again.', 'Algo salió mal. Inténtalo de nuevo.'))
     } finally {
       setSelectingPlan(null)
     }
@@ -257,7 +283,7 @@ export default function BillingPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to switch program')
-      toast.success(`Switched to ${PROGRAM_NAMES[newProgram] ?? 'the selected program'}`)
+      toast.success(text(`Switched to ${PROGRAM_NAMES[newProgram] ?? 'the selected program'}`, `Cambiado a ${PROGRAM_NAMES[newProgram] ?? 'el programa seleccionado'}`))
       window.location.href = '/billing'
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to switch program')
@@ -277,7 +303,7 @@ export default function BillingPage() {
     setDowngrading(true)
     try {
       if (destructiveInput.trim().toUpperCase() !== DESTRUCTIVE_ACTIONS.downgrade.expectedText) {
-        throw new Error('Confirmation text must be "DOWNGRADE TO FREE"')
+        throw new Error(text('Confirmation text must be "DOWNGRADE TO FREE"', 'El texto de confirmación debe ser "DOWNGRADE TO FREE"'))
       }
       const res = await fetch('/api/stripe/downgrade-membership', {
         method: 'POST',
@@ -286,10 +312,10 @@ export default function BillingPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Downgrade failed')
-      toast.success('Downgraded to the Free Plan')
+      toast.success(text('Downgraded to the Free Plan', 'Bajado al Plan Gratis'))
       window.location.href = '/billing'
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Downgrade failed')
+      toast.error(error instanceof Error ? error.message : text('Downgrade failed', 'La rebaja falló'))
     } finally {
       setDowngrading(false)
     }
@@ -299,7 +325,7 @@ export default function BillingPage() {
     setCancelingMembership(true)
     try {
       if (destructiveInput.trim().toUpperCase() !== DESTRUCTIVE_ACTIONS.cancel.expectedText) {
-        throw new Error('Confirmation text must be "CANCEL MEMBERSHIP"')
+        throw new Error(text('Confirmation text must be "CANCEL MEMBERSHIP"', 'El texto de confirmación debe ser "CANCEL MEMBERSHIP"'))
       }
       const res = await fetch('/api/stripe/cancel-membership', {
         method: 'POST',
@@ -308,10 +334,10 @@ export default function BillingPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Cancellation failed')
-      toast.success('Membership canceled')
+      toast.success(text('Membership canceled', 'Membresía cancelada'))
       window.location.href = '/billing'
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Cancellation failed')
+      toast.error(error instanceof Error ? error.message : text('Cancellation failed', 'La cancelación falló'))
     } finally {
       setCancelingMembership(false)
     }
@@ -320,14 +346,14 @@ export default function BillingPage() {
   const handleDeleteAccount = async () => {
     const email = profile?.email?.trim()
     if (!email) {
-      toast.error('Account email is missing. Contact support before deleting.')
+      toast.error(text('Account email is missing. Contact support before deleting.', 'Falta el correo de la cuenta. Contacta soporte antes de eliminar.'))
       return
     }
 
     setDeletingAccount(true)
     try {
       if (destructiveInput.trim().toLowerCase() !== email.toLowerCase()) {
-        throw new Error(`Confirmation text must match ${email}`)
+        throw new Error(text(`Confirmation text must match ${email}`, `El texto de confirmación debe coincidir con ${email}`))
       }
       const res = await fetch('/api/account/delete', {
         method: 'POST',
@@ -337,10 +363,10 @@ export default function BillingPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Account deletion failed')
       await supabase.auth.signOut().catch(() => {})
-      toast.success('Account deleted')
+      toast.success(text('Account deleted', 'Cuenta eliminada'))
       router.replace('/sign-in?deleted=1')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Account deletion failed')
+      toast.error(error instanceof Error ? error.message : text('Account deletion failed', 'La eliminación de la cuenta falló'))
     } finally {
       setDeletingAccount(false)
     }
@@ -437,16 +463,49 @@ export default function BillingPage() {
       subscriptionStatus={profile?.billing_status}
     >
       <div className="mb-6">
-        <h1 className="page-title flex items-center gap-2">
+          <h1 className="page-title flex items-center gap-2">
           <CreditCard size={24} className="text-green-500" />
-          Billing & Membership
+          {text('Billing & Membership', 'Facturación y membresía')}
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Manage your SourcifyLending memberships</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{text('Manage your SourcifyLending memberships', 'Administra tus membresías de SourcifyLending')}</p>
       </div>
 
       <div className="mb-6">
         <BusinessManagementCard />
       </div>
+
+      {(isPaymentGrace || isPaymentLocked) && (
+        <div className={`card mb-6 border ${isPaymentLocked ? 'border-red-200 bg-red-50/70 dark:border-red-900/50 dark:bg-red-950/20' : 'border-amber-200 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20'}`}>
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-start gap-3">
+              <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isPaymentLocked ? 'bg-red-100 dark:bg-red-900/40' : 'bg-amber-100 dark:bg-amber-900/40'}`}>
+                <CreditCard size={18} className={isPaymentLocked ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'} />
+              </div>
+              <div>
+                <h2 className={`text-sm font-bold ${isPaymentLocked ? 'text-red-900 dark:text-red-200' : 'text-amber-900 dark:text-amber-200'}`}>
+                  {isPaymentLocked
+                    ? 'Your membership is paused due to failed payment. Update your card to restore access.'
+                    : 'Payment failed. Please update your payment method.'}
+                </h2>
+                <div className={`mt-2 space-y-1 text-sm ${isPaymentLocked ? 'text-red-800 dark:text-red-300' : 'text-amber-800 dark:text-amber-300'}`}>
+                  {subscription?.failed_payment_reason && <p>Reason: {subscription.failed_payment_reason}</p>}
+                  {subscription?.last_failed_payment_at && <p>Last failed payment: {new Date(subscription.last_failed_payment_at).toLocaleDateString()}</p>}
+                  {subscription?.next_payment_attempt_at && <p>Stripe next retry: {new Date(subscription.next_payment_attempt_at).toLocaleDateString()}</p>}
+                  {typeof subscription?.payment_retry_count === 'number' && <p>Retry attempts: {subscription.payment_retry_count}</p>}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handlePortal}
+              disabled={!canManageBilling || portalLoading}
+              className="btn-primary shrink-0 inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
+            >
+              {portalLoading ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
+              Update payment method
+            </button>
+          </div>
+        </div>
+      )}
 
       {(subscriptionRequiredFlow || (!isActive && newBusinessFlow)) && (
         <div className="card mb-6 border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/20">
@@ -456,7 +515,7 @@ export default function BillingPage() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                {newBusinessFlow ? 'New business created' : 'Subscription required'}
+              {newBusinessFlow ? text('New business created', 'Nuevo negocio creado') : text('Subscription required', 'Se requiere suscripción')}
               </h2>
               <p className="mt-1 text-sm leading-relaxed text-amber-800 dark:text-amber-300">
                 This business needs its own subscription before portal tools unlock. One paid subscription only applies to one business under the current plan structure.
@@ -469,7 +528,7 @@ export default function BillingPage() {
       {/* ── Free Plan Status ──────────────────────────────────────────────── */}
       {isFreeUser && (
         <div className="mb-6">
-          <h2 className="section-title mb-3">Current Plan</h2>
+          <h2 className="section-title mb-3">{text('Current Plan', 'Plan actual')}</h2>
           <div className="card border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-3">
@@ -477,9 +536,9 @@ export default function BillingPage() {
                   <CheckCircle size={18} className="text-green-600" />
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900 dark:text-white text-sm">Free Plan</p>
-                  <p className="text-green-600 font-bold text-sm">No payment required</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Access to free credit dispute tool</p>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">{text('Free Plan', 'Plan gratis')}</p>
+                  <p className="text-green-600 font-bold text-sm">{text('No payment required', 'No se requiere pago')}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{text('Access to free credit dispute tool', 'Acceso a la herramienta gratuita de disputa de crédito')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -562,7 +621,7 @@ export default function BillingPage() {
       {/* ── Active Memberships ─────────────────────────────────────────────── */}
       {memberships.length > 0 && (
         <div className="mb-6">
-          <h2 className="section-title mb-3">Active Memberships</h2>
+          <h2 className="section-title mb-3">Memberships</h2>
           <div className="space-y-3">
             {memberships.map((m) => (
               <div key={m.id} className="card border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
@@ -578,7 +637,7 @@ export default function BillingPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <StatusBadge status="active" />
+                    <StatusBadge status={m.status} />
                     {canManageBilling && (
                       <button
                         onClick={handlePortal}
@@ -746,7 +805,7 @@ export default function BillingPage() {
         <div className="card mb-6 border border-purple-200 dark:border-purple-800 bg-purple-50/40 dark:bg-purple-900/20">
           <h2 className="section-title mb-3 flex items-center gap-2 text-purple-800 dark:text-purple-300">
             <Calendar size={16} className="text-purple-600" />
-            Payment Plan Summary
+            {text('Payment Plan Summary', 'Resumen del plan de pagos')}
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {arrangement.setup_fee_total > 0 && (
@@ -756,12 +815,12 @@ export default function BillingPage() {
                   <p className="font-semibold text-gray-900 dark:text-white">${Number(arrangement.setup_fee_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Payment Received</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{text('Payment Received', 'Pago recibido')}</p>
                   <p className="font-semibold text-green-700">${Number(arrangement.setup_fee_paid).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 </div>
                 {arrangement.setup_fee_remaining > 0 && (
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Remaining Balance</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{text('Remaining Balance', 'Saldo restante')}</p>
                     <p className="font-semibold text-orange-600">${Number(arrangement.setup_fee_remaining).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                   </div>
                 )}
@@ -769,7 +828,7 @@ export default function BillingPage() {
             )}
             {arrangement.next_amount_due && (
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Next Payment Due</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{text('Next Payment Due', 'Próximo pago')}</p>
                 <p className="font-bold text-purple-800 dark:text-purple-300 text-lg">${Number(arrangement.next_amount_due).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 {arrangement.next_due_date && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -780,7 +839,7 @@ export default function BillingPage() {
             )}
           </div>
           {totalPaid > 0 && (
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">Total payments logged: <span className="font-semibold text-gray-600 dark:text-gray-300">${totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span></p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">{text('Total payments logged:', 'Pagos totales registrados:')} <span className="font-semibold text-gray-600 dark:text-gray-300">${totalPaid.toLocaleString(locale === 'es' ? 'es-ES' : 'en-US', { minimumFractionDigits: 2 })}</span></p>
           )}
         </div>
       )}
@@ -788,8 +847,8 @@ export default function BillingPage() {
       {/* ── Available Add-ons ──────────────────────────────────────────────── */}
       {availableAddOns.length > 0 && (
         <div className="mb-6">
-          <h2 className="section-title mb-1">Available Add-ons</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Enhance your membership with additional programs.</p>
+          <h2 className="section-title mb-1">{text('Available Add-ons', 'Complementos disponibles')}</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{text('Enhance your membership with additional programs.', 'Mejora tu membresía con programas adicionales.')}</p>
           <div className="space-y-3">
             {availableAddOns.map((addon) => (
               <div key={addon} className="card border-2 border-dashed border-purple-200 dark:border-purple-700 bg-purple-50/20 dark:bg-purple-900/10 hover:border-purple-400 dark:hover:border-purple-500 transition-colors">
@@ -829,9 +888,9 @@ export default function BillingPage() {
                 <ShieldOff size={18} className="text-orange-700 dark:text-orange-300" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-bold text-orange-900 dark:text-orange-200">Downgrade to Free Plan</h2>
-                <p className="mt-1 text-sm leading-relaxed text-orange-800 dark:text-orange-300">
-                  Keep the free analyzer active, remove paid access, and stop the subscription from renewing.
+                <h2 className="text-sm font-bold text-orange-900 dark:text-orange-200">{text('Downgrade to Free Plan', 'Bajar al Plan Gratis')}</h2>
+                  <p className="mt-1 text-sm leading-relaxed text-orange-800 dark:text-orange-300">
+                  {text('Keep the free analyzer active, remove paid access, and stop the subscription from renewing.', 'Mantén activo el analizador gratuito, elimina el acceso de pago y evita la renovación de la suscripción.')}
                 </p>
                 <button
                   onClick={() => {
@@ -842,7 +901,7 @@ export default function BillingPage() {
                   className="mt-4 inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
                 >
                   {downgrading ? <Loader2 size={14} className="animate-spin" /> : <ShieldOff size={14} />}
-                  Downgrade
+                  {text('Downgrade', 'Bajar de plan')}
                 </button>
               </div>
             </div>
@@ -854,9 +913,9 @@ export default function BillingPage() {
                 <BanIcon size={18} className="text-red-700 dark:text-red-300" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-bold text-red-900 dark:text-red-200">Cancel Membership</h2>
-                <p className="mt-1 text-sm leading-relaxed text-red-800 dark:text-red-300">
-                  End the paid subscription while preserving progress so you can reactivate later if needed.
+                <h2 className="text-sm font-bold text-red-900 dark:text-red-200">{text('Cancel Membership', 'Cancelar membresía')}</h2>
+                  <p className="mt-1 text-sm leading-relaxed text-red-800 dark:text-red-300">
+                  {text('End the paid subscription while preserving progress so you can reactivate later if needed.', 'Finaliza la suscripción de pago conservando el progreso para poder reactivarla más tarde si lo necesitas.')}
                 </p>
                 <button
                   onClick={() => {
@@ -867,7 +926,7 @@ export default function BillingPage() {
                   className="mt-4 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
                 >
                   {cancelingMembership ? <Loader2 size={14} className="animate-spin" /> : <BanIcon size={14} />}
-                  {profile?.billing_status === 'canceled' ? 'Already Canceled' : 'Cancel Membership'}
+                  {profile?.billing_status === 'canceled' ? text('Already Canceled', 'Ya cancelada') : text('Cancel Membership', 'Cancelar membresía')}
                 </button>
               </div>
             </div>
@@ -884,7 +943,7 @@ export default function BillingPage() {
             </div>
             <div className="flex-1">
               <h3 className="font-bold text-white text-lg mb-1">
-                {profile?.billing_status === 'canceled' ? 'Reactivate Your Membership' : 'Start Your Program'}
+                {profile?.billing_status === 'canceled' ? text('Reactivate Your Membership', 'Reactivar tu membresía') : text('Start Your Program', 'Iniciar tu programa')}
               </h3>
               <p className="text-green-200 text-sm mb-5 leading-relaxed">
                 {profile?.billing_status === 'canceled'
@@ -899,7 +958,7 @@ export default function BillingPage() {
                 className="bg-white text-green-700 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors inline-flex items-center gap-2"
               >
                 <CreditCard size={16} />
-                Subscribe Now
+                {text('Subscribe Now', 'Suscribirse ahora')}
               </button>
             </div>
           </div>
@@ -910,8 +969,8 @@ export default function BillingPage() {
       {!isActive && !isFreeUser && !program && (
         <div className="space-y-4">
           <div className="text-center mb-2">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Choose Your Program</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select a plan and proceed directly to payment under your {pathLabel.toLowerCase()} pricing path.</p>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{text('Choose Your Program', 'Elige tu programa')}</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{text('Select a plan and proceed directly to payment under your', 'Selecciona un plan y continúa directamente al pago bajo tu ruta de precios')} {pathLabel.toLowerCase()} {text('pricing path.', 'de precios.')}</p>
           </div>
 
           <div className="card border-2 border-green-200 dark:border-green-800 bg-green-50/40 dark:bg-green-900/10">
@@ -921,11 +980,11 @@ export default function BillingPage() {
                   <CheckCircle size={18} className="text-green-600" />
                 </div>
                 <div>
-                  <p className="font-bold text-gray-900 dark:text-white">Free Plan</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">Access the free credit dispute tool and keep your account free-active. Upgrade later if you want a paid program.</p>
+                  <p className="font-bold text-gray-900 dark:text-white">{text('Free Plan', 'Plan gratis')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{text('Access the free credit dispute tool and keep your account free-active. Upgrade later if you want a paid program.', 'Accede a la herramienta gratuita de disputa de crédito y mantén tu cuenta en estado gratis-activo. Actualiza después si quieres un programa de pago.')}</p>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">No payment required</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Free Plan Active</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">{text('No payment required', 'No se requiere pago')}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{text('Free Plan Active', 'Plan gratis activo')}</span>
                   </div>
                 </div>
               </div>
@@ -935,7 +994,7 @@ export default function BillingPage() {
                 className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
               >
                 {selectingPlan === 'free' ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-                Use Free Plan
+                {text('Use Free Plan', 'Usar plan gratis')}
               </button>
             </div>
           </div>
@@ -969,13 +1028,16 @@ export default function BillingPage() {
           ))}
 
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center pt-2">
-            Not sure which program fits? Contact us at <span className="font-medium text-gray-500 dark:text-gray-400">{SUPPORT_EMAIL}</span> and we&apos;ll help you choose.
+            {text('Not sure which program fits? Contact us at', '¿No estás seguro de qué programa elegir? Contáctanos en')} <span className="font-medium text-gray-500 dark:text-gray-400">{SUPPORT_EMAIL}</span> {text("and we'll help you choose.", 'y te ayudaremos a elegir.')}
           </p>
         </div>
       )}
 
       <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-6 leading-relaxed px-2">
-        Subscriptions are billed monthly. Cancel anytime. Cancellation pauses progress and limits portal access — data is never deleted. SourcifyLending does not guarantee specific credit approvals, credit limits, or funding outcomes.
+        {text(
+          'Subscriptions are billed monthly. Cancel anytime. Cancellation pauses progress and limits portal access — data is never deleted. SourcifyLending does not guarantee specific credit approvals, credit limits, or funding outcomes.',
+          'Las suscripciones se facturan mensualmente. Cancela en cualquier momento. La cancelación pausa el progreso y limita el acceso al portal — los datos nunca se eliminan. SourcifyLending no garantiza aprobaciones, límites de crédito ni resultados de financiamiento específicos.'
+        )}
       </p>
     </PortalLayout>
   )

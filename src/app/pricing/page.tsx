@@ -164,9 +164,9 @@ const BUNDLE = {
     'Progress tracking across both programs',
     'Guided funding readiness support',
   ],
-  cta: 'Start Free Analyzer',
-  href: '/analyzer',
-  footer: 'First month due at signup · Cancel anytime',
+  cta: 'Contact Us',
+  href: '/contact',
+  footer: 'Not yet available for self-serve checkout',
 } as const
 
 // ─── Check Icon ───────────────────────────────────────────────────────────────
@@ -232,7 +232,7 @@ export default function PricingPage() {
       }
       return text(feature, esMap[feature] ?? feature)
     }),
-    cta: text('Start Free Analyzer', 'Abrir analizador gratis'),
+    cta: text('Contact Us', 'Contactanos'),
     footer: plan.footer ? text(plan.footer, 'Primer mes al registrarte · Cancela cuando quieras') : null,
   }))
   const localizedBundle = {
@@ -256,9 +256,9 @@ export default function PricingPage() {
       }
       return text(feature, esMap[feature] ?? feature)
     }),
-    cta: text('Start Free Analyzer', 'Abrir analizador gratis'),
-    footer: text('First month due at signup · Cancel anytime', 'Primer mes al registrarte · Cancela cuando quieras'),
-    href: '/analyzer',
+    cta: text('Contact Us', 'Contactanos'),
+    footer: text('Not yet available for self-serve checkout', 'Aun no disponible para pago autoservicio'),
+    href: '/contact',
   }
   const localizedComparisonRows: { feature: string; sl: CheckValue; tools: CheckValue; brokers: CheckValue; diy: CheckValue }[] = [
     { feature: text('Free analyzer', 'Analizador gratis'), sl: 'yes', tools: 'yes', brokers: 'no', diy: 'no' },

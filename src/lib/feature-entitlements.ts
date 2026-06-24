@@ -26,7 +26,7 @@ export type FeatureName =
  * - Can access: credit_inquiry_tool, funding_results, training_videos, support, settings
  * - Cannot access: AI agent, documents, paid programs, reports, billing management
  *
- * Paid users (active or trialing):
+ * Paid users (active, trialing, or past_due grace period):
  * - Can access: all features
  *
  * Paid users (inactive):
@@ -35,10 +35,11 @@ export type FeatureName =
 export function canAccessFeature(
   planTier: PlanTier | null | undefined,
   subscriptionStatus: SubscriptionStatus | null | undefined,
-  feature: FeatureName
+  feature: FeatureName,
+  _isAdmin?: boolean
 ): boolean {
   const isFree = planTier === 'free'
-  const isActive = subscriptionStatus === 'active' || subscriptionStatus === 'trialing'
+  const isActive = subscriptionStatus === 'active' || subscriptionStatus === 'trialing' || subscriptionStatus === 'past_due'
 
   // Free users can only access specific features
   if (isFree) {
@@ -75,14 +76,18 @@ export function getSubscriptionStatusMessage(
   subscriptionStatus: SubscriptionStatus | null | undefined
 ): string {
   const isFree = planTier === 'free'
-  const isActive = subscriptionStatus === 'active' || subscriptionStatus === 'trialing'
+  const isActive = subscriptionStatus === 'active' || subscriptionStatus === 'trialing' || subscriptionStatus === 'past_due'
 
   if (isFree) {
     return 'Free Plan Active'
   }
 
-  if (isActive || subscriptionStatus === 'past_due') {
+  if (isActive) {
     return 'Active Subscription'
+  }
+
+  if (subscriptionStatus === 'past_due_locked' || subscriptionStatus === 'suspended') {
+    return 'Membership Paused'
   }
 
   if (subscriptionStatus === 'canceled') {
@@ -98,10 +103,11 @@ export function getSubscriptionStatusMessage(
  */
 export function shouldShowReactivationFlow(
   planTier: PlanTier | null | undefined,
-  subscriptionStatus: SubscriptionStatus | null | undefined
+  subscriptionStatus: SubscriptionStatus | null | undefined,
+  _isAdmin?: boolean
 ): boolean {
   const isFree = planTier === 'free'
-  const isActive = subscriptionStatus === 'active' || subscriptionStatus === 'trialing'
+  const isActive = subscriptionStatus === 'active' || subscriptionStatus === 'trialing' || subscriptionStatus === 'past_due'
 
   // Free users never see reactivation
   if (isFree) {

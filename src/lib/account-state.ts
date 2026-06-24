@@ -20,7 +20,7 @@ export interface AccountEntitlements {
  * Logic:
  * - If feature_tier === 'free': free_active (free users are always "active" by definition)
  * - If feature_tier === 'paid' or null/undefined:
- *   - If billing_status === 'active' or 'trialing': paid_active
+ *   - If billing_status === 'active', 'trialing', or 'past_due': paid_active
  *   - Otherwise: paid_inactive (or paid_never_active if no prior history)
  * - Legacy users (null feature_tier, null billing_status):
  *   - If member_status === 'prospect': free_active (prospects are free)
@@ -30,10 +30,11 @@ export interface AccountEntitlements {
 export function getAccountEntitlements(
   planTier: PlanTier | null | undefined,
   subscriptionStatus: SubscriptionStatus | null | undefined,
-  accountState: AccountState | null | undefined
+  accountState: AccountState | null | undefined,
+  _isAdmin?: boolean
 ): AccountEntitlements {
   const isFree = planTier === 'free'
-  const isActiveSubscription = subscriptionStatus === 'active' || subscriptionStatus === 'trialing'
+  const isActiveSubscription = subscriptionStatus === 'active' || subscriptionStatus === 'trialing' || subscriptionStatus === 'past_due'
 
   // Free users are always in free_active state
   if (isFree) {

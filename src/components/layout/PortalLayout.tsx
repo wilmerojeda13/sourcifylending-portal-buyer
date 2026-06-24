@@ -2,18 +2,21 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
+import LanguageToggle from '@/components/i18n/LanguageToggle'
 import { cn } from '@/lib/utils'
 import { SUPPORT_EMAIL } from '@/lib/site-config'
 import {
   LayoutDashboard, Bot, FileText, CheckSquare, BarChart2,
   CreditCard, Bell, LogOut, Menu, X, ChevronRight, Star, TrendingUp, ShieldCheck, Zap, ArrowUpCircle,
-  MessageSquare, Settings, ShieldAlert, DollarSign, Building2, BookOpen, PieChart, ClipboardList, PlayCircle, Lock, RefreshCcw
+  MessageSquare, Settings, ShieldAlert, DollarSign, Building2, BookOpen, PieChart, ClipboardList, PlayCircle, Lock, RefreshCcw, AlertTriangle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import PortalAIFloatingWidget from '@/components/ai/PortalAIFloatingWidget'
 import type { PlanTier, SubscriptionStatus } from '@/types'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
+import { portalSignInHref, localizeHref, t } from '@/lib/i18n'
 
 const BASE_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -86,19 +89,48 @@ export default function PortalLayout({
   const [liveNotificationCount, setLiveNotificationCount] = useState(notificationCount)
   const [switching, setSwitching] = useState(false)
   const supabase = useMemo(() => createClient(), [])
+  const { locale } = useLanguage()
 
-  // Nav items are based on the ACTIVE program only (assignedProgram)
-  // allPrograms is only used to decide whether to show the program switcher
   const enrolledPrograms = useMemo(() => allPrograms ?? (assignedProgram ? [assignedProgram] : []), [allPrograms, assignedProgram])
-  const hasA = assignedProgram === 'program_a'
-  const hasB = assignedProgram === 'program_b'
+  const hasA = enrolledPrograms.includes('program_a')
+  const hasB = enrolledPrograms.includes('program_b')
   const isMultiProgram = useMemo(() => enrolledPrograms.filter((p) => p !== 'program_c').length > 1, [enrolledPrograms])
 
   // Free users also get the limited nav (same as prospects)
   const isFreeUser = planTier === 'free'
+  const translateNavLabel = (label: string) => {
+    const map: Record<string, string> = {
+      Dashboard: 'portal.dashboard',
+      'AI Agent': 'portal.aiAgent',
+      Documents: 'portal.documents',
+      Progress: 'portal.progress',
+      Reports: 'portal.reports',
+      Billing: 'portal.billing',
+      'Inquiry Disputes': 'portal.inquiryDisputes',
+      'Funding Results': 'portal.fundingResults',
+      'Training Videos': 'portal.trainingVideos',
+      Upgrade: 'portal.upgrade',
+      Support: 'portal.support',
+      'Support Inbox': 'portal.support',
+      Settings: 'portal.settings',
+      'Credit Optimization': 'portal.creditOptimization',
+      'Biz Credit Setup': 'portal.bizCreditSetup',
+      'Biz Credit Monitoring': 'portal.bizCreditMonitoring',
+      'Biz Resources': 'portal.bizResources',
+      'Underwrite Your Biz': 'portal.underwriteBiz',
+      Opportunities: 'portal.opportunities',
+      'ROI Tracker': 'portal.roiTracker',
+      'Credit Disputes': 'portal.creditDisputes',
+      Notifications: 'portal.notifications',
+      'Sign Out': 'portal.signOut',
+      'Admin Panel': 'portal.adminPanel',
+      'Switch Program': 'portal.switchProgram',
+    }
+    return t(locale, map[label] ?? '', label)
+  }
 
   const sidebarNavItems = useMemo(() => {
-    if (isProspect || isFreeUser) return PROSPECT_NAV_ITEMS
+    if (!isAdmin && (isProspect || isFreeUser)) return PROSPECT_NAV_ITEMS
     return [
       ...BASE_NAV_ITEMS.slice(0, 4),
       ...(hasA ? [{ href: '/credit-optimization', label: 'Credit Optimization', icon: Star }] : []),
@@ -121,11 +153,13 @@ export default function PortalLayout({
       { href: '/support', label: 'Support Inbox', icon: MessageSquare },
       { href: '/settings', label: 'Settings', icon: Settings },
     ]
-  }, [hasA, hasB, isDelegate, isFreeUser, isProspect])
+  }, [hasA, hasB, isAdmin, isDelegate, isFreeUser, isProspect])
 
-  const currentBusinessPaid = planTier === 'free'
-    ? true
-    : subscriptionStatus === 'active' || subscriptionStatus === 'trialing' || accountState === 'active_member'
+  const lockedByBilling = subscriptionStatus === 'past_due_locked' || subscriptionStatus === 'suspended' || subscriptionStatus === 'canceled' || subscriptionStatus === 'inactive'
+  const paymentGraceActive = subscriptionStatus === 'past_due'
+  const currentBusinessPaid = planTier !== 'free'
+    ? subscriptionStatus === 'active' || subscriptionStatus === 'trialing' || paymentGraceActive || (accountState === 'active_member' && !lockedByBilling)
+    : true
 
   const subscriptionGateAllowedPaths = useMemo(() => new Set(['/dashboard', '/billing', '/funding-results', '/support', '/settings', '/training', '/notifications']), [])
   const prospectInquiryDisputesPath = isProspect && pathname === '/credit-disputes'
@@ -153,7 +187,7 @@ export default function PortalLayout({
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.push('/sign-in')
+    router.push(portalSignInHref(locale))
   }
 
   const handleSwitchProgram = async () => {
@@ -168,7 +202,7 @@ export default function PortalLayout({
   }
 
   // Hard suspension screen — overrides all portal content
-  if (portalBlocked) {
+  if (portalBlocked && !isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-6">
         <div className="max-w-md w-full text-center">
@@ -215,9 +249,9 @@ export default function PortalLayout({
         )}
       >
         <Icon size={18} />
-        <span>{label}</span>
+        <span>{translateNavLabel(label)}</span>
         {showDueBadge && !active && (
-          <span className="ml-auto text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full">DUE</span>
+          <span className="ml-auto text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full">{locale === 'es' ? 'VENCE' : 'DUE'}</span>
         )}
         {active && <ChevronRight size={14} className="ml-auto opacity-70" />}
       </Link>
@@ -234,7 +268,7 @@ export default function PortalLayout({
           </div>
           <div>
             <p className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight">SourcifyLending</p>
-            <p className="text-xs text-gray-400 truncate max-w-[140px]">{programLabel || 'Client Portal'}</p>
+            <p className="text-xs text-gray-400 truncate max-w-[140px]">{programLabel || t(locale, 'portal.clientAccount', 'Client Account')}</p>
           </div>
         </div>
       </div>
@@ -255,7 +289,7 @@ export default function PortalLayout({
             className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
           >
             <ShieldCheck size={18} className="text-green-600" />
-            <span>Admin Panel</span>
+            <span>{translateNavLabel('Admin Panel')}</span>
           </Link>
         )}
         <Link
@@ -271,12 +305,12 @@ export default function PortalLayout({
               </span>
             )}
           </div>
-          <span>Notifications</span>
+          <span>{translateNavLabel('Notifications')}</span>
         </Link>
         {/* Multi-program switcher — shown for any user with 2+ programs */}
         {isMultiProgram && (
           <div className="space-y-1">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-4 pt-1">Switch Program</p>
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-4 pt-1">{translateNavLabel('Switch Program')}</p>
             {enrolledPrograms.filter(p => p !== 'program_c').map(p => {
               const isActive = p === assignedProgram
               const label = p === 'program_a' ? 'Program A — APR Cards' : 'Program B — Biz Credit'
@@ -306,7 +340,7 @@ export default function PortalLayout({
                   }`}
                 >
                   <RefreshCcw size={16} className={switching && !isActive ? 'animate-spin' : ''} />
-                  <span className="truncate">{isActive ? `✓ ${label}` : label}</span>
+                  <span className="truncate">{isActive ? `✓ ${translateNavLabel(label)}` : translateNavLabel(label)}</span>
                 </button>
               )
             })}
@@ -327,13 +361,14 @@ export default function PortalLayout({
             </span>
           </button>
         )}
+        <LanguageToggle />
         <ThemeToggle />
         <button
           onClick={handleSignOut}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-600 dark:hover:text-red-400 transition-colors"
         >
           <LogOut size={18} />
-          <span>Sign Out</span>
+            <span>{translateNavLabel('Sign Out')}</span>
         </button>
       </div>
 
@@ -344,7 +379,7 @@ export default function PortalLayout({
           {isDemo && (
             <span className="text-[9px] font-bold px-1 py-0.5 bg-amber-100 text-amber-700 rounded-full uppercase shrink-0">Demo</span>
           )}
-          {(isProspect || isFreeUser) && (
+          {(!isAdmin && (isProspect || isFreeUser)) && (
             <span className="text-[9px] font-bold px-1 py-0.5 bg-green-100 text-green-700 rounded-full uppercase shrink-0">Free</span>
           )}
           {isDelegate && (
@@ -352,7 +387,17 @@ export default function PortalLayout({
           )}
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-          {isDemo ? 'Demo Account' : isDelegate ? 'Delegate Access' : isFreeUser ? 'Free Plan Account' : isProspect ? 'Free Prospect Account' : 'Client Account'}
+          {isDemo
+            ? (locale === 'es' ? 'Cuenta demo' : 'Demo Account')
+            : isAdmin
+              ? (locale === 'es' ? 'Cuenta de administrador' : 'Admin Account')
+              : isDelegate
+                ? (locale === 'es' ? 'Acceso delegado' : 'Delegate Access')
+                : isFreeUser
+                  ? (locale === 'es' ? 'Cuenta plan gratis' : 'Free Plan Account')
+                  : isProspect
+                    ? (locale === 'es' ? 'Cuenta prospecto gratis' : 'Free Prospect Account')
+                    : t(locale, 'portal.clientAccount', 'Client Account')}
         </p>
       </div>
     </div>
@@ -428,18 +473,33 @@ export default function PortalLayout({
               </div>
             </div>
           )}
+          {paymentGraceActive && !isAdmin && (
+            <div className="mb-5 flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+                <p className="text-sm font-semibold">Payment failed. Please update your payment method.</p>
+              </div>
+              <Link href="/billing" className="inline-flex items-center justify-center rounded-md bg-amber-700 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800">
+                Update card
+              </Link>
+            </div>
+          )}
           {shouldShowSubscriptionGate ? (
             <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-center shadow-sm dark:border-amber-900/40 dark:bg-amber-950/20">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                 <Lock size={22} />
               </div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Subscription Required</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                {lockedByBilling ? 'Membership Paused' : 'Subscription Required'}
+              </h1>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                This business needs its own subscription before you can access the portal. Each business is billed separately under the current plan structure.
+                {lockedByBilling
+                  ? 'Your membership is paused due to failed payment. Update your card to restore access.'
+                  : 'This business needs its own subscription before you can access the portal. Each business is billed separately under the current plan structure.'}
               </p>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                 <Link href="/billing" className="btn-primary px-5 py-3 text-sm">
-                  Choose a Plan
+                  {lockedByBilling ? 'Update Card' : 'Choose a Plan'}
                 </Link>
                 <Link href="/dashboard" className="btn-secondary px-5 py-3 text-sm">
                   Back to Dashboard
@@ -473,7 +533,7 @@ export default function PortalLayout({
                   )}
                 >
                   <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-                  <span className="text-[10px] font-medium leading-none">{label.replace(' ', '\n')}</span>
+                  <span className="text-[10px] font-medium leading-none">{translateNavLabel(label).replace(' ', '\n')}</span>
                 </Link>
               )
             })}
