@@ -1,10 +1,14 @@
 export const dynamic = 'force-dynamic'
 import type { Metadata, Viewport } from 'next'
+import { cookies } from 'next/headers'
+import { headers } from 'next/headers'
 import './globals.css'
-import { Toaster } from 'react-hot-toast'
+import { SITE_URL } from '@/lib/site-config'
+import { LOCALE_COOKIE, normalizeLocale } from '@/lib/i18n'
+import { LanguageProvider } from '@/components/i18n/LanguageProvider'
 import { ThemeProvider } from '@/components/theme/ThemeProvider'
 import NotificationRuntime from '@/components/notifications/NotificationRuntime'
-import { SITE_URL } from '@/lib/site-config'
+import { Toaster } from 'react-hot-toast'
 
 export const metadata: Metadata = {
   title: {
@@ -51,23 +55,29 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = cookies()
+  const headerStore = headers()
+  const headerLocale = headerStore.get('x-sl-locale')
+  const initialLocale = headerLocale ? normalizeLocale(headerLocale) : normalizeLocale(cookieStore.get(LOCALE_COOKIE)?.value)
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={initialLocale} suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          {children}
-          <NotificationRuntime />
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                borderRadius: '12px',
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '14px',
-              },
-            }}
-          />
+          <LanguageProvider initialLocale={initialLocale}>
+            <NotificationRuntime />
+            {children}
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  borderRadius: '14px',
+                  padding: '12px 14px',
+                },
+              }}
+            />
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>
