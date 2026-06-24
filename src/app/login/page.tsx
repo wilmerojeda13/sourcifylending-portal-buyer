@@ -6,7 +6,6 @@ import LoginForm from './LoginForm'
 import { createClient } from '@/lib/supabase/server'
 import { normalizeNextPath, isAdminSubdomain } from '@/lib/auth-routing'
 import { localizeHref, normalizeLocale } from '@/lib/i18n'
-import { getAuthenticatedUserWithRetry } from '@/lib/business-context'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,7 +33,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
   }
 
   const supabase = await createClient()
-  const user = await getAuthenticatedUserWithRetry(supabase)
+  const { data: { user } } = await supabase.auth.getUser()
   if (user) {
     redirect(localizeHref(nextPath, locale))
   }
