@@ -1,4 +1,6 @@
 'use client'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
+import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 interface BadgeProps {
@@ -24,23 +26,26 @@ export function Badge({ children, variant = 'default', className }: BadgeProps) 
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { variant: BadgeProps['variant']; label: string }> = {
-    pending: { variant: 'info', label: 'Pending' },
-    completed: { variant: 'success', label: 'Completed' },
-    locked: { variant: 'locked', label: 'Locked' },
-    overdue: { variant: 'danger', label: 'Overdue' },
-    active: { variant: 'success', label: 'Active' },
-    free_active: { variant: 'success', label: 'Free Plan Active' },
-    paid_active: { variant: 'success', label: 'Active Subscription' },
-    paid_inactive: { variant: 'danger', label: 'Subscription Inactive' },
-    inactive: { variant: 'danger', label: 'Inactive' },
-    canceled: { variant: 'danger', label: 'Canceled' },
-    past_due: { variant: 'warning', label: 'Past Due' },
-    trialing: { variant: 'info', label: 'Trial' },
-    Ready: { variant: 'success', label: 'Ready' },
-    'Conditionally Ready': { variant: 'warning', label: 'Conditionally Ready' },
-    'Not Ready': { variant: 'danger', label: 'Not Ready' },
+  const { locale } = useLanguage()
+  type StatusBadgeConfig = { variant: BadgeProps['variant']; label: string; key?: string }
+  const map: Record<string, StatusBadgeConfig> = {
+    pending: { variant: 'info', label: 'Pending', key: 'status.pending' },
+    invited: { variant: 'info', label: 'Invited', key: 'status.invited' },
+    completed: { variant: 'success', label: 'Completed', key: 'status.completed' },
+    locked: { variant: 'locked', label: 'Locked', key: 'status.locked' },
+    overdue: { variant: 'danger', label: 'Overdue', key: 'status.overdue' },
+    active: { variant: 'success', label: 'Active', key: 'status.active' },
+    free_active: { variant: 'success', label: 'Free Plan Active', key: 'status.freeActive' },
+    paid_active: { variant: 'success', label: 'Active Subscription', key: 'status.paidActive' },
+    paid_inactive: { variant: 'danger', label: 'Subscription Inactive', key: 'status.paidInactive' },
+    inactive: { variant: 'danger', label: 'Inactive', key: 'status.inactive' },
+    canceled: { variant: 'danger', label: 'Canceled', key: 'status.canceled' },
+    past_due: { variant: 'warning', label: 'Past Due', key: 'status.pastDue' },
+    trialing: { variant: 'info', label: 'Trial', key: 'status.trialing' },
+    Ready: { variant: 'success', label: 'Ready', key: 'status.ready' },
+    'Conditionally Ready': { variant: 'warning', label: 'Conditionally Ready', key: 'status.conditionallyReady' },
+    'Not Ready': { variant: 'danger', label: 'Not Ready', key: 'status.notReady' },
   }
-  const item = map[status] || { variant: 'default' as const, label: status }
-  return <Badge variant={item.variant}>{item.label}</Badge>
+  const item: StatusBadgeConfig = map[status] || { variant: 'default', label: status }
+  return <Badge variant={item.variant}>{item.key ? t(locale, item.key, item.label) : item.label}</Badge>
 }

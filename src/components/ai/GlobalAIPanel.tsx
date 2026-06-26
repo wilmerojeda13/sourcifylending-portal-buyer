@@ -5,54 +5,114 @@ import { Sparkles, X, Send, Loader2, Bot, User, ChevronDown } from 'lucide-react
 import { cn } from '@/lib/utils'
 import { v4 as uuidv4 } from 'uuid'
 import type { ChatMessage } from '@/types'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
+import { t } from '@/lib/i18n'
 
 // ─── Page context registry ────────────────────────────────────────────────────
-interface PageCtx { label: string; starters: string[] }
+interface PageStarter { key: string; fallback: string }
+interface PageCtx { labelKey: string; label: string; starters: PageStarter[] }
 
 const PAGE_CONTEXTS: Record<string, PageCtx> = {
   '/dashboard': {
+    labelKey: 'ai.context.dashboard',
     label: 'Dashboard',
-    starters: ['What should I do next?', 'Summarize my current status', "What's blocking me?", 'Am I on track?'],
+    starters: [
+      { key: 'ai.starters.next', fallback: 'What should I do next?' },
+      { key: 'ai.starters.summarizeStatus', fallback: 'Summarize my current status' },
+      { key: 'ai.starters.blocking', fallback: "What's blocking me?" },
+      { key: 'ai.starters.onTrack', fallback: 'Am I on track?' },
+    ],
   },
   '/opportunities': {
+    labelKey: 'ai.context.opportunities',
     label: 'Opportunities',
-    starters: ['What should I apply for?', 'Why is this opportunity locked?', 'Am I ready to apply?', 'Which card is best right now?'],
+    starters: [
+      { key: 'ai.starters.applyFor', fallback: 'What should I apply for?' },
+      { key: 'ai.starters.whyLocked', fallback: 'Why is this opportunity locked?' },
+      { key: 'ai.starters.readyApply', fallback: 'Am I ready to apply?' },
+      { key: 'ai.starters.bestCard', fallback: 'Which card is best right now?' },
+    ],
   },
   '/business-credit': {
+    labelKey: 'ai.context.businessCredit',
     label: 'Business Credit Monitoring',
-    starters: ['Explain my current scores', 'What changed after my last sync?', 'What should I do to improve my PAYDEX?', 'Am I ready for business cards?'],
+    starters: [
+      { key: 'ai.starters.explainScores', fallback: 'Explain my current scores' },
+      { key: 'ai.starters.lastSync', fallback: 'What changed after my last sync?' },
+      { key: 'ai.starters.improvePaydex', fallback: 'What should I do to improve my PAYDEX?' },
+      { key: 'ai.starters.readyBusinessCards', fallback: 'Am I ready for business cards?' },
+    ],
   },
   '/credit-disputes': {
+    labelKey: 'ai.context.creditDisputes',
     label: 'Credit Disputes',
-    starters: ['What items should I dispute?', 'How long does a dispute take?', 'What bureau should I focus on?'],
+    starters: [
+      { key: 'ai.starters.disputeItems', fallback: 'What items should I dispute?' },
+      { key: 'ai.starters.disputeTime', fallback: 'How long does a dispute take?' },
+      { key: 'ai.starters.bureauFocus', fallback: 'What bureau should I focus on?' },
+    ],
   },
   '/underwriting': {
+    labelKey: 'ai.context.underwriting',
     label: 'Underwriting',
-    starters: ['What document am I missing?', 'Why is underwriting incomplete?', 'What do I need to upload?'],
+    starters: [
+      { key: 'ai.starters.missingDocument', fallback: 'What document am I missing?' },
+      { key: 'ai.starters.underwritingIncomplete', fallback: 'Why is underwriting incomplete?' },
+      { key: 'ai.starters.needUpload', fallback: 'What do I need to upload?' },
+    ],
   },
   '/billing': {
+    labelKey: 'ai.context.billing',
     label: 'Billing',
-    starters: ['Explain my next payment', 'When is auto-draft?', 'What does my plan include?'],
+    starters: [
+      { key: 'ai.starters.nextPayment', fallback: 'Explain my next payment' },
+      { key: 'ai.starters.autoDraft', fallback: 'When is auto-draft?' },
+      { key: 'ai.starters.planIncludes', fallback: 'What does my plan include?' },
+    ],
   },
   '/documents': {
+    labelKey: 'ai.context.documents',
     label: 'Documents',
-    starters: ['What documents do I still need?', 'Which documents are under review?', 'What should I upload next?'],
+    starters: [
+      { key: 'ai.starters.documentsNeed', fallback: 'What documents do I still need?' },
+      { key: 'ai.starters.documentsReview', fallback: 'Which documents are under review?' },
+      { key: 'ai.starters.uploadNext', fallback: 'What should I upload next?' },
+    ],
   },
   '/progress': {
+    labelKey: 'ai.context.progress',
     label: 'Progress',
-    starters: ['What tasks are overdue?', 'What should I complete this week?', 'How far along am I?'],
+    starters: [
+      { key: 'ai.starters.overdueTasks', fallback: 'What tasks are overdue?' },
+      { key: 'ai.starters.completeWeek', fallback: 'What should I complete this week?' },
+      { key: 'ai.starters.howFar', fallback: 'How far along am I?' },
+    ],
   },
   '/funding-results': {
+    labelKey: 'ai.context.fundingResults',
     label: 'Funding Results',
-    starters: ['How much have I been approved for?', 'What should I do with my approvals?', 'What is my next funding step?'],
+    starters: [
+      { key: 'ai.starters.approvedAmount', fallback: 'How much have I been approved for?' },
+      { key: 'ai.starters.withApprovals', fallback: 'What should I do with my approvals?' },
+      { key: 'ai.starters.nextFunding', fallback: 'What is my next funding step?' },
+    ],
   },
   '/reports': {
+    labelKey: 'ai.context.reports',
     label: 'Reports',
-    starters: ['Explain my latest report', 'What do my numbers mean?', 'How do I improve my score?'],
+    starters: [
+      { key: 'ai.starters.latestReport', fallback: 'Explain my latest report' },
+      { key: 'ai.starters.numbersMean', fallback: 'What do my numbers mean?' },
+      { key: 'ai.starters.improveScore', fallback: 'How do I improve my score?' },
+    ],
   },
   '/support': {
+    labelKey: 'ai.context.support',
     label: 'Support',
-    starters: ['I need help with my account', 'Can you explain my program?'],
+    starters: [
+      { key: 'ai.starters.accountHelp', fallback: 'I need help with my account' },
+      { key: 'ai.starters.explainProgram', fallback: 'Can you explain my program?' },
+    ],
   },
 }
 
@@ -63,7 +123,15 @@ function getPageCtx(pathname: string): PageCtx {
   for (const [key, ctx] of Object.entries(PAGE_CONTEXTS)) {
     if (pathname.startsWith(key)) return ctx
   }
-  return { label: 'Portal', starters: ['What should I do next?', 'Help me understand my status', 'What is my next step?'] }
+  return {
+    labelKey: 'ai.context.portal',
+    label: 'Portal',
+    starters: [
+      { key: 'ai.starters.next', fallback: 'What should I do next?' },
+      { key: 'ai.starters.understandStatus', fallback: 'Help me understand my status' },
+      { key: 'ai.starters.nextStep', fallback: 'What is my next step?' },
+    ],
+  }
 }
 
 // ─── Markdown → HTML (minimal) ───────────────────────────────────────────────
@@ -83,6 +151,8 @@ interface GlobalAIPanelProps {
 }
 
 export default function GlobalAIPanel({ assignedProgram, accountState, userName, defaultOpen = false }: GlobalAIPanelProps) {
+  const { locale } = useLanguage()
+  const text = useCallback((key: string, fallback: string) => t(locale, key, fallback), [locale])
   const pathname = usePathname()
   const [open, setOpen] = useState(defaultOpen)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -95,6 +165,11 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const pageCtx = getPageCtx(pathname)
+  const pageLabel = text(pageCtx.labelKey, pageCtx.label)
+  const pageStarters = pageCtx.starters.map(starter => ({
+    ...starter,
+    text: text(starter.key, starter.fallback),
+  }))
 
   // Hide on the full agent page (redundant)
   const isAgentPage = pathname === '/agent'
@@ -135,7 +210,9 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
           setMessages([{
             id: uuidv4(),
             role: 'assistant',
-            content: `Hi ${firstName}! 👋 I'm your AI assistant. I can see you're on the **${pageCtx.label}** page.\n\nHow can I help you right now?`,
+            content: text('ai.greeting', 'Hi {name}! I am your AI assistant. I can see you are on the **{page}** page.\n\nHow can I help you right now?')
+              .replace('{name}', firstName)
+              .replace('{page}', pageLabel),
             timestamp: new Date().toISOString(),
           }])
         }
@@ -146,7 +223,7 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
       }
     }
     load()
-  }, [open, initialized, userName, pageCtx.label])
+  }, [open, initialized, userName, pageLabel, text])
 
   // Inject updated page context when pathname changes (while panel is open)
   const prevPathRef = useRef(pathname)
@@ -154,19 +231,25 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
     if (!open || !initialized || pathname === prevPathRef.current) return
     prevPathRef.current = pathname
     const newCtx = getPageCtx(pathname)
+    const newPageLabel = text(newCtx.labelKey, newCtx.label)
+    const firstStarter = newCtx.starters[0]
+      ? text(newCtx.starters[0].key, newCtx.starters[0].fallback)
+      : text('ai.starters.next', 'What should I do next?')
     // Add a subtle context-change notice
     setMessages(prev => [...prev, {
       id: uuidv4(),
       role: 'assistant',
-      content: `_(Switched to **${newCtx.label}**)_ — ${newCtx.starters[0]}? I'm ready to help.`,
+      content: text('ai.contextSwitched', '_(Switched to **{page}**)_ - {starter}? I am ready to help.')
+        .replace('{page}', newPageLabel)
+        .replace('{starter}', firstStarter),
       timestamp: new Date().toISOString(),
       isSystem: true,
     } as ChatMessage & { isSystem?: boolean }])
     setShowStarters(true)
-  }, [pathname, open, initialized])
+  }, [pathname, open, initialized, text])
 
-  const sendMessage = useCallback(async (text: string) => {
-    const trimmed = text.trim()
+  const sendMessage = useCallback(async (messageText: string) => {
+    const trimmed = messageText.trim()
     if (!trimmed || loading) return
 
     setShowStarters(false)
@@ -197,13 +280,13 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
           action_type: 'simple_chat',
           page_context: {
             page: pathname,
-            label: pageCtx.label,
+            label: pageLabel,
           },
         }),
       })
 
       const data = await res.json()
-      const aiContent = data.message || 'Something went wrong. Please try again.'
+      const aiContent = data.message || text('ai.errorGeneric', 'Something went wrong. Please try again.')
 
       const aiMsg: ChatMessage = {
         id: uuidv4(),
@@ -232,13 +315,13 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
       setMessages(prev => [...prev, {
         id: uuidv4(),
         role: 'assistant',
-        content: 'Connection error. Please try again.',
+        content: text('ai.errorConnection', 'Connection error. Please try again.'),
         timestamp: new Date().toISOString(),
       }])
     } finally {
       setLoading(false)
     }
-  }, [messages, loading, pathname, pageCtx.label, conversationId])
+  }, [messages, loading, pathname, pageLabel, conversationId, text])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -281,9 +364,9 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
             <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center">
               <Sparkles size={14} className="text-white" />
             </div>
-            <span className="text-white font-semibold text-sm">AI Assistant</span>
+            <span className="text-white font-semibold text-sm">{text('ai.assistantTitle', 'AI Assistant')}</span>
             <span className="px-2 py-0.5 rounded-full bg-gray-700 text-gray-300 text-xs">
-              {pageCtx.label}
+              {pageLabel}
             </span>
           </div>
           <button
@@ -297,13 +380,13 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
         {/* Smart starters */}
         {showStarters && messages.length <= 1 && (
           <div className="flex gap-2 px-3 pt-3 pb-1 overflow-x-auto flex-shrink-0 scrollbar-hide">
-            {pageCtx.starters.map(s => (
+            {pageStarters.map(s => (
               <button
-                key={s}
-                onClick={() => sendMessage(s)}
+                key={s.key}
+                onClick={() => sendMessage(s.text)}
                 className="flex-shrink-0 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-400 text-xs font-medium hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors whitespace-nowrap"
               >
-                {s}
+                {s.text}
               </button>
             ))}
           </div>
@@ -361,7 +444,7 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask anything…"
+              placeholder={text('ai.placeholder', 'Ask anything...')}
               rows={1}
               className="flex-1 bg-transparent resize-none text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 outline-none max-h-24 min-h-[20px]"
               style={{ height: 'auto' }}
@@ -415,7 +498,7 @@ export default function GlobalAIPanel({ assignedProgram, accountState, userName,
           className="hidden lg:flex fixed z-30 bottom-6 right-[444px] items-center gap-1.5 px-3 py-2 rounded-full bg-gray-900 text-white text-xs shadow-lg hover:bg-gray-800 transition-colors"
         >
           <ChevronDown size={12} />
-          <span>Hide</span>
+          <span>{text('ai.hide', 'Hide')}</span>
         </button>
       )}
     </>
