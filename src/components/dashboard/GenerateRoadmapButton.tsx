@@ -2,11 +2,15 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
+import { t } from '@/lib/i18n'
 
 export default function GenerateRoadmapButton() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const { locale } = useLanguage()
+  const text = (key: string, fallback: string) => t(locale, key, fallback)
 
   const handleGenerate = async () => {
     setLoading(true)
@@ -25,7 +29,7 @@ export default function GenerateRoadmapButton() {
       const res = await fetch('/api/tasks/generate', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Something went wrong. Please try again.')
+        setError(data.error || text('progress.genericError', 'Something went wrong. Please try again.'))
       } else {
         // Log roadmap generation event (fire-and-forget)
         fetch('/api/activity', {
@@ -37,7 +41,7 @@ export default function GenerateRoadmapButton() {
         router.refresh()
       }
     } catch {
-      setError('Something went wrong. Please try again.')
+      setError(text('progress.genericError', 'Something went wrong. Please try again.'))
     }
     setLoading(false)
   }
@@ -47,9 +51,11 @@ export default function GenerateRoadmapButton() {
       <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
         <Sparkles size={20} className="text-green-600" />
       </div>
-      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">Ready to build your roadmap?</p>
+      <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">
+        {text('progress.readyToBuild', 'Ready to build your roadmap?')}
+      </p>
       <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed mb-4">
-        Our AI advisor will generate your personalized task list based on your profile and program.
+        {text('progress.aiAdvisorTaskList', 'Our AI advisor will generate your personalized task list based on your profile and program.')}
       </p>
       {error && (
         <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 rounded-lg px-3 py-2 mb-3">{error}</p>
@@ -62,12 +68,12 @@ export default function GenerateRoadmapButton() {
         {loading ? (
           <>
             <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            Generating your roadmap…
+            {text('progress.generating', 'Generating your roadmap...')}
           </>
         ) : (
           <>
             <Sparkles size={14} />
-            Generate My Roadmap
+            {text('progress.generateRoadmap', 'Generate My Roadmap')}
           </>
         )}
       </button>

@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { AlertTriangle, CreditCard, Calendar, RefreshCw, X, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
+import { t } from '@/lib/i18n'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface PaymentAlert {
@@ -81,7 +83,9 @@ const fmtDate = (iso: string) =>
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function PaymentAlertBanner({ alerts }: Props) {
+  const { locale } = useLanguage()
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const text = (key: string, fallback: string) => t(locale, key, fallback)
 
   if (!alerts || alerts.length === 0) return null
 
@@ -115,7 +119,7 @@ export default function PaymentAlertBanner({ alerts }: Props) {
                     <button
                       onClick={() => setDismissed(prev => new Set(Array.from(prev).concat(alert.type)))}
                       className={`shrink-0 ${cfg.iconColor} opacity-60 hover:opacity-100 transition-opacity`}
-                      aria-label="Dismiss"
+                      aria-label={text('dashboard.dismiss', 'Dismiss')}
                     >
                       <X size={15} />
                     </button>
@@ -138,12 +142,12 @@ export default function PaymentAlertBanner({ alerts }: Props) {
                   )}
                   {alert.balanceRemaining !== undefined && alert.balanceRemaining !== alert.amountDue && (
                     <span className={`text-xs font-semibold ${cfg.msgColor}`}>
-                      Balance: {fmt(alert.balanceRemaining)}
+                      {text('dashboard.balance', 'Balance')}: {fmt(alert.balanceRemaining)}
                     </span>
                   )}
                   {alert.dueDate && (
                     <span className={`text-xs ${cfg.msgColor}`}>
-                      {alert.type === 'renewal_upcoming' ? 'Renews' : 'Due'}: {fmtDate(alert.dueDate)}
+                      {alert.type === 'renewal_upcoming' ? text('dashboard.renews', 'Renews') : text('dashboard.due', 'Due')}: {fmtDate(alert.dueDate)}
                     </span>
                   )}
                 </div>
@@ -156,7 +160,14 @@ export default function PaymentAlertBanner({ alerts }: Props) {
                 href="/billing"
                 className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${cfg.ctaClass}`}
               >
-                {cfg.ctaLabel} <ExternalLink size={11} />
+                {alert.type === 'past_due'
+                  ? text('dashboard.updatePaymentMethod', 'Update Payment Method')
+                  : alert.type === 'balance_due'
+                  ? text('dashboard.viewPaymentDetails', 'View Payment Details')
+                  : alert.type === 'arrangement_due'
+                  ? text('dashboard.viewSchedule', 'View Schedule')
+                  : text('dashboard.manageSubscription', 'Manage Subscription')}{' '}
+                <ExternalLink size={11} />
               </Link>
             </div>
           </div>

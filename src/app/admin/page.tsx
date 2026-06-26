@@ -1,29 +1,54 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
+import { LOCALE_COOKIE, normalizeLocale, t } from '@/lib/i18n'
 import Link from 'next/link'
-import { Users, CheckCircle, Clock, XCircle, AlertOctagon, TrendingUp, Shield, FileText, BarChart2, Zap, HeartPulse, DollarSign, MessageSquare, Bell, BarChart3, GitBranch, PhoneCall, PlayCircle, ContactRound, SearchCheck, ShieldCheck, Headphones } from 'lucide-react'
+import {
+  AlertOctagon,
+  BarChart2,
+  BarChart3,
+  Bell,
+  CheckCircle,
+  Clock,
+  ContactRound,
+  DollarSign,
+  FileText,
+  GitBranch,
+  Headphones,
+  HeartPulse,
+  MessageSquare,
+  PhoneCall,
+  PlayCircle,
+  SearchCheck,
+  Shield,
+  ShieldCheck,
+  TrendingUp,
+  Users,
+  XCircle,
+  Zap,
+} from 'lucide-react'
 import { getProgramShortLabel } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 import SeedDemoButton from './SeedDemoButton'
 import SendRemindersButton from './SendRemindersButton'
+
 const DemoLoginPanel = dynamic(() => import('./DemoLoginPanel'), { ssr: false })
 
-// ─── Activity metadata formatter ──────────────────────────────────────────────
 function formatActivityMeta(data: Record<string, unknown>): string {
   const parts: string[] = []
   if (data.program) {
-    const p = String(data.program)
-    parts.push(p.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))
+    const program = String(data.program)
+    parts.push(program.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()))
   }
   if (data.risk_score !== undefined) parts.push(`Risk Score: ${data.risk_score}`)
   if (data.next_due_at) {
-    const d = new Date(String(data.next_due_at))
-    parts.push(`Next due: ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`)
+    const due = new Date(String(data.next_due_at))
+    parts.push(`Next due: ${due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`)
   }
   if (data.changes && typeof data.changes === 'object') {
     const changed = Object.entries(data.changes as Record<string, unknown>)
-      .filter(([, v]) => v !== null && v !== undefined && v !== '')
-      .map(([k]) => k.replace(/_/g, ' '))
+      .filter(([, value]) => value !== null && value !== undefined && value !== '')
+      .map(([key]) => key.replace(/_/g, ' '))
     if (changed.length) parts.push(changed.slice(0, 2).join(', '))
   }
   if (data.approval_likelihood) parts.push(String(data.approval_likelihood).replace(/_/g, ' '))
@@ -31,15 +56,19 @@ function formatActivityMeta(data: Record<string, unknown>): string {
 }
 
 export default async function AdminHubPage() {
+  const locale = normalizeLocale((await cookies()).get(LOCALE_COOKIE)?.value)
+  const text = (key: string, fallback: string) => t(locale, key, fallback)
+
   const authClient = await createClient()
-  const { data: { user } } = await authClient.auth.getUser()
+  const {
+    data: { user },
+  } = await authClient.auth.getUser()
   if (!user) redirect('/dashboard')
 
   const supabase = await createServiceClient()
   const { data: adminCheck } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
   if (!adminCheck?.is_admin) redirect('/dashboard')
 
-  // Parallel data fetch
   const [{ data: profiles }, { data: recentActivity }, { count: unreadNotifCount }] = await Promise.all([
     supabase
       .from('profiles')
@@ -50,25 +79,22 @@ export default async function AdminHubPage() {
       .select('id, user_id, event_type, event_data, created_at')
       .order('created_at', { ascending: false })
       .limit(20),
-    supabase
-      .from('admin_notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_read', false),
+    supabase.from('admin_notifications').select('*', { count: 'exact', head: true }).eq('is_read', false),
   ])
 
   const all = profiles ?? []
 
   const stats = {
     total: all.length,
-    active: all.filter((p) => p.billing_status === 'active').length,
-    trialing: all.filter((p) => p.billing_status === 'trialing').length,
-    inactive: all.filter((p) => p.billing_status === 'inactive').length,
-    canceled: all.filter((p) => p.billing_status === 'canceled').length,
-    blocked: all.filter((p) => p.portal_blocked).length,
-    program_a: all.filter((p) => p.assigned_program === 'program_a').length,
-    program_b: all.filter((p) => p.assigned_program === 'program_b').length,
-    program_c: all.filter((p) => p.assigned_program === 'program_c').length,
-    no_program: all.filter((p) => !p.assigned_program).length,
+    active: all.filter((profile) => profile.billing_status === 'active').length,
+    trialing: all.filter((profile) => profile.billing_status === 'trialing').length,
+    inactive: all.filter((profile) => profile.billing_status === 'inactive').length,
+    canceled: all.filter((profile) => profile.billing_status === 'canceled').length,
+    blocked: all.filter((profile) => profile.portal_blocked).length,
+    program_a: all.filter((profile) => profile.assigned_program === 'program_a').length,
+    program_b: all.filter((profile) => profile.assigned_program === 'program_b').length,
+    program_c: all.filter((profile) => profile.assigned_program === 'program_c').length,
+    no_program: all.filter((profile) => !profile.assigned_program).length,
   }
 
   const recentSignups = all.slice(0, 10)
@@ -76,71 +102,71 @@ export default async function AdminHubPage() {
   const navCards = [
     {
       href: '/admin/dialer',
-      label: 'Dialer',
+      label: text('admin.dialer', 'Dialer'),
       desc: 'Power dialer for raw leads. Promote qualified leads to CRM.',
       icon: Headphones,
       color: 'bg-orange-600',
     },
     {
       href: '/admin/crm',
-      label: 'Sales CRM',
+      label: text('admin.salesCrm', 'Sales CRM'),
       desc: 'Promoted leads only. Pipeline, activity feed, and appointments.',
       icon: ContactRound,
       color: 'bg-teal-600',
     },
     {
       href: '/admin/members',
-      label: 'Members',
-      desc: 'Manage subscriptions, programs, and access',
+      label: text('admin.members', 'Members'),
+      desc: text('admin.manageSubscriptions', 'Manage subscriptions, programs, and access'),
       icon: Users,
       color: 'bg-blue-600',
       count: stats.total,
     },
     {
       href: '/admin/opportunities',
-      label: 'Opportunities',
+      label: text('admin.opportunities', 'Opportunities'),
       desc: 'Control account opportunities shown to clients',
       icon: TrendingUp,
       color: 'bg-green-600',
     },
     {
       href: '/admin/chargeback-defense',
-      label: 'Chargeback Defense',
-      desc: 'Manage dispute documentation and responses',
+      label: text('admin.chargebackDefense', 'Chargeback Defense'),
+      desc: text('admin.manageDisputes', 'Manage dispute documentation and responses'),
       icon: Shield,
       color: 'bg-amber-600',
     },
     {
       href: '/admin/ai-controls',
-      label: 'AI Controls',
-      desc: 'Manage AI credit limits, action costs, and usage analytics',
+      label: text('admin.aiControls', 'AI Controls'),
+      desc: text('admin.manageAiControls', 'Manage AI credit limits, action costs, and usage analytics'),
       icon: Zap,
       color: 'bg-purple-600',
     },
     {
       href: '/admin/operations',
-      label: 'Client Operations',
+      label: text('admin.clientOperations', 'Client Operations'),
       desc: 'Health status, support assignments, and funding tracker',
       icon: HeartPulse,
       color: 'bg-rose-600',
     },
     {
       href: '/admin/revenue',
-      label: 'Revenue Tracker',
+      label: text('admin.revenueTracker', 'Revenue Tracker'),
       desc: 'Track collected revenue, MRR, setup fees, and outstanding balances',
       icon: DollarSign,
       color: 'bg-green-700',
     },
     {
       href: '/admin/support',
-      label: 'Support Inbox',
+      label: text('admin.supportInbox', 'Support Inbox'),
       desc: 'View and reply to client support messages',
       icon: MessageSquare,
       color: 'bg-blue-600',
     },
     {
       href: '/admin/activity',
-      label: 'Notifications & Activity',
+      label: text('admin.notificationsActivity', 'Notifications & Activity'),
       desc: 'Central admin alerts, unread notifications, and activity feed',
       icon: Bell,
       color: 'bg-amber-500',
@@ -148,56 +174,56 @@ export default async function AdminHubPage() {
     },
     {
       href: '/admin/intelligence',
-      label: 'Intelligence Dashboard',
+      label: text('admin.intelligenceDashboard', 'Intelligence Dashboard'),
       desc: 'Approval rates, performance data, and AI learning',
       icon: BarChart3,
       color: 'bg-indigo-600',
     },
     {
       href: '/admin/content',
-      label: 'Content OS',
+      label: text('admin.contentOs', 'Content OS'),
       desc: 'SEO, AI-search content, indexing, freshness, and attribution control',
       icon: SearchCheck,
       color: 'bg-emerald-600',
     },
     {
       href: '/admin/compliance',
-      label: 'Compliance Audit',
+      label: text('admin.complianceAudit', 'Compliance Audit'),
       desc: 'Consent records, form abuse blocks, and signup automation failures',
       icon: ShieldCheck,
       color: 'bg-slate-700',
     },
     {
       href: '/admin/affiliates',
-      label: 'Affiliate Program',
-      desc: 'Manage affiliates, commissions, referrals, and resource content',
+      label: text('admin.affiliateProgram', 'Affiliate Program'),
+      desc: text('admin.manageAffiliates', 'Manage affiliates, commissions, referrals, and resource content'),
       icon: GitBranch,
       color: 'bg-emerald-500',
     },
     {
       href: '/admin/voice',
-      label: 'AI Voice Campaigns',
+      label: text('admin.voiceCampaigns', 'AI Voice Campaigns'),
       desc: 'Outbound AI calling, lead lists, live calls, analytics, and scripts',
       icon: PhoneCall,
       color: 'bg-violet-600',
     },
     {
       href: '/admin/profile',
-      label: 'Admin Dialer Profile',
-      desc: 'Manage the phone number Twilio calls when you enter Ready mode in the CRM dialer.',
+      label: text('admin.dialerProfile', 'Admin Dialer Profile'),
+      desc: text('admin.manageDialerProfile', 'Manage the phone number Twilio calls when you enter Ready mode in the CRM dialer.'),
       icon: ShieldCheck,
       color: 'bg-emerald-700',
     },
     {
       href: '/admin/training',
-      label: 'Client Training Videos',
+      label: text('admin.clientTrainingVideos', 'Client Training Videos'),
       desc: 'Add, edit, and publish training videos shown in the client portal Training Center',
       icon: PlayCircle,
       color: 'bg-indigo-600',
     },
     {
       href: '/admin/affiliates/training',
-      label: 'Affiliate Training Videos',
+      label: text('admin.affiliateTrainingVideos', 'Affiliate Training Videos'),
       desc: 'Add, edit, and publish training videos shown in the affiliate portal Training Center',
       icon: PlayCircle,
       color: 'bg-violet-600',
@@ -207,30 +233,26 @@ export default async function AdminHubPage() {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-4 sm:px-6 sm:py-6">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
-
-        {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Admin Dashboard</h1>
-            <p className="text-sm text-gray-500 mt-1">Super admin control panel — {user.email}</p>
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">{text('admin.dashboardTitle', 'Admin Dashboard')}</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {text('admin.dashboardSubtitle', 'Super admin control panel')} — {user.email}
+            </p>
           </div>
-          <Link
-            href="/dashboard"
-            className="inline-flex w-fit shrink-0 text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
-          >
-            ← Member Dashboard
+          <Link href="/dashboard" className="inline-flex w-fit shrink-0 text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2">
+            ← {text('admin.memberDashboard', 'Member Dashboard')}
           </Link>
         </div>
 
-        {/* Stats Row */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { label: 'Total Members', value: stats.total, color: 'text-gray-900', icon: Users },
-            { label: 'Active', value: stats.active, color: 'text-green-600', icon: CheckCircle },
-            { label: 'Trialing', value: stats.trialing, color: 'text-blue-600', icon: Clock },
-            { label: 'Inactive', value: stats.inactive, color: 'text-gray-400', icon: XCircle },
-            { label: 'Canceled', value: stats.canceled, color: 'text-red-500', icon: XCircle },
-            { label: 'Blocked', value: stats.blocked, color: 'text-red-700', icon: AlertOctagon },
+            { label: text('admin.totalMembers', 'Total Members'), value: stats.total, color: 'text-gray-900', icon: Users },
+            { label: text('admin.active', 'Active'), value: stats.active, color: 'text-green-600', icon: CheckCircle },
+            { label: text('admin.trialing', 'Trialing'), value: stats.trialing, color: 'text-blue-600', icon: Clock },
+            { label: text('admin.inactive', 'Inactive'), value: stats.inactive, color: 'text-gray-400', icon: XCircle },
+            { label: text('admin.canceled', 'Canceled'), value: stats.canceled, color: 'text-red-500', icon: XCircle },
+            { label: text('admin.blocked', 'Blocked'), value: stats.blocked, color: 'text-red-700', icon: AlertOctagon },
           ].map(({ label, value, color, icon: Icon }) => (
             <div key={label} className="bg-white rounded-2xl border border-gray-200 px-4 py-4 shadow-sm text-center">
               <Icon size={18} className={`mx-auto mb-1.5 ${color}`} />
@@ -240,13 +262,10 @@ export default async function AdminHubPage() {
           ))}
         </div>
 
-        {/* Program Breakdown + Nav Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          {/* Program Breakdown */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-5">
             <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <BarChart2 size={18} className="text-green-600" /> Program Breakdown
+              <BarChart2 size={18} className="text-green-600" /> {text('admin.programBreakdown', 'Program Breakdown')}
             </h2>
             <div className="space-y-3">
               {[
@@ -255,7 +274,7 @@ export default async function AdminHubPage() {
                 { program: 'program_c', count: stats.program_c },
                 { program: null, count: stats.no_program },
               ].map(({ program, count }) => {
-                const label = program ? getProgramShortLabel(program) : 'No Program'
+                const label = program ? getProgramShortLabel(program) : text('admin.noProgram', 'No Program')
                 const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0
                 return (
                   <div key={program ?? 'none'}>
@@ -264,10 +283,7 @@ export default async function AdminHubPage() {
                       <span className="text-sm font-bold text-gray-900">{count}</span>
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full">
-                      <div
-                        className={`h-2 rounded-full ${program ? 'bg-green-500' : 'bg-gray-300'}`}
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className={`h-2 rounded-full ${program ? 'bg-green-500' : 'bg-gray-300'}`} style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )
@@ -275,7 +291,6 @@ export default async function AdminHubPage() {
             </div>
           </div>
 
-          {/* Admin Nav Cards + Seed */}
           <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 content-start">
             {navCards.map(({ href, label, desc, icon: Icon, color, count }) => (
               <Link
@@ -288,9 +303,7 @@ export default async function AdminHubPage() {
                 </div>
                 <div className="font-bold text-gray-900 group-hover:text-green-700 transition-colors">
                   {label}
-                  {count !== undefined && (
-                    <span className="ml-2 text-xs font-medium text-gray-400">({count})</span>
-                  )}
+                  {count !== undefined && <span className="ml-2 text-xs font-medium text-gray-400">({count})</span>}
                 </div>
                 <p className="text-xs text-gray-500 mt-1 leading-snug">{desc}</p>
               </Link>
@@ -301,71 +314,68 @@ export default async function AdminHubPage() {
           </div>
         </div>
 
-        {/* Recent Signups */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-4 py-4 sm:px-5 border-b border-gray-100 flex items-center justify-between gap-3">
             <h2 className="font-bold text-gray-900 flex items-center gap-2">
-              <Users size={18} className="text-blue-600" /> Recent Signups
+              <Users size={18} className="text-blue-600" /> {text('admin.recentSignups', 'Recent Signups')}
             </h2>
             <Link href="/admin/members" className="text-sm text-green-600 hover:text-green-700 font-medium">
-              View all →
+              {text('admin.viewAll', 'View all')} →
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-            {recentSignups.map((p) => (
+            {recentSignups.map((profile) => (
               <Link
-                key={p.id}
-                href={`/admin/members/${p.id}`}
+                key={profile.id}
+                href={`/admin/members/${profile.id}`}
                 className="flex flex-col gap-2 px-4 py-3 hover:bg-gray-50 transition-colors sm:flex-row sm:items-center sm:gap-4 sm:px-5"
               >
                 <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center shrink-0">
-                  <span className="text-xs font-bold text-gray-600">
-                    {(p.full_name || 'U').charAt(0).toUpperCase()}
-                  </span>
+                  <span className="text-xs font-bold text-gray-600">{(profile.full_name || 'U').charAt(0).toUpperCase()}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{p.full_name || 'Unknown'}</p>
-                  <p className="text-xs text-gray-400 truncate">{p.email}</p>
+                  <p className="text-sm font-semibold text-gray-900 truncate">{profile.full_name || 'Unknown'}</p>
+                  <p className="text-xs text-gray-400 truncate">{profile.email}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  {p.portal_blocked && (
+                  {profile.portal_blocked && (
                     <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full uppercase">
-                      Blocked
+                      {text('admin.blocked', 'Blocked')}
                     </span>
                   )}
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
-                    p.billing_status === 'active' ? 'bg-green-100 text-green-700' :
-                    p.billing_status === 'trialing' ? 'bg-blue-100 text-blue-700' :
-                    p.billing_status === 'canceled' ? 'bg-red-100 text-red-600' :
-                    'bg-gray-100 text-gray-500'
-                  }`}>
-                    {p.billing_status}
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
+                      profile.billing_status === 'active'
+                        ? 'bg-green-100 text-green-700'
+                        : profile.billing_status === 'trialing'
+                        ? 'bg-blue-100 text-blue-700'
+                        : profile.billing_status === 'canceled'
+                        ? 'bg-red-100 text-red-600'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {profile.billing_status}
                   </span>
-                  <span className="text-xs text-gray-400">
-                    {new Date(p.created_at).toLocaleDateString()}
-                  </span>
+                  <span className="text-xs text-gray-400">{new Date(profile.created_at).toLocaleDateString()}</span>
                 </div>
               </Link>
             ))}
-            {recentSignups.length === 0 && (
-              <div className="px-5 py-8 text-center text-gray-400 text-sm">No members yet</div>
-            )}
+            {recentSignups.length === 0 && <div className="px-5 py-8 text-center text-gray-400 text-sm">{text('admin.noMembers', 'No members yet')}</div>}
           </div>
         </div>
 
-        {/* Recent Activity Log */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-4 py-4 sm:px-5 border-b border-gray-100 flex items-center justify-between gap-3">
             <h2 className="font-bold text-gray-900 flex items-center gap-2">
-              <FileText size={18} className="text-gray-500" /> Recent Activity
+              <FileText size={18} className="text-gray-500" /> {text('admin.recentActivity', 'Recent Activity')}
               {(unreadNotifCount ?? 0) > 0 && (
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">
-                  {unreadNotifCount} unread
+                  {unreadNotifCount} {text('admin.unread', 'unread')}
                 </span>
               )}
             </h2>
             <Link href="/admin/activity" className="text-sm text-amber-600 hover:text-amber-700 font-medium">
-              View feed →
+              {text('admin.viewFeed', 'View feed')} →
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
@@ -373,26 +383,17 @@ export default async function AdminHubPage() {
               <div key={log.id} className="flex items-start gap-3 px-4 py-3 sm:px-5">
                 <div className="w-2 h-2 bg-green-400 rounded-full mt-2 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <span className="block text-xs font-semibold text-gray-700 capitalize">
-                    {log.event_type.replace(/_/g, ' ')}
-                  </span>
+                  <span className="block text-xs font-semibold text-gray-700 capitalize">{log.event_type.replace(/_/g, ' ')}</span>
                   {log.event_data && Object.keys(log.event_data).length > 0 && (
-                    <span className="mt-1 block text-xs text-gray-400">
-                      {formatActivityMeta(log.event_data)}
-                    </span>
+                    <span className="mt-1 block text-xs text-gray-400">{formatActivityMeta(log.event_data)}</span>
                   )}
                 </div>
-                <span className="shrink-0 text-[11px] text-gray-300 text-right">
-                  {new Date(log.created_at).toLocaleString()}
-                </span>
+                <span className="shrink-0 text-[11px] text-gray-300 text-right">{new Date(log.created_at).toLocaleString()}</span>
               </div>
             ))}
-            {(!recentActivity || recentActivity.length === 0) && (
-              <div className="px-5 py-8 text-center text-gray-400 text-sm">No activity yet</div>
-            )}
+            {(!recentActivity || recentActivity.length === 0) && <div className="px-5 py-8 text-center text-gray-400 text-sm">{text('admin.noActivity', 'No activity yet')}</div>}
           </div>
         </div>
-
       </div>
     </div>
   )

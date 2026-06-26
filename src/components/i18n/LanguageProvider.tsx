@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { DEFAULT_LOCALE, LOCALE_COOKIE, localizePathname, normalizeLocale, type Locale } from '@/lib/i18n'
 
@@ -41,9 +41,9 @@ export function LanguageProvider({
     document.documentElement.lang = nextLocale
     window.localStorage.setItem(LOCALE_COOKIE, nextLocale)
     setCookie(nextLocale)
-  }, [])
+  }, [locale])
 
-  const setLocale = (nextLocale: Locale) => {
+  const setLocale = useCallback((nextLocale: Locale) => {
     setLocaleState(nextLocale)
     document.documentElement.lang = nextLocale
     window.localStorage.setItem(LOCALE_COOKIE, nextLocale)
@@ -53,13 +53,13 @@ export function LanguageProvider({
     const localizedPath = localizePathname(current.pathname, nextLocale)
     current.searchParams.set('sl_locale', nextLocale)
     router.replace(`${localizedPath}${current.search}${current.hash}`, { scroll: false })
-  }
+  }, [router])
 
-  const toggleLocale = () => {
+  const toggleLocale = useCallback(() => {
     setLocale(locale === 'en' ? 'es' : 'en')
-  }
+  }, [locale, setLocale])
 
-  const value = useMemo(() => ({ locale, setLocale, toggleLocale }), [locale])
+  const value = useMemo(() => ({ locale, setLocale, toggleLocale }), [locale, setLocale, toggleLocale])
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
 }

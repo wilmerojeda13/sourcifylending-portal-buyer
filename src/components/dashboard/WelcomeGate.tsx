@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Shield, CheckCircle, AlertCircle, Loader2, Lock } from 'lucide-react'
 import { SUPPORT_EMAIL } from '@/lib/site-config'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
+import { t } from '@/lib/i18n'
 
 interface Props {
   programLabel: string
@@ -34,7 +36,31 @@ Before initiating any dispute with your card issuer or bank, you agree to contac
 6. ELECTRONIC SIGNATURE
 By typing your full name and clicking "I Accept & Enter Portal", you are providing your electronic signature and agreeing to these terms with the same legal effect as a handwritten signature.`
 
+const SERVICE_AGREEMENT_TEXT_ES = `SOURCIFY LENDING - ACUERDO DE SERVICIO Y POLITICA DE NO REEMBOLSO
+
+Al aceptar el acceso a este portal, aceptas los siguientes terminos:
+
+1. SERVICIOS PROPORCIONADOS
+SourcifyLending proporciona servicios de asesoria para credito empresarial guiados por IA, incluyendo generacion de ruta, revision de documentos, orientacion sobre cuentas de proveedores y acompanamiento de progreso.
+
+2. POLITICA DE NO REEMBOLSO
+Todos los pagos no son reembolsables una vez que se concede el acceso al portal. Esto aplica a cargos de configuracion, pagos parciales, pagos mensuales y cualquier otro cargo.
+
+3. SIN GARANTIA DE RESULTADOS
+Los resultados de credito empresarial dependen de tu historial financiero, las acciones tomadas y decisiones de terceros fuera de nuestro control. SourcifyLending no garantiza aprobacion para ningun producto de credito, prestamo o financiamiento.
+
+4. ENTREGA DEL SERVICIO
+Los servicios se entregan digitalmente por medio de este portal. El acceso a tu agente de IA, ruta, seguimiento de progreso, herramientas de documentos y recursos de acompanamiento constituye entrega de servicios.
+
+5. RESOLUCION DE DISPUTAS
+Antes de iniciar cualquier disputa con el emisor de tu tarjeta o banco, aceptas contactar directamente a SourcifyLending en ${SUPPORT_EMAIL} y permitir 5 dias habiles para resolver el asunto.
+
+6. FIRMA ELECTRONICA
+Al escribir tu nombre completo y hacer clic en "Acepto y entrar al portal", estas proporcionando tu firma electronica y aceptando estos terminos con el mismo efecto legal que una firma escrita a mano.`
+
 export default function WelcomeGate({ programLabel, userName, onComplete }: Props) {
+  const { locale } = useLanguage()
+  const text = (key: string, fallback: string) => t(locale, key, fallback)
   const [signedName, setSignedName] = useState('')
   const [noRefundChecked, setNoRefundChecked] = useState(false)
   const [disputeChecked, setDisputeChecked] = useState(false)
@@ -65,12 +91,12 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error || 'Failed to save agreement')
+        throw new Error(data.error || text('welcomeGate.failedSaveAgreement', 'Failed to save agreement'))
       }
 
       onComplete()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      setError(err instanceof Error ? err.message : text('welcomeGate.genericError', 'Something went wrong. Please try again.'))
       setLoading(false)
     }
   }
@@ -83,10 +109,10 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
         <div className="bg-gradient-to-r from-blue-700 to-blue-900 rounded-t-2xl px-8 py-6 text-white">
           <div className="flex items-center gap-3 mb-1">
             <Shield className="h-6 w-6" />
-            <h1 className="text-xl font-bold">Service Agreement & Portal Access</h1>
+            <h1 className="text-xl font-bold">{text('welcomeGate.title', 'Service Agreement & Portal Access')}</h1>
           </div>
           <p className="text-blue-200 text-sm">
-            Please review and sign before accessing your {programLabel} dashboard.
+            {text('welcomeGate.subtitle', 'Please review and sign before accessing your {{program}} dashboard.').replace('{{program}}', programLabel)}
           </p>
         </div>
 
@@ -95,21 +121,21 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
           {/* Welcome message */}
           <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
             <p className="text-blue-900 dark:text-blue-100 text-sm font-medium">
-              Welcome, {userName.split(' ')[0]}! One quick step before you get started.
+              {text('welcomeGate.welcome', 'Welcome, {{name}}! One quick step before you get started.').replace('{{name}}', userName.split(' ')[0])}
             </p>
             <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
-              Review the agreement below, type your full name as your electronic signature, and you&apos;ll have immediate access to your portal.
+              {text('welcomeGate.reviewInstructions', "Review the agreement below, type your full name as your electronic signature, and you'll have immediate access to your portal.")}
             </p>
           </div>
 
           {/* Agreement text */}
           <div>
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-              <Lock className="h-4 w-4" /> Service Agreement
+              <Lock className="h-4 w-4" /> {text('welcomeGate.serviceAgreement', 'Service Agreement')}
             </h2>
             <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 h-56 overflow-y-auto">
               <pre className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
-                {SERVICE_AGREEMENT_TEXT}
+                {locale === 'es' ? SERVICE_AGREEMENT_TEXT_ES : SERVICE_AGREEMENT_TEXT}
               </pre>
             </div>
           </div>
@@ -124,7 +150,7 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
                 className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 cursor-pointer bg-white dark:bg-gray-700"
               />
                       <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-green-700 dark:group-hover:text-green-300">
-                <strong>I understand all payments are non-refundable</strong> once portal access is granted. Service delivery begins immediately upon activation.
+                <strong>{text('welcomeGate.noRefundStrong', 'I understand all payments are non-refundable')}</strong> {text('welcomeGate.noRefundBody', 'once portal access is granted. Service delivery begins immediately upon activation.')}
               </span>
             </label>
 
@@ -136,7 +162,7 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
                 className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 cursor-pointer bg-white dark:bg-gray-700"
               />
                       <span className="text-sm text-gray-700 dark:text-gray-200 group-hover:text-green-700 dark:group-hover:text-green-300">
-                <strong>I agree to contact SourcifyLending first</strong> at {SUPPORT_EMAIL} before initiating any dispute with my card issuer, allowing 5 business days to resolve.
+                <strong>{text('welcomeGate.disputeStrong', 'I agree to contact SourcifyLending first')}</strong> {text('welcomeGate.disputeBody', 'at {{email}} before initiating any dispute with my card issuer, allowing 5 business days to resolve.').replace('{{email}}', SUPPORT_EMAIL)}
               </span>
             </label>
           </div>
@@ -144,18 +170,18 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
           {/* Electronic signature */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-              Electronic Signature — Type Your Full Legal Name
+              {text('welcomeGate.signatureLabel', 'Electronic Signature - Type Your Full Legal Name')}
             </label>
             <input
               type="text"
               value={signedName}
               onChange={e => setSignedName(e.target.value)}
-              placeholder="Your Full Name"
+              placeholder={text('welcomeGate.signaturePlaceholder', 'Your Full Name')}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-gray-900 dark:text-white bg-white dark:bg-gray-800 font-medium text-lg tracking-wide focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500 placeholder:font-normal placeholder:text-base placeholder:tracking-normal"
               style={{ fontFamily: 'Georgia, serif' }}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Typing your name constitutes a legally binding electronic signature (ESIGN Act).
+              {text('welcomeGate.signatureHelp', 'Typing your name constitutes a legally binding electronic signature (ESIGN Act).')}
             </p>
           </div>
 
@@ -180,18 +206,18 @@ export default function WelcomeGate({ programLabel, userName, onComplete }: Prop
             {loading ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Saving your agreement…
+                {text('welcomeGate.saving', 'Saving your agreement...')}
               </>
             ) : (
               <>
                 <CheckCircle className="h-5 w-5" />
-                I Accept & Enter Portal
+                {text('welcomeGate.accept', 'I Accept & Enter Portal')}
               </>
             )}
           </button>
 
           <p className="text-center text-xs text-gray-400 dark:text-gray-500">
-            Agreement version {AGREEMENT_VERSION} · Signed agreement stored securely with timestamp and IP address
+            {text('welcomeGate.versionStored', 'Agreement version {{version}} - Signed agreement stored securely with timestamp and IP address').replace('{{version}}', AGREEMENT_VERSION)}
           </p>
         </div>
       </div>

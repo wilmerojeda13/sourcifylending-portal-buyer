@@ -3,6 +3,8 @@ import PortalLayout from '@/components/layout/PortalLayout'
 import { Bell, CheckCheck } from 'lucide-react'
 import { revalidatePath } from 'next/cache'
 import { getBusinessContext, requirePortalPageContext } from '@/lib/business-context'
+import { cookies } from 'next/headers'
+import { LOCALE_COOKIE, normalizeLocale, t } from '@/lib/i18n'
 
 interface Notification {
   id: string
@@ -45,6 +47,8 @@ async function markOneRead(formData: FormData) {
 
 export default async function NotificationsPage() {
   const { supabase, authUser: user, activeBusinessId, activeProfile: profile, activePrograms, notificationCount } = await requirePortalPageContext('/notifications')
+  const locale = normalizeLocale((await cookies()).get(LOCALE_COOKIE)?.value)
+  const text = (key: string, fallback: string) => t(locale, key, fallback)
 
   const [{ data: notifications }] = await Promise.all([
     supabase
@@ -62,13 +66,13 @@ export default async function NotificationsPage() {
     const now = new Date()
     const diffMs = now.getTime() - d.getTime()
     const diffMin = Math.floor(diffMs / 60000)
-    if (diffMin < 1) return 'Just now'
-    if (diffMin < 60) return `${diffMin}m ago`
+    if (diffMin < 1) return text('notifications.justNow', 'Just now')
+    if (diffMin < 60) return `${diffMin}${text('notifications.minutesAgo', 'm ago')}`
     const diffH = Math.floor(diffMin / 60)
-    if (diffH < 24) return `${diffH}h ago`
+    if (diffH < 24) return `${diffH}${text('notifications.hoursAgo', 'h ago')}`
     const diffD = Math.floor(diffH / 24)
-    if (diffD < 7) return `${diffD}d ago`
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    if (diffD < 7) return `${diffD}${text('notifications.daysAgo', 'd ago')}`
+    return d.toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })
   }
 
   return (
@@ -88,10 +92,10 @@ export default async function NotificationsPage() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="page-title flex items-center gap-2">
-              <Bell size={22} className="text-green-500" /> Notifications
+              <Bell size={22} className="text-green-500" /> {text('notifications.title', 'Notifications')}
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+              {unreadCount > 0 ? `${unreadCount} ${text('notifications.unread', 'unread')}` : text('notifications.allCaughtUp', 'All caught up')}
             </p>
           </div>
           {unreadCount > 0 && (
@@ -100,7 +104,7 @@ export default async function NotificationsPage() {
                 type="submit"
               className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-green-700 border border-gray-200 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
               >
-                <CheckCheck size={14} /> Mark all read
+                <CheckCheck size={14} /> {text('notifications.markAllRead', 'Mark all read')}
               </button>
             </form>
           )}
@@ -110,9 +114,9 @@ export default async function NotificationsPage() {
         {!notifications || notifications.length === 0 ? (
           <div className="card text-center py-12">
             <Bell size={32} className="text-gray-300 mx-auto mb-3" />
-            <p className="text-sm font-medium text-gray-500">No notifications yet</p>
+            <p className="text-sm font-medium text-gray-500">{text('notifications.noNotifications', 'No notifications yet')}</p>
             <p className="text-xs text-gray-400 mt-1">
-              You&apos;ll see updates about your program, tasks, and documents here.
+              {text('notifications.updatesHere', "You'll see updates about your program, tasks, and documents here.")}
             </p>
           </div>
         ) : (
@@ -149,7 +153,7 @@ export default async function NotificationsPage() {
                     <input type="hidden" name="id" value={n.id} />
                     <button
                       type="submit"
-                      title="Mark as read"
+                      title={text('notifications.markRead', 'Mark as read')}
                       className="shrink-0 text-gray-300 hover:text-green-500 transition-colors mt-0.5"
                     >
                       <CheckCheck size={16} />

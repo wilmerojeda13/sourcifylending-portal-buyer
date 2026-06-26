@@ -109,11 +109,14 @@ export default function PortalLayout({
       'Inquiry Disputes': 'portal.inquiryDisputes',
       'Funding Results': 'portal.fundingResults',
       'Training Videos': 'portal.trainingVideos',
+      'AI Credits': 'portal.aiCredits',
       Upgrade: 'portal.upgrade',
       Support: 'portal.support',
       'Support Inbox': 'portal.support',
       Settings: 'portal.settings',
       'Credit Optimization': 'portal.creditOptimization',
+      'Free Plan': 'portal.freePlan',
+      'Subscription Required': 'portal.subscriptionRequired',
       'Biz Credit Setup': 'portal.bizCreditSetup',
       'Biz Credit Monitoring': 'portal.bizCreditMonitoring',
       'Biz Resources': 'portal.bizResources',
@@ -124,10 +127,17 @@ export default function PortalLayout({
       Notifications: 'portal.notifications',
       'Sign Out': 'portal.signOut',
       'Admin Panel': 'portal.adminPanel',
+      'Demo Account': 'portal.demoAccount',
+      'Admin Account': 'portal.adminAccount',
+      'Delegate Access': 'portal.delegateAccess',
+      'Free Plan Account': 'portal.freePlanAccount',
+      'Free Prospect Account': 'portal.freeProspectAccount',
       'Switch Program': 'portal.switchProgram',
     }
     return t(locale, map[label] ?? '', label)
   }
+
+  const portalText = (key: string, fallback: string) => t(locale, key, fallback)
 
   const sidebarNavItems = useMemo(() => {
     if (!isAdmin && (isProspect || isFreeUser)) return PROSPECT_NAV_ITEMS
@@ -209,22 +219,22 @@ export default function PortalLayout({
           <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-5">
             <span className="text-3xl">🚫</span>
           </div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Account Suspended</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">{portalText('portal.accountSuspended', 'Account Suspended')}</h1>
           <p className="text-gray-500 text-sm leading-relaxed mb-6">
-            Your portal access has been temporarily suspended. Please contact our support team to resolve this.
+            {portalText('portal.suspendedReason', 'Your portal access has been temporarily suspended. Please contact our support team to resolve this.')}
           </p>
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
             className="inline-flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-6 py-3 rounded-xl hover:bg-green-700 transition-colors"
           >
-            Contact Support
+            {portalText('portal.contactSupport', 'Contact Support')}
           </a>
           <div className="mt-6">
             <button
               onClick={handleSignOut}
               className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
             >
-              Sign out
+              {translateNavLabel('Sign Out')}
             </button>
           </div>
         </div>
@@ -313,7 +323,9 @@ export default function PortalLayout({
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-4 pt-1">{translateNavLabel('Switch Program')}</p>
             {enrolledPrograms.filter(p => p !== 'program_c').map(p => {
               const isActive = p === assignedProgram
-              const label = p === 'program_a' ? 'Program A — APR Cards' : 'Program B — Biz Credit'
+              const label = p === 'program_a'
+                ? portalText('portal.switchProgramA', 'Switch to Program A')
+                : portalText('portal.switchProgramB', 'Switch to Program B')
               return (
                 <button
                   key={p}
@@ -340,7 +352,7 @@ export default function PortalLayout({
                   }`}
                 >
                   <RefreshCcw size={16} className={switching && !isActive ? 'animate-spin' : ''} />
-                  <span className="truncate">{isActive ? `✓ ${translateNavLabel(label)}` : translateNavLabel(label)}</span>
+                    <span className="truncate">{isActive ? `✓ ${translateNavLabel(label)}` : translateNavLabel(label)}</span>
                 </button>
               )
             })}
@@ -356,8 +368,10 @@ export default function PortalLayout({
             <RefreshCcw size={18} className={switching ? 'animate-spin' : ''} />
             <span>
               {switching
-                ? 'Switching…'
-                : `Switch to ${demoSecondaryProgram === 'program_a' ? 'Program A' : 'Program B'}`}
+                ? portalText('portal.switching', 'Switching...')
+                : demoSecondaryProgram === 'program_a'
+                  ? portalText('portal.switchProgramA', 'Switch to Program A')
+                  : portalText('portal.switchProgramB', 'Switch to Program B')}
             </span>
           </button>
         )}
@@ -377,26 +391,26 @@ export default function PortalLayout({
         <div className="flex items-center gap-1.5">
           <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">{userName}</p>
           {isDemo && (
-            <span className="text-[9px] font-bold px-1 py-0.5 bg-amber-100 text-amber-700 rounded-full uppercase shrink-0">Demo</span>
+            <span className="text-[9px] font-bold px-1 py-0.5 bg-amber-100 text-amber-700 rounded-full uppercase shrink-0">{translateNavLabel('Demo Account')}</span>
           )}
           {(!isAdmin && (isProspect || isFreeUser)) && (
-            <span className="text-[9px] font-bold px-1 py-0.5 bg-green-100 text-green-700 rounded-full uppercase shrink-0">Free</span>
+            <span className="text-[9px] font-bold px-1 py-0.5 bg-green-100 text-green-700 rounded-full uppercase shrink-0">{translateNavLabel('Free Plan')}</span>
           )}
           {isDelegate && (
-            <span className="text-[9px] font-bold px-1 py-0.5 bg-blue-100 text-blue-700 rounded-full uppercase shrink-0">Delegate</span>
+            <span className="text-[9px] font-bold px-1 py-0.5 bg-blue-100 text-blue-700 rounded-full uppercase shrink-0">{translateNavLabel('Delegate Access')}</span>
           )}
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
           {isDemo
-            ? (locale === 'es' ? 'Cuenta demo' : 'Demo Account')
+            ? translateNavLabel('Demo Account')
             : isAdmin
-              ? (locale === 'es' ? 'Cuenta de administrador' : 'Admin Account')
+              ? translateNavLabel('Admin Account')
               : isDelegate
-                ? (locale === 'es' ? 'Acceso delegado' : 'Delegate Access')
+                ? translateNavLabel('Delegate Access')
                 : isFreeUser
-                  ? (locale === 'es' ? 'Cuenta plan gratis' : 'Free Plan Account')
+                  ? translateNavLabel('Free Plan Account')
                   : isProspect
-                    ? (locale === 'es' ? 'Cuenta prospecto gratis' : 'Free Prospect Account')
+                    ? translateNavLabel('Free Prospect Account')
                     : t(locale, 'portal.clientAccount', 'Client Account')}
         </p>
       </div>
@@ -468,8 +482,8 @@ export default function PortalLayout({
             <div className="mb-5 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-2xl px-4 py-3 flex items-center gap-3">
               <span className="text-lg">🧪</span>
               <div>
-                <p className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wide">Demo Account</p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 leading-snug">This is a seeded demo for testing and sales purposes. Data is not real.</p>
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wide">{translateNavLabel('Demo Account')}</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 leading-snug">{portalText('portal.demoBannerDescription', 'This is a seeded demo for testing and sales purposes. Data is not real.')}</p>
               </div>
             </div>
           )}
@@ -477,10 +491,10 @@ export default function PortalLayout({
             <div className="mb-5 flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
                 <AlertTriangle size={18} className="mt-0.5 shrink-0" />
-                <p className="text-sm font-semibold">Payment failed. Please update your payment method.</p>
+                <p className="text-sm font-semibold">{portalText('portal.paymentFailed', 'Payment failed. Please update your payment method.')}</p>
               </div>
               <Link href="/billing" className="inline-flex items-center justify-center rounded-md bg-amber-700 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800">
-                Update card
+                {portalText('portal.updateCard', 'Update Card')}
               </Link>
             </div>
           )}
@@ -490,19 +504,19 @@ export default function PortalLayout({
                 <Lock size={22} />
               </div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                {lockedByBilling ? 'Membership Paused' : 'Subscription Required'}
+                {lockedByBilling ? portalText('portal.membershipPaused', 'Membership Paused') : translateNavLabel('Subscription Required')}
               </h1>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                 {lockedByBilling
-                  ? 'Your membership is paused due to failed payment. Update your card to restore access.'
-                  : 'This business needs its own subscription before you can access the portal. Each business is billed separately under the current plan structure.'}
+                  ? portalText('portal.subscriptionPausedBody', 'Your membership is paused due to failed payment. Update your card to restore access.')
+                  : portalText('portal.subscriptionBodyLocked', 'This business needs its own subscription before you can access the portal. Each business is billed separately under the current plan structure.')}
               </p>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                 <Link href="/billing" className="btn-primary px-5 py-3 text-sm">
-                  {lockedByBilling ? 'Update Card' : 'Choose a Plan'}
+                  {lockedByBilling ? portalText('portal.updateCard', 'Update Card') : portalText('portal.choosePlan', 'Choose a Plan')}
                 </Link>
                 <Link href="/dashboard" className="btn-secondary px-5 py-3 text-sm">
-                  Back to Dashboard
+                  {portalText('portal.backDashboard', 'Back to Dashboard')}
                 </Link>
               </div>
             </div>
@@ -533,7 +547,7 @@ export default function PortalLayout({
                   )}
                 >
                   <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-                  <span className="text-[10px] font-medium leading-none">{translateNavLabel(label).replace(' ', '\n')}</span>
+                  <span className="text-[10px] font-medium leading-none text-center whitespace-normal break-words">{translateNavLabel(label)}</span>
                 </Link>
               )
             })}

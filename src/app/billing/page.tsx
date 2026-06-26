@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import BusinessManagementCard from '@/components/member/BusinessManagementCard'
@@ -163,7 +163,7 @@ export default function BillingPage() {
   const [destructiveInput, setDestructiveInput] = useState('')
   const [subscriptionRequiredFlow, setSubscriptionRequiredFlow] = useState(false)
   const [newBusinessFlow, setNewBusinessFlow] = useState(false)
-  const text = (en: string, es: string) => (locale === 'es' ? es : en)
+  const text = useCallback((en: string, es: string) => (locale === 'es' ? es : en), [locale])
 
   useEffect(() => {
     if (contextProfile) {
@@ -202,7 +202,7 @@ export default function BillingPage() {
       toast.error(text('Add-on checkout was canceled.', 'El pago de la membresía adicional fue cancelado.'))
       window.history.replaceState({}, '', '/billing')
     }
-  }, [])
+  }, [text])
 
   // Normalize account state from feature_tier, billing_status, and member_status
   const entitlements = getAccountEntitlements(profile?.feature_tier, profile?.billing_status, profile?.member_status)
@@ -220,6 +220,120 @@ export default function BillingPage() {
     ? profilePrograms
     : memberships.map((m) => m.program_code).filter(Boolean)
   const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
+  const dateLocale = locale === 'es' ? 'es-ES' : 'en-US'
+
+  const programName = useCallback((programCode: string | null | undefined) => {
+    switch (programCode) {
+      case 'program_a':
+        return text('Program A - 0% APR Card Strategy', 'Programa A - Estrategia de tarjetas con 0% APR')
+      case 'program_b':
+        return text('Program B - Business Credit Builder', 'Programa B - Constructor de credito empresarial')
+      case 'program_c':
+        return text('Program C - Capital Monitoring', 'Programa C - Monitoreo de capital')
+      default:
+        return programCode ? PROGRAM_NAMES[programCode] ?? programCode : text('No program', 'Sin programa')
+    }
+  }, [text])
+
+  const programDescription = useCallback((programCode: string) => {
+    switch (programCode) {
+      case 'program_a':
+        return text(
+          'Build high-limit 0% intro APR credit card stack for business or personal capital',
+          'Construye una estrategia de tarjetas con 0% APR inicial para capital empresarial o personal'
+        )
+      case 'program_b':
+        return text(
+          'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring',
+          'Construye un perfil solido de credito empresarial con D-U-N-S, lineas comerciales y monitoreo de bureaus'
+        )
+      case 'program_c':
+        return text(
+          'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan',
+          'Resumen mensual de credito, analisis bancario, revision de obligaciones y plan de accion de 30 dias'
+        )
+      default:
+        return PAID_PROGRAM_OPTIONS.find((option) => option.key === programCode)?.desc ?? ''
+    }
+  }, [text])
+
+  const programFeatures = useCallback((programCode: string) => {
+    switch (programCode) {
+      case 'program_a':
+        return [
+          text('Full 0% APR Card Strategy program', 'Programa completo de estrategia de tarjetas con 0% APR'),
+          text('AI Fulfillment Agent - full access', 'Agente de cumplimiento con IA - acceso completo'),
+          text('Application sequencing guidance', 'Guia de secuencia de solicitudes'),
+          text('Card acquisition tracking', 'Seguimiento de adquisicion de tarjetas'),
+          text('Optimization stage support', 'Soporte en etapa de optimizacion'),
+          text('Document manager', 'Administrador de documentos'),
+          text('Report generation', 'Generacion de reportes'),
+        ]
+      case 'program_b':
+        return [
+          text('Full Business Credit Builder program', 'Programa completo de constructor de credito empresarial'),
+          text('AI Fulfillment Agent - full access', 'Agente de cumplimiento con IA - acceso completo'),
+          text('Vendor account guidance', 'Guia de cuentas de proveedores'),
+          text('Tradeline progress tracking', 'Seguimiento de progreso de lineas comerciales'),
+          text('PAYDEX preparation support', 'Soporte de preparacion para PAYDEX'),
+          text('Document manager', 'Administrador de documentos'),
+          text('Monthly reports', 'Reportes mensuales'),
+        ]
+      case 'program_c':
+        return [
+          text('Monthly Capital Monitoring', 'Monitoreo mensual de capital'),
+          text('AI Fulfillment Agent - full access', 'Agente de cumplimiento con IA - acceso completo'),
+          text('Monthly credit snapshot', 'Resumen mensual de credito'),
+          text('Banking analysis', 'Analisis bancario'),
+          text('Obligation risk scan', 'Revision de riesgo de obligaciones'),
+          text('30-day action plan', 'Plan de accion de 30 dias'),
+          text("Do/Don't monthly rules", 'Reglas mensuales de que hacer y que evitar'),
+        ]
+      default:
+        return PROGRAM_FEATURES[programCode] ?? []
+    }
+  }, [text])
+
+  const switchProgramDescription = useCallback((programCode: string) => (
+    programCode === 'program_a'
+      ? text('Move into the 0% APR card strategy track.', 'Cambiar a la ruta de estrategia de tarjetas con 0% APR.')
+      : text('Move into the business credit builder track.', 'Cambiar a la ruta de constructor de credito empresarial.')
+  ), [text])
+
+  const destructiveCopy = useCallback((action: Exclude<DestructiveAction, null>) => {
+    switch (action) {
+      case 'downgrade':
+        return {
+          ...DESTRUCTIVE_ACTIONS.downgrade,
+          title: text('Downgrade to Free Plan', 'Bajar al Plan Gratis'),
+          description: text(
+            'Type the phrase below to confirm the downgrade. This keeps the free plan active and stops paid access.',
+            'Escribe la frase de abajo para confirmar la baja. Esto mantiene activo el plan gratis y detiene el acceso de pago.'
+          ),
+          buttonLabel: text('Downgrade', 'Bajar de plan'),
+        }
+      case 'cancel':
+        return {
+          ...DESTRUCTIVE_ACTIONS.cancel,
+          title: text('Cancel Membership', 'Cancelar membresia'),
+          description: text(
+            'Type the phrase below to confirm cancellation. This ends the paid subscription and preserves progress.',
+            'Escribe la frase de abajo para confirmar la cancelacion. Esto finaliza la suscripcion de pago y conserva el progreso.'
+          ),
+          buttonLabel: text('Cancel Membership', 'Cancelar membresia'),
+        }
+      case 'delete':
+        return {
+          ...DESTRUCTIVE_ACTIONS.delete,
+          title: text('Delete Account', 'Eliminar cuenta'),
+          description: text(
+            'Type your account email to permanently delete this account, its memberships, and portal access.',
+            'Escribe el correo de tu cuenta para eliminar permanentemente esta cuenta, sus membresias y el acceso al portal.'
+          ),
+          buttonLabel: text('Delete Account', 'Eliminar cuenta'),
+        }
+    }
+  }, [text])
 
   const handlePortal = async () => {
     setPortalLoading(true)
@@ -283,7 +397,7 @@ export default function BillingPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to switch program')
-      toast.success(text(`Switched to ${PROGRAM_NAMES[newProgram] ?? 'the selected program'}`, `Cambiado a ${PROGRAM_NAMES[newProgram] ?? 'el programa seleccionado'}`))
+      toast.success(text(`Switched to ${programName(newProgram)}`, `Cambiado a ${programName(newProgram)}`))
       window.location.href = '/billing'
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to switch program')
@@ -427,9 +541,12 @@ export default function BillingPage() {
           <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-4">
             <Lock size={22} className="text-gray-400" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Billing Not Available</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{text('Billing Not Available', 'Facturacion no disponible')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm leading-relaxed">
-            Billing and subscription management are only accessible to the primary account owner. Please contact the account owner for any billing questions.
+            {text(
+              'Billing and subscription management are only accessible to the primary account owner. Please contact the account owner for any billing questions.',
+              'La facturacion y administracion de suscripciones solo estan disponibles para el dueno principal de la cuenta. Contacta al dueno de la cuenta para cualquier pregunta de facturacion.'
+            )}
           </p>
         </div>
       </PortalLayout>
@@ -437,7 +554,7 @@ export default function BillingPage() {
   }
 
   const program = profile?.assigned_program || null
-  const pathLabel = acquisitionPath === 'partner_assisted' ? 'Partner-Assisted' : 'Self-Serve'
+  const pathLabel = acquisitionPath === 'partner_assisted' ? text('Partner-Assisted', 'Asistido por socio') : text('Self-Serve', 'Autoservicio')
   const primaryPaidProgram = activePrograms.find((code) => code === 'program_a' || code === 'program_b') ?? null
   const switchablePrograms = ['program_a', 'program_b'].filter((code) => code !== primaryPaidProgram)
   const pricingText = (programCode: string) => {
@@ -447,7 +564,9 @@ export default function BillingPage() {
   const pricingBadge = (programCode: string) => {
     if (programCode !== 'program_a' && programCode !== 'program_b' && programCode !== 'program_c') return ''
     const pricing = getProgramPricing(programCode, acquisitionPath)
-    return pricing.setupFeeCents > 0 ? `Includes $${pricing.setupFeeCents / 100} onboarding setup` : 'No setup fee'
+    return pricing.setupFeeCents > 0
+      ? text(`Includes $${pricing.setupFeeCents / 100} onboarding setup`, `Incluye $${pricing.setupFeeCents / 100} de configuracion inicial`)
+      : text('No setup fee', 'Sin cargo de configuracion')
   }
 
   return (
@@ -484,14 +603,14 @@ export default function BillingPage() {
               <div>
                 <h2 className={`text-sm font-bold ${isPaymentLocked ? 'text-red-900 dark:text-red-200' : 'text-amber-900 dark:text-amber-200'}`}>
                   {isPaymentLocked
-                    ? 'Your membership is paused due to failed payment. Update your card to restore access.'
-                    : 'Payment failed. Please update your payment method.'}
+                    ? text('Your membership is paused due to failed payment. Update your card to restore access.', 'Tu membresia esta pausada por un pago fallido. Actualiza tu tarjeta para restaurar el acceso.')
+                    : text('Payment failed. Please update your payment method.', 'El pago fallo. Actualiza tu metodo de pago.')}
                 </h2>
                 <div className={`mt-2 space-y-1 text-sm ${isPaymentLocked ? 'text-red-800 dark:text-red-300' : 'text-amber-800 dark:text-amber-300'}`}>
-                  {subscription?.failed_payment_reason && <p>Reason: {subscription.failed_payment_reason}</p>}
-                  {subscription?.last_failed_payment_at && <p>Last failed payment: {new Date(subscription.last_failed_payment_at).toLocaleDateString()}</p>}
-                  {subscription?.next_payment_attempt_at && <p>Stripe next retry: {new Date(subscription.next_payment_attempt_at).toLocaleDateString()}</p>}
-                  {typeof subscription?.payment_retry_count === 'number' && <p>Retry attempts: {subscription.payment_retry_count}</p>}
+                  {subscription?.failed_payment_reason && <p>{text('Reason:', 'Motivo:')} {subscription.failed_payment_reason}</p>}
+                  {subscription?.last_failed_payment_at && <p>{text('Last failed payment:', 'Ultimo pago fallido:')} {new Date(subscription.last_failed_payment_at).toLocaleDateString(dateLocale)}</p>}
+                  {subscription?.next_payment_attempt_at && <p>{text('Stripe next retry:', 'Proximo reintento de Stripe:')} {new Date(subscription.next_payment_attempt_at).toLocaleDateString(dateLocale)}</p>}
+                  {typeof subscription?.payment_retry_count === 'number' && <p>{text('Retry attempts:', 'Intentos de reintento:')} {subscription.payment_retry_count}</p>}
                 </div>
               </div>
             </div>
@@ -501,7 +620,7 @@ export default function BillingPage() {
               className="btn-primary shrink-0 inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
             >
               {portalLoading ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
-              Update payment method
+              {text('Update payment method', 'Actualizar metodo de pago')}
             </button>
           </div>
         </div>
@@ -518,7 +637,10 @@ export default function BillingPage() {
               {newBusinessFlow ? text('New business created', 'Nuevo negocio creado') : text('Subscription required', 'Se requiere suscripción')}
               </h2>
               <p className="mt-1 text-sm leading-relaxed text-amber-800 dark:text-amber-300">
-                This business needs its own subscription before portal tools unlock. One paid subscription only applies to one business under the current plan structure.
+                {text(
+                  'This business needs its own subscription before portal tools unlock. One paid subscription only applies to one business under the current plan structure.',
+                  'Este negocio necesita su propia suscripcion antes de desbloquear las herramientas del portal. Una suscripcion pagada solo aplica a un negocio bajo la estructura actual.'
+                )}
               </p>
             </div>
           </div>
@@ -552,13 +674,13 @@ export default function BillingPage() {
       {isFreeUser && (
         <div className="space-y-4 mb-6">
           <div className="text-center mb-2">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Upgrade to a Program</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{text('Upgrade to a Program', 'Actualizar a un programa')}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Pick a paid program anytime. Your free access stays active until you complete checkout.
+              {text('Pick a paid program anytime. Your free access stays active until you complete checkout.', 'Elige un programa de pago cuando quieras. Tu acceso gratis permanece activo hasta completar el pago.')}
             </p>
           </div>
 
-          {PAID_PROGRAM_OPTIONS.map(({ key, desc, badgeColor }) => (
+          {PAID_PROGRAM_OPTIONS.map(({ key, badgeColor }) => (
             <div key={key} className="card border-2 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-colors">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-start gap-3">
@@ -566,8 +688,8 @@ export default function BillingPage() {
                     {PROGRAM_ICONS[key]}
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900 dark:text-white">{PROGRAM_NAMES[key]}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{programName(key)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{programDescription(key)}</p>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeColor}`}>{pricingBadge(key)}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">{pricingText(key)}</span>
@@ -580,7 +702,7 @@ export default function BillingPage() {
                   className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
                 >
                   {selectingPlan === key ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                  Upgrade
+                  {text('Upgrade', 'Actualizar')}
                 </button>
               </div>
             </div>
@@ -589,7 +711,7 @@ export default function BillingPage() {
       )}
 
       <div className="mb-6">
-        <h2 className="section-title mb-3 text-red-700 dark:text-red-300">Danger Zone</h2>
+        <h2 className="section-title mb-3 text-red-700 dark:text-red-300">{text('Danger Zone', 'Zona de riesgo')}</h2>
         <div className="card border border-red-200 dark:border-red-900/60 bg-red-50/60 dark:bg-red-950/20">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="flex items-start gap-3">
@@ -597,9 +719,12 @@ export default function BillingPage() {
                 <Trash2 size={18} className="text-red-700 dark:text-red-300" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-red-900 dark:text-red-200">Delete Account</h3>
+                <h3 className="text-sm font-bold text-red-900 dark:text-red-200">{text('Delete Account', 'Eliminar cuenta')}</h3>
                 <p className="mt-1 text-sm leading-relaxed text-red-800 dark:text-red-300 max-w-2xl">
-                  Permanently remove this account, its memberships, payments, and portal access. This cannot be undone.
+                  {text(
+                    'Permanently remove this account, its memberships, payments, and portal access. This cannot be undone.',
+                    'Elimina permanentemente esta cuenta, sus membresias, pagos y acceso al portal. Esta accion no se puede deshacer.'
+                  )}
                 </p>
               </div>
             </div>
@@ -612,7 +737,7 @@ export default function BillingPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-800 disabled:opacity-50"
             >
               {deletingAccount ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-              Delete Account
+              {text('Delete Account', 'Eliminar cuenta')}
             </button>
           </div>
         </div>
@@ -621,7 +746,7 @@ export default function BillingPage() {
       {/* ── Active Memberships ─────────────────────────────────────────────── */}
       {memberships.length > 0 && (
         <div className="mb-6">
-          <h2 className="section-title mb-3">Memberships</h2>
+          <h2 className="section-title mb-3">{text('Memberships', 'Membresias')}</h2>
           <div className="space-y-3">
             {memberships.map((m) => (
               <div key={m.id} className="card border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
@@ -631,9 +756,9 @@ export default function BillingPage() {
                       {PROGRAM_ICONS[m.program_code]}
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[m.program_code] ?? m.program_code}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm">{programName(m.program_code)}</p>
                       <p className="text-green-600 font-bold text-sm">{pricingText(m.program_code)}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{pathLabel} pricing</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{pathLabel} {text('pricing', 'precios')}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -645,13 +770,13 @@ export default function BillingPage() {
                         className="btn-secondary text-xs flex items-center gap-1"
                       >
                         {portalLoading ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
-                        Manage
+                        {text('Manage', 'Administrar')}
                       </button>
                     )}
                   </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-green-100 dark:border-green-900/40 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(PROGRAM_FEATURES[m.program_code] ?? []).map((f) => (
+                  {programFeatures(m.program_code).map((f) => (
                     <div key={f} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
                       <CheckCircle size={13} className="text-green-500 shrink-0" />
                       {f}
@@ -666,9 +791,9 @@ export default function BillingPage() {
 
       {!isFreeUser && switchablePrograms.length > 0 && (
         <div className="mb-6">
-          <h2 className="section-title mb-1">Change Program</h2>
+          <h2 className="section-title mb-1">{text('Change Program', 'Cambiar programa')}</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            Switch your primary paid program without canceling your account.
+            {text('Switch your primary paid program without canceling your account.', 'Cambia tu programa pagado principal sin cancelar tu cuenta.')}
           </p>
           <div className="space-y-3">
             {switchablePrograms.map((programCode) => (
@@ -679,11 +804,9 @@ export default function BillingPage() {
                       {PROGRAM_ICONS[programCode]}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900 dark:text-white">{PROGRAM_NAMES[programCode]}</p>
+                      <p className="font-bold text-gray-900 dark:text-white">{programName(programCode)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                        {programCode === 'program_a'
-                          ? 'Move into the 0% APR card strategy track.'
-                          : 'Move into the business credit builder track.'}
+                        {switchProgramDescription(programCode)}
                       </p>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${programCode === 'program_a' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'}`}>
@@ -699,7 +822,7 @@ export default function BillingPage() {
                     className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
                   >
                     {switchingProgram === programCode ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                    Switch
+                    {text('Switch', 'Cambiar')}
                   </button>
                 </div>
               </div>
@@ -717,9 +840,9 @@ export default function BillingPage() {
                 {PROGRAM_ICONS[program]}
               </div>
               <div>
-                <p className="font-semibold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[program]}</p>
+                <p className="font-semibold text-gray-900 dark:text-white text-sm">{programName(program)}</p>
                 <p className="text-green-600 font-bold text-sm">{pricingText(program)}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{pathLabel} pricing</p>
+                <p className="text-xs text-gray-400 mt-0.5">{pathLabel} {text('pricing', 'precios')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -731,7 +854,7 @@ export default function BillingPage() {
                   className="btn-secondary text-xs flex items-center gap-1"
                 >
                   {portalLoading ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
-                  Manage
+                  {text('Manage', 'Administrar')}
                 </button>
               )}
             </div>
@@ -744,32 +867,32 @@ export default function BillingPage() {
           <div className="w-full max-w-lg rounded-3xl border border-gray-700 bg-slate-950 p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg font-bold text-white">{DESTRUCTIVE_ACTIONS[destructiveAction].title}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-gray-300">{DESTRUCTIVE_ACTIONS[destructiveAction].description}</p>
+                <h3 className="text-lg font-bold text-white">{destructiveCopy(destructiveAction).title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-gray-300">{destructiveCopy(destructiveAction).description}</p>
               </div>
               <button
                 onClick={closeDestructiveAction}
                 className="rounded-full p-2 text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="Close confirmation"
+                aria-label={text('Close confirmation', 'Cerrar confirmacion')}
               >
                 <BanIcon size={16} />
               </button>
             </div>
 
             <div className="mt-5 rounded-2xl border border-gray-800 bg-white/5 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Required confirmation</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{text('Required confirmation', 'Confirmacion requerida')}</p>
               <div className="mt-2 rounded-xl bg-black/30 px-3 py-2 font-mono text-sm text-white">
-                {destructiveAction === 'delete' ? (profile?.email ?? '') : DESTRUCTIVE_ACTIONS[destructiveAction].expectedText}
+                {destructiveAction === 'delete' ? (profile?.email ?? '') : destructiveCopy(destructiveAction).expectedText}
               </div>
             </div>
 
             <label className="mt-5 block text-sm font-medium text-gray-200">
-              {destructiveAction === 'delete' ? 'Type your email' : 'Type the confirmation phrase'}
+              {destructiveAction === 'delete' ? text('Type your email', 'Escribe tu correo') : text('Type the confirmation phrase', 'Escribe la frase de confirmacion')}
             </label>
             <input
               value={destructiveInput}
               onChange={(event) => setDestructiveInput(event.target.value)}
-              placeholder={destructiveAction === 'delete' ? profile?.email ?? 'email@example.com' : DESTRUCTIVE_ACTIONS[destructiveAction].placeholder}
+              placeholder={destructiveAction === 'delete' ? profile?.email ?? 'email@example.com' : destructiveCopy(destructiveAction).placeholder}
               className="mt-2 w-full rounded-xl border border-gray-700 bg-slate-900 px-4 py-3 text-sm text-white outline-none ring-0 placeholder:text-gray-500 focus:border-green-500"
               autoComplete="off"
               autoCapitalize="off"
@@ -782,18 +905,18 @@ export default function BillingPage() {
                 onClick={closeDestructiveAction}
                 className="rounded-xl border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-200 transition-colors hover:bg-white/5"
               >
-                Cancel
+                {text('Cancel', 'Cancelar')}
               </button>
               <button
                 onClick={submitDestructiveAction}
                 disabled={
                   destructiveAction === 'delete'
                     ? destructiveInput.trim().toLowerCase() !== (profile?.email ?? '').trim().toLowerCase()
-                    : destructiveInput.trim().toUpperCase() !== DESTRUCTIVE_ACTIONS[destructiveAction].expectedText
+                    : destructiveInput.trim().toUpperCase() !== destructiveCopy(destructiveAction).expectedText
                 }
                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {DESTRUCTIVE_ACTIONS[destructiveAction].buttonLabel}
+                {destructiveCopy(destructiveAction).buttonLabel}
               </button>
             </div>
           </div>
@@ -811,7 +934,7 @@ export default function BillingPage() {
             {arrangement.setup_fee_total > 0 && (
               <>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Setup Fee</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{text('Setup Fee', 'Cargo de configuracion')}</p>
                   <p className="font-semibold text-gray-900 dark:text-white">${Number(arrangement.setup_fee_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
@@ -832,7 +955,7 @@ export default function BillingPage() {
                 <p className="font-bold text-purple-800 dark:text-purple-300 text-lg">${Number(arrangement.next_amount_due).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 {arrangement.next_due_date && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {new Date(arrangement.next_due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    {new Date(arrangement.next_due_date).toLocaleDateString(dateLocale, { month: 'long', day: 'numeric', year: 'numeric' })}
                   </p>
                 )}
               </div>
@@ -858,10 +981,10 @@ export default function BillingPage() {
                       {PROGRAM_ICONS[addon]}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[addon]}</p>
+                      <p className="font-bold text-gray-900 dark:text-white text-sm">{programName(addon)}</p>
                       <p className="text-purple-600 dark:text-purple-400 font-bold text-sm">{pricingText(addon)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                        {addon === 'program_c' && 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan.'}
+                        {addon === 'program_c' && programDescription(addon)}
                       </p>
                     </div>
                   </div>
@@ -871,7 +994,7 @@ export default function BillingPage() {
                     className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
                   >
                     {addingOn === addon ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                    Add
+                    {text('Add', 'Agregar')}
                   </button>
                 </div>
               </div>
@@ -947,12 +1070,18 @@ export default function BillingPage() {
               </h3>
               <p className="text-green-200 text-sm mb-5 leading-relaxed">
                 {profile?.billing_status === 'canceled'
-                  ? `Your progress is saved. Reactivate to continue from Stage: ${profile?.current_stage || 'where you left off'}.`
-                  : `Subscribe to unlock full AI fulfillment, task tracking, document management, and reports for ${getProgramShortLabel(program)}.`
+                  ? text(
+                    `Your progress is saved. Reactivate to continue from Stage: ${profile?.current_stage || 'where you left off'}.`,
+                    `Tu progreso esta guardado. Reactiva para continuar desde la etapa: ${profile?.current_stage || 'donde lo dejaste'}.`
+                  )
+                  : text(
+                    `Subscribe to unlock full AI fulfillment, task tracking, document management, and reports for ${getProgramShortLabel(program)}.`,
+                    `Suscribete para desbloquear cumplimiento con IA, seguimiento de tareas, administracion de documentos y reportes para ${getProgramShortLabel(program)}.`
+                  )
                 }
               </p>
               <p className="text-white font-bold text-xl mb-1">{pricingText(program)}</p>
-              <p className="text-green-200 text-xs mb-4">{pathLabel} billing path</p>
+              <p className="text-green-200 text-xs mb-4">{pathLabel} {text('billing path', 'ruta de facturacion')}</p>
               <button
                 onClick={() => window.location.href = '/enroll'}
                 className="bg-white text-green-700 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors inline-flex items-center gap-2"
@@ -970,7 +1099,7 @@ export default function BillingPage() {
         <div className="space-y-4">
           <div className="text-center mb-2">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">{text('Choose Your Program', 'Elige tu programa')}</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{text('Select a plan and proceed directly to payment under your', 'Selecciona un plan y continúa directamente al pago bajo tu ruta de precios')} {pathLabel.toLowerCase()} {text('pricing path.', 'de precios.')}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{text('Select a plan and proceed directly to payment under your', 'Selecciona un plan y continua directamente al pago bajo tu ruta de precios')} {pathLabel.toLowerCase()} {text('pricing path.', 'de precios.')}</p>
           </div>
 
           <div className="card border-2 border-green-200 dark:border-green-800 bg-green-50/40 dark:bg-green-900/10">
@@ -999,7 +1128,7 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {PAID_PROGRAM_OPTIONS.map(({ key, desc, badgeColor }) => (
+          {PAID_PROGRAM_OPTIONS.map(({ key, badgeColor }) => (
             <div key={key} className="card border-2 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-colors">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-start gap-3">
@@ -1007,8 +1136,8 @@ export default function BillingPage() {
                     {PROGRAM_ICONS[key]}
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900 dark:text-white">{PROGRAM_NAMES[key]}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{programName(key)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{programDescription(key)}</p>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeColor}`}>{pricingBadge(key)}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">{pricingText(key)}</span>
@@ -1021,7 +1150,7 @@ export default function BillingPage() {
                   className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
                 >
                   {selectingPlan === key ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                  Get Started
+                  {text('Get Started', 'Comenzar')}
                 </button>
               </div>
             </div>

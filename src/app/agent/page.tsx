@@ -1,4 +1,5 @@
 'use client'
+
 import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
@@ -9,19 +10,12 @@ import type { ChatMessage, UserProfile } from '@/types'
 import { v4 as uuidv4 } from 'uuid'
 import { useBusinessContext } from '@/lib/use-business-context'
 import { canAccessFeature } from '@/lib/feature-entitlements'
-
-const QUICK_PROMPTS = [
-  "I'm lost — what do I do next?",
-  "What documents are still missing?",
-  "Am I ready yet?",
-  "What tradelines do I still need?",
-  "Explain my current stage",
-  "Generate a progress summary",
-]
+import { useLanguage } from '@/components/i18n/LanguageProvider'
+import { t } from '@/lib/i18n'
 
 export default function AgentPageWrapper() {
   return (
-    <Suspense fallback={<PortalLayout><div className="flex items-center justify-center h-64"><Loader2 size={24} className="animate-spin text-green-400" /></div></PortalLayout>}>
+    <Suspense fallback={<PortalLayout><div className="flex h-64 items-center justify-center"><Loader2 size={24} className="animate-spin text-green-400" /></div></PortalLayout>}>
       <AgentPage />
     </Suspense>
   )
@@ -31,6 +25,8 @@ function AgentPage() {
   const supabase = createClient()
   const { activeBusinessId } = useBusinessContext()
   const searchParams = useSearchParams()
+  const { locale } = useLanguage()
+  const text = useCallback((key: string, fallback: string) => t(locale, key, fallback), [locale])
   const autoPrompt = searchParams.get('prompt')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -42,82 +38,134 @@ function AgentPage() {
   const [initializing, setInitializing] = useState(true)
   const [isActive, setIsActive] = useState(false)
   const [platformMaintenance, setPlatformMaintenance] = useState(false)
-
-  // Conversation persistence
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [priorSummary, setPriorSummary] = useState<string | null>(null)
   const [showRolloverBanner, setShowRolloverBanner] = useState(false)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const quickPrompts = [
+    text('agent.quickPrompt1', "I'm lost - what do I do next?"),
+    text('agent.quickPrompt2', 'What documents are still missing?'),
+    text('agent.quickPrompt3', 'Am I ready yet?'),
+    text('agent.quickPrompt4', 'What tradelines do I still need?'),
+    text('agent.quickPrompt5', 'Explain my current stage'),
+    text('agent.quickPrompt6', 'Generate a progress summary'),
+  ]
 
-  useEffect(() => { scrollToBottom() }, [messages])
+  const interpolate = useCallback((template: string, values: Record<string, string>) => {
+    return Object.entries(values).reduce(
+      (acc, [key, value]) => acc.replaceAll(`{{${key}}}`, value),
+      template
+    )
+  }, [])
+
+  const buildGreeting = useCallback((userProfile: UserProfile | null, nextTask?: { title?: string | null; stage?: string | null } | null) => {
+    const firstName = (userProfile?.full_name || 'there').split(' ')[0]
+    const programLabel = getProgramShortLabel(userProfile?.assigned_program ?? null)
+
+    if (userProfile?.billing_status === 'active' || userProfile?.billing_status === 'trialing') {
+      if (nextTask?.title) {
+        return interpolate(
+          text(
+            'agent.greetingWithTask',
+            'Hi {{name}}! I am your AI Fulfillment Agent for the {{program}} program. Your next task is "{{task}}" ({{stage}}). Want me to walk you through it step by step? Just say "yes" or ask me anything about your program.'
+          ),
+          {
+            name: firstName,
+            program: programLabel,
+            task: nextTask.title,
+            stage: nextTask.stage || text('progress.stageLabel', 'Stage'),
+          }
+        )
+      }
+
+      return interpolate(
+        text(
+          'agent.greetingGeneral',
+          'Hi {{name}}! I am your AI Fulfillment Agent for the {{program}} program. I have full visibility into your tasks, documents, and progress. Ask me anything, or tap one of the quick prompts below to get started.'
+        ),
+        {
+          name: firstName,
+          program: programLabel,
+        }
+      )
+    }
+
+    return text(
+      'agent.greetingInactive',
+      'Hi there! Your subscription is currently inactive, so my capabilities are limited. Please reactivate your subscription to access full AI fulfillment guidance. I can still answer general questions about your program.'
+    )
+  }, [interpolate, text])
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, scrollToBottom])
 
   useEffect(() => {
     const init = async () => {
       if (!activeBusinessId) return
 
-      const [{ data: p }, convRes, { data: nextTaskData }] = await Promise.all([
+      const [{ data: profileData }, convRes, { data: nextTaskData }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', activeBusinessId).single(),
         fetch('/api/agent/conversation'),
-        supabase.from('tasks').select('title, stage').eq('user_id', activeBusinessId).eq('status', 'pending').order('sort_order').limit(1).maybeSingle(),
+        supabase
+          .from('tasks')
+          .select('title, stage')
+          .eq('user_id', activeBusinessId)
+          .eq('status', 'pending')
+          .order('sort_order')
+          .limit(1)
+          .maybeSingle(),
       ])
 
-      setProfile(p)
-      // Only active paid subscriptions can access AI Agent
-      const active = p?.billing_status === 'active' || p?.billing_status === 'trialing'
-      setIsActive(active)
+      setProfile(profileData)
+      setIsActive(profileData?.billing_status === 'active' || profileData?.billing_status === 'trialing')
 
       const convData = convRes.ok ? await convRes.json() : null
-      const convId = convData?.conversation_id ?? null
-      setConversationId(convId)
+      setConversationId(convData?.conversation_id ?? null)
 
       if (convData?.was_rolled_over) {
         setPriorSummary(convData.prior_summary ?? null)
         setShowRolloverBanner(true)
       }
 
-      // Restore previous messages from this conversation
-      const priorMessages: ChatMessage[] = (convData?.messages ?? []).map((m: {
-        id: string; role: string; content: string; created_at: string
+      const priorMessages: ChatMessage[] = (convData?.messages ?? []).map((message: {
+        id: string
+        role: string
+        content: string
+        created_at: string
       }) => ({
-        id: m.id,
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-        timestamp: m.created_at,
+        id: message.id,
+        role: message.role as 'user' | 'assistant',
+        content: message.content,
+        timestamp: message.created_at,
       }))
 
       if (priorMessages.length === 0) {
-        const firstName = (p?.full_name || 'there').split(' ')[0]
-        let greetingText = ''
-        if (active) {
-          if (nextTaskData?.title) {
-            greetingText = `Hi ${firstName}! 👋 I'm your AI Fulfillment Agent for the **${getProgramShortLabel(p?.assigned_program)}** program.\n\nYour next task is: **"${nextTaskData.title}"** (${nextTaskData.stage}).\n\nWant me to walk you through it step by step? Just say **"yes"** or ask me anything about your program.`
-          } else {
-            greetingText = `Hi ${firstName}! 👋 I'm your AI Fulfillment Agent for the **${getProgramShortLabel(p?.assigned_program)}** program.\n\nI have full visibility into your tasks, documents, and progress. Ask me anything — or tap one of the quick prompts below to get started.`
-          }
-        } else {
-          greetingText = `Hi there! Your subscription is currently inactive, so my capabilities are limited. Please **reactivate your subscription** to access full AI fulfillment guidance.\n\nI can still answer general questions about your program.`
-        }
-        const greeting: ChatMessage = {
-          id: uuidv4(),
-          role: 'assistant',
-          content: greetingText,
-          timestamp: new Date().toISOString(),
-        }
-        setMessages([greeting])
+        setMessages([
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: buildGreeting(profileData, nextTaskData),
+            timestamp: new Date().toISOString(),
+          },
+        ])
       } else {
         setMessages(priorMessages)
       }
 
       setInitializing(false)
     }
+
     init()
-  }, [activeBusinessId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeBusinessId, buildGreeting, supabase])
 
   const persistMessage = useCallback(async (role: 'user' | 'assistant', content: string) => {
     if (!conversationId) return
+
     fetch('/api/agent/conversation', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -125,19 +173,19 @@ function AgentPage() {
     }).catch(() => {})
   }, [conversationId])
 
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || loading) return
+  const sendMessage = useCallback(async (rawText: string) => {
+    if (!rawText.trim() || loading) return
 
     const userMsg: ChatMessage = {
       id: uuidv4(),
       role: 'user',
-      content: text.trim(),
+      content: rawText.trim(),
       timestamp: new Date().toISOString(),
     }
+
     setMessages((prev) => [...prev, userMsg])
     setInput('')
     setLoading(true)
-
     persistMessage('user', userMsg.content)
 
     try {
@@ -145,7 +193,10 @@ function AgentPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
+          messages: [...messages, userMsg].map((message) => ({
+            role: message.role,
+            content: message.content,
+          })),
         }),
       })
 
@@ -157,55 +208,60 @@ function AgentPage() {
         return
       }
 
-      const aiContent = data.message || 'I encountered an error. Please try again.'
+      const aiContent = data.message || text('agent.errorMessage', 'I encountered an error. Please try again.')
       const assistantMsg: ChatMessage = {
         id: uuidv4(),
         role: 'assistant',
         content: aiContent,
         timestamp: new Date().toISOString(),
       }
+
       setMessages((prev) => [...prev, assistantMsg])
       persistMessage('assistant', aiContent)
     } catch {
-      const errMsg: ChatMessage = {
-        id: uuidv4(),
-        role: 'assistant',
-        content: 'Sorry, something went wrong. Please try again in a moment.',
-        timestamp: new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, errMsg])
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: uuidv4(),
+          role: 'assistant',
+          content: text('agent.retryMessage', 'Sorry, something went wrong. Please try again in a moment.'),
+          timestamp: new Date().toISOString(),
+        },
+      ])
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
-  }, [messages, loading, persistMessage])
+  }, [loading, messages, persistMessage, text])
 
-  // Auto-send prompt when arriving from "Ask AI" button on a task
   const autoPromptSentRef = useRef(false)
   useEffect(() => {
     if (!autoPrompt || initializing || autoPromptSentRef.current) return
     autoPromptSentRef.current = true
-    sendMessage(autoPrompt)
+    void sendMessage(autoPrompt)
   }, [autoPrompt, initializing, sendMessage])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage(input)
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      void sendMessage(input)
     }
   }
 
   const clearChat = () => {
-    const greeting: ChatMessage = {
-      id: uuidv4(),
-      role: 'assistant',
-      content: `Chat cleared. I still have your full profile and progress context. What would you like to work on?`,
-      timestamp: new Date().toISOString(),
-    }
-    setMessages([greeting])
+    setMessages([
+      {
+        id: uuidv4(),
+        role: 'assistant',
+        content: text(
+          'agent.chatCleared',
+          'Chat cleared. I still have your full profile and progress context. What would you like to work on?'
+        ),
+        timestamp: new Date().toISOString(),
+      },
+    ])
   }
 
   const hasHistory = messages.length > 1
-
-  // Free users cannot access AI Agent
   const canAccessAgent = canAccessFeature(profile?.feature_tier, profile?.billing_status, 'ai_agent')
 
   return (
@@ -220,185 +276,190 @@ function AgentPage() {
       subscriptionStatus={profile?.billing_status}
     >
       {!canAccessAgent && !initializing && (
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-8rem)] gap-6 px-4">
-          <div className="text-center max-w-md">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+        <div className="flex h-[calc(100vh-8rem)] flex-col items-center justify-center gap-6 px-4">
+          <div className="max-w-md text-center">
+            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
               <Bot size={32} className="text-green-600" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              AI Agent Upgrade Required
+            <h1 className="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
+              {text('agent.upgradeRequired', 'AI Agent Upgrade Required')}
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              The AI Fulfillment Agent is available on our paid plans. Upgrade to access AI-powered guidance for your credit journey.
+            <p className="mb-6 text-gray-600 dark:text-gray-400">
+              {text('agent.upgradeDescription', 'The AI Fulfillment Agent is available on our paid plans. Upgrade to access AI-powered guidance for your credit journey.')}
             </p>
             <div className="flex flex-col gap-3">
               <a
                 href="/billing"
-                className="inline-flex items-center justify-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors"
+                className="inline-flex items-center justify-center rounded-lg bg-green-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-green-700"
               >
-                View Paid Plans
+                {text('agent.viewPlans', 'View Paid Plans')}
               </a>
               <a
                 href="/dashboard"
-                className="inline-flex items-center justify-center px-6 py-3 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-6 py-3 font-semibold text-gray-900 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-white dark:hover:bg-gray-800"
               >
-                Back to Dashboard
+                {text('agent.backDashboard', 'Back to Dashboard')}
               </a>
             </div>
           </div>
         </div>
       )}
+
       {canAccessAgent && (
-        <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)]">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 shrink-0">
-          <div>
-            <h1 className="page-title flex items-center gap-2">
-              <Bot size={24} className="text-green-500" /> AI Fulfillment Agent
-            </h1>
-            <p className="text-sm text-gray-500 mt-0.5 flex items-center gap-1.5">
-              {profile?.assigned_program ? getProgramShortLabel(profile.assigned_program) : 'AI-powered guidance for your credit journey'}
-              {hasHistory && (
-                <span className="inline-flex items-center gap-1 text-[10px] text-green-600 font-semibold bg-green-50 px-1.5 py-0.5 rounded-full">
-                  <History size={10} /> Saved
-                </span>
-              )}
-            </p>
-          </div>
-          <button onClick={clearChat} className="btn-secondary text-xs px-3 py-2">
-            <RefreshCw size={14} /> Clear
-          </button>
-        </div>
-
-        {/* Rollover Banner */}
-        {showRolloverBanner && (
-          <div className="shrink-0 mb-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-2xl px-4 py-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                  <History size={14} /> Continuing where you left off
-                </p>
-                {priorSummary ? (
-                  <p className="text-xs text-blue-700 dark:text-blue-400 mt-1 leading-relaxed">
-                    <strong>Prior session summary:</strong> {priorSummary}
-                  </p>
-                ) : (
-                  <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
-                    Your previous conversation was archived to keep things organized. Your progress and context are fully preserved.
-                  </p>
+        <div className="flex h-[calc(100vh-8rem)] flex-col lg:h-[calc(100vh-4rem)]">
+          <div className="mb-4 flex shrink-0 items-center justify-between">
+            <div>
+              <h1 className="page-title flex items-center gap-2">
+                <Bot size={24} className="text-green-500" /> {text('agent.title', 'AI Fulfillment Agent')}
+              </h1>
+              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-gray-500">
+                {profile?.assigned_program ? getProgramShortLabel(profile.assigned_program) : text('agent.subtitle', 'AI-powered guidance for your credit journey')}
+                {hasHistory && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-600">
+                    <History size={10} /> {text('agent.saved', 'Saved')}
+                  </span>
                 )}
-              </div>
-              <button onClick={() => setShowRolloverBanner(false)} className="text-blue-400 hover:text-blue-600 text-xs shrink-0">✕</button>
-            </div>
-          </div>
-        )}
-
-        {/* Platform Maintenance Banner */}
-        {platformMaintenance && (
-          <div className="shrink-0 mb-3 flex items-start gap-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-2xl px-4 py-4">
-            <WifiOff size={20} className="text-amber-500 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">AI Temporarily Unavailable</p>
-              <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">
-                The AI assistant is temporarily unavailable due to maintenance, upgrades, or a temporary service issue.
-                We&apos;re actively working to restore access as quickly as possible. Please try again shortly.
               </p>
-              <button onClick={() => setPlatformMaintenance(false)} className="mt-2 text-xs text-amber-700 dark:text-amber-400 underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200">
-                Dismiss
-              </button>
             </div>
+            <button onClick={clearChat} className="btn-secondary px-3 py-2 text-xs">
+              <RefreshCw size={14} /> {text('agent.clear', 'Clear')}
+            </button>
           </div>
-        )}
 
-        {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-2">
-          {initializing ? (
-            <div className="flex items-center justify-center h-32">
-              <Loader2 size={24} className="animate-spin text-green-400" />
+          {showRolloverBanner && (
+            <div className="mb-3 shrink-0 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-900/30">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-blue-900 dark:text-blue-300">
+                    <History size={14} /> {text('agent.continuing', 'Continuing where you left off')}
+                  </p>
+                  {priorSummary ? (
+                    <p className="mt-1 text-xs leading-relaxed text-blue-700 dark:text-blue-400">
+                      <strong>{text('agent.priorSummary', 'Prior session summary:')}</strong> {priorSummary}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-blue-700 dark:text-blue-400">
+                      {text('agent.archivedContext', 'Your previous conversation was archived to keep things organized. Your progress and context are fully preserved.')}
+                    </p>
+                  )}
+                </div>
+                <button onClick={() => setShowRolloverBanner(false)} className="shrink-0 text-xs text-blue-400 hover:text-blue-600">
+                  x
+                </button>
+              </div>
             </div>
-          ) : (
-            <>
-              {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
-              ))}
-              {loading && (
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center shrink-0">
-                    <Bot size={16} className="text-white" />
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-                    <div className="flex gap-1 items-center h-4">
-                      <span className="w-2 h-2 bg-green-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                      <span className="w-2 h-2 bg-green-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                      <span className="w-2 h-2 bg-green-400 rounded-full animate-bounce" />
+          )}
+
+          {platformMaintenance && (
+            <div className="mb-3 flex shrink-0 items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 dark:border-amber-800 dark:bg-amber-900/30">
+              <WifiOff size={20} className="mt-0.5 shrink-0 text-amber-500" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                  {text('agent.maintenanceTitle', 'AI Temporarily Unavailable')}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-700 dark:text-amber-400">
+                  {text('agent.maintenanceBody', 'The AI assistant is temporarily unavailable due to maintenance, upgrades, or a temporary service issue. We are actively working to restore access as quickly as possible. Please try again shortly.')}
+                </p>
+                <button
+                  onClick={() => setPlatformMaintenance(false)}
+                  className="mt-2 text-xs text-amber-700 underline underline-offset-2 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200"
+                >
+                  {text('agent.dismiss', 'Dismiss')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 space-y-4 overflow-y-auto pb-2 pr-1">
+            {initializing ? (
+              <div className="flex h-32 items-center justify-center">
+                <Loader2 size={24} className="animate-spin text-green-400" />
+              </div>
+            ) : (
+              <>
+                {messages.map((message) => (
+                  <MessageBubble key={message.id} message={message} locale={locale} />
+                ))}
+                {loading && (
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-600">
+                      <Bot size={16} className="text-white" />
+                    </div>
+                    <div className="rounded-2xl rounded-tl-sm border border-gray-100 bg-white px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                      <div className="flex h-4 items-center gap-1">
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-green-400 [animation-delay:-0.3s]" />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-green-400 [animation-delay:-0.15s]" />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-green-400" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Quick Prompts */}
-        {messages.length <= 1 && !loading && (
-          <div className="shrink-0 mb-3">
-            <p className="text-xs text-gray-400 mb-2 font-medium">Quick questions:</p>
-            <div className="flex flex-wrap gap-2">
-              {QUICK_PROMPTS.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => sendMessage(p)}
-                  disabled={!isActive && !p.includes('general')}
-                  className="text-xs bg-green-50 text-green-700 px-3 py-2 rounded-xl border border-green-100 hover:bg-green-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed font-medium"
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+                )}
+              </>
+            )}
+            <div ref={messagesEndRef} />
           </div>
-        )}
 
-        {/* Input Box */}
-        <div className="shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm flex items-end gap-2 p-2">
-          <textarea
-            ref={inputRef}
-            rows={1}
-            className="flex-1 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 resize-none outline-none px-3 py-2.5 max-h-32 overflow-y-auto bg-transparent"
-            placeholder={
-              platformMaintenance
-                ? "AI is temporarily unavailable — please try again shortly"
-                : isActive
-                ? "Ask your AI agent anything…"
-                : "Subscribe to unlock full AI access"
-            }
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={loading || platformMaintenance}
-            style={{ minHeight: '44px' }}
-          />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || loading || platformMaintenance}
-            className="w-10 h-10 bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center transition-colors shrink-0"
-          >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          </button>
+          {messages.length <= 1 && !loading && (
+            <div className="mb-3 shrink-0">
+              <p className="mb-2 text-xs font-medium text-gray-400">
+                {text('agent.quickQuestions', 'Quick questions:')}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {quickPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => void sendMessage(prompt)}
+                    className="rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition-colors hover:bg-green-100"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex shrink-0 items-end gap-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <textarea
+              ref={inputRef}
+              rows={1}
+              className="max-h-32 flex-1 resize-none overflow-y-auto bg-transparent px-3 py-2.5 text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-gray-500"
+              placeholder={
+                platformMaintenance
+                  ? text('agent.placeholderMaintenance', 'AI is temporarily unavailable - please try again shortly')
+                  : isActive
+                    ? text('agent.placeholderActive', 'Ask your AI agent anything...')
+                    : text('agent.placeholderInactive', 'Subscribe to unlock full AI access')
+              }
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={loading || platformMaintenance}
+              style={{ minHeight: '44px' }}
+            />
+            <button
+              onClick={() => void sendMessage(input)}
+              disabled={!input.trim() || loading || platformMaintenance}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-600 text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            </button>
+          </div>
+
+          {!isActive && (
+            <p className="mt-2 text-center text-xs text-amber-600">
+              {text('agent.limitedMode', 'Limited mode - reactivate your subscription for full AI access')}{' '}
+              <a href="/billing" className="font-semibold underline">
+                {text('dashboard.reactivate', 'Reactivate')}
+              </a>
+            </p>
+          )}
         </div>
-
-        {!isActive && (
-          <p className="text-xs text-center text-amber-600 mt-2">
-            ⚠ Limited mode — <a href="/billing" className="underline font-semibold">reactivate your subscription</a> for full AI access
-          </p>
-        )}
-      </div>
       )}
     </PortalLayout>
   )
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, locale }: { message: ChatMessage; locale: 'en' | 'es' }) {
   const isUser = message.role === 'user'
   const content = message.content
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -406,23 +467,26 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
   return (
     <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
         isUser ? 'bg-gray-100 dark:bg-gray-700' : 'bg-green-600'
       }`}>
         {isUser ? <User size={16} className="text-gray-500" /> : <Bot size={16} className="text-white" />}
       </div>
-      <div className="flex flex-col gap-1 max-w-[80%]">
+      <div className="flex max-w-[80%] flex-col gap-1">
         <div
-          className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
+          className={`rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
             isUser
-              ? 'bg-green-600 text-white rounded-tr-sm'
-              : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-sm'
+              ? 'rounded-tr-sm bg-green-600 text-white'
+              : 'rounded-tl-sm border border-gray-100 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200'
           }`}
           dangerouslySetInnerHTML={{ __html: content }}
         />
         {message.timestamp && (
           <p className={`text-[10px] text-gray-300 ${isUser ? 'text-right' : ''}`}>
-            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {new Date(message.timestamp).toLocaleTimeString(locale === 'es' ? 'es-ES' : 'en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </p>
         )}
       </div>

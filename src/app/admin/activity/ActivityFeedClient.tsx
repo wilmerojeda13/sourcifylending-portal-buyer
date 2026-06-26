@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
+import { t } from '@/lib/i18n'
 import {
   ArrowLeft, Bell, Users, CreditCard, RefreshCw, MessageSquare,
   FileText, TrendingUp, BarChart2, AlertTriangle, CheckCircle,
@@ -9,7 +11,6 @@ import {
 } from 'lucide-react'
 
 type EventSeverity = 'info' | 'success' | 'warning' | 'critical'
-type EventCategory = 'accounts' | 'billing' | 'subscriptions' | 'support' | 'documents' | 'funding' | 'reports' | 'leads' | 'alerts'
 
 interface PortalEvent {
   notification_id: string
@@ -36,16 +37,16 @@ interface Props {
   initialUnreadCount: number
 }
 
-const CATEGORY_TABS: { id: string; label: string; icon: React.ReactNode }[] = [
-  { id: 'all', label: 'All', icon: <BarChart2 size={14} /> },
-  { id: 'leads', label: 'Leads', icon: <UserPlus size={14} /> },
-  { id: 'accounts', label: 'Accounts', icon: <Users size={14} /> },
-  { id: 'billing', label: 'Billing', icon: <CreditCard size={14} /> },
-  { id: 'subscriptions', label: 'Subscriptions', icon: <RefreshCw size={14} /> },
-  { id: 'support', label: 'Support', icon: <MessageSquare size={14} /> },
-  { id: 'documents', label: 'Documents', icon: <FileText size={14} /> },
-  { id: 'funding', label: 'Funding', icon: <TrendingUp size={14} /> },
-]
+const CATEGORY_TABS = [
+  { id: 'all', key: 'common.all', fallback: 'All', icon: <BarChart2 size={14} /> },
+  { id: 'leads', key: 'admin.activity.leads', fallback: 'Leads', icon: <UserPlus size={14} /> },
+  { id: 'accounts', key: 'admin.activity.accounts', fallback: 'Accounts', icon: <Users size={14} /> },
+  { id: 'billing', key: 'portal.billing', fallback: 'Billing', icon: <CreditCard size={14} /> },
+  { id: 'subscriptions', key: 'admin.activity.subscriptions', fallback: 'Subscriptions', icon: <RefreshCw size={14} /> },
+  { id: 'support', key: 'portal.support', fallback: 'Support', icon: <MessageSquare size={14} /> },
+  { id: 'documents', key: 'portal.documents', fallback: 'Documents', icon: <FileText size={14} /> },
+  { id: 'funding', key: 'portal.fundingResults', fallback: 'Funding', icon: <TrendingUp size={14} /> },
+] as const
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   leads: <UserPlus size={16} className="text-violet-600" />,
@@ -73,21 +74,31 @@ const SEVERITY_DOT: Record<EventSeverity, string> = {
   critical: 'bg-red-500',
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, locale: 'en' | 'es') {
   const diff = Date.now() - new Date(iso).getTime()
   const seconds = Math.floor(diff / 1000)
-  if (seconds < 60) return 'just now'
+  if (seconds < 60) return locale === 'es' ? 'justo ahora' : 'just now'
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`
+  if (minutes < 60) return locale === 'es'
+    ? `hace ${minutes} minuto${minutes !== 1 ? 's' : ''}`
+    : `${minutes} minute${minutes !== 1 ? 's' : ''} ago`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`
+  if (hours < 24) return locale === 'es'
+    ? `hace ${hours} hora${hours !== 1 ? 's' : ''}`
+    : `${hours} hour${hours !== 1 ? 's' : ''} ago`
   const days = Math.floor(hours / 24)
-  if (days < 30) return `${days} day${days !== 1 ? 's' : ''} ago`
+  if (days < 30) return locale === 'es'
+    ? `hace ${days} dia${days !== 1 ? 's' : ''}`
+    : `${days} day${days !== 1 ? 's' : ''} ago`
   const months = Math.floor(days / 30)
-  return `${months} month${months !== 1 ? 's' : ''} ago`
+  return locale === 'es'
+    ? `hace ${months} mes${months !== 1 ? 'es' : ''}`
+    : `${months} month${months !== 1 ? 's' : ''} ago`
 }
 
 export default function ActivityFeedClient({ initialEvents, initialUnreadCount }: Props) {
+  const { locale } = useLanguage()
+  const text = (key: string, fallback: string) => t(locale, key, fallback)
   const [events, setEvents] = useState<PortalEvent[]>(initialEvents)
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount)
   const [activeCategory, setActiveCategory] = useState<string>('all')
@@ -101,11 +112,6 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
       if (cat !== 'all') params.set('category', cat)
       const res = await fetch(`/api/admin/activity?${params}`)
       const data = await res.json()
-      console.debug('[ActivityFeed] fetchEvents', {
-        activeCategory: cat,
-        eventCount: data.events?.length ?? 0,
-        unreadCount: data.unread_count ?? 0,
-      })
       if (res.ok && data.events) {
         setEvents(data.events)
         setUnreadCount(data.unread_count ?? 0)
@@ -115,7 +121,6 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
     }
   }, [activeCategory])
 
-  // Auto-refresh every 60 seconds
   useEffect(() => {
     const interval = setInterval(() => { fetchEvents() }, 60_000)
     return () => clearInterval(interval)
@@ -142,8 +147,6 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
       })
       setUnreadCount(0)
       setEvents((prev) => prev.map((event) => ({ ...event, is_read: true })))
-    } catch {
-      // silent fail
     } finally {
       setMarkingRead(false)
     }
@@ -153,9 +156,10 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
     ? events
     : events.filter((e) => e.event_category === activeCategory)
 
+  const activeCategoryLabel = CATEGORY_TABS.find((tab) => tab.id === activeCategory)
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <Link href="/admin" className="p-2 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
@@ -164,14 +168,16 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
           <div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Bell size={20} className="text-amber-500" />
-              Activity Feed
+              {text('admin.activity.title', 'Activity Feed')}
               {unreadCount > 0 && (
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300">
-                  {unreadCount} unread
+                  {unreadCount} {text('admin.unread', 'unread')}
                 </span>
               )}
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Real-time client activity and admin alerts</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {text('admin.activity.subtitle', 'Real-time client activity and admin alerts')}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -182,7 +188,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50"
             >
               {markingRead ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} className="text-green-500" />}
-              Mark all read
+              {text('notifications.markAllRead', 'Mark all read')}
             </button>
           )}
           <button
@@ -191,12 +197,11 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50"
           >
             <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
-            Refresh
+            {text('common.refresh', 'Refresh')}
           </button>
         </div>
       </div>
 
-      {/* Category Tabs */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-1 flex gap-1 overflow-x-auto">
         {CATEGORY_TABS.map((tab) => (
           <button
@@ -209,21 +214,21 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
             }`}
           >
             {tab.icon}
-            {tab.label}
+            {text(tab.key, tab.fallback)}
           </button>
         ))}
       </div>
 
-      {/* Feed */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         {filteredEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Info size={32} className="text-gray-200 dark:text-gray-600 mb-3" />
-            <p className="text-sm font-medium text-gray-400 dark:text-gray-500">No activity yet</p>
+            <p className="text-sm font-medium text-gray-400 dark:text-gray-500">{text('admin.noActivity', 'No activity yet')}</p>
             <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
               {activeCategory === 'all'
-                ? 'Events will appear here as clients interact with the portal.'
-                : `No ${activeCategory} events recorded yet.`}
+                ? text('admin.activity.emptyAll', 'Events will appear here as clients interact with the portal.')
+                : text('admin.activity.emptyCategory', 'No {{category}} events recorded yet.')
+                  .replace('{{category}}', text(activeCategoryLabel?.key ?? 'common.unknown', activeCategoryLabel?.fallback ?? activeCategory))}
             </p>
           </div>
         ) : (
@@ -235,7 +240,6 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
 
               return (
                 <div key={event.id} className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  {/* Category icon */}
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                     event.event_category === 'leads' ? 'bg-violet-50 dark:bg-violet-900/30' :
                     event.event_category === 'accounts' ? 'bg-blue-50 dark:bg-blue-900/30' :
@@ -250,7 +254,6 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
                     {CATEGORY_ICONS[event.event_category] ?? <BarChart2 size={16} className="text-gray-400" />}
                   </div>
 
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
                       <div className="flex-1 min-w-0">
@@ -272,7 +275,7 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
                       <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                         {!event.is_read && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300">
-                            unread
+                            {text('admin.unread', 'unread')}
                           </span>
                         )}
                         {showBadge && (
@@ -282,12 +285,11 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
                         )}
                         <div className="flex items-center gap-1.5">
                           <div className={`w-1.5 h-1.5 rounded-full ${SEVERITY_DOT[event.severity]}`} />
-                          <span className="text-[11px] text-gray-400 dark:text-gray-500">{relativeTime(event.created_at)}</span>
+                          <span className="text-[11px] text-gray-400 dark:text-gray-500">{relativeTime(event.created_at, locale)}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Metadata */}
                     {event.metadata && Object.keys(event.metadata).length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {Object.entries(event.metadata).slice(0, 4).map(([k, v]) => (
@@ -305,9 +307,8 @@ export default function ActivityFeedClient({ initialEvents, initialUnreadCount }
         )}
       </div>
 
-      {/* Footer note */}
       <p className="text-center text-xs text-gray-400 dark:text-gray-500">
-        Showing last {filteredEvents.length} events &bull; Auto-refreshes every 60 seconds
+        {text('admin.activity.footer', 'Showing last {{count}} events · Auto-refreshes every 60 seconds').replace('{{count}}', String(filteredEvents.length))}
       </p>
     </div>
   )
