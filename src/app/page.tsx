@@ -248,7 +248,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   <Link href={localizeHref('/partners', locale)} className="btn-primary text-sm px-6 py-3" prefetch={false}>
                     {text('Become a Partner', 'Hazte socio')} <ArrowRight size={16} />
                   </Link>
-                  <Link href="/partners#how-it-works" className="btn-secondary text-sm px-6 py-3">
+                  <Link href={locale === 'es' ? '/socios?sl_locale=es#how-it-works' : '/partners?sl_locale=en#how-it-works'} className="btn-secondary text-sm px-6 py-3">
                     {text('Learn More', 'Saber más')}
                   </Link>
                 </div>
