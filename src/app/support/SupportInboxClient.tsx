@@ -2,8 +2,8 @@
 
 import NextImage from 'next/image'
 import { useState, useRef } from 'react'
-import { MessageSquare, Send, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp, InboxIcon, Paperclip, Image as AttachmentIcon, FileText as FileIcon } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { MessageSquare, Send, Clock, CheckCircle2, XCircle, Paperclip, Image as AttachmentIcon, FileText as FileIcon } from 'lucide-react'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
 
 interface SupportMessage {
   id: string
@@ -21,23 +21,16 @@ interface Props {
   userEmail: string
 }
 
-const STATUS_CONFIG = {
-  open:    { label: 'Open',    color: 'bg-blue-100 text-blue-700',   icon: Clock },
-  replied: { label: 'Replied', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
-  closed:  { label: 'Closed',  color: 'bg-gray-100 text-gray-500',   icon: XCircle },
-}
-
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
-const ALLOWED_LABEL = 'JPG, PNG, GIF, WebP, or PDF — max 5 MB'
 
-function AttachmentPreview({ url }: { url: string }) {
+function AttachmentPreview({ url, locale }: { url: string; locale: 'en' | 'es' }) {
   const isImage = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url)
   return isImage ? (
     <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-2">
       <NextImage
         src={url}
-        alt="Attachment preview"
+        alt={locale === 'es' ? 'Vista previa del archivo adjunto' : 'Attachment preview'}
         width={768}
         height={512}
         unoptimized
@@ -45,14 +38,19 @@ function AttachmentPreview({ url }: { url: string }) {
       />
     </a>
   ) : (
-    <a href={url} target="_blank" rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 mt-2 text-xs text-green-700 font-semibold bg-green-50 border border-green-100 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors">
-      <FileIcon size={13} /> View Attachment
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-2 mt-2 text-xs text-green-700 font-semibold bg-green-50 border border-green-100 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors"
+    >
+      <FileIcon size={13} /> {locale === 'es' ? 'Ver adjunto' : 'View Attachment'}
     </a>
   )
 }
 
 export default function SupportInboxClient({ initialMessages, userEmail }: Props) {
+  const { locale } = useLanguage()
   const [messages, setMessages] = useState<SupportMessage[]>(initialMessages)
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
@@ -64,18 +62,20 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const ALLOWED_LABEL = locale === 'es' ? 'JPG, PNG, GIF, WebP o PDF — máximo 5 MB' : 'JPG, PNG, GIF, WebP, or PDF — max 5 MB'
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFileError(null)
     const f = e.target.files?.[0] ?? null
     if (!f) { setFile(null); return }
     if (!ALLOWED_TYPES.includes(f.type)) {
-      setFileError(`Invalid file type. Allowed: ${ALLOWED_LABEL}`)
+      setFileError(locale === 'es' ? 'Tipo de archivo no válido. Permitido: JPG, PNG, GIF, WebP o PDF.' : 'Invalid file type. Allowed: JPG, PNG, GIF, WebP, or PDF.')
       setFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
     if (f.size > MAX_FILE_SIZE) {
-      setFileError('File too large. Maximum size is 5 MB.')
+      setFileError(locale === 'es' ? 'Archivo demasiado grande. El tamaño máximo es 5 MB.' : 'File too large. Maximum size is 5 MB.')
       setFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
@@ -92,8 +92,8 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (!subject.trim()) { setError('Please enter a subject.'); return }
-    if (!message.trim()) { setError('Please enter a message.'); return }
+    if (!subject.trim()) { setError(locale === 'es' ? 'Por favor ingresa un asunto.' : 'Please enter a subject.'); return }
+    if (!message.trim()) { setError(locale === 'es' ? 'Por favor ingresa un mensaje.' : 'Please enter a message.'); return }
 
     setLoading(true)
     try {
@@ -107,7 +107,7 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
         body: formData,
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Failed to send message.'); return }
+      if (!res.ok) { setError(data.error || (locale === 'es' ? 'No se pudo enviar el mensaje.' : 'Failed to send message.')); return }
 
       setMessages(prev => [data.message, ...prev])
       setSubject('')
@@ -116,7 +116,7 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
       setSuccess(true)
       setTimeout(() => setSuccess(false), 5000)
     } catch {
-      setError('Something went wrong. Please try again.')
+      setError(locale === 'es' ? 'Algo salió mal. Inténtalo de nuevo.' : 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -125,29 +125,30 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Support Inbox</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{locale === 'es' ? 'Bandeja de soporte' : 'Support Inbox'}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Send us a message if you need help with your program, next steps, document questions, or portal access.
+          {locale === 'es'
+            ? 'Envíanos un mensaje si necesitas ayuda con tu programa, próximos pasos, preguntas sobre documentos o acceso al portal.'
+            : 'Send us a message if you need help with your program, next steps, document questions, or portal access.'}
         </p>
       </div>
 
-      {/* New Message Form */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <MessageSquare size={16} className="text-green-600" />
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">New Message</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{locale === 'es' ? 'Nuevo mensaje' : 'New Message'}</h2>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Subject</label>
+            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">{locale === 'es' ? 'Asunto' : 'Subject'}</label>
             <input
               type="text"
               value={subject}
               onChange={e => setSubject(e.target.value)}
-              placeholder="e.g. Question about my next steps"
+              placeholder={locale === 'es' ? 'Ej. Pregunta sobre mis próximos pasos' : 'e.g. Question about my next steps'}
               maxLength={200}
               className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
               disabled={loading}
@@ -155,21 +156,20 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Message</label>
+            <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">{locale === 'es' ? 'Mensaje' : 'Message'}</label>
             <textarea
               value={message}
               onChange={e => setMessage(e.target.value)}
-              placeholder="Describe your question or issue in detail..."
+              placeholder={locale === 'es' ? 'Describe tu pregunta o problema con detalle...' : 'Describe your question or issue in detail...'}
               rows={5}
               className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none transition-all"
               disabled={loading}
             />
           </div>
 
-          {/* Attachment */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
-              Attachment <span className="normal-case font-normal text-gray-400 dark:text-gray-500">(optional — screenshot or document)</span>
+              {locale === 'es' ? 'Adjunto' : 'Attachment'} <span className="normal-case font-normal text-gray-400 dark:text-gray-500">{locale === 'es' ? '(opcional — captura o documento)' : '(optional — screenshot or document)'}</span>
             </label>
 
             {file ? (
@@ -189,7 +189,7 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
                 disabled={loading}
               >
                 <Paperclip size={15} />
-                Attach a screenshot or file
+                {locale === 'es' ? 'Adjunta una captura o archivo' : 'Attach a screenshot or file'}
               </button>
             )}
 
@@ -220,99 +220,73 @@ export default function SupportInboxClient({ initialMessages, userEmail }: Props
           {success && (
             <div className="flex items-start gap-2.5 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl px-4 py-3">
               <CheckCircle2 size={15} className="text-green-600 mt-0.5 shrink-0" />
-              <p className="text-sm text-green-700 dark:text-green-400 font-medium">Message sent! We&apos;ll get back to you as soon as possible.</p>
+              <p className="text-sm text-green-700 dark:text-green-400">{locale === 'es' ? 'Mensaje enviado correctamente.' : 'Message sent successfully.'}</p>
             </div>
           )}
 
-          <div className="flex items-center justify-between pt-1">
-            <p className="text-xs text-gray-400 dark:text-gray-500">Sending from: {userEmail}</p>
+          <div className="flex items-center justify-end">
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors"
             >
               {loading ? (
-                <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Sending…</>
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  {locale === 'es' ? 'Enviando…' : 'Sending…'}
+                </>
               ) : (
-                <><Send size={15} /> Send Message</>
+                <>
+                  <Send size={15} />
+                  {locale === 'es' ? 'Enviar' : 'Send'}
+                </>
               )}
             </button>
           </div>
         </form>
       </div>
 
-      {/* Message History */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <InboxIcon size={16} className="text-gray-500 dark:text-gray-400" />
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Message History</h2>
-          </div>
-          {messages.length > 0 && (
-            <span className="text-xs text-gray-400 dark:text-gray-500">{messages.length} message{messages.length !== 1 ? 's' : ''}</span>
-          )}
-        </div>
-
-        {messages.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <div className="w-12 h-12 bg-gray-50 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <InboxIcon size={22} className="text-gray-300 dark:text-gray-500" />
-            </div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No messages yet</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Use the form above to send your first message.</p>
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{locale === 'es' ? 'Mensajes anteriores' : 'Previous Messages'}</h2>
+        {(messages ?? []).length === 0 ? (
+          <div className="card text-center py-10">
+            <Clock className="w-10 h-10 mx-auto text-gray-300 mb-2" />
+            <p className="text-sm text-gray-500">{locale === 'es' ? 'Todavía no has enviado mensajes.' : 'You have not sent any messages yet.'}</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50 dark:divide-gray-700">
-            {messages.map((msg) => {
-              const cfg = STATUS_CONFIG[msg.status] ?? STATUS_CONFIG.open
-              const StatusIcon = cfg.icon
-              const isExpanded = expandedId === msg.id
-
-              return (
-                <div key={msg.id} className="px-6 py-4">
-                  <button onClick={() => setExpandedId(isExpanded ? null : msg.id)} className="w-full text-left">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{msg.subject}</p>
-                          <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${cfg.color}`}>
-                            <StatusIcon size={10} /> {cfg.label}
-                          </span>
-                          {msg.attachment_url && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-gray-400">
-                              <Paperclip size={10} /> attachment
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{formatDate(msg.created_at)}</p>
-                        {!isExpanded && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">{msg.message}</p>
-                        )}
-                      </div>
-                      <div className="shrink-0 text-gray-400 mt-0.5">
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      </div>
-                    </div>
-                  </button>
-
-                  {isExpanded && (
-                    <div className="mt-3 space-y-3">
-                      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Your Message</p>
-                        <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">{msg.message}</p>
-                        {msg.attachment_url && <AttachmentPreview url={msg.attachment_url} />}
-                      </div>
-                      {msg.admin_reply && (
-                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-xl p-3">
-                          <p className="text-xs font-semibold text-green-700 dark:text-green-400 uppercase tracking-wide mb-1.5">Response from SourcifyLending</p>
-                          <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">{msg.admin_reply}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+          <div className="space-y-3">
+            {messages.map((m) => (
+              <div key={m.id} className="card">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-gray-900 dark:text-white">{m.subject}</p>
+                    <p className="text-xs text-gray-500 mt-1">{new Date(m.created_at).toLocaleString(locale === 'es' ? 'es-ES' : 'en-US')}</p>
+                  </div>
+                  <span className="text-xs font-semibold px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                    {m.status === 'open' ? (locale === 'es' ? 'Abierto' : 'Open') : m.status === 'replied' ? (locale === 'es' ? 'Respondido' : 'Replied') : (locale === 'es' ? 'Cerrado' : 'Closed')}
+                  </span>
                 </div>
-              )
-            })}
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}
+                  className="mt-3 text-xs text-green-700 font-semibold"
+                >
+                  {expandedId === m.id ? (locale === 'es' ? 'Ocultar' : 'Hide') : (locale === 'es' ? 'Ver detalles' : 'View details')}
+                </button>
+                {expandedId === m.id && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{m.message}</p>
+                    {m.attachment_url && <AttachmentPreview url={m.attachment_url} locale={locale} />}
+                    {m.admin_reply && (
+                      <div className="rounded-xl bg-green-50 dark:bg-green-900/20 p-3">
+                        <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">{locale === 'es' ? 'Respuesta del administrador' : 'Admin Reply'}</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-200">{m.admin_reply}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

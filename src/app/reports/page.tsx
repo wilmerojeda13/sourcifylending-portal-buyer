@@ -6,16 +6,18 @@ import { BarChart2, FileText, Plus, Loader2, ChevronDown, ChevronUp } from 'luci
 import type { Report, ReportType, UserProfile } from '@/types'
 import toast from 'react-hot-toast'
 import { useBusinessContext } from '@/lib/use-business-context'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
 
-const REPORT_TYPES: { value: ReportType; label: string; desc: string }[] = [
-  { value: 'credit_readiness_summary', label: 'Credit Readiness Summary', desc: 'Overview of your current credit position and readiness indicators' },
-  { value: 'funding_readiness_analysis', label: 'Funding Readiness Analysis', desc: 'Full analysis of your funding readiness and gaps to address' },
-  { value: 'tradeline_progress_report', label: 'Tradeline Progress Report', desc: 'Status of your tradeline-building progress and reporting accounts' },
-  { value: 'monthly_monitoring_report', label: 'Monthly Monitoring Report', desc: 'Monthly credit and banking snapshot with action items' },
-  { value: 'next_step_summary', label: 'Next Step Summary', desc: 'Concise AI-generated guidance on your next required actions' },
+const REPORT_TYPES: { value: ReportType; label: { en: string; es: string }; desc: { en: string; es: string } }[] = [
+  { value: 'credit_readiness_summary', label: { en: 'Credit Readiness Summary', es: 'Resumen de preparación crediticia' }, desc: { en: 'Overview of your current credit position and readiness indicators', es: 'Resumen de tu posición crediticia actual e indicadores de preparación' } },
+  { value: 'funding_readiness_analysis', label: { en: 'Funding Readiness Analysis', es: 'Análisis de preparación para financiamiento' }, desc: { en: 'Full analysis of your funding readiness and gaps to address', es: 'Análisis completo de tu preparación para financiamiento y las brechas por atender' } },
+  { value: 'tradeline_progress_report', label: { en: 'Tradeline Progress Report', es: 'Reporte de progreso de tradelines' }, desc: { en: 'Status of your tradeline-building progress and reporting accounts', es: 'Estado de tu progreso construyendo tradelines y cuentas que reportan' } },
+  { value: 'monthly_monitoring_report', label: { en: 'Monthly Monitoring Report', es: 'Reporte de monitoreo mensual' }, desc: { en: 'Monthly credit and banking snapshot with action items', es: 'Resumen mensual de crédito y banca con acciones recomendadas' } },
+  { value: 'next_step_summary', label: { en: 'Next Step Summary', es: 'Resumen de próximos pasos' }, desc: { en: 'Concise AI-generated guidance on your next required actions', es: 'Guía concisa generada por IA sobre tus próximas acciones requeridas' } },
 ]
 
 export default function ReportsPage() {
+  const { locale } = useLanguage()
   const { activeBusinessId } = useBusinessContext()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [reports, setReports] = useState<Report[]>([])
@@ -25,6 +27,7 @@ export default function ReportsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [isActive, setIsActive] = useState(false)
   const [activePrograms, setActivePrograms] = useState<string[]>([])
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
 
   useEffect(() => {
     const init = async () => {
@@ -32,7 +35,7 @@ export default function ReportsPage() {
       const res = await fetch('/api/reports', { cache: 'no-store' })
       const data = await res.json()
       if (!res.ok) {
-        toast.error(data.error || 'Failed to load reports')
+        toast.error(data.error || text('Failed to load reports', 'No se pudieron cargar los reportes'))
         setLoading(false)
         return
       }
@@ -55,20 +58,24 @@ export default function ReportsPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        toast.error(data?.error || 'Failed to generate report. Please try again.')
+        toast.error(data?.error || text('Failed to generate report. Please try again.', 'No se pudo generar el reporte. Inténtalo de nuevo.'))
         setGenerating(false)
         return
       }
       setReports((prev) => [data, ...prev])
       setExpandedId(data.report_id)
-      toast.success('Report generated!')
+      toast.success(text('Report generated!', '¡Reporte generado!'))
     } catch {
-      toast.error('Failed to generate report. Please try again.')
+      toast.error(text('Failed to generate report. Please try again.', 'No se pudo generar el reporte. Inténtalo de nuevo.'))
     }
     setGenerating(false)
   }
 
-  const reportTypeLabel = (type: string) => REPORT_TYPES.find((r) => r.value === type)?.label || type
+  const reportTypeEntry = (type: string) => REPORT_TYPES.find((r) => r.value === type)
+  const reportTypeLabel = (type: string) => {
+    const entry = reportTypeEntry(type)
+    return entry ? entry.label[locale] : type
+  }
 
   if (loading) {
     return (
@@ -95,17 +102,16 @@ export default function ReportsPage() {
       <div className="mb-6">
         <h1 className="page-title flex items-center gap-2">
           <BarChart2 size={24} className="text-green-500" />
-          Reports & Deliverables
+          {text('Reports & Deliverables', 'Reportes y entregables')}
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">AI-generated reports stored in your portal</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{text('AI-generated reports stored in your portal', 'Reportes generados por IA guardados en tu portal')}</p>
       </div>
 
-      {/* Generate Section */}
       <div className="card mb-6">
-        <h2 className="section-title mb-4">Generate New Report</h2>
+        <h2 className="section-title mb-4">{text('Generate New Report', 'Generar nuevo reporte')}</h2>
         <div className="space-y-3">
           <div>
-            <label className="label">Report Type</label>
+            <label className="label">{text('Report Type', 'Tipo de reporte')}</label>
             <select
               className="input-field"
               value={selectedType}
@@ -113,11 +119,11 @@ export default function ReportsPage() {
               disabled={generating}
             >
               {REPORT_TYPES.map((rt) => (
-                <option key={rt.value} value={rt.value}>{rt.label}</option>
+                <option key={rt.value} value={rt.value}>{rt.label[locale]}</option>
               ))}
             </select>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
-              {REPORT_TYPES.find((rt) => rt.value === selectedType)?.desc}
+              {REPORT_TYPES.find((rt) => rt.value === selectedType)?.desc[locale]}
             </p>
           </div>
           <button
@@ -126,26 +132,25 @@ export default function ReportsPage() {
             className="btn-primary w-full sm:w-auto"
           >
             {generating ? (
-              <><Loader2 size={16} className="animate-spin" /> Generating…</>
+              <><Loader2 size={16} className="animate-spin" /> {text('Generating…', 'Generando…')}</>
             ) : (
-              <><Plus size={16} /> Generate Report</>
+              <><Plus size={16} /> {text('Generate Report', 'Generar reporte')}</>
             )}
           </button>
           {!isActive && (
             <p className="text-xs text-amber-600">
-              <a href="/billing" className="underline font-semibold">Subscribe</a> to generate and access reports
+              <a href="/billing" className="underline font-semibold">{text('Subscribe', 'Suscríbete')}</a> {text('to generate and access reports', 'para generar y acceder a reportes')}
             </p>
           )}
         </div>
       </div>
 
-      {/* Reports List */}
-      <h2 className="section-title mb-4">Your Reports ({reports.length})</h2>
+      <h2 className="section-title mb-4">{text('Your Reports', 'Tus reportes')} ({reports.length})</h2>
       {reports.length === 0 ? (
         <div className="card text-center py-12">
           <BarChart2 size={32} className="text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-400 text-sm">No reports yet</p>
-          <p className="text-xs text-gray-300 mt-1">Generate your first report above</p>
+          <p className="text-gray-400 text-sm">{text('No reports yet', 'Aún no hay reportes')}</p>
+          <p className="text-xs text-gray-300 mt-1">{text('Generate your first report above', 'Genera tu primer reporte arriba')}</p>
         </div>
       ) : (
         <div className="space-y-3">

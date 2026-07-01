@@ -6,6 +6,7 @@ import {
   ArrowDownRight, Loader2, CheckCircle2, CreditCard, Calendar,
   Zap, Building2, Info,
 } from 'lucide-react'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ROIData {
@@ -36,21 +37,21 @@ interface TimelineEvent {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-function formatMoney(n: number, compact = false): string {
+function formatMoney(n: number, locale: 'en' | 'es', compact = false): string {
   if (compact && Math.abs(n) >= 1000) {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(locale === 'es' ? 'es-ES' : 'en-US', {
       style: 'currency', currency: 'USD',
       notation: 'compact', maximumFractionDigits: 1,
     }).format(n)
   }
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(locale === 'es' ? 'es-ES' : 'en-US', {
     style: 'currency', currency: 'USD', maximumFractionDigits: 0,
   }).format(n)
 }
 
-function formatDate(d: string): string {
+function formatDate(d: string, locale: 'en' | 'es'): string {
   try {
-    return new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
+    return new Date(d + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
       month: 'short', day: 'numeric', year: 'numeric',
     })
   } catch { return d }
@@ -66,6 +67,7 @@ function SummaryCard({
   icon: React.ReactNode
   color: string
   positive?: boolean | null
+  locale: 'en' | 'es'
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -83,15 +85,18 @@ function SummaryCard({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ROITrackerClient() {
+  const { locale } = useLanguage()
   const [data, setData] = useState<ROIData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
 
   useEffect(() => {
     fetch('/api/roi')
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false) })
-      .catch(() => { setError('Failed to load ROI data.'); setLoading(false) })
+      .catch(() => { setError(text('Failed to load ROI data.', 'No se pudieron cargar los datos de ROI.')); setLoading(false) })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (loading) {
@@ -105,7 +110,7 @@ export default function ROITrackerClient() {
   if (error || !data) {
     return (
       <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
-        <p className="text-sm text-red-700">{error || 'Something went wrong.'}</p>
+        <p className="text-sm text-red-700">{error || text('Something went wrong.', 'Algo salió mal.')}</p>
       </div>
     )
   }
@@ -129,13 +134,13 @@ export default function ROITrackerClient() {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <TrendingUp size={20} className="text-green-600" />
-          <h1 className="text-2xl font-bold text-gray-900">ROI Tracker</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{text('ROI Tracker', 'Seguimiento ROI')}</h1>
         </div>
         <p className="text-sm text-gray-500">
-          Your investment vs. approved value — updated automatically as results are logged.
+          {text('Your investment vs. approved value — updated automatically as results are logged.', 'Tu inversión frente al valor aprobado — se actualiza automáticamente a medida que se registran resultados.')}
           {enrolledSince && (
             <span className="ml-1 text-gray-400">
-              · Member since {formatDate(enrolledSince.slice(0, 10))}
+              {text('· Member since', '· Miembro desde')} {formatDate(enrolledSince.slice(0, 10), locale)}
             </span>
           )}
         </p>
@@ -145,16 +150,19 @@ export default function ROITrackerClient() {
       <div className={`rounded-2xl p-6 text-white ${roiIsPositive ? 'bg-gradient-to-br from-green-600 to-green-700' : 'bg-gradient-to-br from-gray-700 to-gray-800'}`}>
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <p className="text-sm font-medium opacity-80 mb-1">Estimated ROI Based on Approved Value</p>
+            <p className="text-sm font-medium opacity-80 mb-1">{text('Estimated ROI Based on Approved Value', 'ROI estimado basado en el valor aprobado')}</p>
             <p className="text-5xl font-bold tracking-tight">
-              {roiPercent !== null ? `${roiPercent > 0 ? '+' : ''}${roiPercent.toLocaleString()}%` : '—'}
+              {roiPercent !== null ? `${roiPercent > 0 ? '+' : ''}${roiPercent.toLocaleString(locale === 'es' ? 'es-ES' : 'en-US')}%` : '—'}
             </p>
             <p className="text-sm opacity-70 mt-2">
               {hasInvestment && hasApprovals
-                ? `${formatMoney(totalApprovedValue)} approved on ${formatMoney(totalInvested)} invested`
+                ? text(
+                  `${formatMoney(totalApprovedValue, locale)} approved on ${formatMoney(totalInvested, locale)} invested`,
+                  `${formatMoney(totalApprovedValue, locale)} aprobados sobre ${formatMoney(totalInvested, locale)} invertidos`
+                )
                 : hasInvestment
-                  ? 'No approved outcomes logged yet — keep building!'
-                  : 'No payments logged yet'}
+                  ? text('No approved outcomes logged yet — keep building!', 'Aún no hay resultados aprobados registrados — sigue avanzando.')
+                  : text('No payments logged yet', 'Aún no hay pagos registrados')}
             </p>
           </div>
           {roiPercent !== null && (
@@ -162,7 +170,7 @@ export default function ROITrackerClient() {
               {roiIsPositive
                 ? <ArrowUpRight size={16} />
                 : <ArrowDownRight size={16} />}
-              Net {roiIsPositive ? 'Gain' : 'Gap'}: {formatMoney(Math.abs(netROI))}
+              {text('Net', 'Resultado neto')} {roiIsPositive ? text('Gain', 'ganancia') : text('Gap', 'brecha')}: {formatMoney(Math.abs(netROI), locale)}
             </div>
           )}
         </div>
@@ -171,35 +179,42 @@ export default function ROITrackerClient() {
       {/* ── 4 Summary Cards ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <SummaryCard
-          label="Total Invested"
-          value={formatMoney(totalInvested)}
-          sub="Payments collected to date"
+          label={text('Total Invested', 'Total invertido')}
+          value={formatMoney(totalInvested, locale)}
+          sub={text('Payments collected to date', 'Pagos cobrados hasta la fecha')}
           icon={<DollarSign size={18} className="text-blue-600" />}
           color="bg-blue-100"
+          locale={locale}
         />
         <SummaryCard
-          label="Total Approved Value"
-          value={formatMoney(totalApprovedValue)}
-          sub={`${totalApprovals} approved outcome${totalApprovals !== 1 ? 's' : ''}`}
+          label={text('Total Approved Value', 'Valor total aprobado')}
+          value={formatMoney(totalApprovedValue, locale)}
+          sub={text(
+            `${totalApprovals} approved outcome${totalApprovals !== 1 ? 's' : ''}`,
+            `${totalApprovals} resultado${totalApprovals !== 1 ? 's' : ''} aprobado${totalApprovals !== 1 ? 's' : ''}`
+          )}
           icon={<CheckCircle2 size={18} className="text-green-600" />}
           color="bg-green-100"
           positive={hasApprovals}
+          locale={locale}
         />
         <SummaryCard
-          label="Net ROI"
-          value={netROI === 0 ? '$0' : `${netROI > 0 ? '+' : ''}${formatMoney(netROI)}`}
-          sub="Approved value minus invested"
+          label={text('Net ROI', 'ROI neto')}
+          value={netROI === 0 ? '$0' : `${netROI > 0 ? '+' : ''}${formatMoney(netROI, locale)}`}
+          sub={text('Approved value minus invested', 'Valor aprobado menos inversión')}
           icon={<BarChart2 size={18} className={roiIsPositive ? 'text-green-600' : 'text-gray-500'} />}
           color={roiIsPositive ? 'bg-green-100' : 'bg-gray-100'}
           positive={netROI !== 0 ? roiIsPositive : null}
+          locale={locale}
         />
         <SummaryCard
           label="ROI %"
-          value={roiPercent !== null ? `${roiPercent > 0 ? '+' : ''}${roiPercent.toLocaleString()}%` : '—'}
-          sub={hasInvestment ? 'Based on approved value only' : 'No investment on file yet'}
+          value={roiPercent !== null ? `${roiPercent > 0 ? '+' : ''}${roiPercent.toLocaleString(locale === 'es' ? 'es-ES' : 'en-US')}%` : '—'}
+          sub={hasInvestment ? text('Based on approved value only', 'Basado solo en valor aprobado') : text('No investment on file yet', 'Aún no hay inversión registrada')}
           icon={<Percent size={18} className={roiIsPositive ? 'text-green-600' : 'text-gray-500'} />}
           color={roiIsPositive ? 'bg-green-100' : 'bg-gray-100'}
           positive={roiPercent !== null ? roiPercent > 0 : null}
+          locale={locale}
         />
       </div>
 
@@ -210,13 +225,13 @@ export default function ROITrackerClient() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
             <CreditCard size={15} className="text-blue-500" />
-            <h2 className="text-sm font-semibold text-gray-900">Investment Breakdown</h2>
+            <h2 className="text-sm font-semibold text-gray-900">{text('Investment Breakdown', 'Desglose de inversión')}</h2>
           </div>
           <div className="p-5 space-y-3">
             {[
-              { label: 'Setup / Enrollment Fee', amount: setupPaid, icon: <Zap size={13} className="text-blue-400" /> },
-              { label: 'Monthly Advisory Fees', amount: recurringPaid, icon: <Calendar size={13} className="text-purple-400" /> },
-              { label: 'Add-On Programs', amount: addonPaid, icon: <Building2 size={13} className="text-green-400" /> },
+              { label: text('Setup / Enrollment Fee', 'Cargo de inscripción / inicio'), amount: setupPaid, icon: <Zap size={13} className="text-blue-400" /> },
+              { label: text('Monthly Advisory Fees', 'Cargos mensuales de asesoría'), amount: recurringPaid, icon: <Calendar size={13} className="text-purple-400" /> },
+              { label: text('Add-On Programs', 'Programas complementarios'), amount: addonPaid, icon: <Building2 size={13} className="text-green-400" /> },
             ].map(row => (
               <div key={row.label} className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -224,13 +239,13 @@ export default function ROITrackerClient() {
                   {row.label}
                 </div>
                 <span className={`text-sm font-semibold ${row.amount > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
-                  {formatMoney(row.amount)}
+                  {formatMoney(row.amount, locale)}
                 </span>
               </div>
             ))}
             <div className="pt-3 mt-1 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-sm font-bold text-gray-900">Total Invested</span>
-              <span className="text-sm font-bold text-blue-700">{formatMoney(totalInvested)}</span>
+              <span className="text-sm font-bold text-gray-900">{text('Total Invested', 'Total invertido')}</span>
+              <span className="text-sm font-bold text-blue-700">{formatMoney(totalInvested, locale)}</span>
             </div>
           </div>
         </div>
@@ -239,15 +254,15 @@ export default function ROITrackerClient() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
             <CheckCircle2 size={15} className="text-green-500" />
-            <h2 className="text-sm font-semibold text-gray-900">Approved Value Breakdown</h2>
+            <h2 className="text-sm font-semibold text-gray-900">{text('Approved Value Breakdown', 'Desglose del valor aprobado')}</h2>
           </div>
           <div className="p-5">
             {!hasApprovals ? (
               <div className="text-center py-6">
                 <TrendingUp size={28} className="text-gray-200 mx-auto mb-3" />
-                <p className="text-sm text-gray-500 font-medium">No approved outcomes yet</p>
+                <p className="text-sm text-gray-500 font-medium">{text('No approved outcomes yet', 'Aún no hay resultados aprobados')}</p>
                 <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                  Log your first approval in Funding Results to see your return here.
+                  {text('Log your first approval in Funding Results to see your return here.', 'Registra tu primera aprobación en Resultados de financiamiento para ver tu retorno aquí.')}
                 </p>
               </div>
             ) : (
@@ -258,7 +273,7 @@ export default function ROITrackerClient() {
                       <span className="text-xs text-gray-600">{row.type}</span>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-400">{row.count}×</span>
-                        <span className="text-sm font-semibold text-green-700">{formatMoney(row.value)}</span>
+                        <span className="text-sm font-semibold text-green-700">{formatMoney(row.value, locale)}</span>
                       </div>
                     </div>
                     <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -270,8 +285,8 @@ export default function ROITrackerClient() {
                   </div>
                 ))}
                 <div className="pt-3 mt-1 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-sm font-bold text-gray-900">Total Approved Value</span>
-                  <span className="text-sm font-bold text-green-700">{formatMoney(totalApprovedValue)}</span>
+                  <span className="text-sm font-bold text-gray-900">{text('Total Approved Value', 'Valor total aprobado')}</span>
+                  <span className="text-sm font-bold text-green-700">{formatMoney(totalApprovedValue, locale)}</span>
                 </div>
               </div>
             )}
@@ -284,25 +299,25 @@ export default function ROITrackerClient() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {mostRecentApproval && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-2">Most Recent Approval</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-2">{text('Most Recent Approval', 'Aprobación más reciente')}</p>
               <p className="text-sm font-bold text-gray-900">
                 {mostRecentApproval.issuer_name as string}
                 {mostRecentApproval.account_name ? ` — ${mostRecentApproval.account_name as string}` : ''}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">{mostRecentApproval.approval_type as string}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{formatDate(mostRecentApproval.approval_date as string)}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{formatDate(mostRecentApproval.approval_date as string, locale)}</p>
             </div>
           )}
           {largestApproval && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-2">Largest Approval</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-2">{text('Largest Approval', 'Aprobación más grande')}</p>
               <p className="text-sm font-bold text-gray-900">
                 {largestApproval.issuer_name as string}
                 {largestApproval.account_name ? ` — ${largestApproval.account_name as string}` : ''}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">{largestApproval.approval_type as string}</p>
               <p className="text-lg font-bold text-green-700 mt-1">
-                {formatMoney(Number(largestApproval.approved_limit) || Number(largestApproval.approved_amount) || 0)}
+                {formatMoney(Number(largestApproval.approved_limit) || Number(largestApproval.approved_amount) || 0, locale)}
               </p>
             </div>
           )}
@@ -313,15 +328,15 @@ export default function ROITrackerClient() {
       {byProgram.length > 1 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50">
-            <h2 className="text-sm font-semibold text-gray-900">Approved Value by Program</h2>
+            <h2 className="text-sm font-semibold text-gray-900">{text('Approved Value by Program', 'Valor aprobado por programa')}</h2>
           </div>
           <div className="p-5 space-y-3">
             {byProgram.map(row => (
               <div key={row.program} className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">{row.program}</span>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-400">{row.count} approval{row.count !== 1 ? 's' : ''}</span>
-                  <span className="font-semibold text-green-700">{formatMoney(row.value)}</span>
+                  <span className="text-xs text-gray-400">{text(`${row.count} approval${row.count !== 1 ? 's' : ''}`, `${row.count} aprobación${row.count !== 1 ? 'es' : ''}`)}</span>
+                  <span className="font-semibold text-green-700">{formatMoney(row.value, locale)}</span>
                 </div>
               </div>
             ))}
@@ -333,7 +348,7 @@ export default function ROITrackerClient() {
       {timeline.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50">
-            <h2 className="text-sm font-semibold text-gray-900">Investment & Approval Timeline</h2>
+            <h2 className="text-sm font-semibold text-gray-900">{text('Investment & Approval Timeline', 'Cronología de inversión y aprobaciones')}</h2>
           </div>
           <div className="p-5">
             <div className="relative">
@@ -355,10 +370,10 @@ export default function ROITrackerClient() {
                             {event.subLabel && (
                               <p className="text-xs text-gray-400 mt-0.5">{event.subLabel}</p>
                             )}
-                            <p className="text-xs text-gray-400 mt-0.5">{formatDate(event.date)}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{formatDate(event.date, locale)}</p>
                           </div>
                           <span className={`text-sm font-bold shrink-0 ${isApproval ? 'text-green-700' : 'text-blue-700'}`}>
-                            {isApproval ? '+' : '-'}{formatMoney(event.amount)}
+                            {isApproval ? '+' : '-'}{formatMoney(event.amount, locale)}
                           </span>
                         </div>
                       </div>
@@ -375,9 +390,9 @@ export default function ROITrackerClient() {
       {!hasInvestment && !hasApprovals && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
           <TrendingUp size={32} className="text-gray-200 mx-auto mb-4" />
-          <h3 className="text-base font-semibold text-gray-700 mb-2">Your ROI tracker is ready</h3>
+          <h3 className="text-base font-semibold text-gray-700 mb-2">{text('Your ROI tracker is ready', 'Tu seguimiento ROI está listo')}</h3>
           <p className="text-sm text-gray-400 max-w-sm mx-auto leading-relaxed">
-            As your payments are logged and funding outcomes are recorded, your ROI will calculate automatically here.
+            {text('As your payments are logged and funding outcomes are recorded, your ROI will calculate automatically here.', 'A medida que se registren tus pagos y resultados de financiamiento, tu ROI se calculará automáticamente aquí.')}
           </p>
         </div>
       )}
@@ -386,7 +401,10 @@ export default function ROITrackerClient() {
       <div className="flex items-start gap-2 bg-gray-50 rounded-xl px-4 py-3">
         <Info size={13} className="text-gray-400 mt-0.5 shrink-0" />
         <p className="text-xs text-gray-400 leading-relaxed">
-          ROI calculations are based on approved credit limits and approved funding values logged in your portal — not realized business revenue or cash in hand. Approved credit limits represent available access, not guaranteed income. SourcifyLending does not guarantee approvals, credit limits, funding outcomes, or investment returns.
+          {text(
+            'ROI calculations are based on approved credit limits and approved funding values logged in your portal — not realized business revenue or cash in hand. Approved credit limits represent available access, not guaranteed income. SourcifyLending does not guarantee approvals, credit limits, funding outcomes, or investment returns.',
+            'Los cálculos de ROI se basan en límites de crédito aprobados y valores de financiamiento aprobados registrados en tu portal, no en ingresos comerciales realizados ni efectivo disponible. Los límites de crédito aprobados representan acceso disponible, no ingresos garantizados. SourcifyLending no garantiza aprobaciones, límites de crédito, resultados de financiamiento ni retornos de inversión.'
+          )}
         </p>
       </div>
     </div>
