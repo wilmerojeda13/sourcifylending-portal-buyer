@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { User, Building2, Mail, Phone, CheckCircle2, XCircle, Loader2, Settings } from 'lucide-react'
 import DelegateAccessPanel from '@/components/DelegateAccessPanel'
 import NotificationPreferencesCard from '@/components/notifications/NotificationPreferencesCard'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
 
 interface ProfileData {
   full_name: string
@@ -27,7 +28,33 @@ const INDUSTRIES = [
   'Professional Services', 'Manufacturing', 'Wholesale / Distribution', 'Other',
 ]
 
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  'Sole Proprietorship': 'Propietario unico',
+  Partnership: 'Sociedad',
+  'Non-Profit': 'Sin fines de lucro',
+  Other: 'Otro',
+}
+
+const INDUSTRY_LABELS: Record<string, string> = {
+  Construction: 'Construccion',
+  'Trucking / Transportation': 'Camiones / transporte',
+  HVAC: 'HVAC',
+  Retail: 'Comercio minorista',
+  'Restaurant / Food Service': 'Restaurantes / servicio de alimentos',
+  Healthcare: 'Salud',
+  Technology: 'Tecnologia',
+  'Real Estate': 'Bienes raices',
+  'Professional Services': 'Servicios profesionales',
+  Manufacturing: 'Manufactura',
+  'Wholesale / Distribution': 'Mayoreo / distribucion',
+  Other: 'Otro',
+}
+
 export default function SettingsClient({ initialProfile, activeBusinessName = 'This business', isDelegate = false }: Props) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
+  const localizeEntityType = (value: string) => (locale === 'es' ? (ENTITY_TYPE_LABELS[value] ?? value) : value)
+  const localizeIndustry = (value: string) => (locale === 'es' ? (INDUSTRY_LABELS[value] ?? value) : value)
   const [form, setForm] = useState<ProfileData>(initialProfile)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
@@ -41,10 +68,10 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
     setError(null)
     setSuccess(null)
 
-    if (!form.full_name.trim()) { setError('Name cannot be blank.'); return }
-    if (!form.email.trim()) { setError('Email cannot be blank.'); return }
+    if (!form.full_name.trim()) { setError(locale === 'es' ? 'El nombre no puede estar vacío.' : 'Name cannot be blank.'); return }
+    if (!form.email.trim()) { setError(locale === 'es' ? 'El correo no puede estar vacío.' : 'Email cannot be blank.'); return }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(form.email.trim())) { setError('Please enter a valid email address.'); return }
+    if (!emailRegex.test(form.email.trim())) { setError(locale === 'es' ? 'Por favor ingresa una dirección de correo válida.' : 'Please enter a valid email address.'); return }
 
     setLoading(true)
     try {
@@ -56,21 +83,22 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
       const data = await res.json()
 
       if (!res.ok && !data.profileUpdated) {
-        setError(data.error || 'Failed to save changes.')
+        setError(data.error || (locale === 'es' ? 'No se pudieron guardar los cambios.' : 'Failed to save changes.'))
         return
       }
 
       if (data.emailChangeRequested) {
-        setSuccess('Profile saved. A confirmation email has been sent to your new email address — please check your inbox to confirm the change.')
+        setSuccess(locale === 'es'
+          ? 'Perfil guardado. Se ha enviado un correo de confirmación a tu nueva dirección.'
+          : 'Profile saved. A confirmation email has been sent to your new email address — please check your inbox to confirm the change.')
       } else if (data.profileUpdated && !res.ok) {
-        // Profile saved but email change failed
         setError(data.error)
-        setSuccess('Profile information saved successfully.')
+        setSuccess(locale === 'es' ? 'La información del perfil se guardó correctamente.' : 'Profile information saved successfully.')
       } else {
-        setSuccess('Your profile has been updated successfully.')
+        setSuccess(locale === 'es' ? 'Tu perfil se actualizó correctamente.' : 'Your profile has been updated successfully.')
       }
     } catch {
-      setError('Something went wrong. Please try again.')
+      setError(locale === 'es' ? 'Algo salió mal. Inténtalo de nuevo.' : 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -81,37 +109,41 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
       {isDelegate && (
         <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-2xl px-4 py-3 flex items-start gap-3">
           <span className="text-blue-600 mt-0.5">ℹ️</span>
-          <p className="text-sm text-blue-700 dark:text-blue-300">You are logged in as a <strong>delegate</strong>. You can update your personal profile, but billing and subscription management are only available to the account owner.</p>
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            {locale === 'es'
+              ? 'Has iniciado sesión como delegado. Puedes actualizar tu perfil personal, pero la facturación y la suscripción solo están disponibles para el propietario de la cuenta.'
+              : 'You are logged in as a delegate. You can update your personal profile, but billing and subscription management are only available to the account owner.'}
+          </p>
         </div>
       )}
-      {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Settings size={20} className="text-green-600" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{locale === 'es' ? 'Configuración' : 'Settings'}</h1>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Update your profile and account information. Keep your contact details current so we can support your account.
+          {locale === 'es'
+            ? 'Actualiza tu perfil e información de la cuenta. Mantén tus datos de contacto al día para que podamos apoyarte.'
+            : 'Update your profile and account information. Keep your contact details current so we can support your account.'}
         </p>
       </div>
 
       <form onSubmit={handleSave} className="space-y-5">
-        {/* Personal Information */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700 flex items-center gap-2">
             <User size={15} className="text-green-600" />
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Personal Information</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{locale === 'es' ? 'Información personal' : 'Personal Information'}</h2>
           </div>
           <div className="p-6 space-y-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
-                Full Name <span className="text-red-400">*</span>
+                {locale === 'es' ? 'Nombre completo' : 'Full Name'} <span className="text-red-400">*</span>
               </label>
               <input
                 type="text"
                 value={form.full_name}
                 onChange={e => set('full_name', e.target.value)}
-                placeholder="Your full name"
+                placeholder={locale === 'es' ? 'Tu nombre completo' : 'Your full name'}
                 className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 disabled={loading}
               />
@@ -121,20 +153,22 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
                 <span className="flex items-center gap-1.5">
                   <Mail size={11} />
-                  Email Address <span className="text-red-400">*</span>
+                  {locale === 'es' ? 'Correo electrónico' : 'Email Address'} <span className="text-red-400">*</span>
                 </span>
               </label>
               <input
                 type="email"
                 value={form.email}
                 onChange={e => set('email', e.target.value)}
-                placeholder="your@email.com"
+                placeholder={text('your@email.com', 'tu@correo.com')}
                 className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 disabled={loading}
               />
               {form.email !== initialProfile.email && (
                 <p className="mt-1.5 text-xs text-amber-600">
-                  Changing your email requires confirmation. A verification link will be sent to your new address.
+                  {locale === 'es'
+                    ? 'Cambiar tu correo requiere confirmación. Se enviará un enlace de verificación a tu nueva dirección.'
+                    : 'Changing your email requires confirmation. A verification link will be sent to your new address.'}
                 </p>
               )}
             </div>
@@ -143,7 +177,7 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
                 <span className="flex items-center gap-1.5">
                   <Phone size={11} />
-                  Phone Number
+                  {locale === 'es' ? 'Número de teléfono' : 'Phone Number'}
                 </span>
               </label>
               <input
@@ -158,22 +192,21 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
           </div>
         </div>
 
-        {/* Business Information */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-50 dark:border-gray-700 flex items-center gap-2">
             <Building2 size={15} className="text-green-600" />
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Business Information</h2>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{locale === 'es' ? 'Información del negocio' : 'Business Information'}</h2>
           </div>
           <div className="p-6 space-y-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
-                Business Name
+                {locale === 'es' ? 'Nombre del negocio' : 'Business Name'}
               </label>
               <input
                 type="text"
                 value={form.business_name}
                 onChange={e => set('business_name', e.target.value)}
-                placeholder="Your business name"
+                placeholder={locale === 'es' ? 'Nombre de tu negocio' : 'Your business name'}
                 className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 disabled={loading}
               />
@@ -181,7 +214,7 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
 
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
-                Entity Type
+                {locale === 'es' ? 'Tipo de entidad' : 'Entity Type'}
               </label>
               <select
                 value={form.entity_type}
@@ -189,14 +222,14 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
                 className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 disabled={loading}
               >
-                <option value="">Select entity type…</option>
-                {ENTITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                <option value="">{locale === 'es' ? 'Selecciona un tipo de entidad…' : 'Select entity type…'}</option>
+                {ENTITY_TYPES.map(t => <option key={t} value={t}>{localizeEntityType(t)}</option>)}
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
-                Industry
+                {locale === 'es' ? 'Industria' : 'Industry'}
               </label>
               <select
                 value={form.industry}
@@ -204,14 +237,13 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
                 className="w-full px-4 py-2.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                 disabled={loading}
               >
-                <option value="">Select industry…</option>
-                {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
+                <option value="">{locale === 'es' ? 'Selecciona una industria…' : 'Select industry…'}</option>
+                {INDUSTRIES.map(i => <option key={i} value={i}>{localizeIndustry(i)}</option>)}
               </select>
             </div>
           </div>
         </div>
 
-        {/* Status messages */}
         {error && (
           <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-xl px-4 py-3">
             <XCircle size={15} className="text-red-500 mt-0.5 shrink-0" />
@@ -225,7 +257,6 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
           </div>
         )}
 
-        {/* Save */}
         <div className="flex items-center justify-end">
           <button
             type="submit"
@@ -235,10 +266,10 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
             {loading ? (
               <>
                 <Loader2 size={15} className="animate-spin" />
-                Saving…
+                {locale === 'es' ? 'Guardando…' : 'Saving…'}
               </>
             ) : (
-              'Save Changes'
+              locale === 'es' ? 'Guardar cambios' : 'Save Changes'
             )}
           </button>
         </div>
@@ -246,11 +277,12 @@ export default function SettingsClient({ initialProfile, activeBusinessName = 'T
 
       <NotificationPreferencesCard
         scope="member"
-        title="Notification Settings"
-        description={`Manage desktop alerts for ${activeBusinessName}. Mobile continues to use in-app notifications and badges.`}
+        title={locale === 'es' ? 'Configuración de notificaciones' : 'Notification Settings'}
+        description={locale === 'es'
+          ? `Administra alertas de escritorio para ${activeBusinessName}. En móvil se siguen usando notificaciones y badges dentro de la app.`
+          : `Manage desktop alerts for ${activeBusinessName}. Mobile continues to use in-app notifications and badges.`}
       />
 
-      {/* Assistant Access — shown to all (owners manage it, delegates see read-only) */}
       <DelegateAccessPanel />
     </div>
   )

@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Bell, CheckCircle2, Loader2, Monitor, Smartphone, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
 import {
   ADMIN_NOTIFICATION_CATEGORY_LABELS,
   DEFAULT_ADMIN_NOTIFICATION_CATEGORIES,
@@ -37,6 +38,7 @@ function isDesktopCapableBrowser() {
 }
 
 export default function NotificationPreferencesCard({ scope, title, description }: Props) {
+  const { locale } = useLanguage()
   const [preferences, setPreferences] = useState<NotificationPreferenceRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -45,6 +47,7 @@ export default function NotificationPreferencesCard({ scope, title, description 
 
   const categoryLabels = useMemo(() => LABELS[scope], [scope])
   const desktopCapable = isDesktopCapableBrowser()
+  const text = useCallback((en: string, es: string) => (locale === 'es' ? es : en), [locale])
 
   useEffect(() => {
     let cancelled = false
@@ -53,12 +56,12 @@ export default function NotificationPreferencesCard({ scope, title, description 
       try {
         const response = await fetch(`/api/notification-preferences?scope=${scope}`, { cache: 'no-store' })
         const data = await response.json()
-        if (!response.ok) throw new Error(data.error || 'Failed to load notification settings')
+        if (!response.ok) throw new Error(data.error || text('Failed to load notification settings', 'No se pudo cargar la configuracion de notificaciones'))
         if (cancelled) return
         setPreferences(normalizePreferenceRecord(scope, data.preferences))
       } catch (err) {
         if (cancelled) return
-        setError(err instanceof Error ? err.message : 'Failed to load notification settings')
+        setError(err instanceof Error ? err.message : text('Failed to load notification settings', 'No se pudo cargar la configuracion de notificaciones'))
         setPreferences(normalizePreferenceRecord(scope, null))
       } finally {
         if (!cancelled) setLoading(false)
@@ -67,7 +70,7 @@ export default function NotificationPreferencesCard({ scope, title, description 
 
     load()
     return () => { cancelled = true }
-  }, [scope])
+  }, [scope, text])
 
   async function persist(next: Partial<NotificationPreferenceRecord>) {
     setSaving(true)
@@ -80,11 +83,11 @@ export default function NotificationPreferencesCard({ scope, title, description 
         body: JSON.stringify({ scope, ...next }),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Failed to save notification settings')
+      if (!response.ok) throw new Error(data.error || text('Failed to save notification settings', 'No se pudo guardar la configuracion de notificaciones'))
       setPreferences(normalizePreferenceRecord(scope, data.preferences))
-      setSuccess('Notification settings saved.')
+      setSuccess(text('Notification settings saved.', 'Configuracion de notificaciones guardada.'))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save notification settings')
+      setError(err instanceof Error ? err.message : text('Failed to save notification settings', 'No se pudo guardar la configuracion de notificaciones'))
     } finally {
       setSaving(false)
     }
@@ -105,7 +108,7 @@ export default function NotificationPreferencesCard({ scope, title, description 
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
           <Loader2 size={15} className="animate-spin" />
-          Loading notification settings…
+          {text('Loading notification settings...', 'Cargando configuracion de notificaciones...')}
         </div>
       </div>
     )
@@ -127,7 +130,7 @@ export default function NotificationPreferencesCard({ scope, title, description 
             ? 'border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-300'
             : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-600 dark:bg-gray-700/70 dark:text-gray-300'
         )}>
-          {preferences.desktop_enabled ? 'Desktop On' : 'Desktop Off'}
+          {preferences.desktop_enabled ? text('Desktop On', 'Escritorio activo') : text('Desktop Off', 'Escritorio inactivo')}
         </span>
       </div>
 
@@ -135,10 +138,10 @@ export default function NotificationPreferencesCard({ scope, title, description 
         <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-700 dark:bg-gray-900/40">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
             <Monitor size={15} className="text-green-600" />
-            Desktop browser notifications
+            {text('Desktop browser notifications', 'Notificaciones del navegador en escritorio')}
           </div>
           <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-            Supported desktop browsers can show real-time alerts when this tab is not active.
+            {text('Supported desktop browsers can show real-time alerts when this tab is not active.', 'Los navegadores de escritorio compatibles pueden mostrar alertas en tiempo real cuando esta pestaña no esta activa.')}
           </p>
           <div className="mt-3 flex items-center gap-2">
             <button
@@ -148,10 +151,10 @@ export default function NotificationPreferencesCard({ scope, title, description 
               className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? <Loader2 size={13} className="animate-spin" /> : <Bell size={13} />}
-              {preferences.permission_state === 'granted' ? 'Refresh Permission' : 'Enable Desktop Alerts'}
+              {preferences.permission_state === 'granted' ? text('Refresh Permission', 'Actualizar permiso') : text('Enable Desktop Alerts', 'Activar alertas de escritorio')}
             </button>
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              Permission: {preferences.permission_state}
+              {text('Permission', 'Permiso')}: {preferences.permission_state}
             </span>
           </div>
         </div>
@@ -159,17 +162,17 @@ export default function NotificationPreferencesCard({ scope, title, description 
         <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4 dark:border-gray-700 dark:bg-gray-900/40">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
             <Smartphone size={15} className="text-green-600" />
-            In-app notifications and badges
+            {text('In-app notifications and badges', 'Notificaciones y badges dentro de la app')}
           </div>
           <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-            Mobile and desktop continue to use the in-portal notifications center and unread badges. Future push delivery can reuse these settings.
+            {text('Mobile and desktop continue to use the in-portal notifications center and unread badges. Future push delivery can reuse these settings.', 'Movil y escritorio siguen usando el centro de notificaciones del portal y los badges de no leidos. Las futuras notificaciones push podran reutilizar esta configuracion.')}
           </p>
         </div>
       </div>
 
       <div className="mt-5 space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          Notification categories
+          {text('Notification categories', 'Categorias de notificaciones')}
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
           {Object.entries(categoryLabels).map(([key, label]) => (
@@ -200,7 +203,7 @@ export default function NotificationPreferencesCard({ scope, title, description 
 
       {!desktopCapable && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-          Desktop browser notifications are only enabled on supported desktop browsers. Mobile stays on in-app notifications and badges.
+          {text('Desktop browser notifications are only enabled on supported desktop browsers. Mobile stays on in-app notifications and badges.', 'Las notificaciones del navegador de escritorio solo estan disponibles en navegadores compatibles. En movil se mantienen las notificaciones y badges dentro de la app.')}
         </div>
       )}
 

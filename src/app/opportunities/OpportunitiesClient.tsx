@@ -8,6 +8,7 @@ import {
   Shield, TrendingUp, Star, CheckCheck, XCircle, RotateCcw,
 } from 'lucide-react'
 import OutcomeFeedbackModal from '@/components/OutcomeFeedbackModal'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MatchResult {
@@ -178,19 +179,21 @@ function rankScore(opp: AccountOpportunity): number {
 
 // ─── StatusBadge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   if (status === 'approved') return (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full border border-green-200 dark:border-green-700">
-      <CheckCheck size={9} /> Approved
+      <CheckCheck size={9} /> {text('Approved', 'Aprobado')}
     </span>
   )
   if (status === 'applied' || status === 'pending') return (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-700">
-      <Clock size={9} /> Applied
+      <Clock size={9} /> {text('Applied', 'Aplicado')}
     </span>
   )
   if (status === 'denied') return (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full border border-red-200 dark:border-red-700">
-      <XCircle size={9} /> Denied
+      <XCircle size={9} /> {text('Denied', 'Denegado')}
     </span>
   )
   return null
@@ -209,6 +212,8 @@ function MarkResultRow({
   onMark: (oppId: string, status: string) => void
   onClear: (oppId: string) => void
 }) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   if (currentStatus === 'approved') {
     return (
       <div className="flex items-center gap-2 pt-1">
@@ -216,9 +221,9 @@ function MarkResultRow({
         <button
           onClick={() => onClear(oppId)}
           className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors"
-          title="Undo"
+          title={text('Undo', 'Deshacer')}
         >
-          <RotateCcw size={9} /> Undo
+          <RotateCcw size={9} /> {text('Undo', 'Deshacer')}
         </button>
       </div>
     )
@@ -231,7 +236,7 @@ function MarkResultRow({
           onClick={() => onMark(oppId, 'approved')}
           className="text-[10px] bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-lg border border-green-200 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
         >
-          ✓ Got Approved
+          {text('✓ Got Approved', '✓ Aprobado')}
         </button>
         <button
           onClick={() => onClear(oppId)}
@@ -250,7 +255,7 @@ function MarkResultRow({
           onClick={() => onClear(oppId)}
           className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors"
         >
-          <RotateCcw size={9} /> Reset
+          <RotateCcw size={9} /> {text('Reset', 'Restablecer')}
         </button>
       </div>
     )
@@ -258,24 +263,24 @@ function MarkResultRow({
   // No status yet — show mark buttons
   return (
     <div className="flex items-center gap-1 pt-1 flex-wrap">
-      <span className="text-[10px] text-gray-400 mr-0.5">Mark result:</span>
+      <span className="text-[10px] text-gray-400 mr-0.5">{text('Mark result:', 'Marcar resultado:')}</span>
       <button
         onClick={() => onMark(oppId, 'approved')}
         className="text-[10px] bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-lg border border-green-200 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors font-medium"
       >
-        ✓ Approved
+        {text('✓ Approved', '✓ Aprobado')}
       </button>
       <button
         onClick={() => onMark(oppId, 'applied')}
         className="text-[10px] bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors font-medium"
       >
-        ⏳ Applied
+        {text('⏳ Applied', '⏳ Aplicado')}
       </button>
       <button
         onClick={() => onMark(oppId, 'denied')}
         className="text-[10px] bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-lg border border-red-200 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors font-medium"
       >
-        ✗ Denied
+        {text('✗ Denied', '✗ Denegado')}
       </button>
     </div>
   )
@@ -291,6 +296,8 @@ function CompletedSection({
   localStatuses: Record<string, string>
   onClear: (oppId: string) => void
 }) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   const [open, setOpen] = useState(false)
   if (opps.length === 0) return null
 
@@ -302,12 +309,12 @@ function CompletedSection({
       >
         {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         <CheckCheck size={15} className="text-green-500" />
-        Completed Opportunities
+        {text('Completed Opportunities', 'Oportunidades completadas')}
         <span className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-semibold ml-1">
           {opps.length}
         </span>
         <span className="text-xs text-gray-400 font-normal ml-auto">
-          {open ? 'Hide' : 'Show'}
+          {open ? text('Hide', 'Ocultar') : text('Show', 'Mostrar')}
         </span>
       </button>
 
@@ -333,9 +340,9 @@ function CompletedSection({
                 <button
                   onClick={() => onClear(opp.id)}
                   className="shrink-0 text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors whitespace-nowrap"
-                  title="Move back to active"
+                  title={text('Move back to active', 'Mover de nuevo a activas')}
                 >
-                  <RotateCcw size={10} /> Undo
+                  <RotateCcw size={10} /> {text('Undo', 'Deshacer')}
                 </button>
               </div>
             )
@@ -355,6 +362,8 @@ export default function OpportunitiesClient({
   userIndustry,
   userStatuses = {},
 }: Props) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   // Local status state — initialised from server, updated optimistically
   const [localStatuses, setLocalStatuses] = useState<Record<string, string>>(userStatuses)
 
@@ -466,7 +475,7 @@ export default function OpportunitiesClient({
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
           <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
             <div>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-widest mb-1">Current Stage</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-widest mb-1">{text('Current Stage', 'Etapa actual')}</p>
               <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <span className="w-7 h-7 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
                   {stageMeta?.num}
@@ -474,12 +483,12 @@ export default function OpportunitiesClient({
                 {stage}
               </h2>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                {stageMeta?.range} · {matchData?.tradeline_count ?? '—'} tradeline tasks completed
+                {stageMeta?.range} · {matchData?.tradeline_count ?? '—'} {text('tradeline tasks completed', 'tareas de tradeline completadas')}
               </p>
             </div>
             {stageMeta?.advanceTo && (
               <div className="text-right shrink-0">
-                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide font-semibold">Next Stage</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide font-semibold">{text('Next Stage', 'Siguiente etapa')}</p>
                 <p className="text-sm font-bold text-gray-700 dark:text-gray-200 flex items-center gap-1 justify-end">
                   {stageMeta.advanceTo} <ArrowRight size={14} className="text-green-500" />
                 </p>
@@ -539,13 +548,13 @@ export default function OpportunitiesClient({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Sparkles size={16} className="text-green-600" />
-            <h2 className="text-base font-bold text-gray-900 dark:text-white">Recommended Next Accounts</h2>
+            <h2 className="text-base font-bold text-gray-900 dark:text-white">{text('Recommended Next Accounts', 'Siguientes cuentas recomendadas')}</h2>
             <span className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-semibold">
-              {stage} Stage
+              {locale === 'es' ? `Etapa ${stage}` : `${stage} Stage`}
             </span>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 ml-0.5">
-            Open these accounts in order. Each builds your business credit and advances you to the next stage.
+            {text('Open these accounts in order. Each builds your business credit and advances you to the next stage.', 'Abre estas cuentas en orden. Cada una fortalece tu credito empresarial y te ayuda a avanzar a la siguiente etapa.')}
           </p>
 
           {matchLoading ? (
@@ -585,13 +594,13 @@ export default function OpportunitiesClient({
             // All recommended are approved — show a congrats banner
             <div className="text-center py-8 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl">
               <CheckCheck size={28} className="mx-auto mb-2 text-green-500" />
-              <p className="text-sm font-bold text-green-800 dark:text-green-300">All current-stage accounts completed!</p>
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1">Great work. Your advisor will advance your stage when tradelines report.</p>
+              <p className="text-sm font-bold text-green-800 dark:text-green-300">{text('All current-stage accounts completed!', 'Todas las cuentas de la etapa actual estan completadas.')}</p>
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1">{text('Great work. Your advisor will advance your stage when tradelines report.', 'Buen trabajo. Tu asesor avanzara tu etapa cuando los tradelines comiencen a reportar.')}</p>
             </div>
           ) : (
             <div className="text-center py-10 text-gray-400 dark:text-gray-500 text-sm bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
               <AlertCircle size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-              No opportunities found for your current stage. Contact your advisor.
+              {text('No opportunities found for your current stage. Contact your advisor.', 'No se encontraron oportunidades para tu etapa actual. Contacta a tu asesor.')}
             </div>
           )}
         </div>
@@ -601,13 +610,13 @@ export default function OpportunitiesClient({
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Lock size={15} className="text-gray-400" />
-              <h2 className="text-base font-bold text-gray-500 dark:text-gray-400">Locked Opportunities</h2>
+              <h2 className="text-base font-bold text-gray-500 dark:text-gray-400">{text('Locked Opportunities', 'Oportunidades bloqueadas')}</h2>
               <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full font-semibold">
-                {locked.length} accounts
+                {locked.length} {text('accounts', 'cuentas')}
               </span>
             </div>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-4 ml-0.5">
-              Complete your <strong className="text-gray-600 dark:text-gray-300">{stage}</strong> stage accounts first to unlock these.
+              {text('Complete your', 'Completa primero tus cuentas de la etapa')}{' '}<strong className="text-gray-600 dark:text-gray-300">{stage}</strong>{' '}{text('stage accounts first to unlock these.', 'para desbloquear estas oportunidades.')}
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -622,7 +631,7 @@ export default function OpportunitiesClient({
             </div>
             {locked.length > 6 && (
               <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-3">
-                +{locked.length - 6} more locked opportunities unlock as you progress
+                {locale === 'es' ? `+${locked.length - 6} oportunidades bloqueadas mas se desbloquearan a medida que avances` : `+${locked.length - 6} more locked opportunities unlock as you progress`}
               </p>
             )}
           </div>
@@ -635,7 +644,7 @@ export default function OpportunitiesClient({
             className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium transition-colors"
           >
             {showBrowseAll ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            Browse All {opportunities.length} Program B Opportunities
+            {text(`Browse All ${opportunities.length} Program B Opportunities`, `Ver las ${opportunities.length} oportunidades del Programa B`)}
           </button>
 
           {showBrowseAll && (
@@ -646,7 +655,7 @@ export default function OpportunitiesClient({
                   onChange={e => setFilterCategory(e.target.value as OpportunityCategory | '')}
                   className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
-                  <option value="">All Categories</option>
+                  <option value="">{text('All Categories', 'Todas las categorias')}</option>
                   {ALL_CATEGORIES.filter(Boolean).map(c => (
                     <option key={c} value={c}>{CATEGORY_LABELS[c as OpportunityCategory]}</option>
                   ))}
@@ -656,10 +665,10 @@ export default function OpportunitiesClient({
                   onChange={e => setFilterPG(e.target.value as typeof filterPG)}
                   className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
-                  <option value="all">All (PG / No PG)</option>
-                  <option value="no">No Personal Guarantee</option>
-                  <option value="yes">PG Required</option>
-                  <option value="varies">PG Varies</option>
+                  <option value="all">{text('All (PG / No PG)', 'Todas (PG / Sin PG)')}</option>
+                  <option value="no">{text('No Personal Guarantee', 'Sin garantia personal')}</option>
+                  <option value="yes">{text('PG Required', 'PG requerida')}</option>
+                  <option value="varies">{text('PG Varies', 'PG variable')}</option>
                 </select>
               </div>
 
@@ -761,18 +770,18 @@ export default function OpportunitiesClient({
               </li>
             ))}
           </ul>
-          <p className="text-[10px] text-green-600 mt-2 opacity-70">Based on your industry: {userIndustry}</p>
+          <p className="text-[10px] text-green-600 mt-2 opacity-70">{text('Based on your industry:', 'Segun tu industria:')} {userIndustry}</p>
         </div>
       )}
 
       <div className="flex gap-3 flex-wrap">
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl px-4 py-2.5 text-center">
           <div className="text-lg font-bold text-green-700 dark:text-green-400">{recommendedCount}</div>
-          <div className="text-xs text-green-600 dark:text-green-500">Recommended Now</div>
+          <div className="text-xs text-green-600 dark:text-green-500">{text('Recommended Now', 'Recomendado ahora')}</div>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-center">
           <div className="text-lg font-bold text-gray-600 dark:text-gray-300">{futureCount}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Future Stage</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{text('Future Stage', 'Etapa futura')}</div>
         </div>
         {completedEnrichedOpps.length > 0 && (
           <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-2.5 text-center">
@@ -788,21 +797,21 @@ export default function OpportunitiesClient({
 
       <div className="flex gap-2.5 flex-wrap items-center">
         <select value={filterCategory} onChange={e => setFilterCategory(e.target.value as OpportunityCategory | '')} className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-          <option value="">All Categories</option>
+          <option value="">{text('All Categories', 'Todas las categorias')}</option>
           {ALL_CATEGORIES.filter(Boolean).map(c => <option key={c} value={c}>{CATEGORY_LABELS[c as OpportunityCategory]}</option>)}
         </select>
         <select value={filterPG} onChange={e => setFilterPG(e.target.value as typeof filterPG)} className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-          <option value="all">All (PG / No PG)</option>
-          <option value="no">No Personal Guarantee</option>
-          <option value="yes">PG Required</option>
-          <option value="varies">PG Varies</option>
+          <option value="all">{text('All (PG / No PG)', 'Todas (PG / Sin PG)')}</option>
+          <option value="no">{text('No Personal Guarantee', 'Sin garantia personal')}</option>
+          <option value="yes">{text('PG Required', 'PG requerida')}</option>
+          <option value="varies">{text('PG Varies', 'PG variable')}</option>
         </select>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as typeof filterStatus)} className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-          <option value="all">All Stages</option>
-          <option value="recommended">Recommended Now</option>
-          <option value="future">Future Stage</option>
+          <option value="all">{text('All Stages', 'Todas las etapas')}</option>
+          <option value="recommended">{text('Recommended Now', 'Recomendado ahora')}</option>
+          <option value="future">{text('Future Stage', 'Etapa futura')}</option>
         </select>
-        <span className="text-sm text-gray-400 dark:text-gray-500 ml-1">{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
+        <span className="text-sm text-gray-400 dark:text-gray-500 ml-1">{locale === 'es' ? `${filtered.length} resultado${filtered.length !== 1 ? 's' : ''}` : `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`}</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -822,7 +831,7 @@ export default function OpportunitiesClient({
 
       {filtered.length === 0 && (
         <div className="text-center py-12 text-gray-400 dark:text-gray-500 text-sm">
-          No opportunities match the selected filters.
+          {text('No opportunities match the selected filters.', 'No hay oportunidades que coincidan con los filtros seleccionados.')}
         </div>
       )}
 
@@ -866,6 +875,8 @@ function RecommendedCard({
   onMarkStatus: (oppId: string, status: string) => void
   onClearStatus: (oppId: string) => void
 }) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   const learnMoreUrl = safeUrl(opp.learn_more_url)
   const prob = opp.approval_probability ?? (opp.pg_required === 'no' ? 'high' : 'medium')
   const rankIcon = ['🥇', '🥈', '🥉'][rank - 1] ?? `#${rank}`
@@ -948,7 +959,7 @@ function RecommendedCard({
         <div className="flex items-center gap-1.5">
           <Star size={11} className="text-amber-400 shrink-0" />
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Reports to: <span className="font-semibold text-gray-700 dark:text-gray-200">{opp.reports_to}</span>
+            {text('Reports to:', 'Reporta a:')} <span className="font-semibold text-gray-700 dark:text-gray-200">{opp.reports_to}</span>
           </p>
         </div>
       )}
@@ -959,18 +970,18 @@ function RecommendedCard({
       {isApproved ? (
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs text-green-700 font-semibold flex items-center gap-1.5">
-            <CheckCheck size={14} /> You got this one!
+            <CheckCheck size={14} /> {text('You got this one!', 'Ya lograste esta.')}
           </span>
           <button
             onClick={() => onClearStatus(opp.id)}
             className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors"
           >
-            <RotateCcw size={9} /> Undo
+            <RotateCcw size={9} /> {text('Undo', 'Deshacer')}
           </button>
         </div>
       ) : !isActive ? (
         <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-700">
-          <Lock size={12} /> Reactivate membership to apply
+          <Lock size={12} /> {text('Reactivate membership to apply', 'Reactiva tu membresia para aplicar')}
         </div>
       ) : (
         <>
@@ -982,7 +993,7 @@ function RecommendedCard({
                 rel="noopener noreferrer"
                 className="flex-1 inline-flex items-center justify-center gap-1 text-xs text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
               >
-                Learn More <ExternalLink size={10} />
+                {text('Learn More', 'Saber mas')} <ExternalLink size={10} />
               </a>
             )}
             {opp.apply_url ? (
@@ -993,10 +1004,10 @@ function RecommendedCard({
                 onClick={() => onApply?.(opp)}
                 className="flex-1 inline-flex items-center justify-center gap-1 text-xs bg-green-600 text-white px-3 py-2 rounded-xl hover:bg-green-700 transition-colors font-semibold"
               >
-                Apply Now <ExternalLink size={10} />
+                {text('Apply Now', 'Aplicar ahora')} <ExternalLink size={10} />
               </a>
             ) : (
-              <div className="flex-1 text-xs text-gray-400 text-center py-2">Contact advisor</div>
+              <div className="flex-1 text-xs text-gray-400 text-center py-2">{text('Contact advisor', 'Contacta a tu asesor')}</div>
             )}
           </div>
           <MarkResultRow
@@ -1021,6 +1032,8 @@ function LockedCard({
   currentStage: string
   onApplyAttempt: () => void
 }) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
@@ -1047,14 +1060,14 @@ function LockedCard({
 
       <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-700">
         <Lock size={10} className="shrink-0" />
-        Complete <strong className="text-gray-600 dark:text-gray-300 mx-1">{currentStage}</strong> to unlock
+        {text('Complete', 'Completa')} <strong className="text-gray-600 dark:text-gray-300 mx-1">{currentStage}</strong> {text('to unlock', 'para desbloquear')}
       </div>
 
       <button
         onClick={onApplyAttempt}
         className="w-full text-xs text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex items-center justify-center gap-1"
       >
-        <Lock size={10} /> Apply (Locked)
+        <Lock size={10} /> {text('Apply (Locked)', 'Aplicar (bloqueado)')}
       </button>
     </div>
   )
@@ -1072,6 +1085,8 @@ function WarningModal({
   onClose: () => void
   onApplyAway?: (opp: AccountOpportunity) => void
 }) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
@@ -1083,8 +1098,8 @@ function WarningModal({
             <AlertTriangle size={20} className="text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex-1">
-            <h2 className="font-bold text-gray-900 dark:text-white text-base">Applying Out of Sequence</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">This may hurt your approval odds</p>
+            <h2 className="font-bold text-gray-900 dark:text-white text-base">{text('Applying Out of Sequence', 'Aplicando fuera de secuencia')}</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{text('This may hurt your approval odds', 'Esto puede perjudicar tus probabilidades de aprobacion')}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 shrink-0">
             <X size={18} />
@@ -1092,17 +1107,17 @@ function WarningModal({
         </div>
 
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3 mb-4 text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-          You&apos;re in <strong>{currentStage}</strong> stage.{' '}
-          <strong>{opp.name}</strong> is a <strong>{opp.stage}</strong> stage account.
+          {text("You're in", 'Estas en la etapa')} <strong>{currentStage}</strong>.{' '}
+          <strong>{opp.name}</strong> {text('is a', 'es una cuenta de la etapa')} <strong>{opp.stage}</strong>.
         </div>
 
-        <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-2">Applying before completing your current stage may cause:</p>
+        <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-2">{text('Applying before completing your current stage may cause:', 'Aplicar antes de completar tu etapa actual puede causar:')}</p>
         <ul className="space-y-1.5 mb-5">
           {[
-            'Higher chance of denial or lower credit limits',
-            'Hard inquiries that temporarily lower your score',
-            'A negative mark on your business credit profile',
-            'Delays advancing to higher funding stages',
+            text('Higher chance of denial or lower credit limits', 'Mayor probabilidad de rechazo o limites de credito mas bajos'),
+            text('Hard inquiries that temporarily lower your score', 'Consultas duras que reducen temporalmente tu puntaje'),
+            text('A negative mark on your business credit profile', 'Una marca negativa en tu perfil de credito empresarial'),
+            text('Delays advancing to higher funding stages', 'Retrasos para avanzar a etapas de financiamiento superiores'),
           ].map((risk, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
               <span className="text-red-400 font-bold mt-0.5 shrink-0">×</span>
@@ -1116,7 +1131,7 @@ function WarningModal({
             onClick={onClose}
             className="flex-1 text-sm px-4 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors"
           >
-            ← Stay in Sequence
+            {text('← Stay in Sequence', '← Mantener la secuencia')}
           </button>
           {opp.apply_url && (
             <a
@@ -1129,13 +1144,13 @@ function WarningModal({
               }}
               className="flex-1 text-sm px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-center font-medium"
             >
-              Apply Anyway →
+              {text('Apply Anyway →', 'Aplicar de todos modos →')}
             </a>
           )}
         </div>
 
         <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-3">
-          Complete your current stage first for the best approval odds and credit limits.
+          {text('Complete your current stage first for the best approval odds and credit limits.', 'Completa primero tu etapa actual para obtener mejores probabilidades de aprobacion y limites de credito.')}
         </p>
       </div>
     </div>
@@ -1164,6 +1179,8 @@ function OpportunityCard({
   onMarkStatus: (oppId: string, status: string) => void
   onClearStatus: (oppId: string) => void
 }) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   const isRecommended = status === 'recommended'
   const blurred = !isActive
   const learnMoreUrl = safeUrl(opp.learn_more_url)
@@ -1184,11 +1201,11 @@ function OpportunityCard({
               <StatusBadge status="approved" />
             ) : isRecommended ? (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wide">
-                <CheckCircle size={10} /> Recommended Now
+                <CheckCircle size={10} /> {text('Recommended Now', 'Recomendado ahora')}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full uppercase tracking-wide">
-                <Clock size={10} /> Future Stage
+                <Clock size={10} /> {text('Future Stage', 'Etapa futura')}
               </span>
             )}
             {currentStatus && currentStatus !== 'approved' && <StatusBadge status={currentStatus} />}
@@ -1221,26 +1238,26 @@ function OpportunityCard({
 
       {opp.reports_to && (
         <p className={`text-xs text-gray-400 dark:text-gray-500 ${blurred ? 'blur-sm select-none' : ''}`}>
-          Reports to: <span className="text-gray-600 dark:text-gray-300">{opp.reports_to}</span>
+          {text('Reports to:', 'Reporta a:')} <span className="text-gray-600 dark:text-gray-300">{opp.reports_to}</span>
         </p>
       )}
 
       {blurred && (
         <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-700">
-          <Lock size={12} /> Reactivate your membership to view full details
+          <Lock size={12} /> {text('Reactivate your membership to view full details', 'Reactiva tu membresia para ver todos los detalles')}
         </div>
       )}
 
       {isApproved ? (
         <div className="flex items-center justify-between gap-2 pt-1">
           <span className="text-xs text-green-700 font-semibold flex items-center gap-1.5">
-            <CheckCheck size={13} /> Opportunity completed
+            <CheckCheck size={13} /> {text('Opportunity completed', 'Oportunidad completada')}
           </span>
           <button
             onClick={() => onClearStatus(opp.id)}
             className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors"
           >
-            <RotateCcw size={9} /> Undo
+            <RotateCcw size={9} /> {text('Undo', 'Deshacer')}
           </button>
         </div>
       ) : !blurred && (learnMoreUrl || opp.apply_url) ? (
@@ -1249,7 +1266,7 @@ function OpportunityCard({
             {learnMoreUrl && (
               <a href={learnMoreUrl} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                Learn More <ExternalLink size={10} />
+                {text('Learn More', 'Saber mas')} <ExternalLink size={10} />
               </a>
             )}
             {opp.apply_url && (
@@ -1258,7 +1275,7 @@ function OpportunityCard({
                   onClick={onLockedApply}
                   className="inline-flex items-center gap-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
-                  <Lock size={10} /> Apply (Locked)
+                  <Lock size={10} /> {text('Apply (Locked)', 'Aplicar (bloqueado)')}
                 </button>
               ) : (
                 <a
@@ -1268,7 +1285,7 @@ function OpportunityCard({
                   onClick={() => onApply?.(opp)}
                   className="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors"
                 >
-                  Apply Now <ExternalLink size={10} />
+                  {text('Apply Now', 'Aplicar ahora')} <ExternalLink size={10} />
                 </a>
               )
             )}
@@ -1284,11 +1301,11 @@ function OpportunityCard({
         </>
       ) : !blurred && !learnMoreUrl && !opp.apply_url && isRecommended ? (
         <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 px-3 py-2 rounded-lg">
-          <AlertCircle size={12} /> Contact your advisor for application guidance
+          <AlertCircle size={12} /> {text('Contact your advisor for application guidance', 'Contacta a tu asesor para recibir orientacion sobre la solicitud')}
         </div>
       ) : null}
 
-      <p className="text-[10px] text-gray-300 dark:text-gray-600 pt-0.5">Stage: {opp.stage}</p>
+      <p className="text-[10px] text-gray-300 dark:text-gray-600 pt-0.5">{text('Stage:', 'Etapa:')} {opp.stage}</p>
     </div>
   )
 }

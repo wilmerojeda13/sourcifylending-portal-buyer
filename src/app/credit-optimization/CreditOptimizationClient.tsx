@@ -6,6 +6,7 @@ import {
   CheckCircle, Circle, AlertCircle, Lock, FileText, Copy, Check,
   TrendingUp, Star, AlertTriangle, Info
 } from 'lucide-react'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface ProfileSummary {
@@ -309,6 +310,8 @@ function getReadinessCards(profile: ProfileSummary, nextTask: Task | null) {
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
 export default function CreditOptimizationClient({ profile, nextTask, isActive }: Props) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   const [activeTab, setActiveTab] = useState<'readiness' | 'tasks' | 'disputes'>('readiness')
 
   const readinessCards = getReadinessCards(profile, nextTask)
@@ -318,9 +321,9 @@ export default function CreditOptimizationClient({ profile, nextTask, isActive }
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
         {[
-          { id: 'readiness', label: 'Credit Readiness' },
-          { id: 'tasks', label: 'Optimization Tasks' },
-          { id: 'disputes', label: 'Dispute Letters' },
+          { id: 'readiness', label: text('Credit Readiness', 'Preparacion crediticia') },
+          { id: 'tasks', label: text('Optimization Tasks', 'Tareas de optimizacion') },
+          { id: 'disputes', label: text('Dispute Letters', 'Cartas de disputa') },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -343,9 +346,9 @@ export default function CreditOptimizationClient({ profile, nextTask, isActive }
             <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4 flex items-start gap-3">
               <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-blue-800">Credit metrics not yet populated</p>
+                <p className="text-sm font-semibold text-blue-800">{text('Credit metrics not yet populated', 'Las metricas de credito aun no estan disponibles')}</p>
                 <p className="text-xs text-blue-600 mt-0.5">
-                  Your advisor will update your credit profile. Reach out via Support if you have questions.
+                  {text('Your advisor will update your credit profile. Reach out via Support if you have questions.', 'Tu asesor actualizara tu perfil de credito. Comunicate con Soporte si tienes preguntas.')}
                 </p>
               </div>
             </div>
@@ -366,7 +369,7 @@ export default function CreditOptimizationClient({ profile, nextTask, isActive }
 
           <div className="mt-4 flex gap-3">
             <Link href="/opportunities" className="text-sm font-semibold text-green-700 bg-green-50 border border-green-200 px-4 py-2.5 rounded-xl hover:bg-green-100 transition-colors">
-              View Funding Opportunities →
+              {text('View Funding Opportunities →', 'Ver oportunidades de financiamiento →')}
             </Link>
           </div>
         </div>
@@ -376,7 +379,7 @@ export default function CreditOptimizationClient({ profile, nextTask, isActive }
       {activeTab === 'tasks' && (
         <div className="space-y-3">
           <p className="text-sm text-gray-500">
-            Work through these tasks in order to maximize your funding readiness score.
+            {text('Work through these tasks in order to maximize your funding readiness score.', 'Completa estas tareas en orden para maximizar tu puntaje de preparacion para financiamiento.')}
           </p>
           {OPTIMIZATION_TASKS.map((task, idx) => (
             <OptimizationTaskCard key={task.id} task={task} index={idx + 1} isActive={isActive} />
@@ -390,9 +393,8 @@ export default function CreditOptimizationClient({ profile, nextTask, isActive }
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
             <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
             <p className="text-xs text-amber-800 leading-relaxed">
-              These are <strong>educational letter templates</strong> for your personal use only.
-              SourcifyLending does not send letters on your behalf and does not provide credit repair services.
-              Review every letter carefully, fill in your information, and send via certified mail with return receipt.
+              {text('These are', 'Estas son')} <strong>{text('educational letter templates', 'plantillas educativas de cartas')}</strong>{' '}
+              {text('for your personal use only. SourcifyLending does not send letters on your behalf and does not provide credit repair services. Review every letter carefully, fill in your information, and send via certified mail with return receipt.', 'solo para tu uso personal. SourcifyLending no envia cartas en tu nombre ni ofrece servicios de reparacion de credito. Revisa cada carta con cuidado, completa tu informacion y enviala por correo certificado con acuse de recibo.')}
             </p>
           </div>
 
@@ -413,6 +415,8 @@ function OptimizationTaskCard({
   index: number
   isActive: boolean
 }) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   const [done, setDone] = useState(false)
 
   return (
@@ -422,7 +426,7 @@ function OptimizationTaskCard({
       <button
         onClick={() => isActive && setDone(!done)}
         className="shrink-0 mt-0.5"
-        aria-label={done ? 'Mark incomplete' : 'Mark complete'}
+        aria-label={done ? text('Mark incomplete', 'Marcar como incompleta') : text('Mark complete', 'Marcar como completada')}
         disabled={!isActive}
       >
         {done
@@ -436,7 +440,7 @@ function OptimizationTaskCard({
             {index}. {task.title}
           </p>
           <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${PRIORITY_COLORS[task.priority as keyof typeof PRIORITY_COLORS]}`}>
-            {task.priority === 'high' ? '↑ High' : 'Medium'}
+            {task.priority === 'high' ? text('↑ High', '↑ Alta') : text('Medium', 'Media')}
           </span>
         </div>
         <p className="text-xs text-gray-500 mt-1 leading-relaxed">{task.description}</p>
@@ -445,7 +449,7 @@ function OptimizationTaskCard({
             href={task.link}
             className="inline-block mt-2 text-xs text-green-600 font-semibold hover:text-green-700"
           >
-            {task.link === '/opportunities' ? 'View Opportunities →' : 'Jump to Dispute Letters →'}
+            {task.link === '/opportunities' ? text('View Opportunities →', 'Ver oportunidades →') : text('Jump to Dispute Letters →', 'Ir a cartas de disputa →')}
           </Link>
         )}
       </div>
@@ -455,6 +459,8 @@ function OptimizationTaskCard({
 
 // ─── Dispute Letter Generator ───────────────────────────────────────────────────
 function DisputeLetterGenerator({ isActive }: { isActive: boolean }) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   const [selectedType, setSelectedType] = useState(DISPUTE_TYPES[0].id)
   const [selectedBureau, setSelectedBureau] = useState(BUREAUS[0])
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
@@ -479,10 +485,10 @@ function DisputeLetterGenerator({ isActive }: { isActive: boolean }) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center">
         <Lock size={28} className="text-gray-300 mx-auto mb-3" />
-        <p className="text-sm font-semibold text-gray-600 mb-1">Subscription Required</p>
-        <p className="text-xs text-gray-400 mb-4">Reactivate your membership to generate dispute letters.</p>
+        <p className="text-sm font-semibold text-gray-600 mb-1">{text('Subscription Required', 'Suscripcion requerida')}</p>
+        <p className="text-xs text-gray-400 mb-4">{text('Reactivate your membership to generate dispute letters.', 'Reactiva tu membresia para generar cartas de disputa.')}</p>
         <Link href="/billing" className="text-sm font-bold text-green-700 bg-green-100 px-4 py-2.5 rounded-xl hover:bg-green-200 transition-colors">
-          Reactivate
+          {text('Reactivate', 'Reactivar')}
         </Link>
       </div>
     )
@@ -493,7 +499,7 @@ function DisputeLetterGenerator({ isActive }: { isActive: boolean }) {
       {/* Type selector */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1.5">Dispute Type</label>
+          <label className="block text-xs font-semibold text-gray-600 mb-1.5">{text('Dispute Type', 'Tipo de disputa')}</label>
           <select
             value={selectedType}
             onChange={(e) => {
@@ -509,7 +515,7 @@ function DisputeLetterGenerator({ isActive }: { isActive: boolean }) {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1.5">Credit Bureau</label>
+          <label className="block text-xs font-semibold text-gray-600 mb-1.5">{text('Credit Bureau', 'Buro de credito')}</label>
           <select
             value={selectedBureau}
             onChange={(e) => setSelectedBureau(e.target.value)}
@@ -551,13 +557,13 @@ function DisputeLetterGenerator({ isActive }: { isActive: boolean }) {
         className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold text-sm px-4 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
       >
         <FileText size={16} />
-        Generate Letter
+        {text('Generate Letter', 'Generar carta')}
       </button>
 
       {generated && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-700">Generated Letter — {disputeType.label}</p>
+            <p className="text-sm font-semibold text-gray-700">{text('Generated Letter', 'Carta generada')} — {disputeType.label}</p>
             <button
               onClick={copyToClipboard}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors"
@@ -569,8 +575,8 @@ function DisputeLetterGenerator({ isActive }: { isActive: boolean }) {
             {generated}
           </pre>
           <p className="text-xs text-gray-400">
-            Review and personalize before sending. Send via certified mail with return receipt to {selectedBureau}.
-            Keep a copy for your records.
+            {text('Review and personalize before sending. Send via certified mail with return receipt to', 'Revisa y personaliza antes de enviar. Envia por correo certificado con acuse de recibo a')} {selectedBureau}.{' '}
+            {text('Keep a copy for your records.', 'Conserva una copia para tus registros.')}
           </p>
         </div>
       )}

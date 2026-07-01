@@ -1,16 +1,19 @@
 export const dynamic = 'force-dynamic'
 
 import PortalLayout from '@/components/layout/PortalLayout'
+import { cookies } from 'next/headers'
 import { getProgramShortLabel } from '@/lib/utils'
 import OpportunitiesClient from './OpportunitiesClient'
 import UnderwritingGateBanner from '@/components/dashboard/UnderwritingGateBanner'
 import type { AccountOpportunity } from '@/types'
 import { requirePortalPageContext } from '@/lib/business-context'
+import { normalizeLocale } from '@/lib/i18n'
 
 export default async function OpportunitiesPage() {
   const { supabase, authUser: user, activeBusinessId, activeProfile: profile, notificationCount, activePrograms } = await requirePortalPageContext('/opportunities')
+  const locale = normalizeLocale((await cookies()).get('sl_locale')?.value)
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
 
-  // ── Underwriting gate — must have a current (non-expired) review to see opportunities ──
   const uwNextDue = profile?.underwriting_next_due_at
   const needsUnderwriting =
     !profile?.is_demo &&
@@ -28,11 +31,11 @@ export default async function OpportunitiesPage() {
         allPrograms={activePrograms}
       >
         <div className="mb-6">
-          <h1 className="page-title">Funding Opportunities</h1>
+          <h1 className="page-title">{text('Funding Opportunities', 'Oportunidades de financiamiento')}</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
             {(profile?.underwriting_review_count ?? 0) > 0
-              ? 'Your monthly review is due — complete it to continue accessing opportunities.'
-              : 'Complete your underwriting review to unlock opportunities.'}
+              ? text('Your monthly review is due - complete it to continue accessing opportunities.', 'Tu revision mensual esta pendiente; completala para seguir accediendo a oportunidades.')
+              : text('Complete your underwriting review to unlock opportunities.', 'Completa tu revision de underwriting para desbloquear oportunidades.')}
           </p>
         </div>
         <UnderwritingGateBanner
@@ -57,9 +60,8 @@ export default async function OpportunitiesPage() {
       .eq('user_id', activeBusinessId),
   ])
 
-  // Build a map of opportunityId → status for fast lookup in the client
   const userStatuses: Record<string, string> = Object.fromEntries(
-    (rawStatuses ?? []).map(s => [s.opportunity_id, s.status])
+    (rawStatuses ?? []).map((status) => [status.opportunity_id, status.status])
   )
 
   const isActive =
@@ -75,15 +77,16 @@ export default async function OpportunitiesPage() {
       allPrograms={activePrograms}
     >
       <div className="mb-6">
-        <h1 className="page-title">Funding Opportunities</h1>
+        <h1 className="page-title">{text('Funding Opportunities', 'Oportunidades de financiamiento')}</h1>
         <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-          Curated accounts and credit opportunities for your program.
+          {text('Curated accounts and credit opportunities for your program.', 'Cuentas y oportunidades de credito seleccionadas para tu programa.')}
         </p>
       </div>
 
       {!isActive && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 mb-6 text-sm text-amber-800 dark:text-amber-300">
-          <strong>Membership inactive.</strong> Reactivate to unlock full opportunity details and application guidance.
+          <strong>{text('Membership inactive.', 'Membresia inactiva.')}</strong>{' '}
+          {text('Reactivate to unlock full opportunity details and application guidance.', 'Reactiva para desbloquear todos los detalles y la guia de solicitud.')}
         </div>
       )}
 
@@ -96,21 +99,20 @@ export default async function OpportunitiesPage() {
         userStatuses={userStatuses}
       />
 
-      {/* Legal disclaimer */}
       <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-5 text-xs text-gray-400 dark:text-gray-500 leading-relaxed space-y-2">
         <p>
-          <strong className="text-gray-500 dark:text-gray-400">Personalization Notice:</strong> All recommendations shown on this page
-          are based on the information you provided during your profile analysis and underwriting review.
-          SourcifyLending logs your underwriting timestamp and the data used to generate these recommendations
-          to ensure accuracy and accountability.
+          <strong className="text-gray-500 dark:text-gray-400">{text('Personalization Notice:', 'Aviso de personalizacion:')}</strong>{' '}
+          {text(
+            'All recommendations shown on this page are based on the information you provided during your profile analysis and underwriting review. SourcifyLending logs your underwriting timestamp and the data used to generate these recommendations to ensure accuracy and accountability.',
+            'Todas las recomendaciones que se muestran en esta pagina se basan en la informacion que proporcionaste durante el analisis de tu perfil y la revision de underwriting. SourcifyLending registra la fecha de tu revision y los datos utilizados para generar estas recomendaciones para garantizar precision y trazabilidad.'
+          )}
         </p>
         <p>
-          <strong className="text-gray-500 dark:text-gray-400">Disclaimer:</strong> The funding accounts and credit opportunities listed
-          above are provided for informational and educational purposes only. SourcifyLending does not guarantee
-          approval, specific credit limits, or outcomes from any lender or creditor. Approval decisions are made
-          solely by the respective issuer based on your creditworthiness and their criteria. These listings represent
-          common opportunities used in credit-building programs and are subject to change without notice. Nothing
-          on this page constitutes financial advice, credit repair services, or a promise of results.
+          <strong className="text-gray-500 dark:text-gray-400">{text('Disclaimer:', 'Descargo de responsabilidad:')}</strong>{' '}
+          {text(
+            'The funding accounts and credit opportunities listed above are provided for informational and educational purposes only. SourcifyLending does not guarantee approval, specific credit limits, or outcomes from any lender or creditor. Approval decisions are made solely by the respective issuer based on your creditworthiness and their criteria. These listings represent common opportunities used in credit-building programs and are subject to change without notice. Nothing on this page constitutes financial advice, credit repair services, or a promise of results.',
+            'Las cuentas de financiamiento y oportunidades de credito listadas arriba se proporcionan solo con fines informativos y educativos. SourcifyLending no garantiza aprobaciones, limites de credito especificos ni resultados de ningun prestamista o acreedor. Las decisiones de aprobacion son tomadas unicamente por el emisor correspondiente segun tu perfil crediticio y sus criterios. Estos listados representan oportunidades comunes utilizadas en programas de construccion de credito y pueden cambiar sin previo aviso. Nada en esta pagina constituye asesoria financiera, servicios de reparacion de credito ni una promesa de resultados.'
+          )}
         </p>
       </div>
     </PortalLayout>

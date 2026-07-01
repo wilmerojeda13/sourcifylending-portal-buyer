@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import { getProgramShortLabel, formatDateTime } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/Badge'
@@ -12,6 +13,7 @@ import type { Document, DocumentType, UserProfile, AIDocumentAnalysis } from '@/
 import toast from 'react-hot-toast'
 import { useDropzone } from 'react-dropzone'
 import { useBusinessContext } from '@/lib/use-business-context'
+import { useLanguage } from '@/components/i18n/LanguageProvider'
 
 // ─── All document types ───────────────────────────────────────────────────────
 const ALL_DOC_TYPES: { value: DocumentType; label: string; programs?: string[] }[] = [
@@ -33,6 +35,10 @@ const ALL_DOC_TYPES: { value: DocumentType; label: string; programs?: string[] }
   { value: 'driver_license',           label: 'Driver License / Government ID' },
   { value: 'other',                    label: 'Other Supporting Document' },
 ]
+
+function isDocumentType(value: string | null): value is DocumentType {
+  return !!value && ALL_DOC_TYPES.some((d) => d.value === value)
+}
 
 // Sort doc types: program-matching first, then others
 function getSortedDocTypes(program: string | null | undefined) {
@@ -78,15 +84,72 @@ const PROGRAM_HINTS: Record<string, { title: string; bullets: string[] }> = {
   },
 }
 
+const DOC_TYPE_LABELS_ES: Partial<Record<DocumentType, string>> = {
+  personal_credit_report: 'Reporte de credito personal',
+  credit_score_report: 'Reporte de puntaje de credito',
+  inquiry_summary: 'Resumen de consultas',
+  monitoring_report: 'Reporte de monitoreo de credito',
+  ein_letter: 'Carta EIN (confirmacion del IRS)',
+  articles_of_organization: 'Articulos de organizacion / incorporacion',
+  business_formation: 'Documentos de formacion empresarial',
+  business_license: 'Licencia / permiso comercial',
+  duns_confirmation: 'Confirmacion D-U-N-S',
+  bank_statement: 'Estado de cuenta bancario comercial',
+  utility_bill: 'Factura de servicios / comprobante de direccion',
+  vendor_confirmation: 'Confirmacion de proveedor / Net-30',
+  vendor_account_screenshot: 'Captura de cuenta de proveedor',
+  bureau_profile_screenshot: 'Captura del perfil de buro empresarial',
+  voided_check: 'Cheque anulado',
+  driver_license: 'Licencia de conducir / identificacion oficial',
+  other: 'Otro documento de respaldo',
+}
+
+function localizeDocTypeLabel(type: DocumentType, fallback: string, locale: 'en' | 'es') {
+  return locale === 'es' ? (DOC_TYPE_LABELS_ES[type] ?? fallback) : fallback
+}
+
+function localizeProgramHint(program: string, locale: 'en' | 'es') {
+  if (locale !== 'es') return PROGRAM_HINTS[program]
+  const hints: Record<string, { title: string; bullets: string[] }> = {
+    program_a: {
+      title: 'Programa A — Analisis de credito personal',
+      bullets: [
+        'Sube tu reporte de credito personal para actualizar automaticamente tu perfil de optimizacion.',
+        'La IA identificara utilizacion, consultas y cuentas negativas.',
+        'Se generaran tareas especificas de optimizacion segun tu reporte.',
+      ],
+    },
+    program_b: {
+      title: 'Programa B — Verificacion de documentos empresariales',
+      bullets: [
+        'Sube tu carta EIN, articulos, confirmacion DUNS y estado de cuenta bancario.',
+        'La IA verificara tu identidad empresarial y completara automaticamente elementos coincidentes.',
+        'Compatible con documentos de formacion, licencias, estados bancarios, cuentas de proveedores y perfiles de buro.',
+      ],
+    },
+    program_c: {
+      title: 'Programa C — Monitoreo de credito',
+      bullets: [
+        'Sube tu reporte de monitoreo para seguir cambios de puntaje y nuevas alertas.',
+        'La IA resumira cambios, marcara problemas y recomendara proximos pasos.',
+        'Tu panel de monitoreo se actualiza automaticamente despues de cada carga.',
+      ],
+    },
+  }
+  return hints[program] ?? PROGRAM_HINTS[program]
+}
+
 // ─── Enhanced AIAnalysisCard ──────────────────────────────────────────────────
 function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: boolean }) {
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   const status = doc.ai_analysis_status
 
   if (isAnalyzing || status === 'analyzing') {
     return (
       <div className="mt-3 flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-xl px-3 py-2.5">
         <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
-        <span>AI is reviewing this document and updating your profile…</span>
+        <span>{text('AI is reviewing this document and updating your profile…', 'La IA esta revisando este documento y actualizando tu perfil…')}</span>
       </div>
     )
   }
@@ -95,7 +158,7 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
     return (
       <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2">
         <Bot size={12} />
-        AI review not available (insufficient credits)
+        {text('AI review not available (insufficient credits)', 'Revision con IA no disponible (creditos insuficientes)')}
       </div>
     )
   }
@@ -104,7 +167,7 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
     return (
       <div className="mt-3 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800 rounded-xl px-3 py-2">
         <AlertCircle size={12} />
-        AI analysis could not be completed — try re-uploading this document
+        {text('AI analysis could not be completed — try re-uploading this document', 'No se pudo completar el analisis con IA. Intenta volver a subir este documento')}
       </div>
     )
   }
@@ -131,9 +194,9 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
         <span className={`font-bold uppercase tracking-wide text-[10px] ${
           isApproved ? 'text-green-700' : isRejected ? 'text-red-600' : 'text-amber-700'
         }`}>
-          AI Review — {isApproved ? 'Accepted' : isRejected ? 'Rejected' : 'Needs Review'}
+          {text('AI Review', 'Revision con IA')} — {isApproved ? text('Accepted', 'Aceptado') : isRejected ? text('Rejected', 'Rechazado') : text('Needs Review', 'Necesita revision')}
         </span>
-        <span className="ml-auto text-[10px] opacity-60 capitalize">{a.confidence} confidence</span>
+        <span className="ml-auto text-[10px] opacity-60 capitalize">{a.confidence} {text('confidence', 'de confianza')}</span>
       </div>
 
       <div className="px-3 py-2.5 space-y-2">
@@ -166,37 +229,37 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
         {program === 'program_a' && a.credit_insights && (
           <div className="pt-1.5 border-t border-green-100 space-y-1.5">
             <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-700 uppercase tracking-wide">
-              <TrendingUp size={10} /> Credit Optimization Insights
+              <TrendingUp size={10} /> {text('Credit Optimization Insights', 'Informacion de optimizacion de credito')}
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               {a.credit_insights.estimated_score_range && (
                 <div className="flex gap-1.5">
-                  <span className="text-gray-400 dark:text-gray-500">Score range:</span>
+                  <span className="text-gray-400 dark:text-gray-500">{text('Score range:', 'Rango de puntaje:')}</span>
                   <span className="font-semibold text-gray-700 dark:text-gray-200">{a.credit_insights.estimated_score_range}</span>
                 </div>
               )}
               {a.credit_insights.utilization_pct && (
                 <div className="flex gap-1.5">
-                  <span className="text-gray-400 dark:text-gray-500">Utilization:</span>
+                  <span className="text-gray-400 dark:text-gray-500">{text('Utilization:', 'Utilizacion:')}</span>
                   <span className="font-semibold text-gray-700 dark:text-gray-200">{a.credit_insights.utilization_pct}</span>
                 </div>
               )}
               {a.credit_insights.inquiry_count != null && (
                 <div className="flex gap-1.5">
-                  <span className="text-gray-400 dark:text-gray-500">Inquiries:</span>
+                  <span className="text-gray-400 dark:text-gray-500">{text('Inquiries:', 'Consultas:')}</span>
                   <span className="font-semibold text-gray-700 dark:text-gray-200">{a.credit_insights.inquiry_count}</span>
                 </div>
               )}
               {a.credit_insights.negative_accounts != null && (
                 <div className="flex gap-1.5">
-                  <span className="text-gray-400 dark:text-gray-500">Negative accts:</span>
+                  <span className="text-gray-400 dark:text-gray-500">{text('Negative accts:', 'Ctas. negativas:')}</span>
                   <span className="font-semibold text-gray-700 dark:text-gray-200">{a.credit_insights.negative_accounts}</span>
                 </div>
               )}
             </div>
             {a.credit_insights.recommendations && a.credit_insights.recommendations.length > 0 && (
               <div className="space-y-0.5">
-                <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Recommendations</p>
+                <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{text('Recommendations', 'Recomendaciones')}</p>
                 {a.credit_insights.recommendations.map((r, i) => (
                   <div key={i} className="flex items-start gap-1.5 text-blue-800">
                     <span className="text-blue-400 font-bold mt-0.5 shrink-0">→</span>
@@ -212,12 +275,12 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
         {program === 'program_b' && a.business_identity && Object.values(a.business_identity).some(Boolean) && (
           <div className="pt-1.5 border-t border-green-100 space-y-1">
             <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-700 uppercase tracking-wide">
-              <Building2 size={10} /> Business Identity Verified
+              <Building2 size={10} /> {text('Business Identity Verified', 'Identidad empresarial verificada')}
             </div>
             <div className="space-y-0.5">
               {a.business_identity.business_name && (
                 <div className="flex gap-2">
-                  <span className="text-gray-400 dark:text-gray-500 shrink-0">Business:</span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0">{text('Business:', 'Empresa:')}</span>
                   <span className="font-semibold text-gray-700 dark:text-gray-200">{a.business_identity.business_name}</span>
                 </div>
               )}
@@ -229,13 +292,13 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
               )}
               {a.business_identity.entity_type && (
                 <div className="flex gap-2">
-                  <span className="text-gray-400 dark:text-gray-500 shrink-0">Entity:</span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0">{text('Entity:', 'Entidad:')}</span>
                   <span className="font-semibold text-gray-700 dark:text-gray-200">{a.business_identity.entity_type}</span>
                 </div>
               )}
               {a.business_identity.state && (
                 <div className="flex gap-2">
-                  <span className="text-gray-400 dark:text-gray-500 shrink-0">State:</span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0">{text('State:', 'Estado:')}</span>
                   <span className="font-semibold text-gray-700 dark:text-gray-200">{a.business_identity.state}</span>
                 </div>
               )}
@@ -247,7 +310,7 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
               )}
               {a.business_identity.address && (
                 <div className="flex gap-2">
-                  <span className="text-gray-400 dark:text-gray-500 shrink-0">Address:</span>
+                  <span className="text-gray-400 dark:text-gray-500 shrink-0">{text('Address:', 'Direccion:')}</span>
                   <span className="font-semibold text-gray-700 dark:text-gray-200">{a.business_identity.address}</span>
                 </div>
               )}
@@ -259,7 +322,7 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
         {program === 'program_c' && a.monitoring_summary && (
           <div className="pt-1.5 border-t border-green-100 space-y-1.5">
             <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
-              <Eye size={10} /> Monitoring Summary
+              <Eye size={10} /> {text('Monitoring Summary', 'Resumen de monitoreo')}
             </div>
             {a.score_change && (
               <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -267,13 +330,13 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
                 a.score_change.startsWith('-') ? 'bg-red-100 text-red-600' :
                 'bg-gray-100 text-gray-600'
               }`}>
-                Score change: {a.score_change}
+                {text('Score change:', 'Cambio de puntaje:')} {a.score_change}
               </div>
             )}
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{a.monitoring_summary}</p>
             {a.alerts && a.alerts.length > 0 && (
               <div className="space-y-0.5">
-                <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">Alerts</p>
+                <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">{text('Alerts', 'Alertas')}</p>
                 {a.alerts.map((alert, i) => (
                   <div key={i} className="flex items-start gap-1.5 text-amber-700">
                     <AlertTriangle size={10} className="shrink-0 mt-0.5" />
@@ -284,7 +347,7 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
             )}
             {a.recommended_actions && a.recommended_actions.length > 0 && (
               <div className="space-y-0.5">
-                <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Recommended Actions</p>
+                <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{text('Recommended Actions', 'Acciones recomendadas')}</p>
                 {a.recommended_actions.map((action, i) => (
                   <div key={i} className="flex items-start gap-1.5 text-gray-700 dark:text-gray-300">
                     <span className="text-green-500 font-bold mt-0.5 shrink-0">→</span>
@@ -301,7 +364,7 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
           <div className="flex items-center gap-1.5 text-green-700 pt-0.5">
             <CheckCircle2 size={11} />
             <span className="font-semibold">
-              Auto-completed: {a.tasks_to_complete!.map(t => t.replace(/_/g, ' ')).join(', ')}
+              {text('Auto-completed:', 'Completado automaticamente:')} {a.tasks_to_complete!.map(t => t.replace(/_/g, ' ')).join(', ')}
             </span>
           </div>
         )}
@@ -329,6 +392,9 @@ function AIAnalysisCard({ doc, isAnalyzing }: { doc: Document; isAnalyzing: bool
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DocumentsPage() {
   const { activeBusinessId } = useBusinessContext()
+  const { locale } = useLanguage()
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
+  const searchParams = useSearchParams()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
@@ -338,6 +404,7 @@ export default function DocumentsPage() {
   const [analyzingId, setAnalyzingId] = useState<string | null>(null)
   const [docTypesForProgram, setDocTypesForProgram] = useState(ALL_DOC_TYPES)
   const [activePrograms, setActivePrograms] = useState<string[]>([])
+  const sourceTaskId = searchParams.get('taskId')
 
   useEffect(() => {
     const init = async () => {
@@ -345,7 +412,7 @@ export default function DocumentsPage() {
       const res = await fetch('/api/portal/documents', { cache: 'no-store' })
       const data = await res.json()
       if (!res.ok) {
-        toast.error(data.error || 'Failed to load documents')
+        toast.error(data.error || text('Failed to load documents', 'No se pudieron cargar los documentos'))
         setLoading(false)
         return
       }
@@ -359,15 +426,27 @@ export default function DocumentsPage() {
 
       const sorted = getSortedDocTypes(p?.assigned_program)
       setDocTypesForProgram(sorted)
-      setSelectedType(getDefaultDocType(p?.assigned_program))
+      const queryType = searchParams.get('type')
+      if (isDocumentType(queryType)) {
+        setSelectedType(queryType)
+      } else {
+        setSelectedType(getDefaultDocType(p?.assigned_program))
+      }
       setLoading(false)
     }
     init()
-  }, [activeBusinessId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeBusinessId, searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const queryType = searchParams.get('type')
+    if (isDocumentType(queryType)) {
+      setSelectedType(queryType)
+    }
+  }, [searchParams])
 
   const uploadFile = async (file: File) => {
-    if (!isActive) { toast.error('Reactivate subscription to upload documents'); return }
-    if (file.size > 10 * 1024 * 1024) { toast.error('File must be under 10MB'); return }
+    if (!isActive) { toast.error(text('Reactivate subscription to upload documents', 'Reactiva tu suscripcion para subir documentos')); return }
+    if (file.size > 10 * 1024 * 1024) { toast.error(text('File must be under 10MB', 'El archivo debe ser menor de 10 MB')); return }
 
     setUploading(true)
     const formData = new FormData()
@@ -381,7 +460,7 @@ export default function DocumentsPage() {
     const uploadData = await uploadRes.json()
 
     if (!uploadRes.ok) {
-      toast.error('Upload failed: ' + (uploadData.error || 'Unknown error'))
+      toast.error(`${text('Upload failed', 'La carga fallo')}: ${uploadData.error || text('Unknown error', 'Error desconocido')}`)
       setUploading(false)
       return
     }
@@ -394,7 +473,7 @@ export default function DocumentsPage() {
     const docId = inserted?.document_id
     if (docId) {
       setAnalyzingId(docId)
-      toast.success('Document uploaded! AI is analyzing it now…', { icon: '🤖' })
+      toast.success(text('Document uploaded! AI is analyzing it now...', 'Documento subido. La IA lo esta analizando ahora...'), { icon: '🤖' })
 
       try {
         const res = await fetch('/api/documents/analyze', {
@@ -446,8 +525,10 @@ export default function DocumentsPage() {
     rejected: <XCircle size={16} className="text-red-500" />,
   }
 
-  const docTypeLabel = (type: string) =>
-    ALL_DOC_TYPES.find((d) => d.value === type)?.label || type
+  const docTypeLabel = (type: string) => {
+    const entry = ALL_DOC_TYPES.find((d) => d.value === type)
+    return entry ? localizeDocTypeLabel(entry.value, entry.label, locale) : type
+  }
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B'
@@ -472,7 +553,7 @@ export default function DocumentsPage() {
   const aiCount       = documents.filter(d => d.ai_analysis_status === 'completed').length
 
   const assignedProgram = profile?.assigned_program
-  const programHint     = assignedProgram ? PROGRAM_HINTS[assignedProgram] : null
+  const programHint     = assignedProgram ? localizeProgramHint(assignedProgram, locale) : null
 
   // Mark doc types that are primary for this program
   const isPrimaryForProgram = (value: DocumentType) =>
@@ -489,19 +570,28 @@ export default function DocumentsPage() {
       allPrograms={activePrograms}
     >
       <div className="mb-5 sm:mb-6">
-        <h1 className="page-title text-[1.85rem] leading-[1.05] sm:text-2xl sm:leading-tight">Documents</h1>
+        <h1 className="page-title text-[1.85rem] leading-[1.05] sm:text-2xl sm:leading-tight">{text('Documents', 'Documentos')}</h1>
         <p className="mt-1.5 max-w-xl text-[13px] leading-5 text-gray-500 dark:text-gray-400 sm:mt-1 sm:text-sm sm:leading-6">
-          Upload documents — AI analyzes each one and updates your program automatically
+          {text('Upload documents - AI analyzes each one and updates your program automatically', 'Sube documentos; la IA analiza cada uno y actualiza tu programa automaticamente')}
         </p>
       </div>
+
+      {sourceTaskId && (
+        <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4 text-blue-900 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+          <p className="text-sm font-bold">{text('Progress task upload detected', 'Carga de tarea de progreso detectada')}</p>
+          <p className="mt-1 text-xs leading-relaxed text-blue-800 dark:text-blue-300">
+            {text('This upload was opened from Progress. The selected document type is prefilled to help satisfy the requested task.', 'Esta carga se abrio desde Progreso. El tipo de documento seleccionado se completo automaticamente para ayudar a cumplir la tarea solicitada.')}
+          </p>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:mb-6 sm:grid-cols-4">
         {[
-          { label: 'Total',          value: documents.length, color: 'text-gray-900 dark:text-white' },
-          { label: 'Pending Review', value: pendingCount,     color: 'text-yellow-600' },
-          { label: 'AI Analyzed',    value: aiCount,          color: 'text-blue-600' },
-          { label: 'Approved',       value: approvedCount,    color: 'text-green-600' },
+          { label: text('Total', 'Total'), value: documents.length, color: 'text-gray-900 dark:text-white' },
+          { label: text('Pending Review', 'Revision pendiente'), value: pendingCount, color: 'text-yellow-600' },
+          { label: text('AI Analyzed', 'Analizados por IA'), value: aiCount, color: 'text-blue-600' },
+          { label: text('Approved', 'Aprobados'), value: approvedCount, color: 'text-green-600' },
         ].map(({ label, value, color }) => (
           <div key={label} className="card px-4 py-4 text-center sm:px-5 sm:py-5">
             <p className={`text-[1.55rem] font-bold leading-none sm:text-2xl ${color}`}>{value}</p>
@@ -534,11 +624,11 @@ export default function DocumentsPage() {
       <div className="card mb-5 px-4 py-5 sm:mb-6 sm:px-5 sm:py-5">
         <h2 className="section-title mb-3 flex items-center gap-2 text-[1.05rem] leading-tight sm:mb-4 sm:text-lg sm:leading-tight">
           <Upload size={18} className="text-green-500" />
-          Upload Document
+          {text('Upload Document', 'Subir documento')}
         </h2>
 
         <div className="mb-4">
-          <label className="label mb-1.5 block text-[11px] uppercase tracking-[0.14em] sm:mb-0 sm:text-xs sm:tracking-wide">Document Type</label>
+          <label className="label mb-1.5 block text-[11px] uppercase tracking-[0.14em] sm:mb-0 sm:text-xs sm:tracking-wide">{text('Document Type', 'Tipo de documento')}</label>
           <select
             className="input-field"
             value={selectedType}
@@ -547,20 +637,20 @@ export default function DocumentsPage() {
           >
             {/* Primary for this program */}
             {assignedProgram && (
-              <optgroup label="— Recommended for your program —">
+              <optgroup label={text('— Recommended for your program —', '— Recomendado para tu programa —')}>
                 {docTypesForProgram
                   .filter(dt => dt.programs?.includes(assignedProgram))
                   .map(dt => (
-                    <option key={dt.value} value={dt.value}>{dt.label}</option>
+                    <option key={dt.value} value={dt.value}>{localizeDocTypeLabel(dt.value, dt.label, locale)}</option>
                   ))}
               </optgroup>
             )}
             {/* All others */}
-            <optgroup label="— Other document types —">
+            <optgroup label={text('— Other document types —', '— Otros tipos de documentos —')}>
               {docTypesForProgram
                 .filter(dt => !assignedProgram || !dt.programs?.includes(assignedProgram))
                 .map(dt => (
-                  <option key={dt.value} value={dt.value}>{dt.label}</option>
+                  <option key={dt.value} value={dt.value}>{localizeDocTypeLabel(dt.value, dt.label, locale)}</option>
                 ))}
             </optgroup>
           </select>
@@ -568,7 +658,7 @@ export default function DocumentsPage() {
           {/* Show what this doc type will trigger */}
           {isPrimaryForProgram(selectedType) && (
             <p className="mt-1.5 flex items-center gap-1 text-[11px] leading-4 text-green-600">
-              <Sparkles size={10} /> AI will analyze this document and update your program automatically
+              <Sparkles size={10} /> {text('AI will analyze this document and update your program automatically', 'La IA analizara este documento y actualizara tu programa automaticamente')}
             </p>
           )}
         </div>
@@ -587,18 +677,18 @@ export default function DocumentsPage() {
           <Upload size={24} className={`mx-auto mb-3 sm:h-7 sm:w-7 ${isDragActive ? 'text-green-600' : 'text-gray-300'}`} />
           {uploading ? (
             <div>
-              <p className="text-[13px] font-medium leading-5 text-green-600 sm:text-sm">Uploading…</p>
+              <p className="text-[13px] font-medium leading-5 text-green-600 sm:text-sm">{text('Uploading...', 'Subiendo...')}</p>
               <div className="w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mt-3" />
             </div>
           ) : (
             <>
               <p className="text-[13px] font-semibold leading-5 text-gray-700 dark:text-gray-200 sm:text-sm">
-                {isDragActive ? 'Drop file here' : 'Drag & drop or click to upload'}
+                {isDragActive ? text('Drop file here', 'Suelta el archivo aqui') : text('Drag & drop or click to upload', 'Arrastra y suelta o haz clic para subir')}
               </p>
-              <p className="mt-1.5 text-[11px] leading-4 text-gray-400 dark:text-gray-500 sm:mt-1 sm:text-xs">PDF, PNG, JPG, DOCX — max 10MB</p>
+              <p className="mt-1.5 text-[11px] leading-4 text-gray-400 dark:text-gray-500 sm:mt-1 sm:text-xs">{text('PDF, PNG, JPG, DOCX - max 10MB', 'PDF, PNG, JPG, DOCX - maximo 10 MB')}</p>
               <p className="mt-1.5 flex items-center justify-center gap-1 text-[11px] leading-4 text-blue-400 sm:text-xs">
                 <Sparkles size={11} />
-                AI document review included — your profile updates automatically
+                {text('AI document review included - your profile updates automatically', 'Incluye revision de IA; tu perfil se actualiza automaticamente')}
               </p>
             </>
           )}
@@ -606,22 +696,24 @@ export default function DocumentsPage() {
 
         {!isActive && (
           <p className="mt-2 text-center text-[11px] leading-4 text-amber-600 sm:text-xs">
-            Subscribe to upload documents — <a href="/billing" className="underline font-semibold">activate here</a>
+            {text('Subscribe to upload documents -', 'Suscribete para subir documentos -')}{' '}<a href="/billing" className="underline font-semibold">{text('activate here', 'activa aqui')}</a>
           </p>
         )}
       </div>
 
       {/* Documents List */}
       <div>
-        <h2 className="section-title mb-4">Your Documents ({documents.length})</h2>
+        <h2 className="section-title mb-4">{text('Your Documents', 'Tus documentos')} ({documents.length})</h2>
         {documents.length === 0 ? (
           <div className="card text-center py-10">
             <FileText size={32} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-400 dark:text-gray-500 text-sm">No documents uploaded yet</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm">{text('No documents uploaded yet', 'Aun no hay documentos subidos')}</p>
             <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
               {programHint
-                ? `Start by uploading a ${docTypesForProgram[0]?.label ?? 'document'}`
-                : 'Upload your first document above'}
+                ? (locale === 'es'
+                  ? `Empieza subiendo ${docTypesForProgram[0] ? localizeDocTypeLabel(docTypesForProgram[0].value, docTypesForProgram[0].label, locale) : 'un documento'}`
+                  : `Start by uploading a ${docTypesForProgram[0]?.label ?? 'document'}`)
+                : text('Upload your first document above', 'Sube tu primer documento arriba')}
             </p>
           </div>
         ) : (
@@ -660,7 +752,7 @@ export default function DocumentsPage() {
                   rel="noopener noreferrer"
                   className="shrink-0 text-xs text-green-600 font-medium hover:text-green-700 px-2 py-1"
                 >
-                  View
+                  {text('View', 'Ver')}
                 </a>
               </div>
             ))}
