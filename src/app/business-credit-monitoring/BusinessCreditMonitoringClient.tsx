@@ -107,6 +107,25 @@ export default function BusinessCreditMonitoringClient() {
     return { label: text('Poor - Pays Late', 'Deficiente - Paga tarde'), color: 'text-red-600' }
   }
 
+  const localizeTradelineNote = (note: string) => {
+    if (locale !== 'es') return note
+
+    const demoNoteMap: Record<string, string> = {
+      'First net-30 account. 2 early payment cycles.': 'Primera cuenta net-30. 2 ciclos de pago anticipado.',
+      'Office supplies account. 1 payment cycle completed.': 'Cuenta de suministros de oficina. 1 ciclo de pago completado.',
+      'First net-30 account. Paid early 3 consecutive cycles.': 'Primera cuenta net-30. Pago anticipado en 3 ciclos consecutivos.',
+      'Industrial supplies. Active account.': 'Suministros industriales. Cuenta activa.',
+      'Recently started reporting.': 'Comenzo a reportar recientemente.',
+      'Established account. Consistent early payment.': 'Cuenta establecida. Pago anticipado constante.',
+      'All 3 bureaus reporting.': 'Los 3 buroes estan reportando.',
+      'Revolving commercial account.': 'Cuenta comercial revolvente.',
+      '5th reporting account — unlocked card eligibility.': '5.a cuenta reportando - desbloqueo elegibilidad para tarjetas.',
+      'Most recent addition. Active purchasing.': 'Incorporacion mas reciente. Compras activas.',
+    }
+
+    return demoNoteMap[note] ?? note
+  }
+
   const [bureauProfile, setBureauProfile] = useState<BureauProfile | null>(null)
   const [tradelines, setTradelines] = useState<Tradeline[]>([])
   const [loading, setLoading] = useState(true)
@@ -640,7 +659,7 @@ export default function BusinessCreditMonitoringClient() {
                           ))}
                         </div>
                       )}
-                      {tradeline.notes && <p className="text-xs text-gray-400 mt-1">{tradeline.notes}</p>}
+                      {tradeline.notes && <p className="text-xs text-gray-400 mt-1">{localizeTradelineNote(tradeline.notes)}</p>}
                     </div>
                     <button
                       onClick={() => deleteTradeline(tradeline.id)}
