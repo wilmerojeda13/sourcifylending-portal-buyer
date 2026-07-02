@@ -7,6 +7,7 @@ import {
   TrendingUp, Star, AlertTriangle, Info
 } from 'lucide-react'
 import { useLanguage } from '@/components/i18n/LanguageProvider'
+import type { Locale } from '@/lib/i18n'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface ProfileSummary {
@@ -186,29 +187,30 @@ const PRIORITY_COLORS = {
 }
 
 // ─── Readiness cards derived from profile ──────────────────────────────────────
-function getReadinessCards(profile: ProfileSummary, nextTask: Task | null) {
+function getReadinessCards(locale: Locale, profile: ProfileSummary, nextTask: Task | null) {
+  const text = (en: string, es: string) => (locale === 'es' ? es : en)
   const scoreRanges: Record<string, { label: string; color: string; note: string }> = {
-    '300-579': { label: 'Poor', color: 'text-red-600', note: 'Needs significant improvement before card applications' },
-    '580-619': { label: 'Fair', color: 'text-orange-600', note: 'Work on inquiries and utilization first' },
-    '620-659': { label: 'Below Average', color: 'text-amber-600', note: 'Secured cards are a good starting point' },
-    '660-699': { label: 'Good', color: 'text-yellow-600', note: 'Starter business cards are accessible' },
-    '700-749': { label: 'Very Good', color: 'text-green-600', note: 'Most starter business cards are within reach' },
-    '750+': { label: 'Excellent', color: 'text-emerald-600', note: 'Prime card offers and higher limits available' },
+    '300-579': { label: text('Poor', 'Deficiente'), color: 'text-red-600', note: text('Needs significant improvement before card applications', 'Necesita una mejora importante antes de solicitar tarjetas') },
+    '580-619': { label: text('Fair', 'Regular'), color: 'text-orange-600', note: text('Work on inquiries and utilization first', 'Trabaja primero en las consultas y la utilizacion') },
+    '620-659': { label: text('Below Average', 'Debajo del promedio'), color: 'text-amber-600', note: text('Secured cards are a good starting point', 'Las tarjetas aseguradas son un buen punto de partida') },
+    '660-699': { label: text('Good', 'Bueno'), color: 'text-yellow-600', note: text('Starter business cards are accessible', 'Las tarjetas empresariales iniciales estan al alcance') },
+    '700-749': { label: text('Very Good', 'Muy bueno'), color: 'text-green-600', note: text('Most starter business cards are within reach', 'La mayoria de las tarjetas empresariales iniciales estan al alcance') },
+    '750+': { label: text('Excellent', 'Excelente'), color: 'text-emerald-600', note: text('Prime card offers and higher limits available', 'Hay ofertas prime y limites mas altos disponibles') },
   }
 
   const utilizationRanges: Record<string, { label: string; color: string }> = {
-    '0-9%': { label: 'Excellent', color: 'text-emerald-600' },
-    '10-29%': { label: 'Good', color: 'text-green-600' },
-    '30-49%': { label: 'Fair', color: 'text-amber-600' },
-    '50-74%': { label: 'High', color: 'text-orange-600' },
-    '75%+': { label: 'Very High', color: 'text-red-600' },
+    '0-9%': { label: text('Excellent', 'Excelente'), color: 'text-emerald-600' },
+    '10-29%': { label: text('Good', 'Bueno'), color: 'text-green-600' },
+    '30-49%': { label: text('Fair', 'Regular'), color: 'text-amber-600' },
+    '50-74%': { label: text('High', 'Alta'), color: 'text-orange-600' },
+    '75%+': { label: text('Very High', 'Muy alta'), color: 'text-red-600' },
   }
 
   const inquiryRanges: Record<string, { label: string; color: string }> = {
-    '0': { label: '0 inquiries', color: 'text-emerald-600' },
-    '1-2': { label: '1–2 inquiries', color: 'text-green-600' },
-    '3-4': { label: '3–4 inquiries', color: 'text-amber-600' },
-    '5+': { label: '5+ inquiries', color: 'text-red-600' },
+    '0': { label: text('0 inquiries', '0 consultas'), color: 'text-emerald-600' },
+    '1-2': { label: text('1-2 inquiries', '1-2 consultas'), color: 'text-green-600' },
+    '3-4': { label: text('3-4 inquiries', '3-4 consultas'), color: 'text-amber-600' },
+    '5+': { label: text('5+ inquiries', '5+ consultas'), color: 'text-red-600' },
   }
 
   const scoreInfo = profile.credit_score_range
@@ -229,79 +231,87 @@ function getReadinessCards(profile: ProfileSummary, nextTask: Task | null) {
     'Not Ready': 'text-red-600',
   }
 
+  const readinessValue = (value: string | null) => {
+    if (!value) return '—'
+    if (value === 'Ready') return text('Ready', 'Listo')
+    if (value === 'Conditionally Ready') return text('Conditionally Ready', 'Listo con condiciones')
+    if (value === 'Not Ready') return text('Not Ready', 'No listo')
+    return value
+  }
+
   return [
     {
-      label: 'Score Range',
+      label: text('Score Range', 'Rango de puntaje'),
       value: profile.credit_score_range ?? '—',
-      sub: scoreInfo?.label ?? (profile.credit_score_range ? '' : 'Run analyzer'),
+      sub: scoreInfo?.label ?? (profile.credit_score_range ? '' : text('Run analyzer', 'Ejecutar analizador')),
       color: scoreInfo?.color ?? 'text-gray-400',
       note: scoreInfo?.note ?? null,
     },
     {
-      label: 'Utilization',
+      label: text('Utilization', 'Utilizacion'),
       value: profile.utilization_range ?? '—',
-      sub: utilInfo?.label ?? (profile.utilization_range ? '' : 'Run analyzer'),
+      sub: utilInfo?.label ?? (profile.utilization_range ? '' : text('Run analyzer', 'Ejecutar analizador')),
       color: utilInfo?.color ?? 'text-gray-400',
-      note: !utilInfo ? null : utilInfo.label === 'Excellent' || utilInfo.label === 'Good'
-        ? 'On track for card applications'
-        : 'Pay down balances to improve',
+      note: !utilInfo ? null : ['0-9%', '10-29%'].includes(profile.utilization_range ?? '')
+        ? text('On track for card applications', 'Va por buen camino para solicitar tarjetas')
+        : text('Pay down balances to improve', 'Reduce los saldos para mejorar'),
     },
     {
-      label: 'Inquiries (90 days)',
+      label: text('Inquiries (90 days)', 'Consultas (90 dias)'),
       value: profile.inquiry_range ?? '—',
-      sub: inquiryInfo?.label ?? (profile.inquiry_range ? '' : 'Run analyzer'),
+      sub: inquiryInfo?.label ?? (profile.inquiry_range ? '' : text('Run analyzer', 'Ejecutar analizador')),
       color: inquiryInfo?.color ?? 'text-gray-400',
-      note: !inquiryInfo ? null : (profile.inquiry_range === '5+' ? 'Pause new applications' : null),
+      note: !inquiryInfo ? null : (profile.inquiry_range === '5+' ? text('Pause new applications', 'Pausa nuevas solicitudes') : null),
     },
     {
-      label: 'Late / NSF Flag',
-      value: profile.nsf_flag ? 'Flagged' : 'Clear',
-      sub: profile.nsf_flag ? 'Recent NSF or derogatory event' : 'No recent flags',
+      label: text('Late / NSF Flag', 'Marca de atraso / NSF'),
+      value: profile.nsf_flag ? text('Flagged', 'Marcado') : text('Clear', 'Sin alertas'),
+      sub: profile.nsf_flag ? text('Recent NSF or derogatory event', 'Evento reciente de NSF o derogatorio') : text('No recent flags', 'Sin alertas recientes'),
       color: profile.nsf_flag ? 'text-red-600' : 'text-emerald-600',
-      note: profile.nsf_flag ? 'Address this before applying for new credit' : null,
+      note: profile.nsf_flag ? text('Address this before applying for new credit', 'Resuelve esto antes de solicitar nuevo credito') : null,
     },
     {
-      label: 'Readiness Status',
-      value: profile.readiness_status ?? '—',
-      sub: profile.readiness_status ? 'Based on analyzer' : 'Run analyzer to check',
+      label: text('Readiness Status', 'Estado de preparacion'),
+      value: readinessValue(profile.readiness_status),
+      sub: profile.readiness_status ? text('Based on analyzer', 'Segun el analizador') : text('Run analyzer to check', 'Ejecuta el analizador para verificar'),
       color: profile.readiness_status ? (readinessColors[profile.readiness_status] ?? 'text-gray-600') : 'text-gray-400',
       note: null,
     },
     {
-      label: 'Credit Age',
+      label: text('Credit Age', 'Antiguedad del credito'),
       value: '—',
-      sub: 'Not tracked in portal',
+      sub: text('Not tracked in portal', 'No se rastrea en el portal'),
       color: 'text-gray-400',
-      note: 'Check your credit report directly',
+      note: text('Check your credit report directly', 'Consulta tu informe de credito directamente'),
     },
     {
-      label: 'Total Accounts',
+      label: text('Total Accounts', 'Cuentas totales'),
       value: '—',
-      sub: 'Not tracked in portal',
+      sub: text('Not tracked in portal', 'No se rastrea en el portal'),
       color: 'text-gray-400',
-      note: 'Check your credit report directly',
+      note: text('Check your credit report directly', 'Consulta tu informe de credito directamente'),
     },
     {
-      label: 'Main Risk Factor',
+      label: text('Main Risk Factor', 'Factor principal de riesgo'),
       value: profile.nsf_flag
-        ? 'NSF / Late'
+        ? text('NSF / Late', 'NSF / Atraso')
         : profile.inquiry_range === '5+'
-          ? 'High Inquiries'
+          ? text('High Inquiries', 'Consultas altas')
           : profile.utilization_range && ['50-74%', '75%+'].includes(profile.utilization_range)
-            ? 'High Utilization'
+            ? text('High Utilization', 'Utilizacion alta')
             : profile.readiness_status === 'Not Ready'
-              ? 'Multiple Factors'
+              ? text('Multiple Factors', 'Factores multiples')
               : profile.credit_score_range && ['300-579', '580-619'].includes(profile.credit_score_range)
-                ? 'Low Credit Score'
-                : 'None Identified',
+                ? text('Low Credit Score', 'Puntaje de credito bajo')
+                : text('None Identified', 'Ninguno identificado'),
       sub: '',
       color: profile.readiness_status === 'Ready' ? 'text-emerald-600' : 'text-amber-700',
       note: null,
     },
     {
-      label: 'Next Step',
-      value: nextTask?.title ?? 'All clear',
-      sub: nextTask?.stage ?? (nextTask ? '' : 'Check Progress tab'),
+      label: text('Next Step', 'Siguiente paso'),
+      value: nextTask?.title ?? text('All clear', 'Todo en orden'),
+      sub: nextTask?.stage ?? (nextTask ? '' : text('Check Progress tab', 'Revisa la pestana de progreso')),
       color: nextTask ? 'text-green-700' : 'text-gray-400',
       note: null,
     },
@@ -314,7 +324,7 @@ export default function CreditOptimizationClient({ profile, nextTask, isActive }
   const text = (en: string, es: string) => (locale === 'es' ? es : en)
   const [activeTab, setActiveTab] = useState<'readiness' | 'tasks' | 'disputes'>('readiness')
 
-  const readinessCards = getReadinessCards(profile, nextTask)
+  const readinessCards = getReadinessCards(locale, profile, nextTask)
 
   return (
     <div className="space-y-5">
