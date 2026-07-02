@@ -1,6 +1,14 @@
 import Stripe from 'stripe'
 import type { ProgramId } from '@/types'
 
+function firstNonEmpty(...values: Array<string | undefined>) {
+  return values.find((value) => typeof value === 'string' && value.trim().length > 0)?.trim() ?? ''
+}
+
+function readEnv(...keys: string[]) {
+  return firstNonEmpty(...keys.map((key) => process.env[key]))
+}
+
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10',
 })
@@ -9,15 +17,33 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export const PRICE_IDS = {
   program_a: {
-    setup:   process.env.STRIPE_PRICE_ID_PROGRAM_A_SETUP!,
-    monthly: process.env.STRIPE_PRICE_ID_PROGRAM_A_MONTHLY!,
+    setup: readEnv(
+      'STRIPE_PRICE_ID_PROGRAM_A_SETUP',
+      'STRIPE_PRICE_PROGRAM_A_SETUP',
+    ),
+    monthly: readEnv(
+      'STRIPE_PRICE_ID_PROGRAM_A_MONTHLY',
+      'STRIPE_PRICE_PROGRAM_A',
+      'STRIPE_PRICE_ID_PROGRAM_A',
+    ),
   },
   program_b: {
-    setup:   process.env.STRIPE_PRICE_ID_PROGRAM_B_SETUP!,
-    monthly: process.env.STRIPE_PRICE_ID_PROGRAM_B_MONTHLY!,
+    setup: readEnv(
+      'STRIPE_PRICE_ID_PROGRAM_B_SETUP',
+      'STRIPE_PRICE_PROGRAM_B_SETUP',
+    ),
+    monthly: readEnv(
+      'STRIPE_PRICE_ID_PROGRAM_B_MONTHLY',
+      'STRIPE_PRICE_PROGRAM_B',
+      'STRIPE_PRICE_ID_PROGRAM_B',
+    ),
   },
   program_c: {
-    monthly: process.env.STRIPE_PRICE_ID_PROGRAM_C_MONTHLY!,
+    monthly: readEnv(
+      'STRIPE_PRICE_ID_PROGRAM_C_MONTHLY',
+      'STRIPE_PRICE_PROGRAM_C',
+      'STRIPE_PRICE_ID_PROGRAM_C',
+    ),
   },
 } as const
 
