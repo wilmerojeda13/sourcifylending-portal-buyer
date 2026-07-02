@@ -69,10 +69,23 @@ function getPublicBaseUrl(req: NextRequest) {
 
 async function assertStripePriceAmount(priceId: string, expectedAmountCents: number, label: string) {
   const price = await stripe.prices.retrieve(priceId)
-  if (price.unit_amount !== expectedAmountCents || price.recurring?.interval !== 'month') {
+  if (!price.active) {
+    throw new Error(`Stripe price ${priceId} for ${label} is inactive`)
+  }
+
+  if (price.recurring?.interval !== 'month') {
     throw new Error(
-      `Stripe price mismatch for ${label}: expected ${expectedAmountCents} cents/month but ${priceId} is ${price.unit_amount ?? 'unknown'} cents/${price.recurring?.interval ?? 'non-recurring'}`
+      `Stripe price mismatch for ${label}: expected a recurring monthly price but ${priceId} is ${price.unit_amount ?? 'unknown'} cents/${price.recurring?.interval ?? 'non-recurring'}`
     )
+  }
+
+  if (price.unit_amount !== expectedAmountCents) {
+    console.warn('Stripe price amount differs from configured portal pricing:', {
+      label,
+      priceId,
+      expectedAmountCents,
+      actualAmountCents: price.unit_amount,
+    })
   }
 }
 

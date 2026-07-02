@@ -20,6 +20,8 @@ Date: 2026-07-01
   - `STRIPE_PRICE_ID_PROGRAM_B`
   - `STRIPE_PRICE_ID_PROGRAM_C`
 - Because `src/lib/stripe.ts` only read the newer keys, any production environment still using the legacy names would make `PRICE_IDS` resolve empty values and cause `/api/stripe/create-checkout` to fail before redirecting to Stripe Checkout.
+- The checkout route also hard-failed on exact amount assertions against the portal pricing constants. Live Stripe inspection showed active recurring amounts such as `39900`, `19900`, and `9700`, while the code still treated `44900` / `24900` as mandatory for Program A / B.
+- That meant even a valid live recurring Stripe price could block checkout if the catalog amount drifted from the in-code pricing constants.
 
 ## Root Cause For Free Analyzer
 
@@ -49,6 +51,7 @@ Date: 2026-07-01
 ## Files Changed
 
 - `.env.local.example`
+- `src/app/api/stripe/create-checkout/route.ts`
 - `src/lib/stripe.ts`
 
 ## Env Variables Checked
@@ -66,7 +69,7 @@ Date: 2026-07-01
 ## Stripe Logs Checked
 
 - Live Stripe catalog was queried with the production secret from `Stripe Account Credentials/MAIN_APIKEY.txt`.
-- Result: active live prices exist for program-like recurring amounts such as `9700`, `39900`, and `19900`, but the broken code path was still vulnerable to failing earlier if only legacy env names were configured.
+- Result: active live prices exist for program-like recurring amounts such as `9700`, `39900`, and `19900`; no active recurring `44900` or `24900` prices were found in the inspected catalog.
 
 ## Supabase / RLS Checks
 
