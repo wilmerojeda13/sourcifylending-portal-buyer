@@ -3,11 +3,13 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { ArrowRight, CheckCircle, Bot, BarChart2, Shield, Users, DollarSign } from 'lucide-react'
+import { ArrowRight, CheckCircle, CheckCircle2, Bot, BarChart2, Shield, ShieldCheck, Users, DollarSign, CircleX, CalendarDays } from 'lucide-react'
 import HomepageChatbot from '@/components/chatbot/HomepageChatbot'
 import HomeNavbar from '@/components/i18n/HomeNavbar'
 import { LOCALE_COOKIE, localizeHref, normalizeLocale, portalSignInHref, t } from '@/lib/i18n'
 import { SITE_URL } from '@/lib/site-config'
+
+const USE_NEW_HOMEPAGE_SECTION = true
 
 export const metadata: Metadata = {
   title: 'SourcifyLending | Business Credit Fulfillment',
@@ -44,6 +46,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   }
 
   const text = (en: string, es: string) => (locale === 'es' ? es : en)
+  const pricingHref = `${localizeHref('/pricing', locale)}#pricing`
 
   const features = [
     {
@@ -162,24 +165,152 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
       </section>
 
-      <section className="bg-gray-50 py-16 px-6">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-12">
-            {text('Everything You Need to Build Business Credit', 'Todo lo que necesitas para construir crédito empresarial')}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {features.map(({ icon: Icon, title, desc, color }) => (
-              <div key={title} className="card text-center">
-                <div className={`w-12 h-12 ${color} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
-                  <Icon size={22} />
+      {USE_NEW_HOMEPAGE_SECTION ? (
+        <section className="px-6 pb-16">
+          <div className="mx-auto max-w-7xl overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.16),_transparent_34%),linear-gradient(180deg,_#071426_0%,_#03101f_100%)] px-6 py-12 shadow-[0_24px_80px_rgba(2,6,23,0.45)] sm:px-8 lg:px-12 lg:py-14">
+            <div className="mx-auto max-w-6xl">
+              <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                {text('The Old Way Doesn’t Work Anymore', 'La forma anterior ya no funciona')}
+              </h2>
+
+              <div className="mt-10 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_56px_minmax(0,1fr)_56px_minmax(0,1fr)] lg:items-stretch">
+                <article className="rounded-[2rem] border border-red-500/20 bg-white/[0.03] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur sm:p-7">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-red-500/40 bg-red-500/10 text-red-400">
+                      <CircleX size={28} />
+                    </div>
+                    <div>
+                      <span className="inline-flex rounded-full bg-red-500/15 px-3 py-1 text-sm font-semibold text-red-300 ring-1 ring-inset ring-red-400/20">
+                        {text('The Old Way', 'La forma anterior')}
+                      </span>
+                      <h3 className="mt-3 text-2xl font-semibold text-white">
+                        {text('What’s Holding You Back', 'Qué te está frenando')}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 border-t border-white/10 pt-3">
+                    {[
+                      text('Banks keep saying “No”', 'Los bancos siguen diciendo “No”'),
+                      text('Low business credit limits funding', 'Los límites bajos de crédito empresarial frenan el financiamiento'),
+                      text('Confusing credit-building process', 'El proceso para construir crédito es confuso'),
+                      text('No clear roadmap to qualify', 'No hay una ruta clara para calificar'),
+                    ].map((item, index, items) => (
+                      <div key={item} className={`flex items-center gap-4 py-5 ${index < items.length - 1 ? 'border-b border-white/10' : ''}`}>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-red-500/40 bg-red-500/10 text-red-400">
+                          <CircleX size={20} />
+                        </div>
+                        <p className="text-base leading-relaxed text-slate-200">{item}</p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <div className="hidden items-center justify-center text-white/40 lg:flex">
+                  <ArrowRight size={34} />
                 </div>
-                <h3 className="font-bold text-gray-900 mb-2">{title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
+
+                <article className="rounded-[2rem] border border-emerald-500/20 bg-white/[0.04] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur sm:p-7">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
+                      <CheckCircle2 size={28} />
+                    </div>
+                    <div>
+                      <span className="inline-flex rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-semibold text-emerald-300 ring-1 ring-inset ring-emerald-400/20">
+                        {text('A Smarter Way Forward', 'Una forma más inteligente de avanzar')}
+                      </span>
+                      <h3 className="mt-3 text-2xl font-semibold text-white">
+                        {text('How SourcifyLending Helps', 'Cómo ayuda SourcifyLending')}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 border-t border-white/10 pt-3">
+                    {[
+                      text('AI analyzes your business profile', 'La IA analiza el perfil de tu negocio'),
+                      text('Personalized funding roadmap', 'Ruta de financiamiento personalizada'),
+                      text('Step-by-step business credit strategy', 'Estrategia de crédito empresarial paso a paso'),
+                      text('Real progress tracking', 'Seguimiento real del progreso'),
+                    ].map((item, index, items) => (
+                      <div key={item} className={`flex items-center gap-4 py-5 ${index < items.length - 1 ? 'border-b border-white/10' : ''}`}>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
+                          <CheckCircle2 size={20} />
+                        </div>
+                        <p className="text-base leading-relaxed text-slate-100">{item}</p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <div className="hidden items-center justify-center text-white/40 lg:flex">
+                  <ArrowRight size={34} />
+                </div>
+
+                <article className="rounded-[2rem] border border-emerald-400/20 bg-white/[0.04] p-6 shadow-[0_20px_60px_rgba(34,197,94,0.08),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur sm:p-7">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/30">
+                      <CalendarDays size={26} />
+                    </div>
+                    <div>
+                      <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white/90 ring-1 ring-inset ring-white/10">
+                        {text('Start Your', 'Comienza tu')}
+                      </span>
+                      <h3 className="mt-3 text-[2rem] font-semibold leading-tight text-emerald-400">
+                        {text('3-Day Free Trial', 'Prueba gratis de 3 días')}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <p className="mt-6 text-center text-lg leading-8 text-slate-200">
+                    {text('Experience the solution for yourself.', 'Vive la solución por ti mismo.')}
+                    <br />
+                    {text('Cancel anytime.', 'Cancela cuando quieras.')}
+                  </p>
+
+                  <a
+                    href={pricingHref}
+                    className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-500 px-6 py-4 text-lg font-semibold text-white shadow-[0_20px_45px_rgba(34,197,94,0.25)] transition hover:bg-green-400 focus:outline-none focus:ring-2 focus:ring-green-300 focus:ring-offset-2 focus:ring-offset-slate-950"
+                  >
+                    {text('Start 3-Day Free Trial', 'Inicia la prueba gratis de 3 días')} <ArrowRight size={20} />
+                  </a>
+
+                  <p className="mt-5 text-center text-base text-slate-300">
+                    {text('No credit card required.', 'No se requiere tarjeta de crédito.')}
+                  </p>
+
+                  <div className="mt-6 border-t border-white/10 pt-6">
+                    <div className="flex items-start gap-3 text-slate-200">
+                      <ShieldCheck size={22} className="mt-0.5 shrink-0 text-emerald-400" />
+                      <p className="text-base leading-8">
+                        {text('Join thousands of businesses improving their funding readiness.', 'Únete a miles de negocios que están mejorando su preparación para financiamiento.')}
+                      </p>
+                    </div>
+                  </div>
+                </article>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section className="bg-gray-50 py-16 px-6">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-900 text-center mb-12">
+              {text('Everything You Need to Build Business Credit', 'Todo lo que necesitas para construir crédito empresarial')}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {features.map(({ icon: Icon, title, desc, color }) => (
+                <div key={title} className="card text-center">
+                  <div className={`w-12 h-12 ${color} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
+                    <Icon size={22} />
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-2">{title}</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="py-16 px-6 max-w-5xl mx-auto">
         <h2 className="text-2xl font-bold text-gray-900 text-center mb-3">{text('Three Specialized Programs', 'Tres programas especializados')}</h2>

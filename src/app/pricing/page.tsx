@@ -324,7 +324,7 @@ export default function PricingPage() {
       </section>
 
       {/* ── Pricing Cards ───────────────────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+      <section id="pricing" className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
           {localizedPlans.map((plan) => {
             const isDark = plan.id === 'program_a' || plan.id === 'program_c'
