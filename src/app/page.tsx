@@ -166,102 +166,102 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       </section>
 
       {USE_NEW_HOMEPAGE_SECTION ? (
-        <section className="px-6 pb-16">
-          <div className="mx-auto max-w-7xl overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.16),_transparent_34%),linear-gradient(180deg,_#071426_0%,_#03101f_100%)] px-6 py-12 shadow-[0_24px_80px_rgba(2,6,23,0.45)] sm:px-8 lg:px-12 lg:py-14">
+        <section className="px-6 pb-20">
+          <div className="mx-auto max-w-7xl overflow-hidden rounded-[2.25rem] border border-white/8 bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.10),_transparent_32%),linear-gradient(180deg,_rgba(7,20,38,0.94)_0%,_rgba(4,15,29,0.98)_100%)] px-6 py-14 shadow-[0_18px_55px_rgba(2,6,23,0.32)] sm:px-10 lg:px-14 lg:py-16">
             <div className="mx-auto max-w-6xl">
-              <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              <h2 className="max-w-3xl text-3xl font-semibold tracking-[-0.03em] text-white sm:text-[2.55rem]">
                 {text('The Old Way Doesn’t Work Anymore', 'La forma anterior ya no funciona')}
               </h2>
 
-              <div className="mt-10 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_56px_minmax(0,1fr)_56px_minmax(0,1fr)] lg:items-stretch">
-                <article className="rounded-[2rem] border border-red-500/20 bg-white/[0.03] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur sm:p-7">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-red-500/40 bg-red-500/10 text-red-400">
-                      <CircleX size={28} />
+              <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_48px_minmax(0,1fr)_48px_minmax(0,1fr)] lg:items-stretch">
+                <article className="rounded-[1.8rem] border border-white/10 bg-white/[0.025] p-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur sm:p-8">
+                  <div className="flex items-start gap-4">
+                    <div className="mt-0.5 flex h-13 w-13 items-center justify-center rounded-full border border-red-400/30 bg-red-500/[0.08] text-red-300">
+                      <CircleX size={26} />
                     </div>
                     <div>
-                      <span className="inline-flex rounded-full bg-red-500/15 px-3 py-1 text-sm font-semibold text-red-300 ring-1 ring-inset ring-red-400/20">
+                      <span className="inline-flex rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-red-200/90 ring-1 ring-inset ring-red-400/15">
                         {text('The Old Way', 'La forma anterior')}
                       </span>
-                      <h3 className="mt-3 text-2xl font-semibold text-white">
+                      <h3 className="mt-4 text-[1.85rem] font-semibold leading-tight tracking-[-0.03em] text-white">
                         {text('What’s Holding You Back', 'Qué te está frenando')}
                       </h3>
                     </div>
                   </div>
 
-                  <div className="mt-6 border-t border-white/10 pt-3">
+                  <div className="mt-7 border-t border-white/8 pt-3">
                     {[
                       text('Banks keep saying “No”', 'Los bancos siguen diciendo “No”'),
                       text('Low business credit limits funding', 'Los límites bajos de crédito empresarial frenan el financiamiento'),
                       text('Confusing credit-building process', 'El proceso para construir crédito es confuso'),
                       text('No clear roadmap to qualify', 'No hay una ruta clara para calificar'),
                     ].map((item, index, items) => (
-                      <div key={item} className={`flex items-center gap-4 py-5 ${index < items.length - 1 ? 'border-b border-white/10' : ''}`}>
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-red-500/40 bg-red-500/10 text-red-400">
-                          <CircleX size={20} />
+                      <div key={item} className={`flex items-start gap-4 py-5 ${index < items.length - 1 ? 'border-b border-white/8' : ''}`}>
+                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-red-400/30 bg-red-500/[0.08] text-red-300">
+                          <CircleX size={18} />
                         </div>
-                        <p className="text-base leading-relaxed text-slate-200">{item}</p>
+                        <p className="text-[1.01rem] font-medium leading-7 text-slate-200/92">{item}</p>
                       </div>
                     ))}
                   </div>
                 </article>
 
-                <div className="hidden items-center justify-center text-white/40 lg:flex">
-                  <ArrowRight size={34} />
+                <div className="hidden items-center justify-center text-white/25 lg:flex">
+                  <ArrowRight size={30} />
                 </div>
 
-                <article className="rounded-[2rem] border border-emerald-500/20 bg-white/[0.04] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur sm:p-7">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
-                      <CheckCircle2 size={28} />
+                <article className="rounded-[1.8rem] border border-white/10 bg-white/[0.03] p-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur sm:p-8">
+                  <div className="flex items-start gap-4">
+                    <div className="mt-0.5 flex h-13 w-13 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/[0.08] text-emerald-300">
+                      <CheckCircle2 size={26} />
                     </div>
                     <div>
-                      <span className="inline-flex rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-semibold text-emerald-300 ring-1 ring-inset ring-emerald-400/20">
+                      <span className="inline-flex rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-200/90 ring-1 ring-inset ring-emerald-400/15">
                         {text('A Smarter Way Forward', 'Una forma más inteligente de avanzar')}
                       </span>
-                      <h3 className="mt-3 text-2xl font-semibold text-white">
+                      <h3 className="mt-4 text-[1.85rem] font-semibold leading-tight tracking-[-0.03em] text-white">
                         {text('How SourcifyLending Helps', 'Cómo ayuda SourcifyLending')}
                       </h3>
                     </div>
                   </div>
 
-                  <div className="mt-6 border-t border-white/10 pt-3">
+                  <div className="mt-7 border-t border-white/8 pt-3">
                     {[
                       text('AI analyzes your business profile', 'La IA analiza el perfil de tu negocio'),
                       text('Personalized funding roadmap', 'Ruta de financiamiento personalizada'),
                       text('Step-by-step business credit strategy', 'Estrategia de crédito empresarial paso a paso'),
                       text('Real progress tracking', 'Seguimiento real del progreso'),
                     ].map((item, index, items) => (
-                      <div key={item} className={`flex items-center gap-4 py-5 ${index < items.length - 1 ? 'border-b border-white/10' : ''}`}>
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
-                          <CheckCircle2 size={20} />
+                      <div key={item} className={`flex items-start gap-4 py-5 ${index < items.length - 1 ? 'border-b border-white/8' : ''}`}>
+                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/[0.08] text-emerald-300">
+                          <CheckCircle2 size={18} />
                         </div>
-                        <p className="text-base leading-relaxed text-slate-100">{item}</p>
+                        <p className="text-[1.01rem] font-medium leading-7 text-slate-100/92">{item}</p>
                       </div>
                     ))}
                   </div>
                 </article>
 
-                <div className="hidden items-center justify-center text-white/40 lg:flex">
-                  <ArrowRight size={34} />
+                <div className="hidden items-center justify-center text-white/25 lg:flex">
+                  <ArrowRight size={30} />
                 </div>
 
-                <article className="rounded-[2rem] border border-emerald-400/20 bg-white/[0.04] p-6 shadow-[0_20px_60px_rgba(34,197,94,0.08),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur sm:p-7">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/30">
-                      <CalendarDays size={26} />
+                <article className="rounded-[1.8rem] border border-emerald-300/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02))] p-7 shadow-[0_22px_60px_rgba(4,120,87,0.14),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur sm:p-8">
+                  <div className="flex items-start gap-4">
+                    <div className="mt-0.5 flex h-13 w-13 items-center justify-center rounded-full bg-[linear-gradient(180deg,#26b466_0%,#15803d_100%)] text-white shadow-[0_10px_30px_rgba(22,163,74,0.22)]">
+                      <CalendarDays size={24} />
                     </div>
                     <div>
-                      <span className="inline-flex rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white/90 ring-1 ring-inset ring-white/10">
+                      <span className="inline-flex rounded-full bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white/80 ring-1 ring-inset ring-white/10">
                         {text('Start Your', 'Comienza tu')}
                       </span>
-                      <h3 className="mt-3 text-[2rem] font-semibold leading-tight text-emerald-400">
+                      <h3 className="mt-4 text-[2.2rem] font-semibold leading-[1.05] tracking-[-0.035em] text-emerald-300">
                         {text('3-Day Free Trial', 'Prueba gratis de 3 días')}
                       </h3>
                     </div>
                   </div>
 
-                  <p className="mt-6 text-center text-lg leading-8 text-slate-200">
+                  <p className="mt-8 text-center text-[1.05rem] leading-8 text-slate-200/88">
                     {text('Experience the solution for yourself.', 'Vive la solución por ti mismo.')}
                     <br />
                     {text('Cancel anytime.', 'Cancela cuando quieras.')}
@@ -269,19 +269,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
                   <a
                     href={pricingHref}
-                    className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-green-500 px-6 py-4 text-lg font-semibold text-white shadow-[0_20px_45px_rgba(34,197,94,0.25)] transition hover:bg-green-400 focus:outline-none focus:ring-2 focus:ring-green-300 focus:ring-offset-2 focus:ring-offset-slate-950"
+                    className="mt-9 inline-flex w-full items-center justify-center gap-2 rounded-[1.1rem] bg-[linear-gradient(180deg,#2bbf63_0%,#1f9d52_100%)] px-6 py-4 text-[1.04rem] font-semibold text-white shadow-[0_18px_36px_rgba(34,197,94,0.16)] transition duration-200 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-green-300 focus:ring-offset-2 focus:ring-offset-slate-950"
                   >
-                    {text('Start 3-Day Free Trial', 'Inicia la prueba gratis de 3 días')} <ArrowRight size={20} />
+                    {text('Start 3-Day Free Trial', 'Inicia la prueba gratis de 3 días')} <ArrowRight size={18} />
                   </a>
 
-                  <p className="mt-5 text-center text-base text-slate-300">
+                  <p className="mt-5 text-center text-sm font-medium tracking-[0.01em] text-slate-300/88">
                     {text('No credit card required.', 'No se requiere tarjeta de crédito.')}
                   </p>
 
-                  <div className="mt-6 border-t border-white/10 pt-6">
-                    <div className="flex items-start gap-3 text-slate-200">
-                      <ShieldCheck size={22} className="mt-0.5 shrink-0 text-emerald-400" />
-                      <p className="text-base leading-8">
+                  <div className="mt-7 border-t border-white/8 pt-6">
+                    <div className="flex items-start gap-3 text-slate-200/90">
+                      <ShieldCheck size={20} className="mt-1 shrink-0 text-emerald-300" />
+                      <p className="text-[0.98rem] leading-7 text-slate-200/86">
                         {text('Join thousands of businesses improving their funding readiness.', 'Únete a miles de negocios que están mejorando su preparación para financiamiento.')}
                       </p>
                     </div>
