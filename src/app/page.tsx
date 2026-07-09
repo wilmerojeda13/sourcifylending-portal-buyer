@@ -170,7 +170,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <div className="mx-auto max-w-7xl overflow-hidden rounded-[2.25rem] border border-white/8 bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.10),_transparent_32%),linear-gradient(180deg,_rgba(7,20,38,0.94)_0%,_rgba(4,15,29,0.98)_100%)] px-6 py-14 shadow-[0_18px_55px_rgba(2,6,23,0.32)] sm:px-10 lg:px-14 lg:py-16">
             <div className="mx-auto max-w-6xl">
               <h2 className="max-w-3xl text-3xl font-semibold tracking-[-0.03em] text-white sm:text-[2.55rem]">
-                {text('The Old Way Doesn’t Work Anymore', 'La forma anterior ya no funciona')}
+                {text("The Old Way Doesn't Work Anymore", 'La forma anterior ya no funciona')}
               </h2>
 
               <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_48px_minmax(0,1fr)_48px_minmax(0,1fr)] lg:items-stretch">
@@ -184,14 +184,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                         {text('The Old Way', 'La forma anterior')}
                       </span>
                       <h3 className="mt-4 text-[1.85rem] font-semibold leading-tight tracking-[-0.03em] text-white">
-                        {text('What’s Holding You Back', 'Qué te está frenando')}
+                        {text("What's Holding You Back", 'Qué te está frenando')}
                       </h3>
                     </div>
                   </div>
 
                   <div className="mt-7 border-t border-white/8 pt-3">
                     {[
-                      text('Banks keep saying “No”', 'Los bancos siguen diciendo “No”'),
+                      text('Banks keep saying "No"', 'Los bancos siguen diciendo "No"'),
                       text('Low business credit limits funding', 'Los límites bajos de crédito empresarial frenan el financiamiento'),
                       text('Confusing credit-building process', 'El proceso para construir crédito es confuso'),
                       text('No clear roadmap to qualify', 'No hay una ruta clara para calificar'),
@@ -379,7 +379,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   <Link href={localizeHref('/partners', locale)} className="btn-primary text-sm px-6 py-3" prefetch={false}>
                     {text('Become a Partner', 'Hazte socio')} <ArrowRight size={16} />
                   </Link>
-                  <Link href={locale === 'es' ? '/socios?sl_locale=es#how-it-works' : '/partners?sl_locale=en#how-it-works'} className="btn-secondary text-sm px-6 py-3">
+                  <Link href="/partners#how-it-works" className="btn-secondary text-sm px-6 py-3">
                     {text('Learn More', 'Saber más')}
                   </Link>
                 </div>
