@@ -4,8 +4,6 @@ import { CheckCircle, X, Minus, ArrowRight } from 'lucide-react'
 import LanguageToggle from '@/components/i18n/LanguageToggle'
 import { LOCALE_COOKIE, localizeHref, normalizeLocale, portalSignInHref } from '@/lib/i18n'
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
 const PLANS = [
   {
     id: 'free',
@@ -45,9 +43,9 @@ const PLANS = [
       'AI-assisted credit analysis',
       'Free business credit analyzer included',
     ],
-    cta: 'Start Free Analyzer',
-    href: '/analyzer',
-    footer: 'First month due at signup · Cancel anytime',
+    cta: 'Start 3-Day Free Trial',
+    href: '/trial-start?program=program_c',
+    footer: 'No charge today',
     style: {
       card: 'border-2 border-green-500 bg-green-700',
       badge: 'bg-green-500 text-white',
@@ -70,9 +68,9 @@ const PLANS = [
       'Document organization and milestones',
       'Task management and progress tracking',
     ],
-    cta: 'Start Free Analyzer',
-    href: '/analyzer',
-    footer: 'First month due at signup · Cancel anytime',
+    cta: 'Start 3-Day Free Trial',
+    href: '/trial-start?program=program_b',
+    footer: 'No charge today',
     style: {
       card: 'border-2 border-green-400 bg-white',
       badge: 'bg-green-100 text-green-700',
@@ -95,9 +93,9 @@ const PLANS = [
       'Card sequencing and optimization',
       'Personal credit readiness for funding',
     ],
-    cta: 'Start Free Analyzer',
-    href: '/analyzer',
-    footer: 'First month due at signup · Cancel anytime',
+    cta: 'Start 3-Day Free Trial',
+    href: '/trial-start?program=program_a',
+    footer: 'No charge today',
     style: {
       card: 'border-2 border-slate-700 bg-slate-900',
       badge: 'bg-slate-700 text-white',
@@ -110,16 +108,16 @@ const PLANS = [
 type CheckValue = 'yes' | 'partial' | 'no'
 
 const COMPARISON_ROWS: { feature: string; sl: CheckValue; tools: CheckValue; brokers: CheckValue; diy: CheckValue }[] = [
-  { feature: 'Free analyzer',                  sl: 'yes',     tools: 'yes',     brokers: 'no',      diy: 'no'      },
-  { feature: 'Client portal access',           sl: 'yes',     tools: 'no',      brokers: 'no',      diy: 'no'      },
-  { feature: 'Guided credit-building workflow',sl: 'yes',     tools: 'no',      brokers: 'partial',  diy: 'yes'     },
-  { feature: 'Funding-readiness visibility',   sl: 'yes',     tools: 'partial', brokers: 'partial',  diy: 'no'      },
-  { feature: 'Ongoing monthly support',        sl: 'yes',     tools: 'no',      brokers: 'partial',  diy: 'no'      },
-  { feature: 'AI-powered tools',               sl: 'yes',     tools: 'no',      brokers: 'no',      diy: 'no'      },
-  { feature: 'Document organization',          sl: 'yes',     tools: 'no',      brokers: 'no',      diy: 'no'      },
-  { feature: 'Progress tracking',              sl: 'yes',     tools: 'partial', brokers: 'no',      diy: 'no'      },
-  { feature: 'Built for business owners',      sl: 'yes',     tools: 'partial', brokers: 'yes',     diy: 'partial' },
-  { feature: 'Cancel anytime plans',           sl: 'yes',     tools: 'yes',     brokers: 'no',      diy: 'yes'     },
+  { feature: 'Free analyzer', sl: 'yes', tools: 'yes', brokers: 'no', diy: 'no' },
+  { feature: 'Client portal access', sl: 'yes', tools: 'no', brokers: 'no', diy: 'no' },
+  { feature: 'Guided credit-building workflow', sl: 'yes', tools: 'no', brokers: 'partial', diy: 'yes' },
+  { feature: 'Funding-readiness visibility', sl: 'yes', tools: 'partial', brokers: 'partial', diy: 'no' },
+  { feature: 'Ongoing monthly support', sl: 'yes', tools: 'no', brokers: 'partial', diy: 'no' },
+  { feature: 'AI-powered tools', sl: 'yes', tools: 'no', brokers: 'no', diy: 'no' },
+  { feature: 'Document organization', sl: 'yes', tools: 'no', brokers: 'no', diy: 'no' },
+  { feature: 'Progress tracking', sl: 'yes', tools: 'partial', brokers: 'no', diy: 'no' },
+  { feature: 'Built for business owners', sl: 'yes', tools: 'partial', brokers: 'yes', diy: 'partial' },
+  { feature: 'Cancel anytime plans', sl: 'yes', tools: 'yes', brokers: 'no', diy: 'yes' },
 ]
 
 const PLAN_GUIDE = [
@@ -154,7 +152,7 @@ const BUNDLE = {
   title: 'Business + Personal Credit Strategy',
   price: '$598',
   period: '/month',
-  description: 'Run both programs simultaneously — build your business credit under your EIN while re-optimizing your personal credit and deploying a 0% APR card strategy at the same time.',
+  description: 'Run both programs simultaneously - build your business credit under your EIN while re-optimizing your personal credit and deploying a 0% APR card strategy at the same time.',
   features: [
     'Business credit building workflow',
     'Personal credit re-optimization',
@@ -169,19 +167,21 @@ const BUNDLE = {
   footer: 'Not yet available for self-serve checkout',
 } as const
 
-// ─── Check Icon ───────────────────────────────────────────────────────────────
-
 function Check({ value }: { value: CheckValue }) {
   if (value === 'yes') return <CheckCircle size={17} className="text-green-500 mx-auto" aria-label="Yes" />
   if (value === 'partial') return <Minus size={17} className="text-gray-400 mx-auto" aria-label="Limited" />
   return <X size={17} className="text-gray-300 mx-auto" aria-label="No" />
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+interface PricingPageProps {
+  searchParams?: Promise<{ sl_locale?: string }>
+}
 
-export default function PricingPage() {
-  const locale = normalizeLocale(cookies().get(LOCALE_COOKIE)?.value)
+export default async function PricingPage({ searchParams }: PricingPageProps) {
+  const params = searchParams ? await searchParams : {}
+  const locale = normalizeLocale(params.sl_locale ?? cookies().get(LOCALE_COOKIE)?.value)
   const text = (en: string, es: string) => (locale === 'es' ? es : en)
+
   const localizedPlans = PLANS.map((plan) => ({
     ...plan,
     href: localizeHref(plan.href, locale),
@@ -191,107 +191,113 @@ export default function PricingPage() {
     ),
     title: text(
       plan.title,
-      plan.id === 'free' ? 'Gratis' : plan.id === 'program_c' ? 'Monitoreo de capital' : plan.id === 'program_b' ? 'Constructor de crédito empresarial' : 'Estrategia de tarjetas con APR 0%',
+      plan.id === 'free' ? 'Gratis' : plan.id === 'program_c' ? 'Monitoreo de capital' : plan.id === 'program_b' ? 'Constructor de credito empresarial' : 'Estrategia de tarjetas con APR 0%',
     ),
     period: text(plan.period, '/mes'),
     description: text(
       plan.description,
       plan.id === 'free'
-        ? 'Empieza con el analizador gratis y mira dónde está tu negocio.'
+        ? 'Empieza con el analizador gratis y mira donde esta tu negocio.'
         : plan.id === 'program_c'
-          ? 'Supervisa tu perfil de crédito empresarial, sigue el progreso y mantente listo para financiamiento.'
+          ? 'Supervisa tu perfil de credito empresarial, sigue el progreso y mantenete listo para financiamiento.'
           : plan.id === 'program_b'
-            ? 'Construye activamente tu perfil de crédito empresarial bajo tu EIN con un flujo guiado y herramientas estructuradas.'
-            : 'Reoptimiza tu crédito personal y aplica una estrategia de tarjetas con APR introductorio 0% para acceder a capital de financiamiento empresarial.',
+            ? 'Construye activamente tu perfil de credito empresarial bajo tu EIN con un flujo guiado y herramientas estructuradas.'
+            : 'Reoptimiza tu credito personal y aplica una estrategia de tarjetas con APR introductorio 0% para acceder a capital de financiamiento empresarial.',
     ),
     features: plan.features.map((feature) => {
       const esMap: Record<string, string> = {
-        'Free business credit analyzer': 'Analizador gratis de crédito empresarial',
-        'Instant readiness score': 'Puntuación instantánea de preparación',
+        'Free business credit analyzer': 'Analizador gratis de credito empresarial',
+        'Instant readiness score': 'Puntuacion instantanea de preparacion',
         'Personalized recommendations': 'Recomendaciones personalizadas',
-        'No credit card required': 'No se requiere tarjeta de crédito',
+        'No credit card required': 'No se requiere tarjeta de credito',
         'Client portal access': 'Acceso al portal del cliente',
-        'Business credit monitoring dashboard': 'Panel de monitoreo de crédito empresarial',
-        'Funding readiness score': 'Puntuación de preparación para financiamiento',
+        'Business credit monitoring dashboard': 'Panel de monitoreo de credito empresarial',
+        'Funding readiness score': 'Puntuacion de preparacion para financiamiento',
         'Monthly progress reports': 'Reportes mensuales de progreso',
-        'AI-assisted credit analysis': 'Análisis de crédito asistido por IA',
-        'Free business credit analyzer included': 'Incluye analizador gratis de crédito empresarial',
-        'Guided business credit building workflow': 'Flujo guiado para construir crédito empresarial',
+        'AI-assisted credit analysis': 'Analisis de credito asistido por IA',
+        'Free business credit analyzer included': 'Incluye analizador gratis de credito empresarial',
+        'Guided business credit building workflow': 'Flujo guiado para construir credito empresarial',
         'Vendor and tradeline strategy': 'Estrategia de proveedores y tradelines',
-        'Business credit profile development': 'Desarrollo del perfil de crédito empresarial',
-        'Document organization and milestones': 'Organización de documentos e hitos',
-        'Task management and progress tracking': 'Gestión de tareas y seguimiento del progreso',
-        'Personal credit review and re-optimization': 'Revisión y reoptimización de crédito personal',
-        'Credit report review and dispute workflow': 'Revisión de informes y flujo de disputas',
+        'Business credit profile development': 'Desarrollo del perfil de credito empresarial',
+        'Document organization and milestones': 'Organizacion de documentos e hitos',
+        'Task management and progress tracking': 'Gestion de tareas y seguimiento del progreso',
+        'Personal credit review and re-optimization': 'Revision y reoptimizacion de credito personal',
+        'Credit report review and dispute workflow': 'Revision de informes y flujo de disputas',
         '0% intro APR card strategy': 'Estrategia de tarjetas con APR introductorio 0%',
-        'Card sequencing and optimization': 'Secuenciación y optimización de tarjetas',
-        'Personal credit readiness for funding': 'Preparación de crédito personal para financiamiento',
-        'Business credit building workflow': 'Flujo para construir crédito empresarial',
-        'Personal credit re-optimization': 'Reoptimización de crédito personal',
-        'Guided funding readiness support': 'Apoyo guiado para preparación de financiamiento',
+        'Card sequencing and optimization': 'Secuenciacion y optimizacion de tarjetas',
+        'Personal credit readiness for funding': 'Preparacion de credito personal para financiamiento',
+        'Business credit building workflow': 'Flujo para construir credito empresarial',
+        'Personal credit re-optimization': 'Reoptimizacion de credito personal',
+        'Guided funding readiness support': 'Apoyo guiado para preparacion de financiamiento',
       }
       return text(feature, esMap[feature] ?? feature)
     }),
-    cta: text('Contact Us', 'Contactanos'),
-    footer: plan.footer ? text(plan.footer, 'Primer mes al registrarte · Cancela cuando quieras') : null,
+    cta: text(plan.cta, plan.id === 'free' ? 'Abrir analizador gratis' : 'Comenzar prueba gratis de 3 dias'),
+    footer: plan.footer ? text(plan.footer, 'No hay cargo hoy.') : null,
   }))
+
   const localizedBundle = {
     label: text('Program A + B', 'Programa A + B'),
-    title: text('Business + Personal Credit Strategy', 'Estrategia de crédito empresarial y personal'),
+    title: text('Business + Personal Credit Strategy', 'Estrategia de credito empresarial y personal'),
     price: '$598',
     period: text('/month', '/mes'),
     description: text(
       BUNDLE.description,
-      'Ejecuta ambos programas al mismo tiempo: construye tu crédito empresarial bajo tu EIN mientras reoptimizas tu crédito personal y aplicas una estrategia de tarjetas con APR 0% al mismo tiempo.',
+      'Ejecuta ambos programas al mismo tiempo: construye tu credito empresarial bajo tu EIN mientras reoptimizas tu credito personal y aplicas una estrategia de tarjetas con APR 0% al mismo tiempo.',
     ),
     features: BUNDLE.features.map((feature) => {
       const esMap: Record<string, string> = {
-        'Business credit building workflow': 'Flujo para construir crédito empresarial',
-        'Personal credit re-optimization': 'Reoptimización de crédito personal',
+        'Business credit building workflow': 'Flujo para construir credito empresarial',
+        'Personal credit re-optimization': 'Reoptimizacion de credito personal',
         '0% intro APR card strategy': 'Estrategia de tarjetas con APR introductorio 0%',
         'Vendor and tradeline strategy': 'Estrategia de proveedores y tradelines',
-        'Document organization and milestones': 'Organización de documentos e hitos',
+        'Document organization and milestones': 'Organizacion de documentos e hitos',
         'Progress tracking across both programs': 'Seguimiento de progreso en ambos programas',
-        'Guided funding readiness support': 'Apoyo guiado para preparación de financiamiento',
+        'Guided funding readiness support': 'Apoyo guiado para preparacion de financiamiento',
       }
       return text(feature, esMap[feature] ?? feature)
     }),
-    cta: text('Contact Us', 'Contactanos'),
-    footer: text('Not yet available for self-serve checkout', 'Aun no disponible para pago autoservicio'),
-    href: '/contact',
+    cta: text(BUNDLE.cta, 'Contactanos'),
+    footer: text(BUNDLE.footer, 'Aun no disponible para pago autoservicio'),
+    href: localizeHref(BUNDLE.href, locale),
   }
-  const localizedComparisonRows: { feature: string; sl: CheckValue; tools: CheckValue; brokers: CheckValue; diy: CheckValue }[] = [
-    { feature: text('Free analyzer', 'Analizador gratis'), sl: 'yes', tools: 'yes', brokers: 'no', diy: 'no' },
-    { feature: text('Client portal access', 'Acceso al portal del cliente'), sl: 'yes', tools: 'no', brokers: 'no', diy: 'no' },
-    { feature: text('Guided credit-building workflow', 'Flujo guiado para construir crédito'), sl: 'yes', tools: 'no', brokers: 'partial', diy: 'yes' },
-    { feature: text('Funding-readiness visibility', 'Visibilidad de preparación para financiamiento'), sl: 'yes', tools: 'partial', brokers: 'partial', diy: 'no' },
-    { feature: text('Ongoing monthly support', 'Soporte mensual continuo'), sl: 'yes', tools: 'no', brokers: 'partial', diy: 'no' },
-    { feature: text('AI-powered tools', 'Herramientas impulsadas por IA'), sl: 'yes', tools: 'no', brokers: 'no', diy: 'no' },
-    { feature: text('Document organization', 'Organización de documentos'), sl: 'yes', tools: 'no', brokers: 'no', diy: 'no' },
-    { feature: text('Progress tracking', 'Seguimiento de progreso'), sl: 'yes', tools: 'partial', brokers: 'no', diy: 'no' },
-    { feature: text('Built for business owners', 'Diseñado para dueños de negocios'), sl: 'yes', tools: 'partial', brokers: 'yes', diy: 'partial' },
-    { feature: text('Cancel anytime plans', 'Planes cancelables en cualquier momento'), sl: 'yes', tools: 'yes', brokers: 'no', diy: 'yes' },
+
+  const localizedComparisonRows = [
+    { feature: text('Free analyzer', 'Analizador gratis'), sl: 'yes' as CheckValue, tools: 'yes' as CheckValue, brokers: 'no' as CheckValue, diy: 'no' as CheckValue },
+    { feature: text('Client portal access', 'Acceso al portal del cliente'), sl: 'yes' as CheckValue, tools: 'no' as CheckValue, brokers: 'no' as CheckValue, diy: 'no' as CheckValue },
+    { feature: text('Guided credit-building workflow', 'Flujo guiado para construir credito'), sl: 'yes' as CheckValue, tools: 'no' as CheckValue, brokers: 'partial' as CheckValue, diy: 'yes' as CheckValue },
+    { feature: text('Funding-readiness visibility', 'Visibilidad de preparacion para financiamiento'), sl: 'yes' as CheckValue, tools: 'partial' as CheckValue, brokers: 'partial' as CheckValue, diy: 'no' as CheckValue },
+    { feature: text('Ongoing monthly support', 'Soporte mensual continuo'), sl: 'yes' as CheckValue, tools: 'no' as CheckValue, brokers: 'partial' as CheckValue, diy: 'no' as CheckValue },
+    { feature: text('AI-powered tools', 'Herramientas impulsadas por IA'), sl: 'yes' as CheckValue, tools: 'no' as CheckValue, brokers: 'no' as CheckValue, diy: 'no' as CheckValue },
+    { feature: text('Document organization', 'Organizacion de documentos'), sl: 'yes' as CheckValue, tools: 'no' as CheckValue, brokers: 'no' as CheckValue, diy: 'no' as CheckValue },
+    { feature: text('Progress tracking', 'Seguimiento de progreso'), sl: 'yes' as CheckValue, tools: 'partial' as CheckValue, brokers: 'no' as CheckValue, diy: 'no' as CheckValue },
+    { feature: text('Built for business owners', 'Disenado para duenos de negocios'), sl: 'yes' as CheckValue, tools: 'partial' as CheckValue, brokers: 'yes' as CheckValue, diy: 'partial' as CheckValue },
+    { feature: text('Cancel anytime plans', 'Planes cancelables en cualquier momento'), sl: 'yes' as CheckValue, tools: 'yes' as CheckValue, brokers: 'no' as CheckValue, diy: 'yes' as CheckValue },
   ]
+
   const localizedComparisonHeaders = {
-    feature: text('Feature', 'Función'),
-    monitoring: text('Credit Monitoring', 'Monitoreo de crédito'),
+    feature: text('Feature', 'Funcion'),
+    monitoring: text('Credit Monitoring', 'Monitoreo de credito'),
     brokers: text('Brokers', 'Brokers'),
     diy: text('DIY Courses', 'Cursos DIY'),
-    yes: text('Yes', 'Sí'),
+    yes: text('Yes', 'Si'),
     limited: text('Limited or varies', 'Limitado o variable'),
     no: text('Not included', 'No incluido'),
-    note: text('Comparisons are general and may not reflect every provider&apos;s current offerings.', 'Las comparaciones son generales y pueden no reflejar todas las ofertas actuales de cada proveedor.'),
+    note: text(
+      "Comparisons are general and may not reflect every provider's current offerings.",
+      'Las comparaciones son generales y pueden no reflejar todas las ofertas actuales de cada proveedor.',
+    ),
   }
+
   const localizedPlanGuide = [
-    { step: '1', label: text('Free', 'Gratis'), desc: text('Run the analyzer and get an instant snapshot of where your business stands.', 'Ejecuta el analizador y obtén una vista instantánea de dónde está tu negocio.'), color: 'bg-green-700 text-white' },
-    { step: '2', label: text('Program C', 'Programa C'), desc: text('Stay visible with ongoing monitoring and know your funding readiness at all times.', 'Mantente visible con monitoreo continuo y conoce tu preparación para financiamiento en todo momento.'), color: 'bg-green-700 text-white' },
-    { step: '3', label: text('Program B', 'Programa B'), desc: text('Actively build your business credit profile with guided workflow and milestone tracking.', 'Construye activamente tu perfil de crédito empresarial con flujo guiado y seguimiento de hitos.'), color: 'bg-green-100 text-green-700' },
-    { step: '4', label: text('Program A', 'Programa A'), desc: text('Re-optimize your personal credit and build a 0% intro APR card strategy for business funding capital.', 'Reoptimiza tu crédito personal y crea una estrategia de tarjetas con APR introductorio 0% para capital de financiamiento empresarial.'), color: 'bg-green-600 text-white' },
+    { step: '1', label: text('Free', 'Gratis'), desc: text('Run the analyzer and get an instant snapshot of where your business stands.', 'Ejecuta el analizador y obten una vista instantanea de donde esta tu negocio.'), color: 'bg-green-700 text-white' },
+    { step: '2', label: text('Program C', 'Programa C'), desc: text('Stay visible with ongoing monitoring and know your funding readiness at all times.', 'Manten visibilidad con monitoreo continuo y conoce tu preparacion para financiamiento en todo momento.'), color: 'bg-green-700 text-white' },
+    { step: '3', label: text('Program B', 'Programa B'), desc: text('Actively build your business credit profile with guided workflow and milestone tracking.', 'Construye activamente tu perfil de credito empresarial con flujo guiado y seguimiento de hitos.'), color: 'bg-green-100 text-green-700' },
+    { step: '4', label: text('Program A', 'Programa A'), desc: text('Re-optimize your personal credit and build a 0% intro APR card strategy for business funding capital.', 'Reoptimiza tu credito personal y crea una estrategia de tarjetas con APR introductorio 0% para capital de financiamiento empresarial.'), color: 'bg-green-600 text-white' },
   ]
+
   return (
     <div className="min-h-screen bg-white">
-
-      {/* ── Nav ─────────────────────────────────────────────────────────────── */}
       <header className="border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3 max-w-6xl mx-auto">
         <Link href={localizeHref('/', locale)} className="flex items-center gap-2 min-w-0 shrink" prefetch={false}>
           <div className="w-7 h-7 sm:w-8 sm:h-8 bg-green-600 rounded-lg flex items-center justify-center shrink-0">
@@ -313,32 +319,33 @@ export default function PricingPage() {
         </div>
       </header>
 
-      {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="max-w-3xl mx-auto px-6 pt-14 pb-10 text-center">
+      <section className="max-w-4xl mx-auto px-6 pt-14 pb-10 text-center">
+        <div className="mb-4">
+          <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-4 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-green-700">
+            {text('Start Risk-Free', 'Empieza sin riesgo')}
+          </span>
+        </div>
         <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-4">
-          {text('Simple, Transparent Pricing', 'Precios simples y transparentes')}
+          {text('Start Your ', 'Comienza tu ')}
+          <span className="text-green-600">{text('3-Day Free Trial', 'prueba gratis de 3 dias')}</span>
         </h1>
         <p className="text-lg text-gray-500 max-w-xl mx-auto">
-          {text('Start free. Upgrade when you&apos;re ready. No setup fees. No long-term contracts.', 'Empieza gratis. Actualiza cuando estés listo. Sin tarifas de configuración. Sin contratos a largo plazo.')}
+          {text('Test any plan. Cancel anytime. No charge today.', 'Prueba cualquier plan. Cancela cuando quieras. No hay cargo hoy.')}
         </p>
       </section>
 
-      {/* ── Pricing Cards ───────────────────────────────────────────────────── */}
       <section id="pricing" className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
           {localizedPlans.map((plan) => {
             const isDark = plan.id === 'program_a' || plan.id === 'program_c'
             return (
               <div key={plan.id} className={`rounded-2xl p-6 flex flex-col ${plan.style.card}`}>
-
-                {/* Badge */}
                 <div className="mb-4">
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${plan.style.badge}`}>
                     {plan.badge}
                   </span>
                 </div>
 
-                {/* Title & price */}
                 <h2 className={`font-bold text-base mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   {plan.title}
                 </h2>
@@ -350,26 +357,23 @@ export default function PricingPage() {
                   {plan.description}
                 </p>
 
-                {/* Features */}
                 <ul className="space-y-2 mb-6 flex-1">
-                  {plan.features.map((f) => (
-                    <li key={f} className={`flex items-start gap-2 text-sm ${isDark ? 'text-green-50' : 'text-gray-600'}`}>
+                  {plan.features.map((feature) => (
+                    <li key={feature} className={`flex items-start gap-2 text-sm ${isDark ? 'text-green-50' : 'text-gray-600'}`}>
                       <CheckCircle
                         size={15}
                         className={`shrink-0 mt-0.5 ${isDark ? 'text-green-300' : 'text-green-500'}`}
                       />
-                      {f}
+                      {feature}
                     </li>
                   ))}
                 </ul>
 
-                {/* CTA */}
-                <Link href={plan.href} className={plan.style.cta}>
+                <Link href={plan.href} className={plan.style.cta} prefetch={false}>
                   {plan.cta} <ArrowRight size={15} />
                 </Link>
 
-                {/* Footer note */}
-                {plan.footer && (
+                {plan.id !== 'free' && (
                   <p className={`text-xs text-center mt-3 ${isDark ? 'text-green-200' : 'text-gray-400'}`}>
                     {plan.footer}
                   </p>
@@ -380,31 +384,28 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Bundle Card ─────────────────────────────────────────────────────── */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-10">
         <div className="rounded-2xl border-2 border-green-500 bg-green-600 overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-2">
-            {/* Left — description + features */}
             <div className="p-7 sm:p-8">
               <div className="flex items-center gap-2.5 mb-4">
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-500 text-white">
                   {localizedBundle.label}
                 </span>
-                <span className="text-green-300 text-xs font-medium">Bundle — Both Programs Together</span>
+                <span className="text-green-300 text-xs font-medium">Bundle - Both Programs Together</span>
               </div>
               <h2 className="text-xl font-bold text-white mb-2">{localizedBundle.title}</h2>
               <p className="text-green-100 text-sm leading-relaxed mb-6">{localizedBundle.description}</p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {localizedBundle.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-green-50">
+                {localizedBundle.features.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2 text-sm text-green-50">
                     <CheckCircle size={14} className="text-green-300 shrink-0 mt-0.5" />
-                    {f}
+                    {feature}
                   </li>
                 ))}
               </ul>
-              </div>
-              {/* Right — price + CTA */}
-              <div className="bg-green-700/50 p-7 sm:p-8 flex flex-col justify-center items-start md:items-center md:text-center gap-5 border-t-2 md:border-t-0 md:border-l-2 border-green-500/40">
+            </div>
+            <div className="bg-green-700/50 p-7 sm:p-8 flex flex-col justify-center items-start md:items-center md:text-center gap-5 border-t-2 md:border-t-0 md:border-l-2 border-green-500/40">
               <div>
                 <p className="text-green-300 text-xs font-semibold uppercase tracking-wide mb-1">Bundle Price</p>
                 <div className="flex items-baseline gap-1">
@@ -415,7 +416,7 @@ export default function PricingPage() {
               </div>
               <Link
                 href={localizedBundle.href}
-              className="bg-slate-900 hover:bg-slate-800 text-white font-semibold px-6 py-3 rounded-xl border border-slate-700 transition-colors duration-150 inline-flex items-center justify-center gap-2 text-sm w-full md:w-auto"
+                className="bg-slate-900 hover:bg-slate-800 text-white font-semibold px-6 py-3 rounded-xl border border-slate-700 transition-colors duration-150 inline-flex items-center justify-center gap-2 text-sm w-full md:w-auto"
               >
                 {localizedBundle.cta} <ArrowRight size={15} />
               </Link>
@@ -425,22 +426,20 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Comparison ──────────────────────────────────────────────────────── */}
       <section className="bg-gray-50 py-16 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
-              {text('Why Business Owners Choose SourcifyLending', 'Por qué los dueños de negocios eligen SourcifyLending')}
+              {text('Why Business Owners Choose SourcifyLending', 'Por que los duenos de negocios eligen SourcifyLending')}
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto text-sm sm:text-base">
               {text(
                 'SourcifyLending is built for business owners who want more than just a report or a course. The platform combines visibility, workflow, and ongoing guidance in one place.',
-                'SourcifyLending está diseñado para dueños de negocios que quieren más que un informe o un curso. La plataforma combina visibilidad, flujo de trabajo y orientación continua en un solo lugar.'
+                'SourcifyLending esta disenado para duenos de negocios que quieren mas que un informe o un curso. La plataforma combina visibilidad, flujo de trabajo y orientacion continua en un solo lugar.',
               )}
             </p>
           </div>
 
-          {/* Table — scrollable on small screens */}
           <div className="overflow-x-auto rounded-2xl border border-gray-700/40">
             <table className="w-full text-sm min-w-[520px]">
               <thead>
@@ -451,15 +450,9 @@ export default function PricingPage() {
                       SourcifyLending
                     </span>
                   </th>
-                  <th className="px-4 py-4 text-center text-gray-500 font-medium w-[16%] text-xs">
-                    {localizedComparisonHeaders.monitoring}
-                  </th>
-                  <th className="px-4 py-4 text-center text-gray-500 font-medium w-[15%] text-xs">
-                    {localizedComparisonHeaders.brokers}
-                  </th>
-                  <th className="px-4 py-4 text-center text-gray-500 font-medium w-[15%] text-xs">
-                    {localizedComparisonHeaders.diy}
-                  </th>
+                  <th className="px-4 py-4 text-center text-gray-500 font-medium w-[16%] text-xs">{localizedComparisonHeaders.monitoring}</th>
+                  <th className="px-4 py-4 text-center text-gray-500 font-medium w-[15%] text-xs">{localizedComparisonHeaders.brokers}</th>
+                  <th className="px-4 py-4 text-center text-gray-500 font-medium w-[15%] text-xs">{localizedComparisonHeaders.diy}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700/30">
@@ -476,7 +469,6 @@ export default function PricingPage() {
             </table>
           </div>
 
-          {/* Legend */}
           <div className="flex items-center gap-5 mt-4 justify-center flex-wrap text-xs text-gray-400">
             <span className="flex items-center gap-1.5">
               <CheckCircle size={13} className="text-green-500" /> {localizedComparisonHeaders.yes}
@@ -487,37 +479,35 @@ export default function PricingPage() {
             <span className="flex items-center gap-1.5">
               <X size={13} className="text-gray-300" /> {localizedComparisonHeaders.no}
             </span>
-            <span className="text-gray-300">·</span>
+            <span className="text-gray-300">.</span>
             <span className="text-gray-400">{localizedComparisonHeaders.note}</span>
           </div>
         </div>
       </section>
 
-      {/* ── Plan Guide ──────────────────────────────────────────────────────── */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 py-16">
-        <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">{text('Which Plan Is Right for You?', '¿Qué plan es el adecuado para ti?')}</h2>
+        <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">{text('Which Plan Is Right for You?', 'Que plan es el adecuado para ti?')}</h2>
         <p className="text-gray-500 text-center text-sm mb-10">
           {text('Every plan starts with the free analyzer. Upgrade when your goals require it.', 'Todos los planes comienzan con el analizador gratis. Actualiza cuando tus objetivos lo requieran.')}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {localizedPlanGuide.map((g) => (
-            <div key={g.step} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold mb-3 ${g.color}`}>
-                {g.step}
+          {localizedPlanGuide.map((guide) => (
+            <div key={guide.step} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold mb-3 ${guide.color}`}>
+                {guide.step}
               </div>
-              <div className="font-semibold text-gray-900 text-sm mb-1.5">{g.label}</div>
-              <p className="text-xs text-gray-500 leading-relaxed">{g.desc}</p>
+              <div className="font-semibold text-gray-900 text-sm mb-1.5">{guide.label}</div>
+              <p className="text-xs text-gray-500 leading-relaxed">{guide.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ── CTA ─────────────────────────────────────────────────────────────── */}
       <section className="bg-green-600 py-14 px-6 text-center">
         <div className="max-w-2xl mx-auto">
           <h2 className="text-3xl font-bold text-white mb-3">{text('Start with the free analyzer', 'Empieza con el analizador gratis')}</h2>
           <p className="text-green-200 mb-8 text-base">
-            {text('No credit card required. See your business credit readiness in minutes.', 'No se requiere tarjeta de crédito. Ve tu preparación de crédito empresarial en minutos.')}
+            {text('No credit card required. See your business credit readiness in minutes.', 'No se requiere tarjeta de credito. Ve tu preparacion de credito empresarial en minutos.')}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
@@ -538,18 +528,16 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <footer className="border-t border-gray-100 py-8 px-6 pb-12 text-center">
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-gray-400">
           <span className="font-medium text-gray-500">SourcifyLending</span>
           <Link href={localizeHref('/pricing', locale)} className="hover:text-green-600 transition-colors" prefetch={false}>{text('Pricing', 'Precios')}</Link>
           <Link href={localizeHref('/partners', locale)} className="hover:text-green-600 transition-colors" prefetch={false}>{text('Partners', 'Socios')}</Link>
-          <Link href={localizeHref('/privacy', locale)} className="hover:text-green-600 transition-colors" prefetch={false}>{text('Privacy Policy', 'Política de privacidad')}</Link>
-          <Link href={localizeHref('/terms', locale)} className="hover:text-green-600 transition-colors" prefetch={false}>{text('Terms of Service', 'Términos de servicio')}</Link>
+          <Link href={localizeHref('/privacy', locale)} className="hover:text-green-600 transition-colors" prefetch={false}>{text('Privacy Policy', 'Politica de privacidad')}</Link>
+          <Link href={localizeHref('/terms', locale)} className="hover:text-green-600 transition-colors" prefetch={false}>{text('Terms of Service', 'Terminos de servicio')}</Link>
           <Link href={portalSignInHref(locale)} className="hover:text-green-600 transition-colors" prefetch={false}>{text('Sign In', 'Ingresar')}</Link>
         </div>
       </footer>
-
     </div>
   )
 }

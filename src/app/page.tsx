@@ -37,7 +37,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = searchParams ? await searchParams : {}
   const cookieStore = await cookies()
   const headerStore = await headers()
-  const locale = normalizeLocale(headerStore.get('x-sl-locale') ?? cookieStore.get(LOCALE_COOKIE)?.value)
+  const locale = normalizeLocale(params.sl_locale ?? headerStore.get('x-sl-locale') ?? cookieStore.get(LOCALE_COOKIE)?.value)
 
   if (params.code) {
     const nextPath = params.next && params.next.startsWith('/') ? params.next : '/portal'

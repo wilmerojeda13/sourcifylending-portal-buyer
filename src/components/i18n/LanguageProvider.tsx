@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { DEFAULT_LOCALE, LOCALE_COOKIE, localizePathname, normalizeLocale, type Locale } from '@/lib/i18n'
 
 type LanguageContextValue = {
@@ -26,9 +26,11 @@ export function LanguageProvider({
 }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale)
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    const urlLocale = new URL(window.location.href).searchParams.get(LOCALE_COOKIE)
+    const urlLocale = searchParams.get(LOCALE_COOKIE)
     const saved = window.localStorage.getItem(LOCALE_COOKIE) || document.cookie
       .split('; ')
       .find((entry) => entry.startsWith(`${LOCALE_COOKIE}=`))
@@ -41,19 +43,22 @@ export function LanguageProvider({
     document.documentElement.lang = nextLocale
     window.localStorage.setItem(LOCALE_COOKIE, nextLocale)
     setCookie(nextLocale)
-  }, [locale])
+  }, [locale, searchParams])
 
   const setLocale = useCallback((nextLocale: Locale) => {
+    if (nextLocale === locale) return
+
     setLocaleState(nextLocale)
     document.documentElement.lang = nextLocale
     window.localStorage.setItem(LOCALE_COOKIE, nextLocale)
     setCookie(nextLocale)
     window.dispatchEvent(new CustomEvent('sl-locale-change', { detail: nextLocale }))
     const current = new URL(window.location.href)
-    const localizedPath = localizePathname(current.pathname, nextLocale)
+    const localizedPath = localizePathname(pathname || current.pathname, nextLocale)
     current.searchParams.set('sl_locale', nextLocale)
     router.replace(`${localizedPath}${current.search}${current.hash}`, { scroll: false })
-  }, [router])
+    router.refresh()
+  }, [locale, pathname, router])
 
   const toggleLocale = useCallback(() => {
     setLocale(locale === 'en' ? 'es' : 'en')
