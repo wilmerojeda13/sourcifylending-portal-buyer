@@ -202,14 +202,25 @@ export async function getBusinessContext(preferredBusinessId?: string | null): P
     }
   }
 
+  const businessesWithResolvedActiveState = businesses.map((business) => (
+    business.id === activeProfile.id
+      ? toAccessibleBusiness(activeProfile, {
+          business_profile_id: business.id,
+          role: business.role,
+          status: 'active',
+          is_default: business.is_default,
+        })
+      : business
+  ))
+
   return {
     userId: user.id,
     viewerProfile,
     activeBusinessId: activeBusiness.id,
     activeProfile,
     activeRole: activeBusiness.role,
-    businesses,
-    hasMultipleBusinesses: businesses.length > 1,
+    businesses: businessesWithResolvedActiveState,
+    hasMultipleBusinesses: businessesWithResolvedActiveState.length > 1,
   }
 }
 

@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import PortalLayout from '@/components/layout/PortalLayout'
 import BusinessManagementCard from '@/components/member/BusinessManagementCard'
@@ -26,14 +26,34 @@ interface Membership {
 }
 
 interface BillingSubscription {
+  stripe_subscription_id: string | null
   stripe_customer_id: string | null
   status: string | null
+  current_period_start: string | null
+  current_period_end: string | null
   failed_payment_reason: string | null
   failed_payment_decline_code: string | null
   last_failed_payment_at: string | null
   next_payment_attempt_at: string | null
   last_failed_invoice_id: string | null
   payment_retry_count: number | null
+}
+
+interface LiveStripeSubscription {
+  stripe_subscription_id: string
+  status: string
+  current_period_start: string | null
+  current_period_end: string | null
+  cancel_at_period_end: boolean
+  cancel_at: string | null
+  canceled_at: string | null
+}
+
+interface PaymentMethodSummary {
+  brand: string | null
+  last4: string | null
+  exp_month: number | null
+  exp_year: number | null
 }
 
 interface PaymentArrangement {
@@ -108,6 +128,22 @@ function getAvailableAddOns(activeMemberships: Membership[]): string[] {
   return []
 }
 
+function formatPortalDateTime(value: string | null, locale: string) {
+  if (!value) return null
+  return new Date(value).toLocaleString(locale === 'es' ? 'es-ES' : 'en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+function getHoursRemaining(endAt: string | null) {
+  if (!endAt) return null
+  return (new Date(endAt).getTime() - Date.now()) / (1000 * 60 * 60)
+}
+
 type DestructiveAction = 'downgrade' | 'cancel' | 'delete' | null
 
 const DESTRUCTIVE_ACTIONS: Record<Exclude<DestructiveAction, null>, {
@@ -148,6 +184,8 @@ export default function BillingPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null)
   const [subscription, setSubscription] = useState<BillingSubscription | null>(null)
+  const [liveStripeSubscription, setLiveStripeSubscription] = useState<LiveStripeSubscription | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodSummary | null>(null)
   const [memberships, setMemberships] = useState<Membership[]>([])
   const [arrangement, setArrangement] = useState<PaymentArrangement | null>(null)
   const [totalPaid, setTotalPaid] = useState<number>(0)
@@ -175,8 +213,8 @@ export default function BillingPage() {
     const init = async () => {
       if (!activeBusinessId) return
       const [{ data: sub }, { data: mem }, { data: arr }, { data: records }] = await Promise.all([
-        supabase.from('subscriptions').select('stripe_customer_id,status,failed_payment_reason,failed_payment_decline_code,last_failed_payment_at,next_payment_attempt_at,last_failed_invoice_id,payment_retry_count').eq('user_id', activeBusinessId).maybeSingle(),
-        supabase.from('memberships').select('*').eq('user_id', activeBusinessId).in('status', ['active', 'past_due', 'past_due_locked', 'suspended']),
+        supabase.from('subscriptions').select('stripe_subscription_id,stripe_customer_id,status,current_period_start,current_period_end,failed_payment_reason,failed_payment_decline_code,last_failed_payment_at,next_payment_attempt_at,last_failed_invoice_id,payment_retry_count').eq('user_id', activeBusinessId).maybeSingle(),
+        supabase.from('memberships').select('*').eq('user_id', activeBusinessId).in('status', ['active', 'trialing', 'past_due', 'past_due_locked', 'suspended']),
         supabase.from('payment_arrangements').select('*').eq('user_id', activeBusinessId).eq('is_active', true).maybeSingle(),
         supabase.from('payment_records').select('amount').eq('user_id', activeBusinessId),
       ])
@@ -189,6 +227,29 @@ export default function BillingPage() {
     }
     init()
   }, [activeBusinessId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const loadLiveStripeSubscription = async () => {
+      if (!activeBusinessId || (!subscription?.stripe_subscription_id && !stripeCustomerId)) {
+        setLiveStripeSubscription(null)
+        setPaymentMethod(null)
+        return
+      }
+
+      try {
+        const res = await fetch('/api/stripe/subscription-status', { cache: 'no-store' })
+        const data = await res.json()
+        if (res.ok && data.subscription) {
+          setLiveStripeSubscription(data.subscription as LiveStripeSubscription)
+        }
+        setPaymentMethod((data?.payment_method as PaymentMethodSummary | null) ?? null)
+      } catch {
+        // Keep billing page resilient if the live Stripe status check fails.
+      }
+    }
+
+    loadLiveStripeSubscription()
+  }, [activeBusinessId, stripeCustomerId, subscription?.stripe_subscription_id])
 
   // Check for add-on success/cancel from URL params
   useEffect(() => {
@@ -205,135 +266,70 @@ export default function BillingPage() {
   }, [text])
 
   // Normalize account state from feature_tier, billing_status, and member_status
-  const entitlements = getAccountEntitlements(profile?.feature_tier, profile?.billing_status, profile?.member_status)
+  const activeMemberships = memberships.filter((m) => m.status === 'active' || m.status === 'trialing' || m.status === 'past_due')
+  const resolvedBillingStatus = (
+    liveStripeSubscription?.status ??
+    subscription?.status ??
+    (activeMemberships[0]?.status ?? null) ??
+    profile?.billing_status ??
+    'inactive'
+  ) as NonNullable<UserProfile['billing_status']>
+  const resolvedFeatureTier = (
+    activeMemberships.length > 0 ||
+    ['active', 'trialing', 'past_due', 'past_due_locked', 'suspended'].includes(resolvedBillingStatus)
+  )
+    ? 'paid'
+    : (profile?.feature_tier ?? 'free')
+  const resolvedAssignedProgram = activeMemberships[0]?.program_code ?? profile?.assigned_program ?? null
+  const entitlements = getAccountEntitlements(resolvedFeatureTier, resolvedBillingStatus, profile?.member_status)
   const isFreeUser = entitlements.access_state === 'free_active'
   const isActive = entitlements.access_state === 'free_active' || entitlements.access_state === 'paid_active'
   const acquisitionPath = normalizeAcquisitionPath(profile?.acquisition_path)
-  const canManageBilling = !!stripeCustomerId && !isFreeUser
-  const activeMemberships = memberships.filter((m) => m.status === 'active' || m.status === 'past_due')
+  const canManageBilling = resolvedFeatureTier !== 'free'
   const availableAddOns = getAvailableAddOns(activeMemberships)
-  const isPaymentGrace = profile?.billing_status === 'past_due'
-  const isPaymentLocked = profile?.billing_status === 'past_due_locked' || profile?.billing_status === 'suspended'
+  const isPaymentGrace = resolvedBillingStatus === 'past_due'
+  const isPaymentLocked = resolvedBillingStatus === 'past_due_locked' || resolvedBillingStatus === 'suspended'
 
   const profilePrograms = (profile?.effective_allowed_programs ?? contextPrograms ?? []).filter(Boolean)
   const allPrograms = profilePrograms.length > 0
     ? profilePrograms
     : memberships.map((m) => m.program_code).filter(Boolean)
-  const activePrograms = allPrograms.length > 0 ? allPrograms : (profile?.assigned_program ? [profile.assigned_program] : [])
-  const dateLocale = locale === 'es' ? 'es-ES' : 'en-US'
-
-  const programName = useCallback((programCode: string | null | undefined) => {
-    switch (programCode) {
-      case 'program_a':
-        return text('Program A - 0% APR Card Strategy', 'Programa A - Estrategia de tarjetas con 0% APR')
-      case 'program_b':
-        return text('Program B - Business Credit Builder', 'Programa B - Constructor de credito empresarial')
-      case 'program_c':
-        return text('Program C - Capital Monitoring', 'Programa C - Monitoreo de capital')
-      default:
-        return programCode ? PROGRAM_NAMES[programCode] ?? programCode : text('No program', 'Sin programa')
-    }
-  }, [text])
-
-  const programDescription = useCallback((programCode: string) => {
-    switch (programCode) {
-      case 'program_a':
-        return text(
-          'Build high-limit 0% intro APR credit card stack for business or personal capital',
-          'Construye una estrategia de tarjetas con 0% APR inicial para capital empresarial o personal'
+  const activePrograms = allPrograms.length > 0 ? allPrograms : (resolvedAssignedProgram ? [resolvedAssignedProgram] : [])
+  const trialEndsAt = liveStripeSubscription?.current_period_end ?? subscription?.current_period_end ?? null
+  const trialStartsAt = liveStripeSubscription?.current_period_start ?? subscription?.current_period_start ?? null
+  const trialHoursRemaining = getHoursRemaining(trialEndsAt)
+  const isTrialCancelScheduled = Boolean(liveStripeSubscription?.cancel_at_period_end)
+  const trialEndLabel = formatPortalDateTime(trialEndsAt, locale)
+  const trialStartLabel = formatPortalDateTime(trialStartsAt, locale)
+  const renewalLabel = resolvedBillingStatus === 'active' || resolvedBillingStatus === 'past_due'
+    ? formatPortalDateTime(liveStripeSubscription?.current_period_end ?? subscription?.current_period_end ?? null, locale)
+    : null
+  const paymentMethodLabel = paymentMethod?.brand && paymentMethod?.last4
+    ? `${paymentMethod.brand.toUpperCase()} •••• ${paymentMethod.last4}`
+    : null
+  const paymentMethodExpiryLabel = paymentMethod?.exp_month && paymentMethod?.exp_year
+    ? `${String(paymentMethod.exp_month).padStart(2, '0')}/${paymentMethod.exp_year}`
+    : null
+  const membershipSummaryProgram = activeMemberships[0]?.program_code ?? resolvedAssignedProgram ?? null
+  const trialUrgencyMessage = isTrialCancelScheduled
+    ? text(
+        'Your trial cancellation is scheduled. You will not be charged if it remains canceled through the trial end.',
+        'La cancelacion de tu prueba ya esta programada. No se te cobrara si permanece cancelada hasta el final de la prueba.'
+      )
+    : trialHoursRemaining !== null && trialHoursRemaining <= 6
+      ? text(
+          'Final hours: your trial ends today. Your card will be charged when the trial ends unless you cancel.',
+          'Ultimas horas: tu prueba termina hoy. Tu tarjeta sera cobrada cuando termine la prueba a menos que canceles.'
         )
-      case 'program_b':
-        return text(
-          'Build a strong business credit profile with D-U-N-S, vendor tradelines, and bureau monitoring',
-          'Construye un perfil solido de credito empresarial con D-U-N-S, lineas comerciales y monitoreo de bureaus'
-        )
-      case 'program_c':
-        return text(
-          'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan',
-          'Resumen mensual de credito, analisis bancario, revision de obligaciones y plan de accion de 30 dias'
-        )
-      default:
-        return PAID_PROGRAM_OPTIONS.find((option) => option.key === programCode)?.desc ?? ''
-    }
-  }, [text])
-
-  const programFeatures = useCallback((programCode: string) => {
-    switch (programCode) {
-      case 'program_a':
-        return [
-          text('Full 0% APR Card Strategy program', 'Programa completo de estrategia de tarjetas con 0% APR'),
-          text('AI Fulfillment Agent - full access', 'Agente de cumplimiento con IA - acceso completo'),
-          text('Application sequencing guidance', 'Guia de secuencia de solicitudes'),
-          text('Card acquisition tracking', 'Seguimiento de adquisicion de tarjetas'),
-          text('Optimization stage support', 'Soporte en etapa de optimizacion'),
-          text('Document manager', 'Administrador de documentos'),
-          text('Report generation', 'Generacion de reportes'),
-        ]
-      case 'program_b':
-        return [
-          text('Full Business Credit Builder program', 'Programa completo de constructor de credito empresarial'),
-          text('AI Fulfillment Agent - full access', 'Agente de cumplimiento con IA - acceso completo'),
-          text('Vendor account guidance', 'Guia de cuentas de proveedores'),
-          text('Tradeline progress tracking', 'Seguimiento de progreso de lineas comerciales'),
-          text('PAYDEX preparation support', 'Soporte de preparacion para PAYDEX'),
-          text('Document manager', 'Administrador de documentos'),
-          text('Monthly reports', 'Reportes mensuales'),
-        ]
-      case 'program_c':
-        return [
-          text('Monthly Capital Monitoring', 'Monitoreo mensual de capital'),
-          text('AI Fulfillment Agent - full access', 'Agente de cumplimiento con IA - acceso completo'),
-          text('Monthly credit snapshot', 'Resumen mensual de credito'),
-          text('Banking analysis', 'Analisis bancario'),
-          text('Obligation risk scan', 'Revision de riesgo de obligaciones'),
-          text('30-day action plan', 'Plan de accion de 30 dias'),
-          text("Do/Don't monthly rules", 'Reglas mensuales de que hacer y que evitar'),
-        ]
-      default:
-        return PROGRAM_FEATURES[programCode] ?? []
-    }
-  }, [text])
-
-  const switchProgramDescription = useCallback((programCode: string) => (
-    programCode === 'program_a'
-      ? text('Move into the 0% APR card strategy track.', 'Cambiar a la ruta de estrategia de tarjetas con 0% APR.')
-      : text('Move into the business credit builder track.', 'Cambiar a la ruta de constructor de credito empresarial.')
-  ), [text])
-
-  const destructiveCopy = useCallback((action: Exclude<DestructiveAction, null>) => {
-    switch (action) {
-      case 'downgrade':
-        return {
-          ...DESTRUCTIVE_ACTIONS.downgrade,
-          title: text('Downgrade to Free Plan', 'Bajar al Plan Gratis'),
-          description: text(
-            'Type the phrase below to confirm the downgrade. This keeps the free plan active and stops paid access.',
-            'Escribe la frase de abajo para confirmar la baja. Esto mantiene activo el plan gratis y detiene el acceso de pago.'
-          ),
-          buttonLabel: text('Downgrade', 'Bajar de plan'),
-        }
-      case 'cancel':
-        return {
-          ...DESTRUCTIVE_ACTIONS.cancel,
-          title: text('Cancel Membership', 'Cancelar membresia'),
-          description: text(
-            'Type the phrase below to confirm cancellation. This ends the paid subscription and preserves progress.',
-            'Escribe la frase de abajo para confirmar la cancelacion. Esto finaliza la suscripcion de pago y conserva el progreso.'
-          ),
-          buttonLabel: text('Cancel Membership', 'Cancelar membresia'),
-        }
-      case 'delete':
-        return {
-          ...DESTRUCTIVE_ACTIONS.delete,
-          title: text('Delete Account', 'Eliminar cuenta'),
-          description: text(
-            'Type your account email to permanently delete this account, its memberships, and portal access.',
-            'Escribe el correo de tu cuenta para eliminar permanentemente esta cuenta, sus membresias y el acceso al portal.'
-          ),
-          buttonLabel: text('Delete Account', 'Eliminar cuenta'),
-        }
-    }
-  }, [text])
+      : trialHoursRemaining !== null && trialHoursRemaining <= 24
+        ? text(
+            'Your trial ends soon. Your membership will continue automatically unless you cancel before the trial ends.',
+            'Tu prueba termina pronto. Tu membresia continuara automaticamente a menos que canceles antes de que termine la prueba.'
+          )
+        : text(
+            'Your 3-day trial is active. Your membership will continue automatically after the trial unless canceled.',
+            'Tu prueba de 3 dias esta activa. Tu membresia continuara automaticamente despues de la prueba a menos que canceles.'
+          )
 
   const handlePortal = async () => {
     setPortalLoading(true)
@@ -349,6 +345,15 @@ export default function BillingPage() {
       toast.error(text('Something went wrong.', 'Algo salió mal.'))
     }
     setPortalLoading(false)
+  }
+
+  const handleManageOrCancel = async () => {
+    if (resolvedBillingStatus === 'trialing') {
+      await handlePortal()
+      return
+    }
+
+    await handlePortal()
   }
 
   const handleAddOn = async (program: string) => {
@@ -397,7 +402,7 @@ export default function BillingPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to switch program')
-      toast.success(text(`Switched to ${programName(newProgram)}`, `Cambiado a ${programName(newProgram)}`))
+      toast.success(text(`Switched to ${PROGRAM_NAMES[newProgram] ?? 'the selected program'}`, `Cambiado a ${PROGRAM_NAMES[newProgram] ?? 'el programa seleccionado'}`))
       window.location.href = '/billing'
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to switch program')
@@ -436,6 +441,11 @@ export default function BillingPage() {
   }
 
   const handleCancelMembership = async () => {
+    if (resolvedBillingStatus === 'trialing') {
+      await handlePortal()
+      return
+    }
+
     setCancelingMembership(true)
     try {
       if (destructiveInput.trim().toUpperCase() !== DESTRUCTIVE_ACTIONS.cancel.expectedText) {
@@ -511,8 +521,8 @@ export default function BillingPage() {
   if (loading) {
     return (
       <PortalLayout
-        planTier={profile?.feature_tier}
-        subscriptionStatus={profile?.billing_status}
+        planTier={resolvedFeatureTier}
+        subscriptionStatus={resolvedBillingStatus}
       >
         <div className="animate-pulse space-y-4">
           <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
@@ -527,34 +537,31 @@ export default function BillingPage() {
     return (
       <PortalLayout
         userName={profile?.full_name || ''}
-        programLabel={getProgramShortLabel(profile?.assigned_program ?? null)}
-        assignedProgram={profile?.assigned_program}
+        programLabel={getProgramShortLabel(resolvedAssignedProgram)}
+        assignedProgram={resolvedAssignedProgram}
         portalBlocked={profile?.portal_blocked}
         isDemo={profile?.is_demo}
         isAdmin={profile?.is_admin}
         isDelegate={true}
         allPrograms={activePrograms}
-        planTier={profile?.feature_tier}
-        subscriptionStatus={profile?.billing_status}
+        planTier={resolvedFeatureTier}
+        subscriptionStatus={resolvedBillingStatus}
       >
         <div className="flex flex-col items-center justify-center py-16 text-center px-4">
           <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-4">
             <Lock size={22} className="text-gray-400" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{text('Billing Not Available', 'Facturacion no disponible')}</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Billing Not Available</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm leading-relaxed">
-            {text(
-              'Billing and subscription management are only accessible to the primary account owner. Please contact the account owner for any billing questions.',
-              'La facturacion y administracion de suscripciones solo estan disponibles para el dueno principal de la cuenta. Contacta al dueno de la cuenta para cualquier pregunta de facturacion.'
-            )}
+            Billing and subscription management are only accessible to the primary account owner. Please contact the account owner for any billing questions.
           </p>
         </div>
       </PortalLayout>
     )
   }
 
-  const program = profile?.assigned_program || null
-  const pathLabel = acquisitionPath === 'partner_assisted' ? text('Partner-Assisted', 'Asistido por socio') : text('Self-Serve', 'Autoservicio')
+  const program = resolvedAssignedProgram
+  const pathLabel = acquisitionPath === 'partner_assisted' ? 'Partner-Assisted' : 'Self-Serve'
   const primaryPaidProgram = activePrograms.find((code) => code === 'program_a' || code === 'program_b') ?? null
   const switchablePrograms = ['program_a', 'program_b'].filter((code) => code !== primaryPaidProgram)
   const pricingText = (programCode: string) => {
@@ -564,22 +571,20 @@ export default function BillingPage() {
   const pricingBadge = (programCode: string) => {
     if (programCode !== 'program_a' && programCode !== 'program_b' && programCode !== 'program_c') return ''
     const pricing = getProgramPricing(programCode, acquisitionPath)
-    return pricing.setupFeeCents > 0
-      ? text(`Includes $${pricing.setupFeeCents / 100} onboarding setup`, `Incluye $${pricing.setupFeeCents / 100} de configuracion inicial`)
-      : text('No setup fee', 'Sin cargo de configuracion')
+    return pricing.setupFeeCents > 0 ? `Includes $${pricing.setupFeeCents / 100} onboarding setup` : 'No setup fee'
   }
 
   return (
     <PortalLayout
       userName={profile?.full_name || ''}
-      programLabel={getProgramShortLabel(profile?.assigned_program ?? null)}
-      assignedProgram={profile?.assigned_program}
+      programLabel={getProgramShortLabel(resolvedAssignedProgram)}
+      assignedProgram={resolvedAssignedProgram}
       portalBlocked={profile?.portal_blocked}
       isDemo={profile?.is_demo}
       isAdmin={profile?.is_admin}
       allPrograms={activePrograms}
-      planTier={profile?.feature_tier}
-      subscriptionStatus={profile?.billing_status}
+      planTier={resolvedFeatureTier}
+      subscriptionStatus={resolvedBillingStatus}
     >
       <div className="mb-6">
           <h1 className="page-title flex items-center gap-2">
@@ -603,14 +608,14 @@ export default function BillingPage() {
               <div>
                 <h2 className={`text-sm font-bold ${isPaymentLocked ? 'text-red-900 dark:text-red-200' : 'text-amber-900 dark:text-amber-200'}`}>
                   {isPaymentLocked
-                    ? text('Your membership is paused due to failed payment. Update your card to restore access.', 'Tu membresia esta pausada por un pago fallido. Actualiza tu tarjeta para restaurar el acceso.')
-                    : text('Payment failed. Please update your payment method.', 'El pago fallo. Actualiza tu metodo de pago.')}
+                    ? 'Your membership is paused due to failed payment. Update your card to restore access.'
+                    : 'Payment failed. Please update your payment method.'}
                 </h2>
                 <div className={`mt-2 space-y-1 text-sm ${isPaymentLocked ? 'text-red-800 dark:text-red-300' : 'text-amber-800 dark:text-amber-300'}`}>
-                  {subscription?.failed_payment_reason && <p>{text('Reason:', 'Motivo:')} {subscription.failed_payment_reason}</p>}
-                  {subscription?.last_failed_payment_at && <p>{text('Last failed payment:', 'Ultimo pago fallido:')} {new Date(subscription.last_failed_payment_at).toLocaleDateString(dateLocale)}</p>}
-                  {subscription?.next_payment_attempt_at && <p>{text('Stripe next retry:', 'Proximo reintento de Stripe:')} {new Date(subscription.next_payment_attempt_at).toLocaleDateString(dateLocale)}</p>}
-                  {typeof subscription?.payment_retry_count === 'number' && <p>{text('Retry attempts:', 'Intentos de reintento:')} {subscription.payment_retry_count}</p>}
+                  {subscription?.failed_payment_reason && <p>Reason: {subscription.failed_payment_reason}</p>}
+                  {subscription?.last_failed_payment_at && <p>Last failed payment: {new Date(subscription.last_failed_payment_at).toLocaleDateString()}</p>}
+                  {subscription?.next_payment_attempt_at && <p>Stripe next retry: {new Date(subscription.next_payment_attempt_at).toLocaleDateString()}</p>}
+                  {typeof subscription?.payment_retry_count === 'number' && <p>Retry attempts: {subscription.payment_retry_count}</p>}
                 </div>
               </div>
             </div>
@@ -620,7 +625,7 @@ export default function BillingPage() {
               className="btn-primary shrink-0 inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
             >
               {portalLoading ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
-              {text('Update payment method', 'Actualizar metodo de pago')}
+              Update payment method
             </button>
           </div>
         </div>
@@ -637,11 +642,160 @@ export default function BillingPage() {
               {newBusinessFlow ? text('New business created', 'Nuevo negocio creado') : text('Subscription required', 'Se requiere suscripción')}
               </h2>
               <p className="mt-1 text-sm leading-relaxed text-amber-800 dark:text-amber-300">
-                {text(
-                  'This business needs its own subscription before portal tools unlock. One paid subscription only applies to one business under the current plan structure.',
-                  'Este negocio necesita su propia suscripcion antes de desbloquear las herramientas del portal. Una suscripcion pagada solo aplica a un negocio bajo la estructura actual.'
-                )}
+                This business needs its own subscription before portal tools unlock. One paid subscription only applies to one business under the current plan structure.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {resolvedBillingStatus === 'trialing' && (
+        <div className="card mb-6 border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/20">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-100 dark:bg-blue-900/40">
+                <Calendar size={18} className="text-blue-700 dark:text-blue-300" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-blue-900 dark:text-blue-200">
+                  {text('Your 3-day free trial is active', 'Tu prueba gratis de 3 dias esta activa')}
+                </h2>
+                <div className="mt-1 space-y-1 text-sm text-blue-800 dark:text-blue-300">
+                  <p>{text('Status:', 'Estado:')} trialing</p>
+                  {trialStartLabel && <p>{text('Trial started:', 'La prueba comenzo:')} {trialStartLabel}</p>}
+                  {trialEndLabel && <p>{text('Trial ends:', 'La prueba termina:')} {trialEndLabel}</p>}
+                  <p>{trialUrgencyMessage}</p>
+                  {trialEndLabel && !isTrialCancelScheduled && (
+                    <p>{text(
+                      `Your trial ends on ${trialEndLabel}. Your membership will continue automatically unless canceled before the trial ends.`,
+                      `Tu prueba termina el ${trialEndLabel}. Tu membresia continuara automaticamente a menos que canceles antes de que termine la prueba.`
+                    )}</p>
+                  )}
+                  <p className="font-semibold text-blue-900 dark:text-blue-200">
+                    {isTrialCancelScheduled
+                      ? text('Cancellation is scheduled before renewal. You will not be charged if you leave it canceled.', 'La cancelacion ya esta programada antes de la renovacion. No se te cobrara si dejas la cancelacion activa.')
+                      : text('Cancel before your trial ends to avoid being charged.', 'Cancela antes de que termine tu prueba para evitar que se te cobre.')}
+                  </p>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={handleManageOrCancel}
+                    disabled={!canManageBilling || portalLoading}
+                    className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
+                  >
+                    {portalLoading ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                    {text('Manage or Cancel Subscription', 'Administrar o cancelar suscripcion')}
+                  </button>
+                  <button
+                    onClick={handlePortal}
+                    disabled={!canManageBilling || portalLoading}
+                    className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
+                  >
+                    <CreditCard size={14} />
+                    {text('Update Payment Method', 'Actualizar metodo de pago')}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-blue-700 dark:text-blue-300">
+              {subscription?.stripe_subscription_id ?? ''}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isFreeUser && resolvedBillingStatus !== 'trialing' && membershipSummaryProgram && (
+        <div className="mb-6">
+          <h2 className="section-title mb-3">{text('Current Membership', 'Membresia actual')}</h2>
+          <div className="card border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex items-start gap-3">
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${PROGRAM_ICON_BG[membershipSummaryProgram] ?? 'bg-gray-100 dark:bg-gray-700'}`}>
+                  {PROGRAM_ICONS[membershipSummaryProgram] ?? <CreditCard size={18} className="text-green-600" />}
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white text-base">
+                    {PROGRAM_NAMES[membershipSummaryProgram] ?? membershipSummaryProgram}
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-green-700 dark:text-green-300">
+                    {pricingText(membershipSummaryProgram)}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {pathLabel} pricing
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge status={resolvedBillingStatus || 'active'} />
+                <button
+                  onClick={handlePortal}
+                  disabled={!canManageBilling || portalLoading}
+                  className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
+                >
+                  {portalLoading ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                  {text('Manage Subscription', 'Administrar suscripcion')}
+                </button>
+                <button
+                  onClick={handlePortal}
+                  disabled={!canManageBilling || portalLoading}
+                  className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50"
+                >
+                  <CreditCard size={14} />
+                  {text('Update Payment Method', 'Actualizar metodo de pago')}
+                </button>
+                <button
+                  onClick={() => {
+                    setDestructiveAction('cancel')
+                    setDestructiveInput('')
+                  }}
+                  disabled={cancelingMembership || resolvedBillingStatus === 'canceled'}
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-200 dark:hover:bg-red-950/40"
+                >
+                  <ShieldOff size={14} />
+                  {resolvedBillingStatus === 'canceled'
+                    ? text('Already Canceled', 'Ya cancelada')
+                    : text('Cancel Membership', 'Cancelar membresia')}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 border-t border-green-100 pt-4 text-sm dark:border-green-900/40 md:grid-cols-2 xl:grid-cols-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                  {text('Status', 'Estado')}
+                </p>
+                <p className="mt-1 font-medium text-gray-900 dark:text-white">{resolvedBillingStatus}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                  {text('Program', 'Programa')}
+                </p>
+                <p className="mt-1 font-medium text-gray-900 dark:text-white">
+                  {PROGRAM_NAMES[membershipSummaryProgram] ?? membershipSummaryProgram}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                  {renewalLabel ? text('Renews On', 'Renueva el') : text('Billing Timing', 'Momento de cobro')}
+                </p>
+                <p className="mt-1 font-medium text-gray-900 dark:text-white">
+                  {renewalLabel ?? text('Billing cycle managed in Stripe', 'El ciclo de cobro se administra en Stripe')}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
+                  {text('Payment Method', 'Metodo de pago')}
+                </p>
+                <p className="mt-1 font-medium text-gray-900 dark:text-white">
+                  {paymentMethodLabel ?? text('Saved in Stripe Customer Portal', 'Guardado en el portal de clientes de Stripe')}
+                </p>
+                {paymentMethodExpiryLabel && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {text('Expires', 'Vence')} {paymentMethodExpiryLabel}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -674,13 +828,13 @@ export default function BillingPage() {
       {isFreeUser && (
         <div className="space-y-4 mb-6">
           <div className="text-center mb-2">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{text('Upgrade to a Program', 'Actualizar a un programa')}</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Upgrade to a Program</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {text('Pick a paid program anytime. Your free access stays active until you complete checkout.', 'Elige un programa de pago cuando quieras. Tu acceso gratis permanece activo hasta completar el pago.')}
+              Pick a paid program anytime. Your free access stays active until you complete checkout.
             </p>
           </div>
 
-          {PAID_PROGRAM_OPTIONS.map(({ key, badgeColor }) => (
+          {PAID_PROGRAM_OPTIONS.map(({ key, desc, badgeColor }) => (
             <div key={key} className="card border-2 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-colors">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-start gap-3">
@@ -688,8 +842,8 @@ export default function BillingPage() {
                     {PROGRAM_ICONS[key]}
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900 dark:text-white">{programName(key)}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{programDescription(key)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{PROGRAM_NAMES[key]}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeColor}`}>{pricingBadge(key)}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">{pricingText(key)}</span>
@@ -702,7 +856,7 @@ export default function BillingPage() {
                   className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
                 >
                   {selectingPlan === key ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                  {text('Upgrade', 'Actualizar')}
+                  Upgrade
                 </button>
               </div>
             </div>
@@ -711,7 +865,7 @@ export default function BillingPage() {
       )}
 
       <div className="mb-6">
-        <h2 className="section-title mb-3 text-red-700 dark:text-red-300">{text('Danger Zone', 'Zona de riesgo')}</h2>
+        <h2 className="section-title mb-3 text-red-700 dark:text-red-300">Danger Zone</h2>
         <div className="card border border-red-200 dark:border-red-900/60 bg-red-50/60 dark:bg-red-950/20">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="flex items-start gap-3">
@@ -719,12 +873,9 @@ export default function BillingPage() {
                 <Trash2 size={18} className="text-red-700 dark:text-red-300" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-red-900 dark:text-red-200">{text('Delete Account', 'Eliminar cuenta')}</h3>
+                <h3 className="text-sm font-bold text-red-900 dark:text-red-200">Delete Account</h3>
                 <p className="mt-1 text-sm leading-relaxed text-red-800 dark:text-red-300 max-w-2xl">
-                  {text(
-                    'Permanently remove this account, its memberships, payments, and portal access. This cannot be undone.',
-                    'Elimina permanentemente esta cuenta, sus membresias, pagos y acceso al portal. Esta accion no se puede deshacer.'
-                  )}
+                  Permanently remove this account, its memberships, payments, and portal access. This cannot be undone.
                 </p>
               </div>
             </div>
@@ -737,7 +888,7 @@ export default function BillingPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-800 disabled:opacity-50"
             >
               {deletingAccount ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-              {text('Delete Account', 'Eliminar cuenta')}
+              Delete Account
             </button>
           </div>
         </div>
@@ -746,7 +897,7 @@ export default function BillingPage() {
       {/* ── Active Memberships ─────────────────────────────────────────────── */}
       {memberships.length > 0 && (
         <div className="mb-6">
-          <h2 className="section-title mb-3">{text('Memberships', 'Membresias')}</h2>
+          <h2 className="section-title mb-3">Memberships</h2>
           <div className="space-y-3">
             {memberships.map((m) => (
               <div key={m.id} className="card border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
@@ -756,9 +907,9 @@ export default function BillingPage() {
                       {PROGRAM_ICONS[m.program_code]}
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900 dark:text-white text-sm">{programName(m.program_code)}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[m.program_code] ?? m.program_code}</p>
                       <p className="text-green-600 font-bold text-sm">{pricingText(m.program_code)}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{pathLabel} {text('pricing', 'precios')}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{pathLabel} pricing</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -770,13 +921,15 @@ export default function BillingPage() {
                         className="btn-secondary text-xs flex items-center gap-1"
                       >
                         {portalLoading ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
-                        {text('Manage', 'Administrar')}
+                        {m.status === 'trialing'
+                          ? text('Manage / Cancel', 'Administrar / cancelar')
+                          : text('Manage', 'Administrar')}
                       </button>
                     )}
                   </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-green-100 dark:border-green-900/40 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {programFeatures(m.program_code).map((f) => (
+                  {(PROGRAM_FEATURES[m.program_code] ?? []).map((f) => (
                     <div key={f} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
                       <CheckCircle size={13} className="text-green-500 shrink-0" />
                       {f}
@@ -791,9 +944,9 @@ export default function BillingPage() {
 
       {!isFreeUser && switchablePrograms.length > 0 && (
         <div className="mb-6">
-          <h2 className="section-title mb-1">{text('Change Program', 'Cambiar programa')}</h2>
+          <h2 className="section-title mb-1">Change Program</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            {text('Switch your primary paid program without canceling your account.', 'Cambia tu programa pagado principal sin cancelar tu cuenta.')}
+            Switch your primary paid program without canceling your account.
           </p>
           <div className="space-y-3">
             {switchablePrograms.map((programCode) => (
@@ -804,9 +957,11 @@ export default function BillingPage() {
                       {PROGRAM_ICONS[programCode]}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900 dark:text-white">{programName(programCode)}</p>
+                      <p className="font-bold text-gray-900 dark:text-white">{PROGRAM_NAMES[programCode]}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                        {switchProgramDescription(programCode)}
+                        {programCode === 'program_a'
+                          ? 'Move into the 0% APR card strategy track.'
+                          : 'Move into the business credit builder track.'}
                       </p>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${programCode === 'program_a' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'}`}>
@@ -822,7 +977,7 @@ export default function BillingPage() {
                     className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
                   >
                     {switchingProgram === programCode ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                    {text('Switch', 'Cambiar')}
+                    Switch
                   </button>
                 </div>
               </div>
@@ -840,13 +995,13 @@ export default function BillingPage() {
                 {PROGRAM_ICONS[program]}
               </div>
               <div>
-                <p className="font-semibold text-gray-900 dark:text-white text-sm">{programName(program)}</p>
+                <p className="font-semibold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[program]}</p>
                 <p className="text-green-600 font-bold text-sm">{pricingText(program)}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{pathLabel} {text('pricing', 'precios')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{pathLabel} pricing</p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <StatusBadge status={profile?.billing_status || 'active'} />
+              <StatusBadge status={resolvedBillingStatus || 'active'} />
               {canManageBilling && (
                 <button
                   onClick={handlePortal}
@@ -854,7 +1009,9 @@ export default function BillingPage() {
                   className="btn-secondary text-xs flex items-center gap-1"
                 >
                   {portalLoading ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
-                  {text('Manage', 'Administrar')}
+                  {resolvedBillingStatus === 'trialing'
+                    ? text('Manage / Cancel', 'Administrar / cancelar')
+                    : text('Manage', 'Administrar')}
                 </button>
               )}
             </div>
@@ -867,32 +1024,32 @@ export default function BillingPage() {
           <div className="w-full max-w-lg rounded-3xl border border-gray-700 bg-slate-950 p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg font-bold text-white">{destructiveCopy(destructiveAction).title}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-gray-300">{destructiveCopy(destructiveAction).description}</p>
+                <h3 className="text-lg font-bold text-white">{DESTRUCTIVE_ACTIONS[destructiveAction].title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-gray-300">{DESTRUCTIVE_ACTIONS[destructiveAction].description}</p>
               </div>
               <button
                 onClick={closeDestructiveAction}
                 className="rounded-full p-2 text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label={text('Close confirmation', 'Cerrar confirmacion')}
+                aria-label="Close confirmation"
               >
                 <BanIcon size={16} />
               </button>
             </div>
 
             <div className="mt-5 rounded-2xl border border-gray-800 bg-white/5 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{text('Required confirmation', 'Confirmacion requerida')}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Required confirmation</p>
               <div className="mt-2 rounded-xl bg-black/30 px-3 py-2 font-mono text-sm text-white">
-                {destructiveAction === 'delete' ? (profile?.email ?? '') : destructiveCopy(destructiveAction).expectedText}
+                {destructiveAction === 'delete' ? (profile?.email ?? '') : DESTRUCTIVE_ACTIONS[destructiveAction].expectedText}
               </div>
             </div>
 
             <label className="mt-5 block text-sm font-medium text-gray-200">
-              {destructiveAction === 'delete' ? text('Type your email', 'Escribe tu correo') : text('Type the confirmation phrase', 'Escribe la frase de confirmacion')}
+              {destructiveAction === 'delete' ? 'Type your email' : 'Type the confirmation phrase'}
             </label>
             <input
               value={destructiveInput}
               onChange={(event) => setDestructiveInput(event.target.value)}
-              placeholder={destructiveAction === 'delete' ? profile?.email ?? 'email@example.com' : destructiveCopy(destructiveAction).placeholder}
+              placeholder={destructiveAction === 'delete' ? profile?.email ?? 'email@example.com' : DESTRUCTIVE_ACTIONS[destructiveAction].placeholder}
               className="mt-2 w-full rounded-xl border border-gray-700 bg-slate-900 px-4 py-3 text-sm text-white outline-none ring-0 placeholder:text-gray-500 focus:border-green-500"
               autoComplete="off"
               autoCapitalize="off"
@@ -905,18 +1062,18 @@ export default function BillingPage() {
                 onClick={closeDestructiveAction}
                 className="rounded-xl border border-gray-700 px-4 py-2 text-sm font-semibold text-gray-200 transition-colors hover:bg-white/5"
               >
-                {text('Cancel', 'Cancelar')}
+                Cancel
               </button>
               <button
                 onClick={submitDestructiveAction}
                 disabled={
                   destructiveAction === 'delete'
                     ? destructiveInput.trim().toLowerCase() !== (profile?.email ?? '').trim().toLowerCase()
-                    : destructiveInput.trim().toUpperCase() !== destructiveCopy(destructiveAction).expectedText
+                    : destructiveInput.trim().toUpperCase() !== DESTRUCTIVE_ACTIONS[destructiveAction].expectedText
                 }
                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {destructiveCopy(destructiveAction).buttonLabel}
+                {DESTRUCTIVE_ACTIONS[destructiveAction].buttonLabel}
               </button>
             </div>
           </div>
@@ -934,7 +1091,7 @@ export default function BillingPage() {
             {arrangement.setup_fee_total > 0 && (
               <>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{text('Setup Fee', 'Cargo de configuracion')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Setup Fee</p>
                   <p className="font-semibold text-gray-900 dark:text-white">${Number(arrangement.setup_fee_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
@@ -955,7 +1112,7 @@ export default function BillingPage() {
                 <p className="font-bold text-purple-800 dark:text-purple-300 text-lg">${Number(arrangement.next_amount_due).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 {arrangement.next_due_date && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {new Date(arrangement.next_due_date).toLocaleDateString(dateLocale, { month: 'long', day: 'numeric', year: 'numeric' })}
+                    {new Date(arrangement.next_due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                   </p>
                 )}
               </div>
@@ -981,10 +1138,10 @@ export default function BillingPage() {
                       {PROGRAM_ICONS[addon]}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900 dark:text-white text-sm">{programName(addon)}</p>
+                      <p className="font-bold text-gray-900 dark:text-white text-sm">{PROGRAM_NAMES[addon]}</p>
                       <p className="text-purple-600 dark:text-purple-400 font-bold text-sm">{pricingText(addon)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                        {addon === 'program_c' && programDescription(addon)}
+                        {addon === 'program_c' && 'Monthly credit snapshot, banking analysis, obligation risk scan, and 30-day action plan.'}
                       </p>
                     </div>
                   </div>
@@ -994,7 +1151,7 @@ export default function BillingPage() {
                     className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
                   >
                     {addingOn === addon ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                    {text('Add', 'Agregar')}
+                    Add
                   </button>
                 </div>
               </div>
@@ -1045,11 +1202,11 @@ export default function BillingPage() {
                     setDestructiveAction('cancel')
                     setDestructiveInput('')
                   }}
-                  disabled={cancelingMembership || profile?.billing_status === 'canceled'}
+                  disabled={cancelingMembership || resolvedBillingStatus === 'canceled'}
                   className="mt-4 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
                 >
                   {cancelingMembership ? <Loader2 size={14} className="animate-spin" /> : <BanIcon size={14} />}
-                  {profile?.billing_status === 'canceled' ? text('Already Canceled', 'Ya cancelada') : text('Cancel Membership', 'Cancelar membresía')}
+                  {resolvedBillingStatus === 'canceled' ? text('Already Canceled', 'Ya cancelada') : text('Cancel Membership', 'Cancelar membresía')}
                 </button>
               </div>
             </div>
@@ -1066,22 +1223,16 @@ export default function BillingPage() {
             </div>
             <div className="flex-1">
               <h3 className="font-bold text-white text-lg mb-1">
-                {profile?.billing_status === 'canceled' ? text('Reactivate Your Membership', 'Reactivar tu membresía') : text('Start Your Program', 'Iniciar tu programa')}
+                {resolvedBillingStatus === 'canceled' ? text('Reactivate Your Membership', 'Reactivar tu membresía') : text('Start Your Program', 'Iniciar tu programa')}
               </h3>
               <p className="text-green-200 text-sm mb-5 leading-relaxed">
-                {profile?.billing_status === 'canceled'
-                  ? text(
-                    `Your progress is saved. Reactivate to continue from Stage: ${profile?.current_stage || 'where you left off'}.`,
-                    `Tu progreso esta guardado. Reactiva para continuar desde la etapa: ${profile?.current_stage || 'donde lo dejaste'}.`
-                  )
-                  : text(
-                    `Subscribe to unlock full AI fulfillment, task tracking, document management, and reports for ${getProgramShortLabel(program)}.`,
-                    `Suscribete para desbloquear cumplimiento con IA, seguimiento de tareas, administracion de documentos y reportes para ${getProgramShortLabel(program)}.`
-                  )
+                {resolvedBillingStatus === 'canceled'
+                  ? `Your progress is saved. Reactivate to continue from Stage: ${profile?.current_stage || 'where you left off'}.`
+                  : `Subscribe to unlock full AI fulfillment, task tracking, document management, and reports for ${getProgramShortLabel(program)}.`
                 }
               </p>
               <p className="text-white font-bold text-xl mb-1">{pricingText(program)}</p>
-              <p className="text-green-200 text-xs mb-4">{pathLabel} {text('billing path', 'ruta de facturacion')}</p>
+              <p className="text-green-200 text-xs mb-4">{pathLabel} billing path</p>
               <button
                 onClick={() => window.location.href = '/enroll'}
                 className="bg-white text-green-700 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors inline-flex items-center gap-2"
@@ -1099,7 +1250,7 @@ export default function BillingPage() {
         <div className="space-y-4">
           <div className="text-center mb-2">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">{text('Choose Your Program', 'Elige tu programa')}</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{text('Select a plan and proceed directly to payment under your', 'Selecciona un plan y continua directamente al pago bajo tu ruta de precios')} {pathLabel.toLowerCase()} {text('pricing path.', 'de precios.')}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{text('Select a plan and proceed directly to payment under your', 'Selecciona un plan y continúa directamente al pago bajo tu ruta de precios')} {pathLabel.toLowerCase()} {text('pricing path.', 'de precios.')}</p>
           </div>
 
           <div className="card border-2 border-green-200 dark:border-green-800 bg-green-50/40 dark:bg-green-900/10">
@@ -1128,7 +1279,7 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {PAID_PROGRAM_OPTIONS.map(({ key, badgeColor }) => (
+          {PAID_PROGRAM_OPTIONS.map(({ key, desc, badgeColor }) => (
             <div key={key} className="card border-2 border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-colors">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-start gap-3">
@@ -1136,8 +1287,8 @@ export default function BillingPage() {
                     {PROGRAM_ICONS[key]}
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900 dark:text-white">{programName(key)}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{programDescription(key)}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{PROGRAM_NAMES[key]}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{desc}</p>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeColor}`}>{pricingBadge(key)}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">{pricingText(key)}</span>
@@ -1150,7 +1301,7 @@ export default function BillingPage() {
                   className="btn-primary text-sm px-5 py-2.5 shrink-0 flex items-center gap-2 self-center"
                 >
                   {selectingPlan === key ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                  {text('Get Started', 'Comenzar')}
+                  Get Started
                 </button>
               </div>
             </div>

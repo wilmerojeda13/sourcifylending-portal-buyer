@@ -16,6 +16,7 @@ export default function BusinessManagementCard() {
   const {
     businesses,
     activeBusinessId,
+    activeProfile,
     hasMultipleBusinesses,
     loading: businessLoading,
     refresh: refreshBusinesses,
@@ -32,17 +33,28 @@ export default function BusinessManagementCard() {
 
   useEffect(() => {
     const onRefreshBusinesses = () => {
-      refreshBusinesses().catch(() => {})
+      refreshBusinesses({ force: true }).catch(() => {})
     }
     window.addEventListener('portal-business-changed', onRefreshBusinesses)
     return () => window.removeEventListener('portal-business-changed', onRefreshBusinesses)
   }, [refreshBusinesses])
 
   const currentBusiness = businesses.find((business) => business.id === activeBusinessId) ?? null
-  const currentBusinessStatusLabel = currentBusiness
-    ? currentBusiness.feature_tier === 'free'
+  const resolvedCurrentBusiness = currentBusiness && activeProfile && currentBusiness.id === activeProfile.id
+    ? {
+        ...currentBusiness,
+        feature_tier:
+          currentBusiness.feature_tier === 'free' &&
+          ['active', 'trialing', 'past_due', 'past_due_locked', 'suspended'].includes(activeProfile.billing_status)
+            ? 'paid'
+            : currentBusiness.feature_tier,
+        billing_status: activeProfile.billing_status,
+      }
+    : currentBusiness
+  const currentBusinessStatusLabel = resolvedCurrentBusiness
+    ? resolvedCurrentBusiness.feature_tier === 'free'
       ? text('member.freePlanActive', 'Free Plan Active')
-      : currentBusiness.billing_status === 'active' || currentBusiness.billing_status === 'trialing'
+      : resolvedCurrentBusiness.billing_status === 'active' || resolvedCurrentBusiness.billing_status === 'trialing'
         ? text('member.active', 'Active')
         : text('member.subscriptionRequired', 'Subscription Required')
     : text('member.pending', 'Pending')
@@ -65,7 +77,7 @@ export default function BusinessManagementCard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ business_id: businessId }),
       })
-      await refreshBusinesses()
+      await refreshBusinesses({ force: true })
       if (
         targetBusiness &&
         targetBusiness.feature_tier !== 'free' &&
@@ -73,6 +85,7 @@ export default function BusinessManagementCard() {
       ) {
         router.push('/billing?subscription_required=1')
       } else {
+        window.dispatchEvent(new CustomEvent('portal-business-changed'))
         router.refresh()
       }
     } finally {
@@ -108,7 +121,8 @@ export default function BusinessManagementCard() {
       setNewBusinessName('')
       setNewBusinessEntityType('')
       setNewBusinessIndustry('')
-      await refreshBusinesses()
+      await refreshBusinesses({ force: true })
+      window.dispatchEvent(new CustomEvent('portal-business-changed'))
       router.push(data?.redirect_to || '/dashboard')
       router.refresh()
     } catch (error) {
